@@ -16,7 +16,9 @@ COPY . .
 
 # Instalação editável: os pacotes leem dados (registros, templates, parâmetros)
 # por caminho relativo ao código, então o código precisa ficar em /app.
-RUN pip install -e ".[app,supabase]"
+# jsonschema: collection/carga.py o importa em runtime, mas o pyproject só o
+# declara no extra `dev`. Instalado aqui até o pyproject ser corrigido.
+RUN pip install -e ".[app,supabase]" "jsonschema>=4.23"
 
 RUN useradd --create-home --uid 10001 piq && chown -R piq /app
 USER piq
