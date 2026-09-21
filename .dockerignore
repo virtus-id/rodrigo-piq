@@ -1,0 +1,27 @@
+# Contexto de build do backend: só o que roda em produção.
+.git
+.claude
+.venv
+__pycache__
+*.py[cod]
+.mypy_cache
+.ruff_cache
+.pytest_cache
+.hypothesis
+
+# frontend tem build próprio (frontend/Dockerfile)
+frontend
+
+# não rodam em produção
+tests
+specs
+plans
+tasks
+docs
+templates
+
+# segredos
+.env
+.env.*
+!.env.example
+*.pem
