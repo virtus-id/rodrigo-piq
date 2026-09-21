@@ -1,0 +1,766 @@
+/*
+ * Estilo global — `RF-50` (T-132).
+ *
+ * Só o que é global de verdade: reset, fontes, foco visível e as três
+ * classes de componente que se repetem em toda tela (`.btn`, `.opt`,
+ * `.money`). Tudo mais é utilitário do Tailwind no próprio componente,
+ * conforme `.claude/instructions/react.instructions.md`.
+ *
+ * As fontes são carregadas do Google Fonts como no protótipo. `OQ-26`
+ * (vendorizar ou aceitar fallback, caso o piloto rode sem rede) segue
+ * ABERTA — a pilha de fallback abaixo é real, não decorativa.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* -------------------------------------------------------------------
+   * A escala de elevação — `RF-72`, `AC-108` (T-162).
+   *
+   * **Três níveis, derivados de `ink` (`#1B2A2F`), nunca de preto neutro.**
+   * Não é preciosismo: o fundo da paleta é levemente quente (`#FAFAF7`), e
+   * `rgba(0,0,0,…)` sobre ele lê como sujeira cinza — parece bug de
+   * renderização, não sombra. O mesmo valor derivado da tinta da paleta lê
+   * como profundidade. `AC-108` audita isso por regex, e proíbe
+   * `rgba(0,0,0` neste arquivo.
+   *
+   * **Os níveis existem para serem gastos por papel** (`RF-72`), não por
+   * padrão. `--e1` é quase imperceptível e é o teto do `.cartao` comum;
+   * `--e3` é exclusivo do que precisa de atenção (o resumo do plano). Se
+   * tudo flutua, nada se destaca — e o resultado fica mais plano que o
+   * ponto de partida.
+   *
+   * Nenhum token de `tailwind.config.js` foi tocado (`AC-107`): aquele
+   * arquivo é parseado por regex em `test_acessibilidade_coleta.py`, e as
+   * sombras não são cor de texto nem de fundo — não entram em nenhum dos
+   * sete pares de contraste auditados.
+   * ------------------------------------------------------------------- */
+  :root {
+    --e1: 0 1px 2px rgba(27, 42, 47, 0.05), 0 1px 1px rgba(27, 42, 47, 0.04);
+    --e2: 0 2px 4px rgba(27, 42, 47, 0.05), 0 4px 12px rgba(27, 42, 47, 0.06);
+    --e3: 0 4px 8px rgba(27, 42, 47, 0.06), 0 12px 28px rgba(27, 42, 47, 0.09);
+  }
+
+  html {
+    font-size: 19px;
+  }
+
+  body {
+    @apply bg-bg text-ink font-sans;
+    margin: 0;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
+    font-weight: 600;
+    line-height: 1.2;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+  }
+
+  p {
+    margin: 0;
+    max-width: 34em;
+  }
+
+  /* Foco sempre visível — navegação por teclado é requisito (NFR de
+     acessibilidade), não preferência. */
+  :focus-visible {
+    @apply outline-accent;
+    outline-width: 3px;
+    outline-style: solid;
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+
+  /* O `<h1>` recebe foco por SCRIPT a cada navegação (`AC-84`,
+     `navegacao.ts::aplicarFocoDeNavegacao`) para que leitor de tela anuncie a
+     tela nova. Mas ele não é controle: o Chromium trata foco programático em
+     elemento não interativo como `:focus-visible` e pinta o anel, e um anel
+     grosso em volta do título a cada troca de tela é ruído que o protótipo
+     não tem — e que treina o usuário a ignorar o indicador de foco, que é
+     justamente o que precisa ser confiável nos controles reais.
+
+     Suprimir aqui não custa acessibilidade: o `<h1>` tem `tabindex="-1"`,
+     então nunca é alcançado por Tab, e o anúncio do leitor de tela depende
+     do foco, não do contorno. O foco dos controles — `.back`, botões,
+     campos — continua com o anel de 3px acima. */
+  h1[tabindex='-1']:focus,
+  h1[tabindex='-1']:focus-visible {
+    outline: none;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex w-full min-h-botao items-center justify-center gap-2
+           rounded-piq border-2 border-transparent px-4 py-2 text-center
+           font-bold cursor-pointer;
+    font-size: 1.05rem;
+    /* `RF-76` (T-165). A transição vive AQUI, na definição base, e não num
+       bloco `.btn { … }` separado mais abaixo: o Tailwind emite os
+       componentes na ordem em que aparecem, e um segundo bloco faria a
+       regra de `prefers-reduced-motion` ser sobrescrita pela base que vem
+       depois — o movimento continuaria rodando para quem pediu que não. */
+    transition:
+      box-shadow 0.16s ease,
+      transform 0.16s ease,
+      background-color 0.16s ease;
+  }
+
+  .btn-primario {
+    @apply btn bg-accent text-accent-ink;
+    box-shadow: var(--e2);
+  }
+
+  .btn-secundario {
+    @apply btn bg-surface text-accent border-accent;
+  }
+
+  .btn-discreto {
+    @apply btn min-h-toque bg-transparent text-accent;
+  }
+
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+
+  /* -------------------------------------------------------------------
+   * Resposta ao apontador — `RF-76`, `AC-113` (T-165).
+   *
+   * Até aqui a interface tinha ZERO `hover` e ZERO `transition`: o aluno
+   * não recebia nenhuma confirmação de que o alvo estava sob o cursor
+   * antes de clicar — num app preenchido majoritariamente no computador
+   * (`OQ-29`, respondida).
+   *
+   * **O anel de foco continua soberano.** `hover` é resposta ao apontador;
+   * foco é navegação por teclado, e é requisito de acessibilidade. O anel
+   * de 3px do `:focus-visible` não muda, não encolhe e não é substituído
+   * por sombra — as duas coisas coexistem porque respondem a perguntas
+   * diferentes ("o cursor está aqui" × "o teclado está aqui").
+   *
+   * Só propriedades baratas (`box-shadow`, `transform`, `background-color`):
+   * nada que force recálculo de layout a 60fps.
+   * ------------------------------------------------------------------- */
+  /* `:not(:disabled)` em todos: um botão desabilitado que reage ao cursor
+     mente sobre estar disponível. */
+  .btn-primario:hover:not(:disabled) {
+    box-shadow: var(--e3);
+    transform: translateY(-1px);
+  }
+
+  .btn-primario:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--e1);
+  }
+
+  .btn-secundario:hover:not(:disabled) {
+    @apply bg-accent-soft;
+  }
+
+  .btn-discreto:hover:not(:disabled) {
+    @apply bg-accent-soft;
+  }
+
+  /* A opção de seleção — alvo de 60px que até agora não dava sinal nenhum
+     de estar sob o cursor. A borda muda para o acento; o fundo fica para o
+     estado `aria-checked`, que é informação e não pode ser imitado pelo
+     hover. */
+  .opt:hover {
+    @apply border-accent;
+    box-shadow: var(--e1);
+  }
+
+  .item:hover {
+    box-shadow: var(--e2);
+  }
+
+  /* A supressão de movimento de `.btn`/`.opt`/`.item` (`AC-113`) NÃO fica
+     aqui: ela precisa vir depois da definição de `.opt` e `.item`, que
+     estão mais abaixo neste arquivo. Ver o bloco no fim de
+     `@layer components`. */
+
+  /* Opção de seleção única/múltipla — alvo de toque de 60px. */
+  .opt {
+    @apply flex w-full min-h-opcao items-center gap-4 rounded-piq border-2
+           border-line bg-surface px-4 py-3 text-left text-ink cursor-pointer;
+    font-size: 1.05rem;
+    /* Ver a nota em `.btn`: a transição fica na base, nunca em bloco
+       separado abaixo (`RF-76`, `AC-113`). */
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+
+  .opt[aria-checked='true'] {
+    @apply border-accent bg-accent-soft;
+  }
+
+  .opt small {
+    @apply block text-muted;
+    font-size: 0.9rem;
+  }
+
+  /* Campo monetário: o "R$" é prefixo VISUAL, fora do <input> — o mesmo
+     motivo pelo qual o "%" da taxa fica fora (AC-76): `_CARACTERES_ACEITOS`
+     recusa os dois caracteres. */
+  .money {
+    @apply flex items-center rounded-piq border-2 border-line bg-surface;
+  }
+
+  .money > span {
+    @apply px-4 text-muted;
+    font-size: 1.2rem;
+  }
+
+  .money input {
+    @apply min-w-0 flex-1 border-0 bg-transparent py-3 pl-0 pr-4 text-ink;
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    outline: none;
+  }
+
+  .money:focus-within {
+    @apply border-accent;
+  }
+
+  .campo-texto {
+    @apply w-full rounded-piq border-2 border-line bg-surface px-4 py-3 text-ink;
+    font-size: 1.15rem;
+  }
+
+  .cartao {
+    @apply flex flex-col gap-3 rounded-piq border border-line bg-surface p-5;
+    /* `--e1`, o nível mais baixo: só o bastante para descolar do fundo.
+       O cartão é a primitiva mais repetida da interface (18 usos) — dar a
+       ele mais que isso é o caminho mais curto para a tela inteira
+       flutuar, que é o oposto de hierarquia (`RF-72`). */
+    box-shadow: var(--e1);
+  }
+
+  /* O cartão que carrega a resposta da tela — `RF-72`, `AC-109`.
+   *
+   * **Não compete com `.cartao-proximo`.** Aquele é o destaque da tela
+   * Início (`RF-58`, borda de 2px); este é o do plano. Nunca aparecem na
+   * mesma tela, e nenhum dos dois substitui o sinal do outro.
+   *
+   * O filete superior usa o acento sobre o próprio acento-suave: é a única
+   * peça da interface com gradiente, e ele existe para dar direção de
+   * leitura ao topo do cartão, não para decorar. */
+  .cartao-destaque {
+    @apply cartao relative overflow-hidden;
+    box-shadow: var(--e3);
+    border-color: #cfe3da;
+    border-color: color-mix(in srgb, theme('colors.accent.DEFAULT') 22%, theme('colors.line'));
+    background: linear-gradient(
+      180deg,
+      theme('colors.accent.soft') 0%,
+      theme('colors.surface') 58%
+    );
+  }
+
+  .cartao-destaque::before {
+    content: '';
+    @apply absolute inset-x-0 top-0;
+    height: 3px;
+    background: linear-gradient(
+      90deg,
+      theme('colors.accent.DEFAULT'),
+      theme('colors.accent.soft')
+    );
+  }
+
+  /* -------------------------------------------------------------------
+   * Hierarquia tipográfica — `RF-73`, `AC-109` (T-162).
+   *
+   * O número que responde à pergunta que o aluno veio fazer (prazo, custo)
+   * em escala de manchete, e o rótulo abaixo dele. `tabular-nums` não é
+   * detalhe: sem ele os dígitos têm larguras diferentes e as linhas de
+   * dinheiro dançam umas sobre as outras.
+   *
+   * A base de 19px e as duas famílias não mudam (`AC-107`) — esta é uma
+   * escala NOVA para valores em destaque, não uma redefinição da existente.
+   * ------------------------------------------------------------------- */
+  .valor-hero {
+    @apply block font-serif text-accent;
+    font-size: clamp(1.9rem, 6vw, 2.4rem);
+    font-weight: 600;
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* O "R$" do valor em destaque: menor, elevado, em `muted`. O cifrão em
+     corpo inteiro rouba a leitura do número, que é o que importa. */
+  .valor-hero .cifrao {
+    @apply text-muted;
+    font-size: 0.5em;
+    font-weight: 500;
+    vertical-align: 0.42em;
+    margin-right: 0.14em;
+    letter-spacing: 0;
+  }
+
+  /* A unidade dentro do valor ("meses"): acompanha o número sem competir. */
+  .valor-hero .unidade {
+    @apply text-muted;
+    font-size: 0.42em;
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+
+  .rotulo-hero {
+    @apply block text-muted;
+    font-size: 0.92rem;
+  }
+
+  /* Todo valor numérico comparável — `RF-73`. */
+  .numero {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* O ícone acompanha o texto ao lado — `RF-74`. Dimensionado em `em` para
+     herdar a escala de quem o contém, e alinhado à altura-x para não subir
+     acima da linha. `flex-none` porque dentro de um flex ele nunca deve
+     encolher: um ícone espremido vira borrão. */
+  .icone {
+    @apply inline-block flex-none;
+    width: 1.05em;
+    height: 1.05em;
+    vertical-align: -0.16em;
+  }
+
+  /* O selo do cartão de destaque: o ícone dentro de um quadrado suave.
+     Usado onde o ícone precisa de presença própria, não só de acompanhar
+     uma palavra. */
+  .selo {
+    @apply grid flex-none place-items-center bg-accent-soft text-accent;
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .selo .icone {
+    width: 17px;
+    height: 17px;
+  }
+
+  /* -------------------------------------------------------------------
+   * O esqueleto de carregamento — `RF-75`, `AC-112`, `AC-113` (T-164).
+   *
+   * O brilho percorre a barra da direita para a esquerda. Os três pontos
+   * do gradiente são derivados de `line` sobre `surface`: o esqueleto é
+   * uma ausência de conteúdo, não um elemento novo, e por isso vive na
+   * mesma faixa de cinza que as bordas da interface.
+   * ------------------------------------------------------------------- */
+  .sk {
+    @apply rounded-md;
+    background: linear-gradient(
+      90deg,
+      theme('colors.bg') 25%,
+      theme('colors.line') 37%,
+      theme('colors.bg') 63%
+    );
+    background-size: 400% 100%;
+    animation: brilho 1.5s ease infinite;
+  }
+
+  @keyframes brilho {
+    0% {
+      background-position: 100% 0;
+    }
+    100% {
+      background-position: 0 0;
+    }
+  }
+
+  /* `AC-113` — mesma decisão do `.pulse`: movimento contínuo pode
+     desencadear enjoo e enxaqueca. Quem pediu menos movimento recebe o
+     mesmo esqueleto, parado, no tom médio do gradiente. */
+  @media (prefers-reduced-motion: reduce) {
+    .sk {
+      animation: none;
+      background: theme('colors.line');
+    }
+  }
+
+  .aviso {
+    @apply flex items-start gap-3 rounded-piq p-4;
+  }
+
+  .aviso-atencao {
+    @apply aviso bg-warn-soft text-ink border-l-4 border-warn;
+  }
+
+  .aviso-erro {
+    @apply aviso bg-bad-soft text-ink border-l-4 border-bad;
+  }
+
+  .aviso-ok {
+    @apply aviso bg-accent-soft text-ink border-l-4 border-accent;
+  }
+
+  .chip {
+    @apply whitespace-nowrap rounded-full px-3 py-1 font-bold;
+    font-size: 0.85rem;
+  }
+
+  /* As três variantes do protótipo (`.chip.ok`/`.warn`/`.muted`, linhas
+     158–161). `ok` e `atencao` carregam significado — "feito" e "agora" —,
+     então o par cor/fundo vem dos tokens validados, não de uma escolha
+     nova: o contraste de cada um é auditado em `test_acessibilidade_*`. */
+  .chip-ok {
+    @apply bg-accent-soft text-accent;
+  }
+
+  .chip-atencao {
+    @apply bg-warn-soft text-warn;
+  }
+
+  .chip-mudo {
+    @apply bg-line text-muted;
+  }
+
+  .eyebrow {
+    @apply font-bold uppercase text-muted;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+  }
+
+  .lead {
+    @apply text-muted;
+    font-size: 1.05rem;
+  }
+
+  /* -------------------------------------------------------------------
+   * A casca de tela — `RF-57`, `AC-82`, `AC-85` (T-149).
+   *
+   * Valores LITERAIS do protótipo validado (linhas 71–160). Não são
+   * escolha de estilo desta tarefa e não foram arredondados: os alvos de
+   * toque (48px no `.back`) e o espaçamento foram validados com
+   * stakeholders para uma persona que lê o contracheque no celular.
+   * ------------------------------------------------------------------- */
+
+  .top {
+    @apply flex items-center justify-between gap-4;
+    padding: 0.9rem 1.25rem 0;
+    min-height: 3.2rem;
+  }
+
+  .back {
+    @apply inline-flex min-h-toque items-center font-bold text-accent cursor-pointer;
+    gap: 0.35rem;
+    padding: 0.5rem 0.25rem;
+    margin-left: -0.25rem;
+    background: none;
+    border: 0;
+  }
+
+  .where {
+    @apply text-right text-muted;
+    font-size: 0.9rem;
+  }
+
+  .corpo {
+    @apply flex flex-1 flex-col;
+    gap: 1.25rem;
+    /* O `padding-bottom` de 1.5rem é o do protótipo (linha 84). O
+       `scroll-padding-bottom` não é: ele reserva o espaço do rodapé sticky
+       quando o navegador rola até um elemento (foco por teclado, âncora), para
+       que o alvo não pare **debaixo** do rodapé. O rodapé sobrepõe o conteúdo
+       enquanto há o que rolar — é como `sticky` funciona —, e sem isto o campo
+       que recebe foco pode ficar escondido atrás dele. */
+    padding: 0.75rem 1.25rem 1.5rem;
+    scroll-padding-bottom: 7rem;
+  }
+
+  /* **O corpo reserva a altura do rodapé.**
+   *
+   * `.acoes` é `sticky`: enquanto há conteúdo por rolar, ele flutua sobre o
+   * que vem abaixo. `z-index` e fundo opaco resolvem a legibilidade — o texto
+   * não atravessa mais —, mas não devolvem o espaço: o último trecho do
+   * conteúdo fica permanentemente atrás do rodapé, e rolar até o fim não o
+   * revela, porque o rodapé rola junto.
+   *
+   * Apareceu duas vezes: na Rodada 6 o rodapé cobriu o cartão da próxima
+   * etapa, e na Rodada 7 cobriu a segunda parte de "Minhas respostas". Nas
+   * duas eu tratei o sintoma (empilhamento) e não a causa (altura).
+   *
+   * O `::after` reserva a altura em vez de um `padding-bottom` fixo porque o
+   * rodapé tem altura variável — uma ação ou três, texto de uma ou duas
+   * linhas. Ele só existe quando há rodapé: telas sem `.acoes` (a de cálculo)
+   * não ganham espaço morto no fim. */
+  .corpo:has(~ .acoes)::after {
+    content: '';
+    display: block;
+    /* Um rodapé típico tem ~100px; dois botões chegam a ~165px. O valor
+       cobre o caso de dois com folga, e o custo de sobrar é rolagem de 1cm —
+       contra o custo de faltar, que é conteúdo inalcançável. */
+    min-height: 4rem;
+    flex: none;
+  }
+
+  /* `sticky`, não `fixed` — `AC-85`. A ação principal acompanha a rolagem sem
+     sair do fluxo.
+
+     **`z-index` e fundo opaco não são decoração.** Enquanto há conteúdo abaixo
+     por rolar, o elemento sticky flutua sobre ele — é assim que `sticky`
+     funciona. Sem fundo opaco e empilhamento declarado, o texto de trás
+     atravessa o rodapé e os dois ficam ilegíveis. Apareceu quando a trilha da
+     Rodada 6 deixou o Início mais alto que a janela: o rodapé passou a cobrir
+     o cartão da próxima etapa, com as letras somadas. */
+  .acoes {
+    @apply sticky bottom-0 z-10 flex flex-col bg-bg border-t border-line;
+    gap: 0.6rem;
+    padding: 0.9rem 1.25rem 1.25rem;
+  }
+
+  /* Barra de progresso da coleta — `RF-62`. */
+  .bar {
+    @apply overflow-hidden rounded-full bg-line;
+    height: 6px;
+  }
+
+  .bar > i {
+    @apply block h-full rounded-full bg-accent;
+  }
+
+  .lista {
+    @apply flex flex-col;
+    gap: 0.6rem;
+  }
+
+  /* -------------------------------------------------------------------
+   * A trilha da jornada — `RF-77`, `AC-115` (T-166).
+   *
+   * Cinco degraus ligados por um trilho contínuo. O trilho é um `::after`
+   * de cada degrau (menos o último), e não uma linha única atrás da lista:
+   * assim ele acompanha a altura real de cada item — que varia, porque a
+   * etapa em curso carrega uma linha a mais ("Faltam 98 perguntas").
+   *
+   * **Nada aqui é clicável** (`AC-115`). A trilha responde "onde estou",
+   * não "para onde ir": o único botão da tela continua sendo o da próxima
+   * etapa. Tornar os degraus navegáveis seria restabelecer a barra de sete
+   * abas que `RF-57`/`AC-83` mataram.
+   * ------------------------------------------------------------------- */
+  .trilha {
+    @apply relative flex flex-col;
+    gap: 0.1rem;
+  }
+
+  .degrau {
+    @apply relative flex;
+    gap: 0.8rem;
+    padding: 0.5rem 0 0.72rem;
+  }
+
+  .degrau:last-child {
+    padding-bottom: 0;
+  }
+
+  /* O trilho. `left: 12.5px` alinha ao centro da marca de 26px (13px menos
+     metade da espessura de 2px). */
+  .degrau::after {
+    content: '';
+    @apply absolute bg-line;
+    left: 12.5px;
+    top: 31px;
+    bottom: -2px;
+    width: 2px;
+    border-radius: 2px;
+  }
+
+  .degrau:last-child::after {
+    display: none;
+  }
+
+  /* O trecho já percorrido ganha o acento — meia tinta, para que o trilho
+     continue sendo fundo e não compita com as marcas. */
+  .degrau.feito::after {
+    background: theme('colors.accent.soft');
+  }
+
+  .marca {
+    @apply z-10 grid flex-none place-items-center rounded-full bg-surface
+           font-bold text-muted;
+    width: 26px;
+    height: 26px;
+    font-size: 0.78rem;
+    box-shadow: inset 0 0 0 2px theme('colors.line');
+    font-variant-numeric: tabular-nums;
+  }
+
+  .marca .icone {
+    width: 14px;
+    height: 14px;
+  }
+
+  /* O rótulo e o chip do degrau — `RF-77`.
+   *
+   * `.linha` é `justify-between`, o que empurra o chip para a borda direita
+   * do contêiner. Na coluna lateral do desktop (300px) isso abria um vão
+   * largo entre o rótulo e o chip, e no fim a dupla quebrava em duas
+   * linhas — o chip "Agora" aparecia ABAIXO de "Suas respostas", parecendo
+   * legenda de outra coisa.
+   *
+   * `justify-start` com `gap` menor mantém os dois juntos, como um par. A
+   * regra é local ao degrau: `.linha` continua `justify-between` em todo o
+   * resto da interface, onde é o que se quer. */
+  .degrau .linha {
+    @apply flex-wrap items-center justify-start;
+    gap: 0.35rem 0.5rem;
+  }
+
+  /* O rótulo não encolhe: ele é a informação. Quando rótulo e chip não
+     cabem juntos, quem vai para a linha de baixo é o CHIP — que é curto,
+     colorido e continua obviamente ligado ao degrau. Encolher o rótulo
+     quebrava "Suas respostas" em duas linhas, que é pior: o olho lê duas
+     etapas onde há uma. */
+  .degrau .linha > span:first-child {
+    @apply flex-none;
+  }
+
+  .degrau.feito .marca {
+    @apply bg-accent text-accent-ink;
+    box-shadow: none;
+  }
+
+  /* A etapa em curso: anel duplo — contorno de acento mais halo suave. É o
+     único degrau com halo, e é assim que ele se destaca sem depender só de
+     cor (`AC-94` exige exatamente uma etapa em curso). */
+  .degrau.agora .marca {
+    @apply bg-surface text-accent;
+    box-shadow:
+      inset 0 0 0 2px theme('colors.accent.DEFAULT'),
+      0 0 0 4px theme('colors.accent.soft');
+  }
+
+  .item {
+    @apply flex items-center rounded-piq border border-line bg-surface;
+    gap: 0.9rem;
+    padding: 0.85rem 1rem;
+    box-shadow: var(--e1);
+    /* Ver a nota em `.btn` (`RF-76`, `AC-113`). */
+    transition:
+      box-shadow 0.16s ease,
+      border-color 0.16s ease;
+  }
+
+  .item .num {
+    @apply flex-none text-center font-serif text-accent;
+    font-size: 1.5rem;
+    font-weight: 600;
+    width: 1.6rem;
+  }
+
+  .grande {
+    @apply font-serif;
+    font-size: 1.6rem;
+    font-weight: 600;
+    line-height: 1.15;
+  }
+
+  .linha {
+    @apply flex items-baseline justify-between gap-4;
+  }
+
+  .carimbo {
+    @apply border-t border-line text-muted;
+    font-size: 0.85rem;
+    padding-top: 0.9rem;
+  }
+
+  /* Usada no JSX desde T-132 e até aqui SEM definição — o texto saía com o
+     tamanho herdado, não com o do protótipo. */
+  .nota {
+    @apply text-muted;
+    font-size: 0.95rem;
+  }
+
+  /* Idem: `TelaLogin` e `CampoPergunta` já a usavam. */
+  .field {
+    @apply flex flex-col;
+    gap: 0.45rem;
+  }
+
+  .field label {
+    @apply font-bold;
+  }
+
+  /* O destaque da próxima etapa na tela Início — `RF-58`. É a única coisa
+     na tela com borda de 2px: o aluno precisa saber onde olhar. */
+  .cartao-proximo {
+    @apply cartao border-2 border-accent;
+  }
+
+  /* A tela de cálculo é produto, não andaime do protótipo. */
+  .pulse {
+    @apply rounded-full;
+    width: 64px;
+    height: 64px;
+    border: 6px solid theme('colors.accent.soft');
+    border-top-color: theme('colors.accent.DEFAULT');
+    animation: girar 1.1s linear infinite;
+  }
+
+  @keyframes girar {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* Movimento contínuo pode desencadear enjoo e enxaqueca. Quem pediu menos
+     movimento no sistema recebe o mesmo indicador, parado. */
+  @media (prefers-reduced-motion: reduce) {
+    .pulse {
+      animation: none;
+      border-top-color: theme('colors.accent.soft');
+    }
+  }
+
+  /* -------------------------------------------------------------------
+   * Supressão de movimento nos controles — `RF-76`, `AC-113` (T-165).
+   *
+   * **Este bloco fica no FIM de propósito.** O Tailwind emite os
+   * componentes na ordem em que aparecem no arquivo, e uma regra só vence
+   * outra de mesma especificidade se vier depois. Escrito junto de
+   * `.btn-primario` (onde nasceu), ele era emitido ANTES das definições de
+   * `.opt` e `.item` — e a `transition` da base sobrescrevia o
+   * `transition: none`, deixando o movimento rodando exatamente para quem
+   * pediu que não rodasse.
+   *
+   * Passou despercebido no fonte e apareceu ao inspecionar o CSS
+   * compilado: as duas regras existiam, na ordem errada. É o mesmo tipo de
+   * defeito que a Rodada 6 registrou com o rodapé `sticky` — asserção de
+   * presença não substitui olhar a saída.
+   *
+   * O `hover` continua funcionando; o que some é a animação até ele.
+   * ------------------------------------------------------------------- */
+  @media (prefers-reduced-motion: reduce) {
+    .btn,
+    .opt,
+    .item {
+      transition: none;
+    }
+
+    .btn-primario:hover:not(:disabled),
+    .btn-primario:active:not(:disabled) {
+      transform: none;
+    }
+  }
+}

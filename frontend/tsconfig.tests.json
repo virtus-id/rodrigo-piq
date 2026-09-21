@@ -1,0 +1,48 @@
+{
+  /*
+   * Checagem de tipos dos TESTES — `T-155`.
+   *
+   * Nenhum tsconfig cobria `tests/`: `tsconfig.app.json` inclui só `src`, e
+   * `tsconfig.node.json` só `vite.config.ts`. Um erro de tipo num teste
+   * entrava sem ninguém ver, e `npx tsc --noEmit` passava verde com o teste
+   * quebrado — foi assim que os quatro arquivos de T-152 precisaram ser
+   * checados à mão, fora do gate.
+   *
+   * Config própria, e não um `include` a mais no do app, porque os ambientes
+   * são incompatíveis: os unitários rodam em happy-dom com os globais do
+   * Vitest, os E2E carregam os tipos do Playwright, e nenhum dos dois deve
+   * entrar na compilação do bundle que vai ao navegador.
+   */
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tests.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    /* Os globais de `describe`/`it`/`expect` vêm de `vitest/globals`
+       (`vite.config.ts` liga `globals: true`); `@playwright/test` é
+       importado explicitamente pelos E2E e não precisa entrar aqui. */
+    "types": ["vite/client", "vitest/globals", "node"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode — igual ao app, para que um import válido num arquivo de
+       `src` continue válido quando o teste o importa. */
+    "moduleResolution": "bundler",
+    "module": "esnext",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting — as mesmas travas do app.
+
+       `noUnusedLocals` fica LIGADO de propósito: fixture que ninguém usa é
+       fixture que mente sobre o que o teste exercita. */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["tests"]
+}

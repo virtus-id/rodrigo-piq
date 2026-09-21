@@ -1,0 +1,1266 @@
+# Bloco 5 — Inventário de dívidas. 58 perguntas, transcritas caractere por
+# caractere da §11 da canônica (specs/piq-app-spec.md, linhas 2618-3473). T-17
+# (RF-03, RF-04, RF-09, AC-04, AC-36). 55 das 58 perguntas são REP por
+# DIVIDA_ID (cada dívida é uma ficha) — só B5.00, B5.00A e B5.FIM02 não são
+# repetíveis (são perguntas de caso, não de ficha de dívida).
+QUESTIONARIO_VERSION: "1.0.0"
+perguntas:
+  - ID: B5.00
+    bloco: 5
+    enunciado: >-
+      Quantas dívidas ou operações financeiras diferentes você acredita ter
+      hoje?
+    tipo: NUMERO
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "___ dívida(s)", valor_interno: null}
+      - {rotulo: Não sei exatamente quantas., valor_interno: DESCONHECIDA, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: QUANTIDADE_DIVIDAS_DECLARADA_INICIAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Se desconhecida, preservar essa informação; a quantidade final
+      confirmada é registrada separadamente em B5.FIM.
+
+  - ID: B5.00A
+    bloco: 5
+    enunciado: >-
+      Para ajudar a lembrar, quais destes tipos você possui ou acredita
+      possuir atualmente?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Empréstimo consignado, valor_interno: null}
+      - {rotulo: Empréstimo pessoal, valor_interno: null}
+      - {rotulo: Financiamento de veículo, valor_interno: null}
+      - {rotulo: Financiamento imobiliário, valor_interno: null}
+      - {rotulo: Cartão com saldo rotativo, valor_interno: null}
+      - {rotulo: Parcelamento de fatura, valor_interno: null}
+      - {rotulo: Cheque especial, valor_interno: null}
+      - {rotulo: Parcelamento de compra, valor_interno: null}
+      - {rotulo: Dívida tributária, valor_interno: null}
+      - {rotulo: Dívida com familiar ou outra pessoa, valor_interno: null}
+      - {rotulo: Acordo/renegociação, valor_interno: null}
+      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Não tenho certeza, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: TIPOS_DIVIDA_DECLARADOS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Cada operação cadastrada recebe SYS: DIVIDA_ID (D001, D002…), estável.
+      "Não tenho certeza" é exclusiva.
+
+  # Grupo A — Identificação (ficha REP por dívida)
+  - ID: B5.A01
+    bloco: 5
+    enunciado: Para quem você deve nessa operação?
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: CREDOR
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B5.A02
+    bloco: 5
+    enunciado: Que tipo de dívida é esta?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Empréstimo consignado, valor_interno: CONSIGNADO}
+      - {rotulo: Empréstimo pessoal, valor_interno: PESSOAL}
+      - {rotulo: Financiamento de veículo, valor_interno: FIN_VEICULO}
+      - {rotulo: Financiamento imobiliário, valor_interno: FIN_IMOBILIARIO}
+      - {rotulo: Cartão de crédito — saldo rotativo, valor_interno: CARTAO_ROTATIVO}
+      - {rotulo: Cartão de crédito — parcelamento de fatura, valor_interno: CARTAO_PARCELADO}
+      - {rotulo: Cheque especial, valor_interno: CHEQUE_ESPECIAL}
+      - {rotulo: Parcelamento de compra, valor_interno: PARCELAMENTO_COMPRA}
+      - {rotulo: Dívida tributária, valor_interno: TRIBUTARIA}
+      - {rotulo: Dívida com familiar ou outra pessoa, valor_interno: PESSOA_FISICA}
+      - {rotulo: Acordo ou renegociação, valor_interno: ACORDO}
+      - {rotulo: Outra, valor_interno: OUTRA}
+    VARIAVEL_GRAVADA: TIPO_DIVIDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Define modelo da engine, exibição de B5.C07 (linhas reutilizáveis) e
+      de B5.G03 (modalidades portáveis).
+
+  - ID: B5.A03
+    bloco: 5
+    enunciado: Para que essa dívida foi originalmente feita?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Pagar despesas do mês, valor_interno: null}
+      - {rotulo: Emergência ou imprevisto, valor_interno: null}
+      - {rotulo: Saúde, valor_interno: null}
+      - {rotulo: Moradia, valor_interno: null}
+      - {rotulo: Veículo, valor_interno: null}
+      - {rotulo: Educação, valor_interno: null}
+      - {rotulo: Compra de bem ou serviço, valor_interno: null}
+      - {rotulo: Reforma, valor_interno: null}
+      - {rotulo: Viagem/lazer, valor_interno: null}
+      - {rotulo: Ajudar outra pessoa, valor_interno: null}
+      - {rotulo: Quitar ou substituir outra dívida, valor_interno: null}
+      - {rotulo: Não lembro, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Outra, valor_interno: null}
+    VARIAVEL_GRAVADA: FINALIDADE_DIVIDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.A04
+    bloco: 5
+    enunciado: Qual destas opções descreve melhor esta operação hoje?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Está ativa., valor_interno: ATIVA}
+      - {rotulo: Está em acordo ou renegociação., valor_interno: EM_ACORDO}
+      - {rotulo: "Está sendo cobrada, mas não possui pagamento regular definido.", valor_interno: COBRANCA_SEM_PAGAMENTO}
+      - {rotulo: "Acredito que esteja quitada, mas preciso confirmar.", valor_interno: QUITADA_A_CONFIRMAR}
+      - {rotulo: Outra situação., valor_interno: OUTRA}
+    VARIAVEL_GRAVADA: STATUS_DIVIDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      QUITADA_A_CONFIRMAR → ação de confirmação (Bloco 11); não entra em
+      DIVIDA_TOTAL até confirmar.
+
+  - ID: B5.A05
+    bloco: 5
+    enunciado: >-
+      Esta operação nasceu de uma renegociação ou substituição de uma
+      dívida anterior?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: ORIGEM_RENEGOCIACAO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B5.A05A."
+
+  - ID: B5.A05A
+    bloco: 5
+    enunciado: A dívida anterior ainda continua existindo separadamente?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Não. Esta operação substituiu a anterior., valor_interno: SUBSTITUIDA}
+      - {rotulo: Sim. Ainda existe algum saldo ou obrigação separado., valor_interno: SUBSISTE}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DIVIDA_ANTERIOR_SUBSISTE
+    condicao_exibicao: {tipo: IGUAL, variavel: ORIGEM_RENEGOCIACAO, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      SUBSTITUIDA → não cadastrar a antiga como ativa. SUBSISTE → cadastrar
+      o resíduo como dívida própria. Não contar antiga e nova
+      simultaneamente como ativas quando houve substituição integral.
+
+  # Grupo B — Valores e saldo
+  - ID: B5.B01
+    bloco: 5
+    enunciado: >-
+      Você sabe quanto foi originalmente contratado ou devido nessa
+      operação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: CONFIRMADA}
+      - {rotulo: Aproximadamente., valor_interno: ESTIMADA}
+      - {rotulo: "Não.", valor_interno: DESCONHECIDA, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: QUALIDADE_VALOR_ORIGINAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim/Aproximadamente → campo R$ → VALOR_ORIGINAL."
+
+  - ID: B5.B02
+    bloco: 5
+    enunciado: >-
+      Você sabe aproximadamente quanto já pagou nessa operação desde o
+      início?
+    tipo: MOEDA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Tenho apenas uma estimativa., valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_JA_PAGO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não entra no custo comparável (valor passado)."
+
+  - ID: B5.B03
+    bloco: 5
+    enunciado: Qual é o saldo devedor atual desta dívida?
+    tipo: MOEDA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: SALDO_DEVEDOR_ATUAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      DESCONHECIDA → PRIORIDADE DE INFORMAÇÃO; STATUS_DIVIDA_TOTAL =
+      PARCIAL.
+
+  - ID: B5.B04
+    bloco: 5
+    enunciado: De quando é essa informação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Data (dd/mm/aaaa), valor_interno: null}
+      - {rotulo: Este mês, valor_interno: null}
+      - {rotulo: Mês passado, valor_interno: null}
+      - {rotulo: Há mais tempo, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DATA_REFERENCIA_SALDO
+    # AMBIGUIDADE DA CANÔNICA (reportada em T-17): a condição normativa é
+    # "B5.B03 ≠ Não sei", mas B5.B03 é MOEDA com admite_nao_sei — o valor
+    # gravado para a resposta "Não sei" não é uma string comparável por
+    # CondicaoIgual (é o sentinel NAO_SEI, tratado à parte pelo motor de
+    # respostas). O esquema de Condicao (collection/condicoes.py) não tem um
+    # nó "variável respondida com sentinel NAO_SEI" — só IGUAL/CONTEM contra
+    # string concreta. Sem um nó adicional (fora do escopo desta tarefa, que
+    # é transcrição), a condição mais fiel possível é "sempre exibida",
+    # deixando ao app a checagem de NAO_SEI na hora de exibir.
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.B05
+    bloco: 5
+    enunciado: >-
+      Você já consultou quanto precisaria pagar hoje para quitar
+      integralmente esta dívida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: "Consultei, mas o valor já venceu/expirou.", valor_interno: EXPIROU}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: QUITACAO_CONSULTADA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      SIM → B5.B05A e B5.B05B. EXPIROU → B5.B05A como histórico
+      (STATUS_VALIDADE_PROPOSTA = EXPIRADA). NAO → ação de consulta (Bloco
+      11).
+
+  - ID: B5.B05A
+    bloco: 5
+    enunciado: Qual foi o valor informado para quitar a dívida?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_QUITACAO_HOJE
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: QUITACAO_CONSULTADA, valor: SIM}
+        - {tipo: IGUAL, variavel: QUITACAO_CONSULTADA, valor: EXPIROU}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Saldo devedor ≠ valor de quitação."
+
+  - ID: B5.B05B
+    bloco: 5
+    enunciado: Até quando esse valor é válido?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Data, valor_interno: null}
+      - {rotulo: Validade não informada., valor_interno: VALIDADE_DESCONHECIDA}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DATA_VALIDADE_PROPOSTA
+    condicao_exibicao: {tipo: IGUAL, variavel: QUITACAO_CONSULTADA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Validade desconhecida e material → PRIORIDADE DE INFORMAÇÃO.
+
+  # Grupo C — Fluxo
+  - ID: B5.C01
+    bloco: 5
+    enunciado: >-
+      Esta dívida possui uma parcela ou prestação mensal definida
+      atualmente?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: POSSUI_PARCELA_DEFINIDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → B5.C02–C04 (Modelo 1). Não/Não sei → B5.C05 (Modelo 2).
+
+  - ID: B5.C02
+    bloco: 5
+    enunciado: Qual é o valor da parcela ou prestação que deveria ser paga atualmente?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "PARCELA_CONTRATUAL (= PAGAMENTO_MENSAL_DEVIDO_VIGENTE)"
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_PARCELA_DEFINIDA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.C03
+    bloco: 5
+    enunciado: Quantas parcelas ainda faltam?
+    tipo: NUMERO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: ___ parcelas, valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PARCELAS_RESTANTES
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_PARCELA_DEFINIDA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.C04
+    bloco: 5
+    enunciado: Você sabe quando essa operação termina se seguir normalmente até o fim?
+    tipo: DATA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Mês/ano, valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DATA_TERMINO_CONTRATUAL
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_PARCELA_DEFINIDA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.C05
+    bloco: 5
+    enunciado: Existe algum pagamento mínimo ou valor mensal formalmente exigido hoje?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: POSSUI_PAGAMENTO_MINIMO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: POSSUI_PARCELA_DEFINIDA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → B5.C05A. Não/Não sei e B5.C06 = Não sei → cronograma definitivo
+      desta dívida bloqueado (Matriz, Bloco 5 Grupo C).
+
+  - ID: B5.C05A
+    bloco: 5
+    enunciado: Qual é esse valor mínimo?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "PAGAMENTO_MINIMO_INFORMADO (= PAGAMENTO_MENSAL_DEVIDO_VIGENTE)"
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_PAGAMENTO_MINIMO, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.C06
+    bloco: 5
+    enunciado: Na prática, quanto você está pagando por mês nesta dívida atualmente?
+    tipo: MOEDA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não estou pagando nada atualmente., valor_interno: "0"}
+      - {rotulo: O valor varia muito., valor_interno: VARIA}
+      - {rotulo: Não sei., valor_interno: DESCONHECIDA, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PAGAMENTO_MENSAL_EFETIVO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "VARIA → B5.C06A."
+
+  - ID: B5.C06A
+    bloco: 5
+    enunciado: >-
+      Nos últimos 3 meses, qual foi aproximadamente a média mensal paga?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "PAGAMENTO_MENSAL_EFETIVO (média 3 meses)"
+    condicao_exibicao: {tipo: IGUAL, variavel: PAGAMENTO_MENSAL_EFETIVO, valor: VARIA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.C07
+    bloco: 5
+    enunciado: >-
+      Mesmo enquanto paga essa dívida, você continua usando esse limite ou
+      linha de crédito?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim, com frequência.", valor_interno: SIM}
+      - {rotulo: Às vezes., valor_interno: AS_VEZES}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não se aplica., valor_interno: NAO_APLICA}
+    VARIAVEL_GRAVADA: LINHA_CONTINUA_SENDO_UTILIZADA
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CARTAO_ROTATIVO}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CHEQUE_ESPECIAL}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CARTAO_PARCELADO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "SIM/AS_VEZES → B5.C07A."
+
+  - ID: B5.C07A
+    bloco: 5
+    enunciado: Quanto aproximadamente você volta a utilizar por mês?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: NOVO_USO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: LINHA_CONTINUA_SENDO_UTILIZADA, valor: SIM}
+        - {tipo: IGUAL, variavel: LINHA_CONTINUA_SENDO_UTILIZADA, valor: AS_VEZES}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  # Grupo D — Custo
+  - ID: B5.D01
+    bloco: 5
+    enunciado: Você sabe qual é a taxa de juros desta operação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: CONFIRMADA}
+      - {rotulo: "Tenho uma taxa, mas não sei exatamente o que ela representa.", valor_interno: ESTIMADA}
+      - {rotulo: "Não.", valor_interno: DESCONHECIDA, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: QUALIDADE_TAXA_INFORMADA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim/Tenho → B5.D01A e B5.D01B. Não → PRIORIDADE DE INFORMAÇÃO se
+      material; taxa de referência só em cenário estimado.
+
+  - ID: B5.D01A
+    bloco: 5
+    enunciado: Qual é a taxa informada?
+    tipo: TAXA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "____ %", valor_interno: null}
+    VARIAVEL_GRAVADA: TAXA_INFORMADA
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: QUALIDADE_TAXA_INFORMADA, valor: DESCONHECIDA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B5.D01B
+    bloco: 5
+    enunciado: "Essa taxa é:"
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: ao mês, valor_interno: MENSAL}
+      - {rotulo: ao ano, valor_interno: ANUAL}
+      - {rotulo: outra periodicidade, valor_interno: OUTRA}
+      - {rotulo: não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PERIODICIDADE_TAXA
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: QUALIDADE_TAXA_INFORMADA, valor: DESCONHECIDA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.D02
+    bloco: 5
+    enunciado: O documento informa se essa taxa é efetiva ou nominal?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Efetiva, valor_interno: EFETIVA}
+      - {rotulo: Nominal, valor_interno: NOMINAL}
+      - {rotulo: Não está indicado, valor_interno: NAO_INDICADO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: NATUREZA_TAXA
+    # AMBIGUIDADE DA CANÔNICA (reportada em T-17): a condição normativa é
+    # "B5.D01 ≠ Não E documento disponível (B5.I01 inclui contrato/DDC/
+    # extrato)" — ambas as variáveis pertencem ao MESMO item corrente
+    # (a dívida em edição), não a "algum item do escopo DIVIDA_ID" (que é o
+    # que EXISTE_ITEM expressa). O nó CONTEM avalia a variável do item
+    # corrente diretamente, o que é o comportamento correto aqui.
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - tipo: NAO
+          termo: {tipo: IGUAL, variavel: QUALIDADE_TAXA_INFORMADA, valor: DESCONHECIDA}
+        - tipo: OU
+          termos:
+            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: Contrato}
+            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: "Documento Descritivo de Crédito — DDC ou equivalente"}
+            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: "Extrato/demonstrativo atualizado"}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Exibir somente quando fizer sentido documentalmente."
+
+  - ID: B5.D03
+    bloco: 5
+    enunciado: Você possui o CET — Custo Efetivo Total — desta operação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei o que é., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: POSSUI_CET
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → B5.D03A. "Não sei o que é" → exibir explicação curta e tratar
+      como NAO.
+
+  - ID: B5.D03A
+    bloco: 5
+    enunciado: Qual é o CET informado?
+    tipo: TAXA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "____ %", valor_interno: null}
+      - {rotulo: "+ periodicidade: ao mês / ao ano", valor_interno: null}
+    VARIAVEL_GRAVADA: "CET (+ PERIODICIDADE_CET)"
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_CET, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B5.D04
+    bloco: 5
+    enunciado: >-
+      Além dos juros, existe alguma tarifa, encargo ou custo relevante que
+      você saiba estar sendo cobrado nessa operação?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: OUTROS_CUSTOS_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B5.D04A."
+
+  - ID: B5.D04A
+    bloco: 5
+    enunciado: Quanto aproximadamente?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: OUTROS_CUSTOS
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTROS_CUSTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.D05
+    bloco: 5
+    enunciado: Existe seguro prestamista ou outro seguro associado a esta dívida?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: SEGURO_PRESTAMISTA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B5.D05A e B5.D05B. Sim/Não sei → ACAO_VERIFICAR_SEGURO."
+
+  - ID: B5.D05A
+    bloco: 5
+    enunciado: Você sabe quanto esse seguro custa?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: R$ ___ por mês, valor_interno: MENSAL}
+      - {rotulo: R$ ___ no total, valor_interno: TOTAL}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "CUSTO_SEGURO (+ base MENSAL/TOTAL)"
+    condicao_exibicao: {tipo: IGUAL, variavel: SEGURO_PRESTAMISTA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.D05B
+    bloco: 5
+    enunciado: Esse custo já está incluído no valor da parcela que você informou?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: SEGURO_INCLUIDO_PARCELA
+    condicao_exibicao: {tipo: IGUAL, variavel: SEGURO_PRESTAMISTA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Nunca duplicar custo do seguro."
+
+  # Grupo E — Situação
+  - ID: B5.E01
+    bloco: 5
+    enunciado: Como está o pagamento desta dívida hoje?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Está em dia., valor_interno: EM_DIA}
+      - {rotulo: Existe parcela/valor vencido., valor_interno: VENCIDO}
+      - {rotulo: Estou pagando parcialmente., valor_interno: PARCIAL}
+      - {rotulo: Não existe pagamento regular definido atualmente., valor_interno: SEM_PAGAMENTO_REGULAR}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "DIVIDA_EM_DIA / DIVIDA_ATRASADA"
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "VENCIDO/PARCIAL → B5.E02."
+
+  - ID: B5.E02
+    bloco: 5
+    enunciado: Há quanto tempo existe valor vencido?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Menos de 30 dias, valor_interno: null}
+      - {rotulo: 1–3 meses, valor_interno: null}
+      - {rotulo: 4–6 meses, valor_interno: null}
+      - {rotulo: 7–12 meses, valor_interno: null}
+      - {rotulo: Mais de 12 meses, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: TEMPO_ATRASO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: "DIVIDA_EM_DIA / DIVIDA_ATRASADA", valor: VENCIDO}
+        - {tipo: IGUAL, variavel: "DIVIDA_EM_DIA / DIVIDA_ATRASADA", valor: PARCIAL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.E03
+    bloco: 5
+    enunciado: >-
+      Esta dívida aparece atualmente em cadastro de inadimplência/
+      negativação?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: NEGATIVACAO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.E04
+    bloco: 5
+    enunciado: >-
+      Você está recebendo atualmente cobranças relacionadas a essa dívida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim, com frequência.", valor_interno: FREQUENTE}
+      - {rotulo: "Sim, eventualmente.", valor_interno: EVENTUAL}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: COBRANCA_ATIVA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.E05
+    bloco: 5
+    enunciado: >-
+      Você tem conhecimento de algum processo judicial ou cobrança judicial
+      relacionada a esta dívida?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: COBRANCA_JUDICIAL_INFORMADA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não inferir consequências jurídicas."
+
+  # Grupo F — Garantia
+  - ID: B5.F01
+    bloco: 5
+    enunciado: Esta dívida está vinculada a algum bem ou garantia?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: POSSUI_GARANTIA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B5.F02 e B5.F03."
+
+  - ID: B5.F02
+    bloco: 5
+    enunciado: Qual é a garantia?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Imóvel, valor_interno: null}
+      - {rotulo: Veículo, valor_interno: null}
+      - {rotulo: Outro bem, valor_interno: null}
+      - {rotulo: Aval/fiança, valor_interno: null}
+      - {rotulo: Saldo/aplicação financeira, valor_interno: null}
+      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: TIPO_GARANTIA
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_GARANTIA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Imóvel/Veículo → vincular à ficha do Bloco 4 correspondente
+      (SALDO_PASSIVO_VINCULADO).
+
+  - ID: B5.F03
+    bloco: 5
+    enunciado: >-
+      Esse bem é essencial para sua moradia, trabalho, saúde ou rotina
+      familiar?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: ESSENCIAL}
+      - {rotulo: "É importante, mas existem alternativas.", valor_interno: IMPORTANTE}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: GARANTIA_ESSENCIAL
+    condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_GARANTIA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B5.F04
+    bloco: 5
+    enunciado: >-
+      Você sabe de alguma consequência específica que pode ocorrer se esta
+      dívida continuar sem pagamento ou irregular?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Risco sobre um bem dado em garantia, valor_interno: null}
+      - {rotulo: Negativação, valor_interno: null}
+      - {rotulo: Cobrança, valor_interno: null}
+      - {rotulo: Desconto em folha, valor_interno: null}
+      - {rotulo: Outra consequência informada pelo credor/documento, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Nenhuma consequência específica que eu conheça, valor_interno: null}
+    VARIAVEL_GRAVADA: CONSEQUENCIA_INADIMPLEMENTO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Não inferir consequências não informadas. "Não sei" e "Nenhuma" são
+      exclusivas.
+
+  # Grupo G — Oportunidades
+  - ID: B5.G01
+    bloco: 5
+    enunciado: Existe alguma proposta atual do credor para esta dívida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: "Recebi uma proposta, mas ela já venceu.", valor_interno: EXPIRADA}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PROPOSTA_ATUAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Gatilho B7 (detalhes coletados no Bloco 7)."
+
+  - ID: B5.G02
+    bloco: 5
+    enunciado: Esta dívida já foi renegociada alguma vez?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: JA_RENEGOCIADA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Bloco 7."
+
+  - ID: B5.G03
+    bloco: 5
+    enunciado: >-
+      Você já consultou a possibilidade de levar ou substituir esta dívida
+      por uma condição mais barata em outra instituição?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei / nunca verifiquei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PORTABILIDADE_CONSULTADA
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CONSIGNADO}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: PESSOAL}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: FIN_VEICULO}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: FIN_IMOBILIARIO}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CARTAO_ROTATIVO}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CARTAO_PARCELADO}
+        - {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CHEQUE_ESPECIAL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Gatilho B8."
+
+  # Grupo H — Dimensão humana
+  - ID: B5.H01
+    bloco: 5
+    enunciado: De 0 a 10, quanto esta dívida pesa emocionalmente para você hoje?
+    tipo: ESCALA_0_10
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "0 = praticamente não me incomoda.", valor_interno: "0"}
+      - {rotulo: "10 = é uma das dívidas que mais me preocupa ou desgasta.", valor_interno: "10"}
+    VARIAVEL_GRAVADA: PESO_EMOCIONAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "≥ 4 → B5.H02."
+
+  - ID: B5.H02
+    bloco: 5
+    enunciado: O que mais faz essa dívida pesar para você?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Juros muito altos, valor_interno: null}
+      - {rotulo: Parcela pesada, valor_interno: null}
+      - {rotulo: Está atrasada, valor_interno: null}
+      - {rotulo: Cobranças, valor_interno: null}
+      - {rotulo: Risco sobre algum bem, valor_interno: null}
+      - {rotulo: Envolve familiar ou pessoa próxima, valor_interno: null}
+      - {rotulo: Quero me livrar dela há muito tempo, valor_interno: null}
+      - {rotulo: "Vergonha, culpa ou preocupação", valor_interno: null}
+      - {rotulo: Não consigo entender bem a dívida, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: MOTIVO_PESO_EMOCIONAL
+    # AMBIGUIDADE DA CANÔNICA (reportada em T-17): a condição normativa é
+    # "B5.H01 ≥ 4", mas os seis nós de Condicao (collection/condicoes.py)
+    # só expressam igualdade/pertencimento/existência — não há nó de
+    # comparação numérica (>=, <=) sobre uma variável de resposta. Como
+    # aproximação fiel dentro do esquema disponível, expresso a união dos
+    # valores inteiros 4-10 por OU de IGUAL — equivalente a ">= 4" para o
+    # domínio 0-10 de PESO_EMOCIONAL, sem introduzir um nó novo (fora do
+    # escopo de transcrição desta tarefa).
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "4"}
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "5"}
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "6"}
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "7"}
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "8"}
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "9"}
+        - {tipo: IGUAL, variavel: PESO_EMOCIONAL, valor: "10"}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "\"Outro\" → texto curto OPT."
+
+  - ID: B5.H03
+    bloco: 5
+    enunciado: >-
+      Na sua percepção, de 0 a 10, com que urgência esta dívida precisa ser
+      resolvida?
+    tipo: ESCALA_0_10
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "0 = pode esperar, sem urgência relevante", valor_interno: "0"}
+      - {rotulo: "10 = máxima urgência na percepção do usuário", valor_interno: "10"}
+    VARIAVEL_GRAVADA: URGENCIA_PERCEBIDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Slider 0–10 com âncoras nas pontas. Não usar rótulos qualitativos.
+
+  - ID: B5.H04
+    bloco: 5
+    enunciado: >-
+      Se você pudesse eliminar apenas uma das suas dívidas primeiro, esta
+      estaria entre suas primeiras escolhas?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PREFERENCIA_QUITACAO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Bloco 9/10 (não decide sozinha)."
+
+  # Grupo I — Documentação
+  - ID: B5.I01
+    bloco: 5
+    enunciado: Que documentos ou informações você possui hoje sobre esta dívida?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Contrato, valor_interno: null}
+      - {rotulo: Extrato/demonstrativo atualizado, valor_interno: null}
+      - {rotulo: "Documento Descritivo de Crédito — DDC ou equivalente", valor_interno: null}
+      - {rotulo: Fatura, valor_interno: null}
+      - {rotulo: Proposta de negociação, valor_interno: null}
+      - {rotulo: Comprovante/print de aplicativo ou internet banking, valor_interno: null}
+      - {rotulo: Outro documento, valor_interno: null}
+      - {rotulo: Não tenho nenhum documento agora, valor_interno: null}
+    VARIAVEL_GRAVADA: DOCUMENTACAO_DISPONIVEL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "\"Não tenho nenhum documento agora\" é exclusiva."
+
+  - ID: B5.I02
+    bloco: 5
+    enunciado: >-
+      De onde vieram principalmente as informações que você acabou de
+      preencher?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Documento/contrato, valor_interno: DOCUMENTO}
+      - {rotulo: Aplicativo ou internet banking, valor_interno: DOCUMENTO}
+      - {rotulo: Atendimento do credor, valor_interno: USUARIO}
+      - {rotulo: Contracheque, valor_interno: DOCUMENTO}
+      - {rotulo: Minha memória, valor_interno: USUARIO}
+      - {rotulo: Uma combinação dessas fontes, valor_interno: USUARIO}
+      - {rotulo: Outra, valor_interno: null}
+    VARIAVEL_GRAVADA: FONTE_DADO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      ORIGEM_DADO = DOCUMENTO (documento/app/contracheque) ou USUARIO
+      (memória/atendimento/combinação).
+
+  - ID: B5.I03
+    bloco: 5
+    enunciado: >-
+      As informações desta dívida foram consultadas ou atualizadas quando?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: Hoje, valor_interno: null}
+      - {rotulo: Nos últimos 7 dias, valor_interno: null}
+      - {rotulo: Neste mês, valor_interno: null}
+      - {rotulo: Há 1–3 meses, valor_interno: null}
+      - {rotulo: Há mais de 3 meses, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DATA_REFERENCIA_DADO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      SYS: DOCUMENTO_REFERENCIA é vinculado pelo sistema quando disponível.
+      Não exigir upload universal.
+
+  # Fechamento da ficha e do inventário
+  - ID: B5.CHECK
+    bloco: 5
+    enunciado: Essa ficha está correta?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim, salvar dívida.", valor_interno: null}
+      - {rotulo: Quero corrigir alguma informação., valor_interno: null}
+    VARIAVEL_GRAVADA: "SYS (salvar/editar)"
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Corrigir → retorna à ficha."
+
+  - ID: B5.FIM01
+    bloco: 5
+    enunciado: >-
+      Você ainda precisa cadastrar alguma outra dívida ou operação
+      financeira?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Sim, cadastrar outra.", valor_interno: null}
+      - {rotulo: "Não, esta foi a última.", valor_interno: null}
+      - {rotulo: Não tenho certeza., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "SYS (loop)"
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → nova ficha. Não/Não tenho certeza → resumo + B5.FIM02.
+
+  - ID: B5.FIM02
+    bloco: 5
+    enunciado: >-
+      Pelo que você sabe hoje, todas as suas dívidas e operações
+      financeiras foram cadastradas?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim. O inventário está completo., valor_interno: SIM}
+      - {rotulo: Não. Ainda falta pelo menos uma dívida., valor_interno: NAO}
+      - {rotulo: Não tenho certeza., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CONFIRMACAO_FIM_CADASTRO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      ≠ SIM → INVENTARIO_COMPLETO = falso → bloqueio global da Ordem
+      Definitiva; diagnóstico parcial permitido. SYS:
+      QUANTIDADE_DIVIDAS_CADASTRADA; QUANTIDADE_DIVIDAS_DECLARADA (final
+      confirmada, separada da inicial).

@@ -1,0 +1,40 @@
+{#
+    Modo estabilização — EC-09, RF-15, RF-21 (T-62).
+
+    Incluído por `plano.html` no lugar do bloco de ordem/método/cronograma
+    quando `cenario == CENARIO_APRESENTACAO.ESTABILIZACAO` (report/plano.py::
+    decidir_cenario_apresentacao) — snapshot.diagnostico.MODO_ESTABILIZACAO
+    é True. Recebe do contexto de `plano.html` (report/plano.py::
+    ContextoPlano):
+
+        RESULTADO_CAIXA_OBSERVADO — leitura de Diagnostico.
+                                      RESULTADO_CAIXA_OBSERVADO, já
+                                      formatado por quantizar_exibicao
+
+    REGRA DE REDAÇÃO (EC-09, auditada por GAB-04/AC-11 no motor —
+    tests/invariantes/test_gab04_estabilizacao.py): a palavra "sobra" (e
+    sinônimos como "superávit") NUNCA qualifica RESULTADO_CAIXA_OBSERVADO
+    positivo neste template, mesmo que o valor seja maior que zero — um
+    resultado de caixa positivo em modo estabilização não é capacidade real
+    de ataque (CAPACIDADE_ATAQUE_ATUAL = 0 nesse modo). Método, ordem e
+    cronograma aparecem como fase 2, condicionada à estabilização prévia —
+    nunca apresentados como se já estivessem em curso.
+#}
+<section>
+    <h2>Você está em modo estabilização</h2>
+
+    <p>
+        O resultado de caixa observado neste momento é de
+        {{ RESULTADO_CAIXA_OBSERVADO }}. Isso NÃO é capacidade disponível
+        para atacar dívidas: seu resultado mensal estrutural continua
+        negativo, e a prioridade agora é estabilizar o orçamento antes de
+        qualquer ataque.
+    </p>
+
+    <p>
+        Método de quitação, ordem das dívidas e cronograma de ataque só
+        entram em vigor como uma <strong>fase 2</strong>, condicionada à
+        estabilização do seu orçamento. Eles não estão disponíveis enquanto
+        você estiver em modo estabilização.
+    </p>
+</section>

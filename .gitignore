@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+
+# Node / frontend (T-131)
+node_modules/
+frontend/dist/
+frontend/.vite/
+*.local
+
+# Segredos e ambiente — nunca versionados.
+# `DATABASE_URL` e `CHAVE_ASSINATURA_SESSAO` vivem no ambiente, jamais em
+# arquivo de código (ver `persistencia/supabase/conexao.py`, que se recusa a
+# ter string de conexão embutida).
+.env
+.env.*
+!.env.example
+
+# Certificados efêmeros de demonstração local (scripts/subir_demo.py)
+*.pem

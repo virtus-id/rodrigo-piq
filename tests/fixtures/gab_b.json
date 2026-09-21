@@ -1,0 +1,83 @@
+{
+  "_origem": "piq-app-spec.md §10.2 GAB-B — Equilibrio fragil / potencial nao e capacidade (linhas 443-451)",
+  "_nota_t11": "Campos marcados com sufixo '_preenchimento_fixture' abaixo NAO sao normativos: a canonica so fornece totais agregados de dividas (DEVIDOS=1.800, EFETIVOS=1.800) para GAB-B, sem discriminar dividas individuais. Modelada aqui como UMA divida agregada D001 que reproduz esses dois totais, para que o motor calcule PAGAMENTOS_MENSAIS_DEVIDOS_VIGENTES e PAGAMENTOS_EFETIVOS_DIVIDAS corretos a partir do inventario de dividas. Essa decomposicao (uma unica divida em vez de varias) e escolha de engenharia da fixture, nao dado do gabarito. Ver relatorio de T-11.",
+
+  "DATA_REFERENCIA": "2026-09-01",
+  "RENDA_TOTAL_RECORRENTE": "10000",
+  "TIPO_RENDA": "FIXA",
+  "DESPESAS_OPERACIONAIS_ATUAIS": "7600",
+  "DESPESAS_NAO_MENSAIS_NORMALIZADAS": "400",
+  "CAPACIDADE_ATAQUE_DECLARADA": "500",
+  "ECONOMIA_POTENCIAL_IMEDIATA": "400",
+  "INVENTARIO_COMPLETO": true,
+
+  "dividas": [
+    {
+      "DIVIDA_ID": "D001",
+      "TIPO_DIVIDA": "PESSOAL",
+      "_TIPO_DIVIDA_preenchimento_fixture": "canonica nao declara o tipo da divida agregada em GAB-B; PESSOAL e neutro plausivel",
+      "STATUS_DIVIDA": "ATIVA",
+      "SALDO_DEVEDOR_ATUAL": "DESCONHECIDO",
+      "_SALDO_DEVEDOR_ATUAL_preenchimento_fixture": "GAB-B nao fornece saldo devedor, so devido/efetivo mensal; marcado DESCONHECIDO por nao inventar dado (RF-16)",
+      "VALOR_QUITACAO_HOJE": "DESCONHECIDO",
+      "QUITACAO_CONSULTADA": "NAO",
+      "STATUS_VALIDADE_PROPOSTA": "VALIDADE_DESCONHECIDA",
+      "TAXA_EFETIVA_MENSAL_NORMALIZADA": "DESCONHECIDO",
+      "CET": "DESCONHECIDO",
+      "PARCELA_CONTRATUAL": "1800",
+      "PAGAMENTO_MENSAL_EFETIVO": "1800",
+      "SEGURO_INCLUIDO_PARCELA": false,
+      "CUSTO_SEGURO": "DESCONHECIDO",
+      "PESO_EMOCIONAL": "DESCONHECIDO",
+      "RENEGOCIACAO_PENDENTE": false,
+      "TROCA_PENDENTE": false,
+      "RISCO_MATERIAL_IMINENTE": false,
+      "OPORTUNIDADE_VIGENTE": null
+    }
+  ],
+
+  "_perfil_comportamental_preenchimento_fixture": "GAB-B declara 'confiabilidade alta' e 'sem recaida' e 'risco comportamental nao alto' em texto, mas nao as 8 variaveis granulares do Bloco 2. Valores abaixo foram escolhidos para SEREM CONSISTENTES com 'confiabilidade alta' (NIVEL_CONTROLE forte-ish), mas a granularidade exata NAO e normativa — NAO sao dado literal do gabarito.",
+  "perfil_comportamental": {
+    "REGISTRO_GASTOS": "TUDO",
+    "FREQUENCIA_REGISTRO": "DIARIA",
+    "DEFASAGEM_REGISTRO": "NA_HORA",
+    "COBERTURA_PEQUENOS_GASTOS": "TODOS",
+    "COBERTURA_MEIOS_PAGAMENTO": "TOTAL",
+    "CONHECIMENTO_GASTO": "BOA_APROXIMACAO",
+    "GASTOS_NAO_IDENTIFICADOS": "NUNCA",
+    "REVISAO_SEMANAL": "SEMPRE"
+  },
+
+  "_sinais_comportamentais_preenchimento_fixture": "Consistentes com 'sem recaida' e 'risco comportamental nao alto' declarados em texto pela canonica para GAB-B, mas a granularidade exata dos 7 campos originais NAO e normativa. NECESSIDADE_VITORIA e HISTORICO_ABANDONO (T-18) tambem nao sao declarados pela canonica para GAB-B; preenchidos com valores neutros que nao disparam INCOMPATIBILIDADE_COMPORTAMENTAL_GRAVE.",
+  "sinais_comportamentais": {
+    "NOVA_DIVIDA_PREVISTA": "NAO",
+    "MECANISMO_DEFICIT": [],
+    "HISTORICO_RECAIDA": "NAO",
+    "NOVO_PARCELAMENTO_PREVISTO": "NAO",
+    "PACTO": "ESTABELECIDO",
+    "RISCO_IMPULSO": "NENHUMA",
+    "LINHA_CONTINUA_SENDO_UTILIZADA": "NAO",
+    "NECESSIDADE_VITORIA": 0,
+    "_NECESSIDADE_VITORIA_preenchimento_fixture": "nao declarada na canonica para GAB-B; 0 e neutro plausivel (nao dispara T-18)",
+    "HISTORICO_ABANDONO": "NAO",
+    "_HISTORICO_ABANDONO_preenchimento_fixture": "nao declarada na canonica para GAB-B; NAO e neutro plausivel",
+    "JANELA_NOVA_DIVIDA": null,
+    "_JANELA_NOVA_DIVIDA_preenchimento_fixture": "NOVA_DIVIDA_PREVISTA=NAO acima; B1.05 (JANELA_NOVA_DIVIDA) so e exibida/coletada quando B1.02=SIM ou TALVEZ (piq-app-spec.md linha 641) — null e ausencia ESTRUTURAL correta, nao dado nao respondido (T-34)"
+  },
+
+  "CONFIABILIDADE_DADOS": "ALTA",
+  "_CONFIABILIDADE_DADOS_nota": "Este campo E citado explicitamente na canonica para GAB-B ('confiabilidade alta') — dado normativo, nao preenchimento de fixture.",
+
+  "AUTOPERCEPCAO_CONTROLE": 5,
+  "_AUTOPERCEPCAO_CONTROLE_preenchimento_fixture": "B2.13 (piq-app-spec.md linha 4880), escala 0-10; nao declarada na canonica para GAB-B. 5 e neutro plausivel — T-23",
+
+  "_reserva_caixa_patrimonio_preenchimento_fixture": "Rodada 3 (T-96/T-97): a canonica NAO declara reserva, caixa nem patrimonio para GAB-B. Todos os nove campos abaixo sao NEUTROS, para que AC-87 seja literalmente 'nada mudou' — nenhum valor numerico de GAB-B muda por causa deles. RESERVA_TOTAL e VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO usam '0' e nao 'DESCONHECIDO' porque RESERVA_EXISTE=NAO faz a Regra 1 da §13.1 vencer ANTES da Regra 3 (RESERVA_MOBILIZAVEL=0, valor informado ignorado): 'DESCONHECIDO' registraria uma pendencia que a Regra 1 ja resolveu.",
+  "RESERVA_EXISTE": "NAO",
+  "RESERVA_TOTAL": "0",
+  "DISPOSICAO_USO_RESERVA": "NAO",
+  "VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO": "0",
+  "DINHEIRO_DISPONIVEL": "0",
+  "investimentos": [],
+  "ativos": [],
+  "recursos_extraordinarios": []
+}

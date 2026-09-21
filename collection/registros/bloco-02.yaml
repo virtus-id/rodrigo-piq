@@ -1,0 +1,362 @@
+# Bloco 2 — Autopercepção e controle. 15 perguntas, transcritas caractere por
+# caractere da §11 da canônica (specs/piq-app-spec.md, linhas 804-1037). T-17
+# (RF-03, RF-04, RF-09, AC-04, AC-36).
+QUESTIONARIO_VERSION: "1.0.0"
+perguntas:
+  - ID: B2.01
+    bloco: 2
+    enunciado: >-
+      Hoje, quanto dos seus gastos você costuma registrar ou acompanhar de
+      alguma forma?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Praticamente todos os meus gastos., valor_interno: TUDO}
+      - {rotulo: "A maior parte, mas alguns ficam de fora.", valor_interno: MAIORIA}
+      - {rotulo: Apenas uma parte dos gastos., valor_interno: PARTE}
+      - {rotulo: Registro muito pouco ou só de vez em quando., valor_interno: RARAMENTE}
+      - {rotulo: Não registro meus gastos atualmente., valor_interno: NAO_REGISTRA}
+    VARIAVEL_GRAVADA: REGISTRO_GASTOS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      NAO_REGISTRA → não exibir B2.02, B2.03, B2.04 e B2.05 (derivados
+      logicamente: sem frequência, sem defasagem, sem cobertura).
+
+  - ID: B2.02
+    bloco: 2
+    enunciado: Com que regularidade você costuma atualizar esse controle?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Todos ou quase todos os dias., valor_interno: DIARIA}
+      - {rotulo: Algumas vezes por semana., valor_interno: VARIAS_SEMANA}
+      - {rotulo: Uma vez por semana., valor_interno: SEMANAL}
+      - {rotulo: Algumas vezes por mês., valor_interno: VARIAS_MES}
+      - {rotulo: Só quando percebo que preciso conferir o dinheiro., valor_interno: SOB_DEMANDA}
+      - {rotulo: Não existe uma frequência definida., valor_interno: INDEFINIDA}
+    VARIAVEL_GRAVADA: FREQUENCIA_REGISTRO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: REGISTRO_GASTOS, valor: NAO_REGISTRA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B2.03
+    bloco: 2
+    enunciado: Quando você registra um gasto, normalmente faz isso quando?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Na hora em que gasto., valor_interno: NA_HORA}
+      - {rotulo: No mesmo dia., valor_interno: MESMO_DIA}
+      - {rotulo: Até alguns dias depois., valor_interno: DIAS_DEPOIS}
+      - {rotulo: No fim da semana., valor_interno: FIM_SEMANA}
+      - {rotulo: Só no fim do mês ou quando vou conferir as contas., valor_interno: FIM_MES}
+      - {rotulo: Não tenho um padrão., valor_interno: SEM_PADRAO}
+    VARIAVEL_GRAVADA: DEFASAGEM_REGISTRO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: REGISTRO_GASTOS, valor: NAO_REGISTRA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B2.04
+    bloco: 2
+    enunciado: >-
+      E aqueles gastos pequenos — café, lanche, estacionamento, aplicativo,
+      pequenas compras, Pix de baixo valor — costumam entrar no seu
+      controle?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim, praticamente todos.", valor_interno: TODOS}
+      - {rotulo: A maioria., valor_interno: MAIORIA}
+      - {rotulo: Alguns., valor_interno: ALGUNS}
+      - {rotulo: Quase nenhum., valor_interno: QUASE_NENHUM}
+      - {rotulo: Normalmente não entram., valor_interno: NAO_ENTRAM}
+    VARIAVEL_GRAVADA: COBERTURA_PEQUENOS_GASTOS
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: REGISTRO_GASTOS, valor: NAO_REGISTRA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B2.05
+    bloco: 2
+    enunciado: >-
+      Pensando apenas nas formas de pagamento que você realmente usa, seu
+      controle consegue acompanhar gastos feitos por todas elas?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: >-
+          Sim. Praticamente tudo entra, independentemente da forma de
+          pagamento.
+        valor_interno: TOTAL
+      - rotulo: >-
+          Quase tudo, mas existe uma forma de pagamento que às vezes fica
+          fora.
+        valor_interno: QUASE_TOTAL
+      - rotulo: >-
+          Não. Algumas formas de pagamento ficam frequentemente fora do meu
+          controle.
+        valor_interno: PARCIAL
+      - {rotulo: Não sei dizer., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: COBERTURA_MEIOS_PAGAMENTO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: REGISTRO_GASTOS, valor: NAO_REGISTRA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "QUASE_TOTAL ou PARCIAL → abre B2.05A."
+
+  - ID: B2.05A
+    bloco: 2
+    enunciado: Quais formas de pagamento costumam escapar mais do seu controle?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Pix, valor_interno: null}
+      - {rotulo: Cartão de crédito, valor_interno: null}
+      - {rotulo: Cartão de débito, valor_interno: null}
+      - {rotulo: Dinheiro, valor_interno: null}
+      - {rotulo: Débito automático, valor_interno: null}
+      - {rotulo: Transferências, valor_interno: null}
+      - {rotulo: Compras parceladas, valor_interno: null}
+      - {rotulo: Outra, valor_interno: null}
+    VARIAVEL_GRAVADA: MEIOS_PAGAMENTO_FORA_CONTROLE
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: COBERTURA_MEIOS_PAGAMENTO, valor: QUASE_TOTAL}
+        - {tipo: IGUAL, variavel: COBERTURA_MEIOS_PAGAMENTO, valor: PARCIAL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "\"Outra\" → texto curto OPT."
+
+  - ID: B2.06
+    bloco: 2
+    enunciado: >-
+      Sem precisar abrir agora extratos ou faturas, você sabe
+      aproximadamente quanto gastou no último mês?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim. Sei o valor com boa aproximação., valor_interno: BOA_APROXIMACAO}
+      - rotulo: >-
+          Tenho uma ideia razoável, mas não saberia dizer com muita
+          segurança.
+        valor_interno: RAZOAVEL
+      - {rotulo: Tenho apenas uma noção geral., valor_interno: NOCAO_GERAL}
+      - {rotulo: Não sei quanto gastei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CONHECIMENTO_GASTO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B2.07
+    bloco: 2
+    enunciado: >-
+      Quando você olha sua conta ou fatura, com que frequência encontra
+      gastos ou cobranças que não lembra imediatamente de ter feito ou que
+      não sabe explicar?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Nunca ou quase nunca., valor_interno: NUNCA}
+      - {rotulo: Raramente., valor_interno: RARAMENTE}
+      - {rotulo: Algumas vezes por mês., valor_interno: ALGUMAS_MES}
+      - {rotulo: Com frequência., valor_interno: FREQUENTE}
+      - rotulo: >-
+          Eu quase não confiro extratos e faturas, então não sei.
+        valor_interno: NAO_CONFERE
+        admite_nao_sei: true
+    VARIAVEL_GRAVADA: GASTOS_NAO_IDENTIFICADOS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "ALGUMAS_MES ou FREQUENTE → abre B2.08."
+
+  - ID: B2.08
+    bloco: 2
+    enunciado: >-
+      Em um mês típico, quanto você estima que esses gastos ou cobranças que
+      não consegue identificar representam?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não consigo estimar., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_GASTOS_NAO_IDENTIFICADOS
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: GASTOS_NAO_IDENTIFICADOS, valor: ALGUMAS_MES}
+        - {tipo: IGUAL, variavel: GASTOS_NAO_IDENTIFICADOS, valor: FREQUENTE}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não transformar automaticamente em economia."
+
+  - ID: B2.09
+    bloco: 2
+    enunciado: >-
+      Hoje, você consegue identificar algum gasto recorrente que continua
+      saindo todo mês, mas que você usa pouco, quase não percebe ou
+      considera que poderia reduzir ou eliminar?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: Talvez. Preciso conferir melhor., valor_interno: TALVEZ}
+      - {rotulo: Não identifiquei nenhum., valor_interno: NAO}
+    VARIAVEL_GRAVADA: GASTOS_FANTASMAS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Sim → abre B2.10 e B2.10A. Talvez → gera ação de conferência (Bloco
+      11).
+
+  - ID: B2.10
+    bloco: 2
+    enunciado: >-
+      Quanto por mês você estima que poderia reduzir ou eliminar desses
+      gastos?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Ainda não sei quanto., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_GASTOS_FANTASMAS
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: GASTOS_FANTASMAS
+      valor: SIM
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B2.10A
+    bloco: 2
+    enunciado: Você aceita considerar essa redução no seu PIQ?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim, posso considerar reduzir ou eliminar esse valor.", valor_interno: SIM}
+      - {rotulo: Talvez. Quero avaliar antes., valor_interno: TALVEZ}
+      - {rotulo: Não. Prefiro manter esses gastos., valor_interno: NAO}
+    VARIAVEL_GRAVADA: ACEITA_REDUCAO_GASTOS_FANTASMAS
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: GASTOS_FANTASMAS
+      valor: SIM
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Somente SIM torna VALOR_GASTOS_FANTASMAS elegível à economia
+      potencial.
+
+  - ID: B2.11
+    bloco: 2
+    enunciado: >-
+      Nos últimos 30 dias, com que frequência você fez alguma compra que não
+      estava planejada e depois percebeu que poderia ter evitado ou adiado?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Nenhuma vez., valor_interno: NENHUMA}
+      - {rotulo: Uma vez., valor_interno: UMA}
+      - {rotulo: Duas ou três vezes., valor_interno: DUAS_TRES}
+      - {rotulo: Quatro vezes ou mais., valor_interno: QUATRO_MAIS}
+      - {rotulo: Não consigo avaliar., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RISCO_IMPULSO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B2.12
+    bloco: 2
+    enunciado: >-
+      Você costuma separar algum momento da semana para conferir como estão
+      seus gastos, saldo, cartão e compromissos financeiros?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim, praticamente toda semana.", valor_interno: SEMPRE}
+      - {rotulo: Na maioria das semanas., valor_interno: MAIORIA}
+      - {rotulo: Algumas semanas., valor_interno: ALGUMAS}
+      - {rotulo: Raramente., valor_interno: RARAMENTE}
+      - {rotulo: Nunca., valor_interno: NUNCA}
+    VARIAVEL_GRAVADA: REVISAO_SEMANAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B2.13
+    bloco: 2
+    enunciado: >-
+      Hoje, de 0 a 10, quanto você sente que sabe para onde o seu dinheiro
+      está indo?
+    tipo: ESCALA_0_10
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "0 = Tenho muito pouca visibilidade.", valor_interno: "0"}
+      - {rotulo: "10 = Sei com bastante clareza para onde meu dinheiro vai.", valor_interno: "10"}
+    VARIAVEL_GRAVADA: AUTOPERCEPCAO_CONTROLE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null

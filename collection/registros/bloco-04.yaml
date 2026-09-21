@@ -1,0 +1,984 @@
+# Bloco 4 — Vínculos, margens e patrimônio. 49 perguntas, transcritas
+# caractere por caractere da §11 da canônica (specs/piq-app-spec.md, linhas
+# 1903-2614). T-17 (RF-03, RF-04, RF-09, AC-04, AC-36).
+QUESTIONARIO_VERSION: "1.0.0"
+perguntas:
+  - ID: B4.01
+    bloco: 4
+    enunciado: >-
+      Hoje, fora da sua reserva financeira e dos seus investimentos, você
+      possui algum dinheiro disponível que não esteja comprometido com as
+      despesas normais até a próxima entrada de renda?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei ao certo, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DINHEIRO_DISPONIVEL_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B4.01A."
+
+  - ID: B4.01A
+    bloco: 4
+    enunciado: Quanto aproximadamente?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+    VARIAVEL_GRAVADA: DINHEIRO_DISPONIVEL
+    condicao_exibicao: {tipo: IGUAL, variavel: DINHEIRO_DISPONIVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.02
+    bloco: 4
+    enunciado: >-
+      Você possui hoje alguma reserva financeira separada para emergências,
+      imprevistos ou proteção do orçamento?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - rotulo: >-
+          Tenho algum dinheiro guardado, mas não considero uma reserva
+          estruturada.
+        valor_interno: INFORMAL
+      - {rotulo: "Não.", valor_interno: NAO}
+    VARIAVEL_GRAVADA: RESERVA_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "SIM ou INFORMAL → B4.02A, B4.02B, B4.03."
+
+  - ID: B4.02A
+    bloco: 4
+    enunciado: >-
+      Qual é o valor total que você considera hoje como reserva ou dinheiro
+      guardado para proteção?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RESERVA_TOTAL
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: RESERVA_EXISTE, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.02B
+    bloco: 4
+    enunciado: Onde esse dinheiro está guardado?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Conta corrente, valor_interno: null}
+      - {rotulo: Conta remunerada, valor_interno: null}
+      - {rotulo: Poupança, valor_interno: null}
+      - {rotulo: CDB/RDB, valor_interno: null}
+      - {rotulo: Tesouro Direto, valor_interno: null}
+      - {rotulo: Fundo de renda fixa, valor_interno: null}
+      - {rotulo: Outro investimento, valor_interno: null}
+      - {rotulo: Dinheiro em espécie, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Não sei dizer, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: LOCAL_RESERVA
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: RESERVA_EXISTE, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Valores aqui informados como reserva NÃO são relançados em B4.04
+      (investimentos). B4.04 pergunta explicitamente "além dos valores já
+      informados como reserva".
+
+  - ID: B4.03
+    bloco: 4
+    enunciado: >-
+      Se a análise mostrar que usar uma parte da reserva pode ser
+      financeiramente vantajoso sem deixar você desprotegido, você
+      aceitaria considerar essa possibilidade?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim, aceitaria avaliar o uso de uma parte.", valor_interno: PARTE}
+      - rotulo: >-
+          Sim, aceitaria avaliar até mesmo o uso de grande parte da
+          reserva.
+        valor_interno: GRANDE_PARTE
+      - {rotulo: Talvez. Quero ver os números antes., valor_interno: TALVEZ}
+      - {rotulo: Não. Prefiro preservar integralmente minha reserva., valor_interno: NAO}
+    VARIAVEL_GRAVADA: DISPOSICAO_USO_RESERVA
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: RESERVA_EXISTE, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "≠ NAO → B4.03A."
+
+  - ID: B4.03A
+    bloco: 4
+    enunciado: >-
+      Qual é o valor máximo da sua reserva que você aceitaria colocar em
+      análise para uma possível quitação?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Prefiro decidir somente depois de ver a análise., valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: DISPOSICAO_USO_RESERVA, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Valor para análise. Não é recomendação automática."
+
+  - ID: B4.04
+    bloco: 4
+    enunciado: >-
+      Além dos valores que você já informou como reserva, você possui
+      outros investimentos?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei exatamente, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: INVESTIMENTOS_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → ficha REP B4.04A–B4.06B."
+
+  - ID: B4.04A
+    bloco: 4
+    enunciado: Que investimento é esse?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Poupança, valor_interno: null}
+      - {rotulo: CDB/RDB, valor_interno: null}
+      - {rotulo: Tesouro Direto, valor_interno: null}
+      - {rotulo: LCI/LCA, valor_interno: null}
+      - {rotulo: Fundo de renda fixa, valor_interno: null}
+      - {rotulo: Previdência privada, valor_interno: null}
+      - {rotulo: Fundo de investimento, valor_interno: null}
+      - {rotulo: Ações, valor_interno: null}
+      - {rotulo: ETF, valor_interno: null}
+      - {rotulo: Fundo imobiliário, valor_interno: null}
+      - {rotulo: Criptoativo, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_INVESTIMENTO
+    condicao_exibicao: {tipo: IGUAL, variavel: INVESTIMENTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.04B
+    bloco: 4
+    enunciado: Qual é aproximadamente o valor atual desse investimento?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "VALOR_ESTIMADO_ATIVO (investimento)"
+    condicao_exibicao: {tipo: IGUAL, variavel: INVESTIMENTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.05
+    bloco: 4
+    enunciado: >-
+      Se você decidisse resgatar esse investimento, em quanto tempo o
+      dinheiro normalmente ficaria disponível?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: No mesmo dia, valor_interno: D0}
+      - {rotulo: Em até 1 dia útil, valor_interno: D1}
+      - {rotulo: Em até 7 dias, valor_interno: D7}
+      - {rotulo: Em até 30 dias, valor_interno: D30}
+      - {rotulo: Em mais de 30 dias, valor_interno: MAIS_30}
+      - {rotulo: Há carência ou bloqueio, valor_interno: BLOQUEADO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: LIQUIDEZ_INVESTIMENTOS
+    condicao_exibicao: {tipo: IGUAL, variavel: INVESTIMENTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.06
+    bloco: 4
+    enunciado: >-
+      Você sabe se teria algum custo, perda relevante, multa, imposto
+      específico ou outra consequência para resgatar esse investimento
+      agora?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Não há custo ou perda relevante que eu conheça., valor_interno: NAO}
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Pode haver, mas não sei calcular.", valor_interno: TALVEZ}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CUSTO_DESMOBILIZACAO_INVESTIMENTOS_EXISTE
+    condicao_exibicao: {tipo: IGUAL, variavel: INVESTIMENTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B4.06A."
+
+  - ID: B4.06A
+    bloco: 4
+    enunciado: Quanto você estima que perderia ou pagaria para retirar esse investimento?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: "____ %", valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CUSTO_DESMOBILIZACAO_INVESTIMENTOS
+    condicao_exibicao: {tipo: IGUAL, variavel: CUSTO_DESMOBILIZACAO_INVESTIMENTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.06B
+    bloco: 4
+    enunciado: >-
+      Você aceitaria considerar o uso desse investimento para reduzir
+      dívidas, caso a análise mostre vantagem financeira?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Talvez, valor_interno: TALVEZ}
+      - {rotulo: Não, valor_interno: NAO}
+    VARIAVEL_GRAVADA: DISPOSICAO_USO_INVESTIMENTO
+    condicao_exibicao: {tipo: IGUAL, variavel: INVESTIMENTOS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  # Imóveis — ficha REP
+  - ID: B4.I01
+    bloco: 4
+    enunciado: Você possui algum imóvel, total ou parcialmente?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: IMOVEL_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim → ficha REP B4.I02–I09 (uma por imóvel)."
+
+  - ID: B4.I02
+    bloco: 4
+    enunciado: Que imóvel é esse?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Casa/apartamento onde moro, valor_interno: null}
+      - {rotulo: Outro imóvel residencial, valor_interno: null}
+      - {rotulo: Imóvel alugado, valor_interno: null}
+      - {rotulo: Terreno, valor_interno: null}
+      - {rotulo: Imóvel comercial, valor_interno: null}
+      - {rotulo: Imóvel de lazer, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_IMOVEL
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.I03
+    bloco: 4
+    enunciado: Quanto você estima que esse imóvel vale hoje?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "VALOR_IMOVEL (= VALOR_ESTIMADO_ATIVO)"
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.I04
+    bloco: 4
+    enunciado: >-
+      Esse imóvel possui hoje financiamento ou outra dívida diretamente
+      vinculada a ele?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: IMOVEL_POSSUI_PASSIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B4.I04A."
+
+  - ID: B4.I04A
+    bloco: 4
+    enunciado: Qual é aproximadamente o saldo devedor atual?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "SALDO_FINANCIAMENTO_IMOVEL (= SALDO_PASSIVO_VINCULADO)"
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_POSSUI_PASSIVO, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Conciliar com a dívida correspondente no Bloco 5 (contada uma única
+      vez como dívida).
+
+  - ID: B4.I05
+    bloco: 4
+    enunciado: Esse imóvel gera alguma renda recorrente para você?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: IMOVEL_GERA_RENDA
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim → B4.I05A."
+
+  - ID: B4.I05A
+    bloco: 4
+    enunciado: Quanto líquido, aproximadamente, por mês?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_IMOVEL
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_GERA_RENDA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não duplicar renda de aluguel já registrada em B3.03."
+
+  - ID: B4.I06
+    bloco: 4
+    enunciado: >-
+      Além de eventual financiamento, quanto esse imóvel custa para você
+      por mês, em média?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não possui custo relevante., valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CUSTO_IMOVEL
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não duplicar despesas de moradia já lançadas em B3.D01."
+
+  - ID: B4.I07
+    bloco: 4
+    enunciado: Qual é o papel desse imóvel na sua vida hoje?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: É minha moradia principal e considero essencial mantê-lo., valor_interno: ESSENCIAL}
+      - {rotulo: "É importante, mas eu poderia avaliar mudanças em uma situação específica.", valor_interno: IMPORTANTE}
+      - {rotulo: Não é essencial para minha moradia ou atividade principal., valor_interno: NAO_ESSENCIAL}
+    VARIAVEL_GRAVADA: IMOVEL_ESSENCIAL
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.I08
+    bloco: 4
+    enunciado: >-
+      Você consideraria vender esse imóvel como parte de uma reorganização
+      financeira?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Não. Quero preservar este imóvel., valor_interno: NAO}
+      - {rotulo: Somente em uma situação extrema., valor_interno: EXTREMO}
+      - {rotulo: "Talvez, dependendo dos números.", valor_interno: TALVEZ}
+      - {rotulo: "Sim, considero essa possibilidade.", valor_interno: SIM}
+      - {rotulo: Já pretendo vender., valor_interno: JA_PRETENDE}
+    VARIAVEL_GRAVADA: POSSIBILIDADE_VENDA_IMOVEL
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.I09
+    bloco: 4
+    enunciado: >-
+      Você sabe aproximadamente quais seriam os custos para vender ou
+      transferir esse imóvel?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: "____ %", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "CUSTOS_ESTIMADOS_DESMOBILIZACAO (imóvel)"
+    condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  # Veículos — ficha REP
+  - ID: B4.V01
+    bloco: 4
+    enunciado: Você possui algum veículo?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: VEICULO_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim → ficha REP B4.V02–V09."
+
+  - ID: B4.V02
+    bloco: 4
+    enunciado: Que tipo de veículo é esse?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Carro, valor_interno: null}
+      - {rotulo: Moto, valor_interno: null}
+      - {rotulo: Utilitário, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_VEICULO
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.V03
+    bloco: 4
+    enunciado: Quanto você estima que esse veículo vale hoje?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "VALOR_VEICULO (= VALOR_ESTIMADO_ATIVO)"
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.V04
+    bloco: 4
+    enunciado: Esse veículo possui financiamento ou outra dívida vinculada?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VEICULO_POSSUI_PASSIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B4.V04A."
+
+  - ID: B4.V04A
+    bloco: 4
+    enunciado: Qual é aproximadamente o saldo atual?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "SALDO_FINANCIAMENTO_VEICULO (= SALDO_PASSIVO_VINCULADO)"
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_POSSUI_PASSIVO, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Conciliar com o Bloco 5."
+
+  - ID: B4.V05
+    bloco: 4
+    enunciado: >-
+      Além da parcela de eventual financiamento, quanto esse veículo custa
+      por mês, em média?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CUSTO_RECORRENTE_VEICULO
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não duplicar custos já lançados em B3.D03."
+
+  - ID: B4.V06
+    bloco: 4
+    enunciado: Esse veículo é essencial para sua rotina atual?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: >-
+          Sim, é essencial para trabalho, saúde, dependentes ou
+          deslocamento sem alternativa razoável.
+        valor_interno: ESSENCIAL
+      - {rotulo: "É muito importante, mas existem alternativas.", valor_interno: IMPORTANTE}
+      - {rotulo: Não é essencial., valor_interno: NAO_ESSENCIAL}
+    VARIAVEL_GRAVADA: VEICULO_ESSENCIAL
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.V07
+    bloco: 4
+    enunciado: >-
+      Você consideraria vender esse veículo como parte de uma reorganização
+      financeira?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Somente em situação extrema., valor_interno: EXTREMO}
+      - {rotulo: "Talvez, dependendo dos números.", valor_interno: TALVEZ}
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: Já pretendo vender., valor_interno: JA_PRETENDE}
+    VARIAVEL_GRAVADA: POSSIBILIDADE_VENDA_VEICULO
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.V08
+    bloco: 4
+    enunciado: >-
+      Você consideraria trocar esse veículo por outro de menor valor ou
+      menor custo mensal?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Talvez.", valor_interno: TALVEZ}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não se aplica., valor_interno: NAO_APLICA}
+    VARIAVEL_GRAVADA: POSSIBILIDADE_SUBSTITUICAO
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim/Talvez → B4.V08A–C."
+
+  - ID: B4.V08A
+    bloco: 4
+    enunciado: >-
+      Se essa troca acontecesse, quanto você imagina gastar aproximadamente
+      no veículo substituto?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_VEICULO_SUBSTITUTO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: POSSIBILIDADE_SUBSTITUICAO, valor: SIM}
+        - {tipo: IGUAL, variavel: POSSIBILIDADE_SUBSTITUICAO, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.V08B
+    bloco: 4
+    enunciado: >-
+      Você estima que essa substituição reduziria seus gastos mensais com o
+      veículo?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: SUBSTITUICAO_REDUZ_CUSTO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: POSSIBILIDADE_SUBSTITUICAO, valor: SIM}
+        - {tipo: IGUAL, variavel: POSSIBILIDADE_SUBSTITUICAO, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B4.V08C."
+
+  - ID: B4.V08C
+    bloco: 4
+    enunciado: Em quanto aproximadamente por mês?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: ECONOMIA_RECORRENTE_SUBSTITUICAO_VEICULO
+    condicao_exibicao: {tipo: IGUAL, variavel: SUBSTITUICAO_REDUZ_CUSTO, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.V09
+    bloco: 4
+    enunciado: >-
+      Você estima algum custo relevante para vender, transferir ou
+      substituir esse veículo?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não há custo relevante que eu conheça., valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "CUSTOS_ESTIMADOS_DESMOBILIZACAO (veículo)"
+    condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  # Outros ativos — ficha REP
+  - ID: B4.O01
+    bloco: 4
+    enunciado: >-
+      Além de dinheiro, investimentos, imóveis e veículos, você possui
+      algum outro bem de valor relevante que poderia gerar dinheiro, renda
+      ou redução de despesas se fosse vendido ou reorganizado?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: OUTRO_ATIVO_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Sim → ficha REP B4.O02–O09. Não transformar em inventário doméstico
+      irrelevante.
+
+  - ID: B4.O02
+    bloco: 4
+    enunciado: O que é?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Equipamento profissional, valor_interno: null}
+      - {rotulo: Joias/objetos de valor, valor_interno: null}
+      - {rotulo: Participação societária, valor_interno: null}
+      - {rotulo: Embarcação, valor_interno: null}
+      - {rotulo: Bem de coleção, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_OUTRO_ATIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.O03
+    bloco: 4
+    enunciado: Quanto você estima que vale?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "VALOR_ESTIMADO_ATIVO (outro)"
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.O04
+    bloco: 4
+    enunciado: Existe dívida diretamente vinculada a esse ativo?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: OUTRO_ATIVO_POSSUI_PASSIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B4.O04A."
+
+  - ID: B4.O04A
+    bloco: 4
+    enunciado: Qual é o saldo aproximado?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "SALDO_PASSIVO_VINCULADO (outro)"
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_POSSUI_PASSIVO, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Conciliar com o Bloco 5."
+
+  - ID: B4.O05
+    bloco: 4
+    enunciado: Esse ativo produz renda?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim → se Sim: R$ ______ por mês", valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: RENDA_OUTRO_ATIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Não duplicar renda já lançada em B3.03."
+
+  - ID: B4.O06
+    bloco: 4
+    enunciado: Esse ativo gera custo recorrente?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim → se Sim: R$ ______ por mês", valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: CUSTO_OUTRO_ATIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.O07
+    bloco: 4
+    enunciado: Esse ativo é essencial para sua rotina ou atividade?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: ESSENCIAL}
+      - {rotulo: Parcialmente, valor_interno: PARCIAL}
+      - {rotulo: Não, valor_interno: NAO_ESSENCIAL}
+    VARIAVEL_GRAVADA: OUTRO_ATIVO_ESSENCIAL
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.O08
+    bloco: 4
+    enunciado: Você consideraria vender ou desmobilizar esse ativo?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Apenas em situação extrema., valor_interno: EXTREMO}
+      - {rotulo: "Talvez.", valor_interno: TALVEZ}
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: Já pretendo., valor_interno: JA_PRETENDE}
+    VARIAVEL_GRAVADA: POSSIBILIDADE_VENDA_OUTRO_ATIVO
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B4.O09
+    bloco: 4
+    enunciado: >-
+      Quais seriam aproximadamente os custos para vendê-lo ou
+      desmobilizá-lo?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: "____ %", valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: "CUSTOS_ESTIMADOS_DESMOBILIZACAO (outro)"
+    condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B4.F01
+    bloco: 4
+    enunciado: Existe algum recurso ou patrimônio relevante que ainda não apareceu?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Não, está completo.", valor_interno: COMPLETO}
+      - {rotulo: "Sim, preciso acrescentar algo.", valor_interno: FALTA}
+      - {rotulo: Não tenho certeza., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CONFIRMACAO_MAPEAMENTO_PATRIMONIAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "FALTA → retorna às fichas do Bloco 4."

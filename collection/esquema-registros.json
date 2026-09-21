@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://piq.local/collection/esquema-registros.json",
+  "title": "Esquema de um arquivo de registros de pergunta (collection/registros/*.yaml)",
+  "description": "Valida a forma estrutural de cada arquivo YAML de collection/registros/ antes de convertê-lo em RegistroPergunta (T-09) e nos quatro tipos complexos (Condicao/T-10, Marcador/T-12, ValidacaoCruzada/T-13, OrigemOpcoes/T-14). Um arquivo por bloco: QUESTIONARIO_VERSION do questionário mais a lista de perguntas daquele bloco. Não valida unicidade entre arquivos nem regras cruzadas de negócio — isso é responsabilidade de collection/carga.py (RF-03, AC-36, AC-38).",
+  "type": "object",
+  "required": ["QUESTIONARIO_VERSION", "perguntas"],
+  "additionalProperties": false,
+  "properties": {
+    "QUESTIONARIO_VERSION": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Versão do questionário à qual este arquivo pertence — lida do próprio registro, nunca fixada em código (T-16, critério 3)."
+    },
+    "perguntas": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/registroPergunta" }
+    }
+  },
+  "$defs": {
+    "registroPergunta": {
+      "type": "object",
+      "required": [
+        "ID",
+        "bloco",
+        "enunciado",
+        "tipo",
+        "obrigatoriedade",
+        "escopo_repeticao",
+        "opcoes",
+        "VARIAVEL_GRAVADA",
+        "condicao_exibicao",
+        "interpolacoes",
+        "validacoes_cruzadas",
+        "origem_opcoes",
+        "admite_nao_sei",
+        "salto_consequencia"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ID": { "type": "string", "minLength": 1 },
+        "bloco": { "type": "integer" },
+        "enunciado": { "type": "string", "minLength": 1 },
+        "tipo": {
+          "type": "string",
+          "enum": [
+            "SELECAO_UNICA",
+            "SELECAO_MULTIPLA",
+            "NUMERO",
+            "MOEDA",
+            "TAXA",
+            "DATA",
+            "TEXTO_CURTO",
+            "SIM_NAO_TALVEZ",
+            "ESCALA_0_10"
+          ]
+        },
+        "obrigatoriedade": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "enum": ["OBR", "COND", "OPT", "REP"] },
+          "uniqueItems": true
+        },
+        "escopo_repeticao": {
+          "type": "string",
+          "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID"]
+        },
+        "opcoes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/opcaoRegistro" }
+        },
+        "VARIAVEL_GRAVADA": { "type": ["string", "null"] },
+        "condicao_exibicao": {
+          "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/condicao" }]
+        },
+        "interpolacoes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/marcador" }
+        },
+        "validacoes_cruzadas": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/validacaoCruzada" }
+        },
+        "origem_opcoes": { "$ref": "#/$defs/origemOpcoes" },
+        "admite_nao_sei": { "type": "boolean" },
+        "salto_consequencia": { "type": ["string", "null"] }
+      }
+    },
+    "opcaoRegistro": {
+      "type": "object",
+      "required": ["rotulo", "valor_interno"],
+      "additionalProperties": false,
+      "properties": {
+        "rotulo": { "type": "string", "minLength": 1 },
+        "valor_interno": { "type": ["string", "null"] },
+        "admite_nao_sei": { "type": "boolean", "default": false }
+      }
+    },
+    "condicao": {
+      "type": "object",
+      "required": ["tipo"],
+      "oneOf": [
+        {
+          "properties": {
+            "tipo": { "const": "IGUAL" },
+            "variavel": { "type": "string", "minLength": 1 },
+            "valor": { "type": "string" }
+          },
+          "required": ["tipo", "variavel", "valor"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "CONTEM" },
+            "variavel": { "type": "string", "minLength": 1 },
+            "valor": { "type": "string" }
+          },
+          "required": ["tipo", "variavel", "valor"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "EXISTE_ITEM" },
+            "escopo": {
+              "type": "string",
+              "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID"]
+            },
+            "variavel": { "type": "string", "minLength": 1 },
+            "valor_em": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "type": "string" },
+              "uniqueItems": true
+            }
+          },
+          "required": ["tipo", "escopo", "variavel", "valor_em"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "E" },
+            "termos": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/condicao" }
+            }
+          },
+          "required": ["tipo", "termos"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "OU" },
+            "termos": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/condicao" }
+            }
+          },
+          "required": ["tipo", "termos"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "tipo": { "const": "NAO" },
+            "termo": { "$ref": "#/$defs/condicao" }
+          },
+          "required": ["tipo", "termo"],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "marcador": {
+      "type": "object",
+      "required": ["marcador", "origem", "referencia"],
+      "additionalProperties": false,
+      "properties": {
+        "marcador": { "type": "string", "minLength": 1 },
+        "origem": {
+          "type": "string",
+          "enum": ["ID_DO_ITEM", "VARIAVEL_COLETADA", "CAMPO_DO_SNAPSHOT"]
+        },
+        "referencia": { "type": "string" }
+      }
+    },
+    "validacaoCruzada": {
+      "type": "object",
+      "required": ["variavel_esquerda", "operador", "variavel_direita", "escopo", "mensagem"],
+      "additionalProperties": false,
+      "properties": {
+        "variavel_esquerda": { "type": "string", "minLength": 1 },
+        "operador": { "type": "string", "enum": ["<=", ">=", "<", ">", "=="] },
+        "variavel_direita": { "type": "string", "minLength": 1 },
+        "escopo": {
+          "type": "string",
+          "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID"]
+        },
+        "mensagem": { "type": "string", "minLength": 1 }
+      }
+    },
+    "origemOpcoes": {
+      "type": "object",
+      "required": ["fonte", "campo_do_snapshot"],
+      "additionalProperties": false,
+      "properties": {
+        "fonte": { "type": "string", "enum": ["REGISTRO", "SNAPSHOT"] },
+        "campo_do_snapshot": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

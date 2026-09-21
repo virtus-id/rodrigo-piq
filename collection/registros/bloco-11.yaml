@@ -1,0 +1,272 @@
+# Bloco 11 — Execução e acompanhamento (§11 da spec canônica,
+# `specs/piq-app-spec.md`). Perguntas surgem durante execução e
+# acompanhamento — não no diagnóstico inicial (não é questionário inicial).
+#
+# Escopo desta tarefa (T-18): `B11.01`, `B11.03-INF`/`-REN`/`-TRO`/`-ECO` e
+# `B11.Q01`–`B11.Q06`. `B11.02`, `B11.03-E`, `B11.04`, `B11.05`, `B11.RE01`–
+# `RE03A` e `B11.A01`/`A01A`/`A02` NÃO fazem parte do escopo declarado na
+# tarefa e ficam para transcrição futura.
+#
+# AC-50 / RF-27: TODA pergunta deste bloco vinculada a uma ação declara
+# `escopo_repeticao: ACAO_ID` — NUNCA `DIVIDA_ID`. Uma ação sem dívida
+# associada (ex.: ação de economia) não pode ficar sem onde ser respondida.
+#
+# `B11.01` — "Condição de exibição: Por ação (ACAO_ID) em acompanhamento" da
+# canônica é o próprio mecanismo de ficha repetível por ACAO_ID
+# (`collection/repeticao.py::perguntas_da_ficha`, RF-04): a iteração "por
+# ação" nasce de `escopo_repeticao: ACAO_ID`, não de uma Condicao adicional —
+# por isso `condicao_exibicao: null` aqui.
+#
+# `B11.03-INF`/`-REN`/`-TRO`/`-ECO` — a condição de exibição de cada uma
+# referencia `TIPO_ACAO`, que AINDA NÃO EXISTE no contrato do motor
+# (`OQ-13`/`OQ-14` da spec app-aluno: `engine/gates.py::AcaoRequerida` não
+# tem `TIPO_ACAO` hoje — é trabalho do slug `motor-calculo`). A condição é
+# transcrita EXATAMENTE como a canônica escreve, caractere por caractere,
+# incluindo acento e qualificador entre parênteses onde a canônica os traz —
+# é o carregador/motor futuro (T-84) quem resolve o valor real de TIPO_ACAO;
+# aqui só se declara o dado.
+
+QUESTIONARIO_VERSION: "1.0.0"
+
+perguntas:
+  - ID: B11.01
+    bloco: 11
+    enunciado: Como está esta ação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Ainda não comecei.", valor_interno: "PENDENTE" }
+      - { rotulo: "Estou fazendo.", valor_interno: "EM_EXECUCAO" }
+      - { rotulo: "Já fiz e estou aguardando resposta de outra pessoa ou instituição.", valor_interno: "AGUARDANDO_TERCEIRO" }
+      - { rotulo: "Não consegui concluir porque apareceu algum impedimento.", valor_interno: "BLOQUEADA" }
+      - { rotulo: "Concluí.", valor_interno: "CONCLUIDA" }
+      - { rotulo: "Esta ação não será mais necessária.", valor_interno: "DESCARTADA" }
+    VARIAVEL_GRAVADA: ACAO_STATUS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "CONCLUIDA → B11.02 + resultado por tipo. BLOQUEADA → B11.05."
+
+  - ID: B11.03-INF
+    bloco: 11
+    enunciado: Você conseguiu obter a informação solicitada?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim.", valor_interno: null }
+      - { rotulo: "Parcialmente.", valor_interno: null }
+      - { rotulo: "Não.", valor_interno: null }
+    VARIAVEL_GRAVADA: RESULTADO_ACAO_INFORMACAO
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - { tipo: IGUAL, variavel: ACAO_STATUS, valor: CONCLUIDA }
+        - { tipo: IGUAL, variavel: TIPO_ACAO, valor: "INFORMACAO" }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Sim → abrir exclusivamente o campo que estava faltando (ex.: B5.B03, B5.D01A)."
+
+  - ID: B11.03-REN
+    bloco: 11
+    enunciado: Você recebeu uma proposta?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim.", valor_interno: null }
+      - { rotulo: "Não.", valor_interno: null }
+      - { rotulo: "Ainda estou aguardando.", valor_interno: null }
+    VARIAVEL_GRAVADA: RESULTADO_ACAO_RENEGOCIACAO
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: TIPO_ACAO
+      valor: "RENEGOCIACAO"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Sim → abrir Bloco 7 (B7.05–B7.16)."
+
+  - ID: B11.03-TRO
+    bloco: 11
+    enunciado: Você recebeu uma proposta concreta de troca/portabilidade?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim.", valor_interno: null }
+      - { rotulo: "Não.", valor_interno: null }
+      - { rotulo: "Ainda estou aguardando.", valor_interno: null }
+    VARIAVEL_GRAVADA: RESULTADO_ACAO_TROCA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: TIPO_ACAO
+      valor: "TROCA"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Sim → abrir Bloco 8 (B8.01–B8.15)."
+
+  - ID: B11.03-ECO
+    bloco: 11
+    enunciado: A redução de gasto foi realmente implementada?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim, integralmente.", valor_interno: null }
+      - { rotulo: "Sim, parcialmente.", valor_interno: null }
+      - { rotulo: "Não.", valor_interno: null }
+    VARIAVEL_GRAVADA: RESULTADO_ACAO_ECONOMIA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: TIPO_ACAO
+      valor: "ECONOMIA"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Integral/parcial → B11.03-ECO-A."
+
+  - ID: B11.Q01
+    bloco: 11
+    enunciado: A dívida [Dxxx] foi efetivamente quitada?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim, foi quitada.", valor_interno: "QUITADA" }
+      - { rotulo: "Ainda não.", valor_interno: "NAO" }
+      - { rotulo: "Acredito que sim, mas ainda preciso confirmar.", valor_interno: "A_CONFIRMAR" }
+    VARIAVEL_GRAVADA: STATUS_QUITACAO_REAL
+    condicao_exibicao: null
+    # RF-06/AC-05: "[Dxxx]" é o DIVIDA_ID do item corrente, resolvido pelo
+    # identificador do item (collection/repeticao.py) — nunca literal fixo.
+    interpolacoes:
+      - { marcador: "[Dxxx]", origem: ID_DO_ITEM, referencia: "" }
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Somente Sim pode tornar STATUS_QUITACAO_REAL = QUITADA → B11.Q02–Q06."
+
+  - ID: B11.Q02
+    bloco: 11
+    enunciado: Em que data a dívida foi quitada?
+    tipo: DATA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: DATA_QUITACAO_REAL
+    condicao_exibicao: &condicao_status_quitacao_real_quitada
+      tipo: IGUAL
+      variavel: STATUS_QUITACAO_REAL
+      valor: QUITADA
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B11.Q03
+    bloco: 11
+    enunciado: Quanto foi efetivamente pago no pagamento final/quitação?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não sei com segurança.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: VALOR_PAGO_QUITACAO
+    condicao_exibicao: *condicao_status_quitacao_real_quitada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B11.Q04
+    bloco: 11
+    enunciado: Depois desse pagamento, o credor confirmou que não existe saldo restante?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim, saldo zerado/contrato encerrado.", valor_interno: "ZERADO" }
+      - { rotulo: "Ainda aparece algum saldo.", valor_interno: "RESIDUO" }
+      - { rotulo: "Ainda não confirmei.", valor_interno: "NAO_CONFIRMADO" }
+    VARIAVEL_GRAVADA: CONFIRMACAO_SALDO_ZERO
+    condicao_exibicao: *condicao_status_quitacao_real_quitada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "RESIDUO → B11.Q04A (dívida permanece ativa com resíduo)."
+
+  - ID: B11.Q04A
+    bloco: 11
+    enunciado: Qual saldo ainda aparece?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: "SALDO_DEVEDOR_ATUAL (resíduo)"
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: CONFIRMACAO_SALDO_ZERO
+      valor: RESIDUO
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B11.Q05
+    bloco: 11
+    enunciado: Você possui comprovante ou confirmação da quitação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "Sim.", valor_interno: null }
+      - { rotulo: "Não.", valor_interno: null }
+      - { rotulo: "Ainda não.", valor_interno: null }
+    VARIAVEL_GRAVADA: COMPROVANTE_QUITACAO
+    condicao_exibicao: *condicao_status_quitacao_real_quitada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Não/Ainda não → ação: obter comprovante."
+
+  - ID: B11.Q06
+    bloco: 11
+    enunciado: "Depois da quitação, quanto realmente deixou de sair do seu orçamento todos os meses? Mostrar o valor que vinha sendo efetivamente pago (R$ [PAGAMENTO_MENSAL_EFETIVO])."
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - { rotulo: "R$ X está correto.", valor_interno: "X" }
+      - { rotulo: "O valor real é outro → R$ ______", valor_interno: "outro valor" }
+      - { rotulo: "Nenhum valor foi liberado, porque eu não estava pagando essa dívida atualmente.", valor_interno: "0" }
+      - { rotulo: "Não sei.", valor_interno: "DESCONHECIDA" }
+    VARIAVEL_GRAVADA: VALOR_FLUXO_LIBERADO
+    condicao_exibicao: *condicao_status_quitacao_real_quitada
+    # RF-06: exibe o PAGAMENTO_MENSAL_EFETIVO vigente da dívida quitada — uma
+    # LEITURA do campo do snapshot (AC-42), nunca um recálculo.
+    interpolacoes:
+      - marcador: "[PAGAMENTO_MENSAL_EFETIVO]"
+        origem: CAMPO_DO_SNAPSHOT
+        referencia: "estado_inputs.dividas.PAGAMENTO_MENSAL_EFETIVO"
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null

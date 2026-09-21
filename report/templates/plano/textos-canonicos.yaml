@@ -1,0 +1,106 @@
+# Redação canônica do plano de quitação — Q-03 (RF-21, AC-14, AC-15), T-59.
+#
+# ÚNICO arquivo onde esta redação vive. `plano.html` (tela e PDF, mesmo
+# template — plans/app-aluno.plan.md §5.3) lê estas duas chaves via
+# `report/plano.py::carregar_textos_canonicos` e nunca embute o texto como
+# literal — exatamente a mesma disciplina de `app/consentimento/textos/`
+# (T-35) e `collection/registros/*.yaml` (T-08/T-17): redação é dado, nunca
+# `.py` nem template.
+#
+# Transcrição caractere por caractere de `specs/piq-app-spec.md` (regra
+# `Q-03`, linha "Título ao usuário: ... Texto: ..."). Nenhuma paráfrase.
+# O termo é sempre "projetada" (Q-02) — nunca "definitiva"/"final"/"fixa".
+titulo: "Sua ordem projetada de quitação"
+corpo: >-
+  Com os dados e condições atuais, o PIQ projeta a seguinte sequência de
+  quitação. A ordem poderá ser recalculada se ocorrer alguma mudança material
+  durante a execução.
+
+# ---------------------------------------------------------------------------
+# Rótulos dos valores de apoio — T-177.
+#
+# Até T-177 a tela do plano mostrava ao aluno o NOME DA VARIÁVEL do motor:
+# "VALOR_RELEVANTE_PARA_QUITACAO", "TAXA_EFETIVA_MENSAL_NORMALIZADA",
+# "PESO_EMOCIONAL". Descoberto ao olhar o primeiro plano liberado de verdade.
+#
+# A persona é um servidor público endividado, com baixa familiaridade
+# financeira presumida — pedir que ele aprenda o vocabulário interno do motor
+# para ler o próprio plano é o oposto do que o produto promete.
+#
+# As chaves são os nomes que `engine/ordem.py::_valores_de_apoio` emite, e
+# vivem AQUI e não no `.py` pela mesma razão de `titulo`/`corpo`: redação ao
+# aluno é dado, nunca literal em código (AC-37). Uma chave nova no motor sem
+# rótulo aqui aparece com o nome técnico — visível, nunca silenciosa.
+rotulos_de_apoio:
+  SALDO_DEVEDOR_ATUAL: "Quanto você ainda deve"
+  VALOR_RELEVANTE_PARA_QUITACAO: "Valor considerado para quitar"
+  PAGAMENTO_MENSAL_EFETIVO: "Quanto você paga por mês"
+  TAXA_EFETIVA_MENSAL_NORMALIZADA: "Taxa de juros"
+  CET: "Custo efetivo total"
+  PESO_EMOCIONAL: "O quanto esta dívida pesa para você"
+
+# ---------------------------------------------------------------------------
+# Por que esta dívida vem nesta posição — T-177, decisão do especialista.
+#
+# `JUSTIFICATIVA_POSICAO` (engine/ordem.py::_justificativa) é declarada pelo
+# próprio motor como "texto de auditoria interna, NÃO prosa de usuário
+# final" — e ainda assim `AC-17` obriga a exibi-la em toda posição. O aluno
+# lia: "método BOLA_DE_NEVE, critério: menor VALOR_RELEVANTE_PARA_QUITACAO
+# entre as dívidas elegíveis restantes no momento em que esta dívida foi
+# selecionada, com desempate O-05 (O-04)".
+#
+# A saída: DUAS justificativas. A técnica continua íntegra, para o revisor e
+# para auditoria (`RF-26`/`AC-29`); a redação abaixo é a que o aluno lê.
+# Nenhuma das duas substitui a outra — `AC-17` segue cumprido, agora com a
+# audiência certa para cada texto.
+#
+# As chaves são os membros de `METODO` (engine/tipos.py). Um método novo sem
+# redação aqui cai na justificativa técnica — visível, nunca silencioso.
+#
+# Duas redações por método: a da PRIMEIRA posição (a dívida que está sendo
+# atacada agora) e a das SEGUINTES. Repetir a mesma frase nas três posições
+# fazia a explicação parecer texto de template, não o motivo daquela dívida
+# estar ali — e "esta é a de menor valor" é falso da segunda em diante, já
+# que há uma menor acima dela.
+explicacao_da_posicao:
+  BOLA_DE_NEVE:
+    primeira: >-
+      É a de menor valor entre as suas dívidas. Quitá-la primeiro libera
+      mais cedo a parcela que você paga por ela — e essa parcela passa a
+      reforçar o ataque à próxima.
+    seguintes: >-
+      Entra depois das anteriores por ter valor maior que o delas. Quando as
+      de cima forem quitadas, as parcelas liberadas se somam ao ataque desta.
+  AVALANCHE:
+    primeira: >-
+      É a que mais custa em juros entre as suas dívidas. Atacá-la primeiro é
+      o que reduz mais o total que você vai pagar até o fim.
+    seguintes: >-
+      Entra depois das anteriores por ter custo de juros menor que o delas.
+      Quando as de cima forem quitadas, as parcelas liberadas se somam ao
+      ataque desta.
+  HIBRIDO:
+    primeira: >-
+      É a dívida que mais destrava o seu orçamento agora. Quitá-la primeiro
+      é o que abre espaço para atacar as demais.
+    seguintes: >-
+      Entra depois das anteriores, pela ordem de custo de juros. Quando as de
+      cima forem quitadas, as parcelas liberadas se somam ao ataque desta.
+
+# ---------------------------------------------------------------------------
+# O que falta para o plano deixar de ser provisório — T-177.
+#
+# O aviso de plano provisório listava o nome do campo do motor: "D001: falta
+# VALOR_QUITACAO_HOJE, CET, PARCELA_CONTRATUAL, CUSTO_SEGURO". O aluno
+# precisa saber o que buscar no extrato, não como o campo se chama no código.
+#
+# As chaves são os campos que `report/plano.py::_campos_desconhecidos_da_
+# divida` audita como `DESCONHECIDO`.
+rotulos_de_pendencia:
+  SALDO_DEVEDOR_ATUAL: "quanto você ainda deve"
+  VALOR_QUITACAO_HOJE: "quanto precisaria pagar para quitar hoje"
+  TAXA_EFETIVA_MENSAL_NORMALIZADA: "a taxa de juros"
+  CET: "o custo efetivo total (CET)"
+  PARCELA_CONTRATUAL: "o valor da parcela do contrato"
+  PAGAMENTO_MENSAL_EFETIVO: "quanto você paga por mês"
+  CUSTO_SEGURO: "o custo do seguro"

@@ -1,0 +1,273 @@
+# Bloco 7 — Renegociação (§11 da spec canônica, `specs/piq-app-spec.md`).
+#
+# Escopo desta tarefa (T-18): apenas `B7.05` a `B7.16` — o trecho da proposta
+# de renegociação em si, reaberto integralmente por `RESULTADO_ACAO_RENEGOCIACAO
+# = Sim` (B11.03-REN, RF-27). `B7.01`–`B7.04` (tentativa anterior/proposta
+# concreta) e `B7.S01`/`B7.EX01`–`B7.EX03` (seguro na proposta / execução) NÃO
+# fazem parte do escopo declarado na tarefa e ficam para transcrição futura.
+#
+# Todas as perguntas deste bloco pertencem à ficha de dívida (`DIVIDA_ID`,
+# RF-17): o motor sinaliza em `ORDEM_ACOES` quais dívidas são candidatas a
+# renegociação, e a interface nunca decide isso sozinha. A condição de
+# exibição textual "B7.04 = VIGENTE, VALIDADE_DESCONHECIDA ou EXPIRADA" da
+# canônica é modelada como `OU` dos três valores de `EXISTE_PROPOSTA_
+# RENEGOCIACAO` citados literalmente (a variável é seleção única de B7.04,
+# não checklist).
+
+QUESTIONARIO_VERSION: "1.0.0"
+
+perguntas:
+  - ID: B7.05
+    bloco: 7
+    enunciado: O que essa proposta oferece ou pretende fazer?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Quitar a dívida à vista", valor_interno: null }
+      - { rotulo: "Dar desconto", valor_interno: null }
+      - { rotulo: "Reduzir juros", valor_interno: null }
+      - { rotulo: "Reduzir CET", valor_interno: null }
+      - { rotulo: "Reduzir custo total", valor_interno: null }
+      - { rotulo: "Reduzir parcela", valor_interno: null }
+      - { rotulo: "Reduzir prazo", valor_interno: null }
+      - { rotulo: "Regularizar valores em atraso", valor_interno: null }
+      - { rotulo: "Retirar seguro, tarifa ou outro custo", valor_interno: null }
+      - { rotulo: "Outra condição", valor_interno: null }
+    VARIAVEL_GRAVADA: OBJETIVO_RENEGOCIACAO
+    condicao_exibicao: &condicao_proposta_vigente_validade_desconhecida_ou_expirada
+      tipo: OU
+      termos:
+        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: VIGENTE }
+        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: VALIDADE_DESCONHECIDA }
+        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: EXPIRADA }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B7.06
+    bloco: 7
+    enunciado: A proposta exige algum valor de entrada?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → R$ ______", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_ENTRADA
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.07
+    bloco: 7
+    enunciado: Se a proposta for aceita, qual será o valor da nova parcela?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não há parcelas; é quitação à vista.", valor_interno: "A_VISTA" }
+      - { rotulo: "Não sei.", valor_interno: "DESCONHECIDA" }
+    VARIAVEL_GRAVADA: PROPOSTA_PARCELA
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.08
+    bloco: 7
+    enunciado: Quantas parcelas serão pagas nessa proposta?
+    tipo: NUMERO
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "___ parcelas", valor_interno: null }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_QTD_PARCELAS
+    condicao_exibicao:
+      tipo: NAO
+      termo: { tipo: IGUAL, variavel: PROPOSTA_PARCELA, valor: A_VISTA }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.09
+    bloco: 7
+    enunciado: O prazo da proposta é diferente da quantidade de parcelas mensais informada?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Sim → informar prazo (meses)", valor_interno: "SIM" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_PRAZO
+    condicao_exibicao:
+      tipo: NAO
+      termo: { tipo: IGUAL, variavel: PROPOSTA_PARCELA, valor: A_VISTA }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.10
+    bloco: 7
+    enunciado: A proposta informa uma nova taxa de juros?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → ____ % + periodicidade (ao mês / ao ano)", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: "PROPOSTA_TAXA (+ periodicidade)"
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.11
+    bloco: 7
+    enunciado: A proposta informa o CET — Custo Efetivo Total?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → ____ % + periodicidade", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: "PROPOSTA_CET (+ periodicidade)"
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.12
+    bloco: 7
+    enunciado: O documento ou o credor informa quanto você pagará no total se cumprir essa proposta até o fim?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → R$ ______", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_CUSTO_TOTAL
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.13
+    bloco: 7
+    enunciado: O credor diz que existe desconto nessa proposta?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_DESCONTO_EXISTE
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B7.13A."
+
+  - ID: B7.13A
+    bloco: 7
+    enunciado: Foi informado algum valor de desconto?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "____ %", valor_interno: null }
+      - { rotulo: "O credor informou apenas que existe desconto, sem detalhar.", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_DESCONTO
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: PROPOSTA_DESCONTO_EXISTE
+      valor: "SIM"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.14
+    bloco: 7
+    enunciado: A proposta inclui alguma tarifa, seguro, encargo ou outro custo adicional que não esteja claramente dentro da parcela informada?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → tipo + valor R$", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: PROPOSTA_CUSTOS_ADICIONAIS
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.15
+    bloco: 7
+    enunciado: Até quando esta proposta é válida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Data", valor_interno: null }
+      - { rotulo: "O credor não informou validade.", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: "DATA_VALIDADE_PROPOSTA → STATUS_VALIDADE_PROPOSTA"
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Validade desconhecida e material → PRIORIDADE DE INFORMAÇÃO."
+
+  - ID: B7.16
+    bloco: 7
+    enunciado: Você possui essa proposta registrada em algum documento ou canal do credor?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim, documento/contrato.", valor_interno: null }
+      - { rotulo: "Sim, aplicativo ou internet banking.", valor_interno: null }
+      - { rotulo: "Sim, mensagem/e-mail.", valor_interno: null }
+      - { rotulo: "Foi apenas informada em atendimento.", valor_interno: null }
+      - { rotulo: "Não tenho registro.", valor_interno: null }
+    VARIAVEL_GRAVADA: "FONTE_DADO (proposta)"
+    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null

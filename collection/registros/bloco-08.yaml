@@ -1,0 +1,398 @@
+# Bloco 8 — Troca e portabilidade (§11 da spec canônica, `specs/piq-app-spec.md`).
+#
+# Escopo desta tarefa (T-18): apenas `B8.01` a `B8.15`. `B8.00` (proposta de
+# troca), `B8.P01`/`B8.P02` (cascata) e `B8.EX01`/`B8.EX02` (conclusão da
+# troca / encerramento da antiga) NÃO fazem parte do escopo declarado na
+# tarefa e ficam para transcrição futura.
+#
+# Todas as perguntas deste bloco pertencem à ficha de dívida (`DIVIDA_ID`,
+# RF-17): o motor sinaliza em `ORDEM_ACOES` quais dívidas são candidatas a
+# troca, e a interface nunca decide isso sozinha. A condição de exibição
+# textual "B8.00 = Sim" da canônica é modelada como `IGUAL` sobre
+# `STATUS_TROCA`, com o valor interno correspondente a "Sim" na tabela de
+# mapeamento de B8.00 (PROPOSTA_RECEBIDA).
+
+QUESTIONARIO_VERSION: "1.0.0"
+
+perguntas:
+  - ID: B8.01
+    bloco: 8
+    enunciado: Qual destas opções descreve melhor a proposta recebida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Portabilidade — a dívida será levada para outra instituição sem liberação de dinheiro novo.", valor_interno: "A_PORTABILIDADE_VERDADEIRA" }
+      - { rotulo: "Novo crédito para quitar esta dívida — nova operação especificamente para encerrar a atual.", valor_interno: "B_CREDITO_SUBSTITUTIVO" }
+      - { rotulo: "Nova operação que quita a dívida atual e ainda libera dinheiro adicional.", valor_interno: "C_DINHEIRO_NOVO" }
+      - { rotulo: "Não sei identificar.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: TIPO_TROCA
+    condicao_exibicao: &condicao_status_troca_proposta_recebida
+      tipo: IGUAL
+      variavel: STATUS_TROCA
+      valor: PROPOSTA_RECEBIDA
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B8.02
+    bloco: 8
+    enunciado: Qual instituição está oferecendo a nova operação?
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: NOVA_INSTITUICAO
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B8.03
+    bloco: 8
+    enunciado: Qual é o valor total da nova operação proposta?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: VALOR_NOVA_OPERACAO
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.04
+    bloco: 8
+    enunciado: Quanto dessa nova operação será usado diretamente para encerrar a dívida que estamos analisando?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Todo o valor da nova operação.", valor_interno: "VALOR_NOVA_OPERACAO" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: VALOR_SUBSTITUICAO
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.05
+    bloco: 8
+    enunciado: Depois de quitar a dívida atual, a nova operação libera algum dinheiro adicional para você?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → Quanto? R$ ______", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: DINHEIRO_NOVO
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Sim → exibir box e B8.05A."
+
+  - ID: B8.05A
+    bloco: 8
+    enunciado: Qual seria a finalidade desse dinheiro adicional?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Quitar outra dívida", valor_interno: "OUTRA_DIVIDA" }
+      - { rotulo: "Emergência", valor_interno: "EMERGENCIA" }
+      - { rotulo: "Despesa necessária já prevista", valor_interno: "DESPESA_PREVISTA" }
+      - { rotulo: "Compra ou consumo", valor_interno: "CONSUMO" }
+      - { rotulo: "Formar/manter caixa", valor_interno: "CAIXA" }
+      - { rotulo: "Outra finalidade", valor_interno: "OUTRA" }
+    VARIAVEL_GRAVADA: FINALIDADE_DINHEIRO_NOVO
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: DINHEIRO_NOVO
+      valor: "SIM"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "CONSUMO → ALERTA DE NOVO ENDIVIDAMENTO (motor)."
+
+  - ID: B8.06
+    bloco: 8
+    enunciado: Qual é a taxa de juros da nova operação?
+    tipo: TAXA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "____ % + periodicidade (ao mês / ao ano)", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: "NOVA_TAXA (+ periodicidade)"
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.07
+    bloco: 8
+    enunciado: A proposta informa o CET da nova operação?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → ____ % + periodicidade", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVO_CET
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Não/Não sei → bloqueio local: CLASSIFICACAO_TROCA = A_ANALISAR (portabilidade sem CET não conclui)."
+
+  - ID: B8.08
+    bloco: 8
+    enunciado: Qual será o valor da nova parcela?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVA_PARCELA
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.09
+    bloco: 8
+    enunciado: Quantas parcelas terá a nova operação?
+    tipo: NUMERO
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "___ parcelas", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVO_PRAZO
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.10
+    bloco: 8
+    enunciado: A proposta informa quanto será pago no total até o fim da nova operação?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → R$ ______", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVO_CUSTO_TOTAL
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.11
+    bloco: 8
+    enunciado: Existe alguma tarifa ou custo adicional na nova operação?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim → R$ ______", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVAS_TARIFAS
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.12
+    bloco: 8
+    enunciado: A nova operação inclui algum seguro?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVO_SEGURO_EXISTE
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B8.12A e B8.12B."
+
+  - ID: B8.12A
+    bloco: 8
+    enunciado: Qual é o custo desse seguro?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ___ por mês", valor_interno: null }
+      - { rotulo: "R$ ___ total", valor_interno: null }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVO_SEGURO
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: NOVO_SEGURO_EXISTE
+      valor: "SIM"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.12B
+    bloco: 8
+    enunciado: Esse custo já está incluído na parcela informada?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVO_SEGURO_INCLUIDO_PARCELA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: NOVO_SEGURO_EXISTE
+      valor: "SIM"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B8.13
+    bloco: 8
+    enunciado: A nova operação exige alguma garantia que a dívida atual não possui?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim", valor_interno: "SIM" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVA_GARANTIA_EXISTE
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B8.13A e B8.13B."
+
+  - ID: B8.13A
+    bloco: 8
+    enunciado: Qual é essa garantia?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Imóvel", valor_interno: null }
+      - { rotulo: "Veículo", valor_interno: null }
+      - { rotulo: "Investimento", valor_interno: null }
+      - { rotulo: "Outro bem", valor_interno: null }
+      - { rotulo: "Aval/fiança", valor_interno: null }
+      - { rotulo: "Outra", valor_interno: null }
+    VARIAVEL_GRAVADA: NOVA_GARANTIA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: NOVA_GARANTIA_EXISTE
+      valor: "SIM"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B8.13B
+    bloco: 8
+    enunciado: Esse bem é essencial para sua moradia, trabalho, saúde ou rotina familiar?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim", valor_interno: "SIM" }
+      - { rotulo: "Parcialmente", valor_interno: "PARCIAL" }
+      - { rotulo: "Não", valor_interno: "NAO" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: NOVA_GARANTIA_ESSENCIAL
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: NOVA_GARANTIA_EXISTE
+      valor: "SIM"
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B8.14
+    bloco: 8
+    enunciado: Até quando esta proposta de troca é válida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Data", valor_interno: null }
+      - { rotulo: "Não informado", valor_interno: null }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+    VARIAVEL_GRAVADA: "DATA_VALIDADE_PROPOSTA (troca) → STATUS_VALIDADE_PROPOSTA"
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B8.15
+    bloco: 8
+    enunciado: De onde vieram as condições desta proposta?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Documento formal", valor_interno: null }
+      - { rotulo: "Aplicativo/internet banking", valor_interno: null }
+      - { rotulo: "Simulação fornecida pela instituição", valor_interno: null }
+      - { rotulo: "Atendimento", valor_interno: null }
+      - { rotulo: "Correspondente", valor_interno: null }
+      - { rotulo: "Outra fonte", valor_interno: null }
+    VARIAVEL_GRAVADA: "FONTE_DADO (troca)"
+    condicao_exibicao: *condicao_status_troca_proposta_recebida
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null

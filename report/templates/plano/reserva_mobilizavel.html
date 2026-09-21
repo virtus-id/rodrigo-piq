@@ -1,0 +1,76 @@
+{#
+    Bloco da reserva mobilizável do aluno — RF-43, AC-70, EC-18, §13.1
+    (T-116).
+
+    Incluído por `plano.html` no MESMO ponto em que `pendencias.html` é
+    incluído (report/plano.py::ContextoPlano.reserva_mobilizavel, montado por
+    `report/plano.py::_reserva_mobilizavel`) — independente do `cenario`,
+    porque "quanto da reserva está em análise" é uma condição do caso, não de
+    qual bloco principal está sendo mostrado.
+
+    Recebe do contexto de `plano.html` (report/plano.py::ContextoPlano):
+
+        reserva_mobilizavel — report.plano.ContextoReservaMobilizavel, com
+                              DOIS campos separados:
+                                pendente_de_decisao (bool) — decide qual dos
+                                    dois blocos abaixo aparece
+                                valor (str) — já formatado; só lido quando
+                                    pendente_de_decisao é False
+
+    O PORQUÊ DOS DOIS BLOCOS. Quando o aluno responde que prefere decidir
+    depois quanto da reserva quer usar (B4.03 = TALVEZ), a Regra 3 da §13.1
+    faz `RESERVA_MOBILIZAVEL` valer DESCONHECIDO — e a §13.1 é enfática:
+    "o estado DESCONHECIDA não é convertido silenciosamente em zero como
+    informação. A engine registra a pendência." Mostrar `R$ 0,00` aqui seria
+    mentir para o aluno: "ainda não decidi" e "não tenho nada" são coisas
+    diferentes, e a segunda leitura poderia levá-lo a achar que não tem
+    reserva alguma. Por isso o bloco pendente NUNCA exibe `R$ 0,00` e NUNCA
+    omite o item — omitir seria a mesma conversão silenciosa, só que
+    invisível.
+
+    Nenhuma decisão de valor é tomada aqui: as três regras da §13.1 já foram
+    aplicadas pelo motor (engine/ataque_imediato.py::
+    derivar_RESERVA_MOBILIZAVEL) e `report/plano.py` só LEU o resultado com
+    `is DESCONHECIDO`. Este template decide apenas COMO mostrar (AC-42).
+
+    ┌───────────────────────────────────────────────────────────────────────┐
+    │ PENDENTE — OQ-21, ABERTA. A REDAÇÃO NÃO SE INVENTA AQUI.              │
+    │                                                                       │
+    │ `RF-43` fixa o COMPORTAMENTO, não o texto ("esta spec fixa o          │
+    │ comportamento, não o texto"). O texto definitivo que o aluno lê no    │
+    │ estado "pendente de decisão" é insumo do especialista do método,      │
+    │ registrado como `OQ-21` em plans/app-aluno.plan.md §R2.10.1 e ainda   │
+    │ SEM RESPOSTA.                                                         │
+    │                                                                       │
+    │ O que está entregue: a estrutura condicional e o comportamento        │
+    │ testável (T-117 prova que não exibe `R$ 0,00`, que não omite o item   │
+    │ e que nenhum caminho levanta exceção — três asserções que não         │
+    │ dependem da redação). O que falta: só a redação.                      │
+    │                                                                       │
+    │ QUANDO `OQ-21` FOR RESPONDIDA: substituir o conteúdo do bloco         │
+    │ marcado `OQ-21` abaixo pelo texto entregue pelo especialista. Nenhum  │
+    │ outro arquivo precisa mudar — os testes de T-117 não dependem do      │
+    │ texto e continuarão passando.                                         │
+    │                                                                       │
+    │ Precedente do projeto: app/consentimento/registro.py, onde texto      │
+    │ pendente (`PEND-01`) tem ponto de encaixe pronto e conteúdo externo.  │
+    │ O conteúdo abaixo é INSUMO EXTERNO PENDENTE, não esquecimento.        │
+    └───────────────────────────────────────────────────────────────────────┘
+#}
+<section>
+    <h2>Reserva disponível para o plano</h2>
+
+    {% if reserva_mobilizavel.pendente_de_decisao %}
+    {# OQ-21 (ABERTA) — ponto de encaixe da redação ao aluno. O texto abaixo
+       é PROVISÓRIO e existe só para que o estado seja visível e testável:
+       nunca `R$ 0,00`, nunca item omitido. Substituir pela redação do
+       especialista quando `OQ-21` for respondida. #}
+    <p data-pendencia-redacao="OQ-21">
+        Você ainda não decidiu quanto da sua reserva quer considerar neste
+        plano. Este ponto continua em aberto e será retomado com você.
+    </p>
+    {% else %}
+    {# T-177: o valor chega com "R$" de `report/plano.py`. #}
+    <p>Valor da reserva considerado neste plano: {{ reserva_mobilizavel.valor }}.</p>
+    {% endif %}
+</section>

@@ -1,0 +1,39 @@
+{#
+    Uma posição de ORDEM_QUITACAO — RF-20, RF-22, AC-16, AC-17, AC-42 (T-60).
+
+    Incluído por `plano.html` uma vez por posição, via
+    `{% include "posicao.html" %}` dentro do `{% for %}` que itera `ordem`
+    (report/plano.py::ContextoPlano.ordem, montado por
+    `montar_contexto_plano`) — caminho relativo ao mesmo diretório de
+    `plano.html` (`report/templates/plano/`), o mesmo nível que
+    `FileSystemLoader` já usa em `tests/app_aluno/test_plano.py` (T-59).
+    Recebe UMA variável de contexto por iteração:
+
+        posicao — report.plano.ContextoPosicao
+
+    Todo valor aqui é LEITURA de `posicao.*`, já formatado por
+    `report/plano.py::_formatar_valor_de_apoio` (que aplica
+    `engine.precisao.quantizar_exibicao` a qualquer `Decimal`) — este
+    template NUNCA soma, arredonda ou reformata nada por conta própria
+    (AC-42). "posicao.indice de posicao.total" é contagem de itens da
+    sequência para exibição ("1 de 3"), não aritmética sobre valor
+    financeiro.
+#}
+<section>
+    <h2>Posição {{ posicao.indice }} de {{ posicao.total }} — {{ posicao.DIVIDA_ID }}</h2>
+
+    {# T-177: o PDF é do ALUNO — mesma redação da tela. A justificativa
+       técnica continua no payload do revisor (`AC-29`), não aqui. O
+       fallback cobre método sem redação cadastrada: texto técnico é feio,
+       posição sem explicação viola `AC-17`. #}
+    <p>{{ posicao.explicacao or posicao.JUSTIFICATIVA_POSICAO }}</p>
+
+    {% if posicao.valores_de_apoio %}
+    <dl>
+        {% for nome, valor in posicao.valores_de_apoio %}
+        <dt>{{ nome }}</dt>
+        <dd>{{ valor }}</dd>
+        {% endfor %}
+    </dl>
+    {% endif %}
+</section>

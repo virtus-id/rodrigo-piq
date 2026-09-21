@@ -1,0 +1,409 @@
+# Bloco 1 — Pacto da Virada. 16 perguntas, transcritas caractere por caractere
+# da §11 da canônica (specs/piq-app-spec.md, linhas 550-801). T-17 (RF-03,
+# RF-04, RF-09, AC-04, AC-36).
+QUESTIONARIO_VERSION: "1.0.0"
+perguntas:
+  - ID: B1.01
+    bloco: 1
+    enunciado: >-
+      Para executar este plano, qual destas frases melhor representa sua
+      situação hoje?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: >-
+          Estou disposto(a) a não assumir novas dívidas ou parcelamentos
+          enquanto estiver executando o PIQ, salvo alguma operação de
+          renegociação ou troca que faça parte do próprio plano.
+        valor_interno: ESTABELECIDO
+      - rotulo: >-
+          Quero assumir esse compromisso, mas hoje ainda existe o risco de eu
+          precisar recorrer a crédito ou parcelamento.
+        valor_interno: EM_CONSTRUCAO
+      - rotulo: Neste momento, ainda não consigo assumir esse compromisso.
+        valor_interno: NAO_ESTABELECIDO
+    VARIAVEL_GRAVADA: PACTO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "NAO_ESTABELECIDO não bloqueia o PIQ."
+
+  - ID: B1.02
+    bloco: 1
+    enunciado: >-
+      Hoje, você já pretende ou considera provável contratar algum novo
+      crédito nos próximos meses?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: Sim, já pretendo contratar.
+        valor_interno: SIM
+      - rotulo: Talvez. Existe uma possibilidade real.
+        valor_interno: TALVEZ
+      - rotulo: Não.
+        valor_interno: NAO
+    VARIAVEL_GRAVADA: NOVA_DIVIDA_PREVISTA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim ou Talvez → abre B1.03, B1.04, B1.05."
+
+  - ID: B1.03
+    bloco: 1
+    enunciado: Qual é a principal finalidade desse novo crédito?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: Pagar uma necessidade ou despesa essencial.
+        valor_interno: NECESSIDADE
+      - rotulo: Fazer uma compra ou financiar consumo.
+        valor_interno: CONSUMO
+      - rotulo: Lidar com uma emergência ou imprevisto.
+        valor_interno: EMERGENCIA
+      - rotulo: Quitar, substituir ou reorganizar uma dívida que já existe.
+        valor_interno: REESTRUTURACAO_DIVIDA
+      - rotulo: Outra finalidade.
+        valor_interno: OUTRA
+    VARIAVEL_GRAVADA: FINALIDADE_NOVA_DIVIDA
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: NOVA_DIVIDA_PREVISTA, valor: SIM}
+        - {tipo: IGUAL, variavel: NOVA_DIVIDA_PREVISTA, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "\"Outra finalidade\" → abre B1.03A."
+
+  - ID: B1.03A
+    bloco: 1
+    enunciado: Qual?
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [OPT]
+    escopo_repeticao: NENHUM
+    opcoes: []
+    VARIAVEL_GRAVADA: FINALIDADE_NOVA_DIVIDA_OUTRA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: FINALIDADE_NOVA_DIVIDA
+      valor: OUTRA
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B1.04
+    bloco: 1
+    enunciado: Qual é o valor aproximado desse novo crédito?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Ainda não sei o valor., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_NOVA_DIVIDA
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: NOVA_DIVIDA_PREVISTA, valor: SIM}
+        - {tipo: IGUAL, variavel: NOVA_DIVIDA_PREVISTA, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B1.05
+    bloco: 1
+    enunciado: Quando você imagina que essa contratação pode acontecer?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: Nos próximos 30 dias.
+        valor_interno: ATE_30D
+      - rotulo: Entre 1 e 3 meses.
+        valor_interno: 1_3M
+      - rotulo: Entre 4 e 6 meses.
+        valor_interno: 4_6M
+      - rotulo: Entre 7 e 12 meses.
+        valor_interno: 7_12M
+      - rotulo: Depois de 12 meses.
+        valor_interno: APOS_12M
+      - rotulo: Ainda não sei.
+        valor_interno: NAO_SEI
+    VARIAVEL_GRAVADA: JANELA_NOVA_DIVIDA
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: NOVA_DIVIDA_PREVISTA, valor: SIM}
+        - {tipo: IGUAL, variavel: NOVA_DIVIDA_PREVISTA, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      DATA_NOVA_DIVIDA gravada somente quando houver data concreta.
+
+  - ID: B1.06
+    bloco: 1
+    enunciado: >-
+      Nos próximos 12 meses, você já sabe de alguma despesa relevante que
+      terá de pagar e para a qual ainda não reservou todo o dinheiro
+      necessário?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: "Não sei / ainda não consigo prever.", valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: OBRIGACAO_FUTURA_INEVITAVEL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → abre ficha REP B1.06A–C (permitir mais de uma obrigação).
+
+  - ID: B1.06A
+    bloco: 1
+    enunciado: Que despesa é essa?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Imposto ou obrigação anual, valor_interno: null}
+      - {rotulo: Educação, valor_interno: null}
+      - {rotulo: Saúde, valor_interno: null}
+      - {rotulo: Moradia, valor_interno: null}
+      - {rotulo: Veículo, valor_interno: null}
+      - {rotulo: Despesa familiar, valor_interno: null}
+      - {rotulo: Mudança, valor_interno: null}
+      - {rotulo: Viagem necessária, valor_interno: null}
+      - {rotulo: Outra, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_OBRIGACAO_FUTURA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: OBRIGACAO_FUTURA_INEVITAVEL
+      valor: SIM
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B1.06B
+    bloco: 1
+    enunciado: Quanto você estima que precisará pagar?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Ainda não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_OBRIGACAO_FUTURA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: OBRIGACAO_FUTURA_INEVITAVEL
+      valor: SIM
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B1.06C
+    bloco: 1
+    enunciado: Quando essa despesa deve acontecer?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Próximos 30 dias, valor_interno: null}
+      - {rotulo: 1–3 meses, valor_interno: null}
+      - {rotulo: 4–6 meses, valor_interno: null}
+      - {rotulo: 7–12 meses, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: JANELA_OBRIGACAO_FUTURA
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: OBRIGACAO_FUTURA_INEVITAVEL
+      valor: SIM
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B1.07
+    bloco: 1
+    enunciado: >-
+      Você já pretende fazer alguma nova compra parcelada nos próximos
+      meses?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Talvez.", valor_interno: TALVEZ}
+      - {rotulo: "Não.", valor_interno: NAO}
+    VARIAVEL_GRAVADA: NOVO_PARCELAMENTO_PREVISTO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B1.08
+    bloco: 1
+    enunciado: >-
+      Hoje, você considera usar limite ou crédito disponível para alguma
+      destas situações?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Para pagar despesas normais do mês., valor_interno: DESPESAS_MES}
+      - {rotulo: Para uma compra ou gasto de consumo., valor_interno: CONSUMO}
+      - {rotulo: Para uma emergência., valor_interno: EMERGENCIA}
+      - {rotulo: Para pagar outra dívida., valor_interno: OUTRA_DIVIDA}
+      - {rotulo: Para substituir uma dívida cara por outra potencialmente mais barata., valor_interno: REESTRUTURACAO}
+      - {rotulo: "Talvez eu precise usar, mas ainda não sei para quê.", valor_interno: INDEFINIDO}
+      - {rotulo: Não pretendo utilizar crédito disponível., valor_interno: NAO_PRETENDE}
+    VARIAVEL_GRAVADA: USO_CREDITO_PREVISTO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      "Não pretendo utilizar crédito disponível" é exclusiva.
+
+  - ID: B1.09
+    bloco: 1
+    enunciado: >-
+      Quando o dinheiro do mês não é suficiente, o que você costuma fazer?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Corto ou adio algum gasto., valor_interno: CORTE}
+      - {rotulo: Uso dinheiro da reserva., valor_interno: RESERVA}
+      - {rotulo: Uso cartão de crédito., valor_interno: CARTAO}
+      - {rotulo: Entro no cheque especial., valor_interno: CHEQUE_ESPECIAL}
+      - {rotulo: Faço empréstimo ou uso crédito pré-aprovado., valor_interno: EMPRESTIMO}
+      - {rotulo: Parcelo contas ou compras para caber no mês., valor_interno: PARCELAMENTO}
+      - {rotulo: Atraso alguma conta ou dívida., valor_interno: ATRASO}
+      - {rotulo: Peço ajuda financeira a familiar ou outra pessoa., valor_interno: TERCEIRO}
+      - {rotulo: Busco renda extra ou vendo alguma coisa., valor_interno: RENDA_EXTRA}
+      - {rotulo: Isso normalmente não acontece comigo., valor_interno: NAO_OCORRE}
+      - {rotulo: Outra situação., valor_interno: OUTRA}
+    VARIAVEL_GRAVADA: MECANISMO_DEFICIT
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      "Outra situação" → texto curto OPT. "Isso normalmente não acontece
+      comigo" é exclusiva.
+
+  - ID: B1.10
+    bloco: 1
+    enunciado: >-
+      Nos últimos 12 meses, você assumiu alguma nova dívida ou parcelamento
+      mesmo já tendo outras dívidas em aberto?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim, mais de uma vez.", valor_interno: MAIS_DE_UMA}
+      - {rotulo: "Sim, uma vez.", valor_interno: UMA}
+      - {rotulo: "Não.", valor_interno: NENHUMA}
+      - {rotulo: Não tenho certeza., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: HISTORICO_RECAIDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → abre B1.11. HISTORICO_RECAIDA: SIM (A ou B) · NAO · NAO_SEI.
+      Auxiliar FREQUENCIA_RECAIDA_RECENTE: MAIS_DE_UMA · UMA · NENHUMA ·
+      NAO_SEI.
+
+  - ID: B1.11
+    bloco: 1
+    enunciado: >-
+      Pensando principalmente nessa nova dívida ou parcelamento, qual foi o
+      motivo mais importante?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: A renda não foi suficiente para as despesas do mês., valor_interno: RENDA_INSUFICIENTE}
+      - {rotulo: Apareceu uma emergência ou imprevisto., valor_interno: EMERGENCIA}
+      - {rotulo: Eu não tinha reserva financeira., valor_interno: SEM_RESERVA}
+      - {rotulo: Usei crédito ou parcelamento para conseguir fazer uma compra., valor_interno: COMPRA_CREDITO}
+      - {rotulo: Fiz uma compra por impulso ou sem planejamento., valor_interno: IMPULSO}
+      - {rotulo: Mantive um padrão de gastos que meu orçamento não comportava., valor_interno: PADRAO_VIDA}
+      - {rotulo: Assumi a dívida para ajudar outra pessoa., valor_interno: AJUDA_TERCEIRO}
+      - {rotulo: Fiz uma dívida para pagar outra dívida., valor_interno: DIVIDA_PARA_DIVIDA}
+      - {rotulo: Perdi o controle ou não sabia exatamente quanto já estava comprometido., valor_interno: FALTA_CONTROLE}
+      - {rotulo: Outro motivo., valor_interno: OUTRO}
+      - {rotulo: Não consigo identificar um motivo principal., valor_interno: NAO_IDENTIFICA}
+    VARIAVEL_GRAVADA: CAUSA_RECAIDA
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: HISTORICO_RECAIDA, valor: MAIS_DE_UMA}
+        - {tipo: IGUAL, variavel: HISTORICO_RECAIDA, valor: UMA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "\"Outro motivo\" → texto curto OPT."
+
+  - ID: B1.12
+    bloco: 1
+    enunciado: >-
+      Existe outra pessoa cuja renda, gastos ou decisões financeiras
+      influenciem diretamente a execução do seu plano?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: >-
+          Não. Minha vida financeira e as decisões deste plano dependem
+          principalmente de mim.
+        valor_interno: NAO_APLICAVEL
+      - rotulo: Sim. Essa pessoa conhece a situação e está alinhada comigo.
+        valor_interno: ALINHADA
+      - rotulo: >-
+          Sim. Essa pessoa conhece a situação, mas ainda não estamos
+          totalmente alinhados.
+        valor_interno: PARCIALMENTE_ALINHADA
+      - rotulo: >-
+          Sim. Essa pessoa participa das finanças, mas conhece pouco ou
+          ainda não conhece a situação completa.
+        valor_interno: ALINHAMENTO_NECESSARIO
+    VARIAVEL_GRAVADA: PARTICIPACAO_FAMILIAR
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      C ou D → pode gerar ACAO_ALINHAMENTO_FAMILIAR (B12.13).

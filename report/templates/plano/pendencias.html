@@ -1,0 +1,39 @@
+{#
+    Bloco de pendências do plano PROVISORIA — EC-08, RF-16, RF-21 (T-62).
+
+    Incluído por `plano.html` sempre que `pendencias is not None`
+    (report/plano.py::ContextoPlano.pendencias, montado por
+    `report/plano.py::_pendencias` quando snapshot.ORDEM_STATUS ==
+    ORDEM_STATUS.PROVISORIA) — independente do `cenario` escolhido, porque
+    um plano pode estar PROVISORIA tanto no fluxo normal quanto em
+    ORDEM_VAZIA/ESTABILIZACAO. Lista as informações faltantes tal como
+    LIDAS do snapshot (snapshot.estado_inputs) — nenhum recálculo, nenhuma
+    inferência sobre o que falta (AC-42, RF-16).
+
+    Recebe do contexto de `plano.html` (report/plano.py::ContextoPlano):
+
+        pendencias — report.plano.ContextoPendencias | None
+#}
+{% if pendencias %}
+<section>
+    <h2>Seu plano ainda é provisório</h2>
+
+    <p>
+        Este plano é provisório porque faltam algumas informações. Assim
+        que elas forem informadas, o plano deixa de ser provisório.
+    </p>
+
+    <ul>
+        {% if pendencias.inventario_incompleto %}
+        <li>O cadastro das suas dívidas ainda não foi confirmado como completo.</li>
+        {% endif %}
+
+        {% for divida_id, campos in pendencias.campos_faltantes_por_divida %}
+        <li>
+            <strong>{{ divida_id }}</strong>: falta informar
+            {{ campos | join(", ") }}.
+        </li>
+        {% endfor %}
+    </ul>
+</section>
+{% endif %}

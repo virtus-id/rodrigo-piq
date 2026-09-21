@@ -1,0 +1,82 @@
+# Bloco 10 — Ataque imediato (§11 da spec canônica, `specs/piq-app-spec.md`).
+#
+# As duas perguntas do bloco (RF-18): `condicao_exibicao: null` em ambas —
+# "ATAQUE_IMEDIATO_RECOMENDADO > 0" (B10.C01) é um limiar numérico sobre um
+# campo do snapshot, inexprimível no vocabulário fechado de `Condicao`
+# (IGUAL/CONTEM/EXISTE_ITEM/E/OU/NAO, todos comparação por igualdade ou
+# pertencimento); o gate de estado que só torna o Bloco 10 alcançável quando
+# esse campo é maior que zero é implementado na máquina de estados do caso
+# (`app/casos/confirmacao_ataque.py`, T-77), fora do escopo desta tarefa
+# (Data). "B10.C01 = PARTE" (B10.C01A) É exprimível e está declarada abaixo.
+#
+# AC-24 / RF-18: NENHUMA pergunta deste bloco pede ao aluno escolher qual
+# dívida receberá o recurso — a ordem é do motor (ORDEM_QUITACAO). Nenhum
+# registro abaixo tem escopo_repeticao diferente de NENHUM nem opção de
+# escolha de dívida.
+#
+# A validação cruzada `0 ≤ ATAQUE_IMEDIATO_APROVADO ≤ ATAQUE_IMEDIATO_
+# RECOMENDADO` da canônica é declarada em B10.C01A como duas ValidacaoCruzada
+# (limite inferior e superior). `variavel_direita: ATAQUE_IMEDIATO_RECOMENDADO`
+# nomeia literalmente o campo do snapshot (mesmo nome canônico) — o comparador
+# genérico de T-13 (`collection/validacao.py::validar_cruzada`) resolve essa
+# variável através da implementação de `Respostas` que a ponte de T-78
+# (`app/casos/confirmacao_ataque.py`) fornece: uma LEITURA do snapshot, nunca
+# um literal de limite em `.py` nem um recálculo.
+
+QUESTIONARIO_VERSION: "1.0.0"
+
+perguntas:
+  - ID: B10.C01
+    bloco: 10
+    enunciado: Quanto desse valor recomendado você realmente confirma que pretende utilizar no plano?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - { rotulo: "Quero utilizar todo o valor recomendado.", valor_interno: "TODO" }
+      - { rotulo: "Quero utilizar apenas uma parte.", valor_interno: "PARTE" }
+      - { rotulo: "Não quero utilizar esse recurso agora.", valor_interno: "NAO" }
+      - { rotulo: "Quero revisar a recomendação antes de decidir.", valor_interno: "REVISAR" }
+    VARIAVEL_GRAVADA: ATAQUE_IMEDIATO_APROVADO
+    # Condição de exibição real ("ATAQUE_IMEDIATO_RECOMENDADO > 0") é um gate
+    # de estado do caso (T-77), não uma Condicao de registro — ver cabeçalho.
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "TODO → = RECOMENDADO. PARTE → B10.C01A. NAO → 0. REVISAR → pendente (0 até decidir). Validação: 0 ≤ APROVADO ≤ RECOMENDADO. Não perguntar qual dívida receberá o recurso — a ordem é do motor."
+
+  - ID: B10.C01A
+    bloco: 10
+    enunciado: Qual valor você confirma?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+    VARIAVEL_GRAVADA: ATAQUE_IMEDIATO_APROVADO
+    condicao_exibicao:
+      tipo: IGUAL
+      variavel: ATAQUE_IMEDIATO_APROVADO
+      valor: "PARTE"
+    interpolacoes: []
+    validacoes_cruzadas:
+      # Limite inferior: 0 ≤ ATAQUE_IMEDIATO_APROVADO. ZERO é a constante
+      # resolvida por qualquer implementação de Respostas (nunca uma dívida
+      # ou item real) — o mesmo mecanismo genérico de T-13, sem literal em .py.
+      - variavel_esquerda: ZERO
+        operador: "<="
+        variavel_direita: ATAQUE_IMEDIATO_APROVADO
+        escopo: NENHUM
+        mensagem: "O valor confirmado não pode ser negativo."
+      # Limite superior: ATAQUE_IMEDIATO_APROVADO ≤ ATAQUE_IMEDIATO_RECOMENDADO,
+      # com o limite lido do campo do snapshot (AC-42), nunca recalculado.
+      - variavel_esquerda: ATAQUE_IMEDIATO_APROVADO
+        operador: "<="
+        variavel_direita: ATAQUE_IMEDIATO_RECOMENDADO
+        escopo: NENHUM
+        mensagem: "O valor confirmado não pode ser maior que o valor recomendado pelo PIQ."
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null

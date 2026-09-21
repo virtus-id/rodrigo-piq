@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://piq.local/parameters/esquema-parametros.json",
+  "title": "Esquema dos parâmetros ajustáveis do motor PIQ",
+  "description": "Valida parameters/parametros-<versao>.json: exige ENGINE_VERSION, PARAMETROS_VERSION, DATA_VIGENCIA, os 38 parâmetros P_* ativos (nota OQ-20 — a canônica lista 39 linhas P_*, 38 após deprecar P_CAIXA_VS_ESTRUTURAL) e as três chaves REGRA_* de comportamento. Proíbe explicitamente P_CAIXA_VS_ESTRUTURAL (DEPRECATED, OQ-02, §11.8).",
+  "type": "object",
+  "properties": {
+    "ENGINE_VERSION": {
+      "type": "string",
+      "description": "Versão do motor que produziu/consome este arquivo (regra V-03)."
+    },
+    "PARAMETROS_VERSION": {
+      "type": "string",
+      "description": "Versão do conjunto de parâmetros, usada para abortar carga divergente (T-07)."
+    },
+    "DATA_VIGENCIA": {
+      "type": "string",
+      "format": "date",
+      "description": "Data a partir da qual este conjunto de parâmetros vale."
+    },
+
+    "P_DIFERENCA_ECONOMICA_MATERIAL": { "type": "number" },
+    "P_CUSTO_ELEVADO_GATILHO_B7": { "type": "number" },
+    "P_PRESSAO_GATILHO_B7": { "type": "number" },
+    "P_DESCONTO_RELEVANTE": { "type": "number" },
+    "P_CUSTO_RELEVANTE_GATILHO_B8": { "type": "number" },
+    "P_SALDO_MINIMO_TROCA": { "type": "number" },
+    "P_PRAZO_MINIMO_TROCA": { "type": "number" },
+    "P_QTD_BARREIRAS_CENTRAIS": { "type": "number" },
+    "P_LIMIAR_RISCO_RECAIDA": { "type": "number" },
+    "P_LIMIAR_RISCO_COMPORTAMENTAL_GERAL": { "type": "number" },
+    "P_MESES_VITORIA_RAPIDA": { "type": "number" },
+    "P_DIFERENCA_CUSTO_EQUIVALENTE": { "type": "number" },
+    "P_DIFERENCA_PRAZO_EQUIVALENTE": { "type": "number" },
+    "P_REDUCAO_RENDA_VARIAVEL": { "type": "number" },
+    "P_REDUCAO_CONFIABILIDADE_MEDIA": { "type": "number" },
+    "P_REDUCAO_CONFIABILIDADE_BAIXA": { "type": "number" },
+    "P_REDUCAO_RISCO_COMPORTAMENTAL_ALTO": { "type": "number" },
+    "P_REDUCAO_HISTORICO_RECAIDA": { "type": "number" },
+    "P_FATOR_SEGURANCA_MINIMO": { "type": "number" },
+    "P_FATOR_RENDA_VARIAVEL": { "type": "number" },
+    "P_PISO_CAPACIDADE_ABSOLUTO": { "type": "number" },
+    "P_PISO_CAPACIDADE_PERCENTUAL": { "type": "number" },
+    "P_TAXA_TOX_MODERADA": { "type": "number" },
+    "P_TAXA_TOX_ALTA": { "type": "number" },
+    "P_TAXA_TOX_MUITO_ALTA": { "type": "number" },
+    "P_TAXA_TOX_CRITICA": { "type": "number" },
+
+    "P_PRESSAO_INDIVIDUAL": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 1,
+      "description": "Multi-valor da canônica (nota OQ-20): faixas de pressão individual, sem nomes de sufixo escritos na fonte."
+    },
+    "P_PRESSAO_TOTAL": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 1,
+      "description": "Multi-valor da canônica (nota OQ-20): faixas de pressão total, sem nomes de sufixo escritos na fonte."
+    },
+    "P_ESCALA_0_10": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 1,
+      "description": "Multi-valor da canônica (nota OQ-20): cortes da escala 0-10, sem nomes de sufixo escritos na fonte."
+    },
+
+    "P_DIFERENCA_TAXAS_RELEVANTE": { "type": "number" },
+    "P_REVISAO_DESCONTO": { "type": "number" },
+    "P_REVISAO_REDUCAO_CUSTO_TROCA": { "type": "number" },
+    "P_REVISAO_CAPACIDADE_PCT": { "type": "number" },
+    "P_REVISAO_CAPACIDADE_MESES": { "type": "number" },
+    "P_HORIZONTE_ALERTA": { "type": "number" },
+    "P_HORIZONTE_MAXIMO_SIMULACAO": { "type": "number" },
+    "P_INCOMPATIBILIDADE_NECESSIDADE_VITORIA": { "type": "number" },
+    "P_AUTOPERCEPCAO": { "type": "number" },
+
+    "REGRA_RESIDUO_ATAQUE": { "type": "string" },
+    "REGRA_RANQUEAMENTO": { "type": "string" },
+    "REGRA_DELTA_RESIDUO": { "type": "string" },
+
+    "P_CAIXA_VS_ESTRUTURAL": false
+  },
+  "required": [
+    "ENGINE_VERSION",
+    "PARAMETROS_VERSION",
+    "DATA_VIGENCIA",
+
+    "P_DIFERENCA_ECONOMICA_MATERIAL",
+    "P_CUSTO_ELEVADO_GATILHO_B7",
+    "P_PRESSAO_GATILHO_B7",
+    "P_DESCONTO_RELEVANTE",
+    "P_CUSTO_RELEVANTE_GATILHO_B8",
+    "P_SALDO_MINIMO_TROCA",
+    "P_PRAZO_MINIMO_TROCA",
+    "P_QTD_BARREIRAS_CENTRAIS",
+    "P_LIMIAR_RISCO_RECAIDA",
+    "P_LIMIAR_RISCO_COMPORTAMENTAL_GERAL",
+    "P_MESES_VITORIA_RAPIDA",
+    "P_DIFERENCA_CUSTO_EQUIVALENTE",
+    "P_DIFERENCA_PRAZO_EQUIVALENTE",
+    "P_REDUCAO_RENDA_VARIAVEL",
+    "P_REDUCAO_CONFIABILIDADE_MEDIA",
+    "P_REDUCAO_CONFIABILIDADE_BAIXA",
+    "P_REDUCAO_RISCO_COMPORTAMENTAL_ALTO",
+    "P_REDUCAO_HISTORICO_RECAIDA",
+    "P_FATOR_SEGURANCA_MINIMO",
+    "P_FATOR_RENDA_VARIAVEL",
+    "P_PISO_CAPACIDADE_ABSOLUTO",
+    "P_PISO_CAPACIDADE_PERCENTUAL",
+    "P_TAXA_TOX_MODERADA",
+    "P_TAXA_TOX_ALTA",
+    "P_TAXA_TOX_MUITO_ALTA",
+    "P_TAXA_TOX_CRITICA",
+    "P_PRESSAO_INDIVIDUAL",
+    "P_PRESSAO_TOTAL",
+    "P_ESCALA_0_10",
+    "P_DIFERENCA_TAXAS_RELEVANTE",
+    "P_REVISAO_DESCONTO",
+    "P_REVISAO_REDUCAO_CUSTO_TROCA",
+    "P_REVISAO_CAPACIDADE_PCT",
+    "P_REVISAO_CAPACIDADE_MESES",
+    "P_HORIZONTE_ALERTA",
+    "P_HORIZONTE_MAXIMO_SIMULACAO",
+    "P_INCOMPATIBILIDADE_NECESSIDADE_VITORIA",
+    "P_AUTOPERCEPCAO",
+
+    "REGRA_RESIDUO_ATAQUE",
+    "REGRA_RANQUEAMENTO",
+    "REGRA_DELTA_RESIDUO"
+  ],
+  "not": {
+    "required": ["P_CAIXA_VS_ESTRUTURAL"]
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,120 @@
+# Validação do fluxo SDD em CI.
+# Genérico: descobre features pelo slug, não depende de nomes fixos.
+# Não usa GitHub Actions? Apague este arquivo — o kit funciona sem ele.
+name: Validate SDD
+
+on:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Config preenchido
+        run: |
+          if [ ! -f sdd.config.md ]; then
+            echo "::error::sdd.config.md ausente. Rode /sdd:config."
+            exit 1
+          fi
+          if grep -qE '<[a-zà-ú][^>]*>' sdd.config.md; then
+            echo "::error::sdd.config.md ainda tem placeholders <...> não preenchidos."
+            grep -nE '<[a-zà-ú][^>]*>' sdd.config.md | head -20
+            exit 1
+          fi
+          echo "Config preenchido."
+
+      - name: Ordem Spec -> Plan -> Tasks
+        run: |
+          FAIL=0
+          shopt -s nullglob
+
+          for plan in plans/*.plan.md; do
+            slug=$(basename "$plan" .plan.md)
+            if [ ! -f "specs/$slug.spec.md" ]; then
+              echo "::error file=$plan::Plano sem spec. Crie specs/$slug.spec.md primeiro."
+              FAIL=1
+            fi
+          done
+
+          for tasks in tasks/*.tasks.md; do
+            slug=$(basename "$tasks" .tasks.md)
+            for req in "specs/$slug.spec.md" "plans/$slug.plan.md"; do
+              if [ ! -f "$req" ]; then
+                echo "::error file=$tasks::Tarefas sem $req. Respeite Spec -> Plan -> Tasks."
+                FAIL=1
+              fi
+            done
+          done
+
+          exit $FAIL
+
+      - name: Seções obrigatórias das specs
+        run: |
+          FAIL=0
+          shopt -s nullglob
+          REQUIRED=("Overview" "Functional Requirements" "User Stories" "Acceptance Criteria" "Non-Functional Requirements" "Edge Cases" "Assumptions" "Risks" "Out of Scope")
+
+          for spec in specs/*.spec.md; do
+            for section in "${REQUIRED[@]}"; do
+              grep -qi "$section" "$spec" || {
+                echo "::error file=$spec::Seção obrigatória ausente: $section"
+                FAIL=1
+              }
+            done
+            grep -qE 'RF-[0-9]+' "$spec" || {
+              echo "::error file=$spec::Nenhum requisito RF-NN identificado."
+              FAIL=1
+            }
+            grep -qE 'AC-[0-9]+' "$spec" || {
+              echo "::error file=$spec::Nenhum critério de aceite AC-NN identificado."
+              FAIL=1
+            }
+          done
+
+          exit $FAIL
+
+      - name: Seções obrigatórias dos planos
+        run: |
+          FAIL=0
+          shopt -s nullglob
+          REQUIRED=("Architecture" "Tech Stack" "Data Model" "Data Flow" "Error Handling" "Testing Strategy" "Traceability")
+
+          for plan in plans/*.plan.md; do
+            for section in "${REQUIRED[@]}"; do
+              grep -qi "$section" "$plan" || {
+                echo "::error file=$plan::Seção obrigatória ausente: $section"
+                FAIL=1
+              }
+            done
+          done
+
+          exit $FAIL
+
+      - name: Rastreabilidade Spec -> Tasks
+        run: |
+          FAIL=0
+          shopt -s nullglob
+
+          for tasks in tasks/*.tasks.md; do
+            slug=$(basename "$tasks" .tasks.md)
+            spec="specs/$slug.spec.md"
+            [ -f "$spec" ] || continue
+
+            for rf in $(grep -oE 'RF-[0-9]+' "$spec" | sort -u); do
+              grep -q "$rf" "$tasks" || {
+                echo "::error file=$tasks::$rf da spec não tem nenhuma tarefa correspondente."
+                FAIL=1
+              }
+            done
+
+            count=$(grep -cE '^#{2,4} `?T-[0-9]+' "$tasks" || true)
+            echo "$slug: $count tarefas."
+            if [ "$count" -lt 3 ]; then
+              echo "::error file=$tasks::Backlog pouco granular ($count tarefas). Quebre mais."
+              FAIL=1
+            fi
+          done
+
+          exit $FAIL

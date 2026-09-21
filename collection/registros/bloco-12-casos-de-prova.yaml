@@ -1,0 +1,205 @@
+# collection/registros/bloco-12-casos-de-prova.yaml — T-19
+#
+# ATENÇÃO: O BLOCO 12 (Blindagem e pós-quitação, 19 perguntas) NÃO É
+# IMPLEMENTADO COMO FLUXO DE COLETA nesta feature (plans/app-aluno.plan.md,
+# specs/app-aluno.spec.md §9 "Out of Scope"; OQ-12). A decisão do especialista
+# fixou a coleta desta entrega em Etapa B (Blocos 1-5) mais Blocos 7, 8, 10 e
+# 11 — o Bloco 12 inteiro fica de fora.
+#
+# Este arquivo transcreve APENAS as três perguntas que a spec §9 nomeia
+# explicitamente como CASOS DE PROVA DO GERADOR (RF-05, RF-08): B12.08,
+# B12.15 e B12.16. Elas existem aqui só para exercitar três mecanismos do
+# gerador que nenhuma pergunta dos blocos em escopo cobre sozinha:
+#   - B12.08: condicao_exibicao composta de QUATRO origens diferentes
+#     (CondicaoOu de quatro termos), sem nenhuma linha de código específica
+#     dela (AC-21).
+#   - B12.15: repetição dirigida pelo motor — uma pergunta por regra
+#     SE-ENTAO proposta pelo motor, não por item cadastrado pelo aluno
+#     (RF-04, mesmo mecanismo de escopo_repeticao).
+#   - B12.16: origem_opcoes.fonte = SNAPSHOT — as opções vêm do que o motor
+#     já calculou para o caso, nunca de uma lista fixa (AC-20, AC-42).
+#
+# As outras 16 perguntas do Bloco 12 (B12.01-B12.07, B12.09-B12.14, B12.16A,
+# B12.17) NÃO estão aqui e não são coletadas por esta feature.
+
+QUESTIONARIO_VERSION: "1.0.0"
+
+perguntas:
+  # --------------------------------------------------------------------
+  # B12.08 — Regra do cartão (spec canônica, linhas 4694-4706)
+  #
+  # "Qual regra para o cartão de crédito faz mais sentido para sua nova
+  # fase?" — COND, Seleção única, variável gravada REGRA_CARTAO.
+  #
+  # Condição de exibição da canônica, literal: "Cartão relevante: dívida de
+  # cartão no B5, CARTAO em MECANISMO_DEFICIT, RISCO_PRINCIPAL_RECAIDA =
+  # CARTAO ou B12.01 inclui cartão" — quatro origens diferentes, unidas por
+  # OU, cada uma resolvida por um nó diferente da árvore de Condicao:
+  #   1. Dívida de cartão no B5       -> CondicaoExisteItem sobre
+  #      escopo=DIVIDA_ID, variavel=TIPO_DIVIDA (B5.A02), valor em
+  #      {CARTAO_ROTATIVO, CARTAO_PARCELADO} (domínio de TIPO_DIVIDA, §11).
+  #   2. CARTAO em MECANISMO_DEFICIT  -> CondicaoContem sobre a variável de
+  #      B1.09 (checklist múltipla, domínio publicado na §11).
+  #   3. RISCO_PRINCIPAL_RECAIDA = CARTAO -> CondicaoIgual sobre a variável
+  #      de B12.03 (domínio publicado na §11).
+  #   4. B12.01 inclui cartão         -> CondicaoContem sobre
+  #      CAUSAS_ENDIVIDAMENTO (B12.01, checklist múltipla). A §11 não
+  #      publica "valor_interno" para as opções de CAUSAS_ENDIVIDAMENTO
+  #      (só a coluna de rótulo) — como esta pergunta é caso de prova, não
+  #      fluxo real, o termo usa o rótulo canônico exato da opção "Uso do
+  #      cartão de crédito." em vez de inventar um código que a canônica
+  #      não fixa.
+  - ID: B12.08
+    bloco: 12
+    enunciado: "Qual regra para o cartão de crédito faz mais sentido para sua nova fase?"
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: "Não utilizar cartão por enquanto."
+        valor_interno: null
+      - rotulo: "Usar somente para gastos planejados."
+        valor_interno: null
+      - rotulo: "Usar apenas quando o dinheiro para pagar a compra já estiver reservado."
+        valor_interno: null
+      - rotulo: "Reduzir o limite."
+        valor_interno: null
+      - rotulo: "Não fazer novas compras parceladas."
+        valor_interno: null
+      - rotulo: "Usar cartão apenas para uma finalidade específica."
+        valor_interno: null
+      - rotulo: "Outra regra."
+        valor_interno: null
+    VARIAVEL_GRAVADA: REGRA_CARTAO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - tipo: EXISTE_ITEM
+          escopo: DIVIDA_ID
+          variavel: TIPO_DIVIDA
+          valor_em: [CARTAO_ROTATIVO, CARTAO_PARCELADO]
+        - tipo: CONTEM
+          variavel: MECANISMO_DEFICIT
+          valor: CARTAO
+        - tipo: IGUAL
+          variavel: RISCO_PRINCIPAL_RECAIDA
+          valor: CARTAO
+        - tipo: CONTEM
+          variavel: CAUSAS_ENDIVIDAMENTO
+          valor: "Uso do cartão de crédito."
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes:
+      fonte: REGISTRO
+      campo_do_snapshot: null
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  # --------------------------------------------------------------------
+  # B12.15 — Plano de resposta (spec canônica, linhas 4806-4821)
+  #
+  # "Você aceita esta regra de resposta?" — COND, Seleção única, variável
+  # gravada PLANO_RESPOSTA_RECAIDA.
+  #
+  # Texto normativo da própria pergunta: "O motor seleciona risco/sinal e
+  # apresenta: 'SE [sinal], ENTÃO [resposta].' Uma pergunta por regra
+  # proposta." — ou seja, a cardinalidade da repetição não é um item que o
+  # aluno cadastrou (dívida, vínculo, margem, despesa), e sim uma regra
+  # SE-ENTAO que o MOTOR propõe. Nos seis membros de EscopoRepeticao
+  # (collection/registro.py), os cinco concretos (DIVIDA_ID, VINCULO_ID,
+  # MARGEM_ID, ITEM_DESPESA, ACAO_ID) representam item cadastrado pelo
+  # aluno — nenhum deles nasceu para "item calculado pelo motor". ACAO_ID
+  # é o único que já representa um item cuja existência e cardinalidade são
+  # determinadas pelo motor, não pelo aluno: é o mesmo escopo usado pelo
+  # Bloco 11 (T-18) para perguntas vinculadas a uma AcaoRequerida de
+  # ORDEM_ACOES (SnapshotOrdem) — "repetição dirigida pelo motor", não por
+  # cadastro do aluno. Reaproveitar ACAO_ID aqui é a mesma ideia aplicada a
+  # "uma pergunta por regra proposta pelo motor": cada regra SE-ENTAO é
+  # tratada, para efeito do mecanismo de repetição, como um item do escopo
+  # ACAO_ID — sem introduzir um sétimo membro no domínio fechado de
+  # EscopoRepeticao (o que exigiria mudança de esquema fora do escopo desta
+  # tarefa). Isto é uma simplificação de caso de prova: B12.15 não é
+  # implementada como fluxo real, e "regra proposta" aqui não é
+  # necessariamente a MESMA ação de dívida do Bloco 11 — é o encaixe mais
+  # próximo disponível no domínio fechado atual, exercitando o mecanismo
+  # de repetição dirigida pelo motor (RF-04) sem inventar domínio novo.
+  - ID: B12.15
+    bloco: 12
+    enunciado: "Você aceita esta regra de resposta?"
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: ACAO_ID
+    opcoes:
+      - rotulo: "Sim."
+        valor_interno: ACEITA
+      - rotulo: "Quero ajustar."
+        valor_interno: AJUSTAR
+      - rotulo: "Não."
+        valor_interno: RECUSA
+    VARIAVEL_GRAVADA: PLANO_RESPOSTA_RECAIDA
+    condicao_exibicao:
+      tipo: EXISTE_ITEM
+      escopo: ACAO_ID
+      variavel: TIPO_ACAO
+      valor_em: [REGRA_PROPOSTA]
+      # "Para cada regra SE→ENTAO proposta pelo motor" (canônica). TIPO_ACAO
+      # é o discriminador de item de ACAO_ID já usado pelo Bloco 11
+      # (OQ-10/OQ-13, plano §Assumptions). REGRA_PROPOSTA não é um dos
+      # quatro valores de TIPO_ACAO já mapeados por OQ-13 (INFORMACAO,
+      # INTERVENCAO/renegociação, TROCA, CORRECAO/economia) — é um valor de
+      # caso de prova para exercitar o mecanismo de EXISTE_ITEM sobre
+      # ACAO_ID, não uma proposta de estender o domínio real de TIPO_ACAO
+      # (essa decisão pertence a OQ-13, fora desta tarefa).
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes:
+      fonte: REGISTRO
+      campo_do_snapshot: null
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  # --------------------------------------------------------------------
+  # B12.16 — Regra pessoal (spec canônica, linhas 4823-4837)
+  #
+  # "Qual destas frases você quer adotar como sua regra principal?" — OBR,
+  # Seleção única, variável gravada REGRA_PESSOAL.
+  #
+  # Texto normativo da própria pergunta: "O motor apresenta 2 ou 3 regras
+  # coerentes com o caso; as frases acima são exemplos, exibidos somente se
+  # aderentes." — as opções de resposta não são fixas: vêm do que o motor
+  # calculou para aquele caso (origem_opcoes.fonte = SNAPSHOT, AC-20).
+  #
+  # Campo do snapshot escolhido: SnapshotOrdem.ORDEM_ACOES
+  # (engine/snapshot.py) — tupla de AcaoRequerida (engine/gates.py), cada
+  # uma com um campo `descricao: str` (motivo/ação necessária, texto
+  # auditável). É o único campo de SnapshotOrdem que carrega uma coleção de
+  # itens com um texto explicativo associado — a forma mais próxima
+  # disponível hoje de "regras coerentes com o caso". SIMPLIFICAÇÃO DE CASO
+  # DE PROVA, declarada explicitamente: ORDEM_ACOES é produzida pelos Gates
+  # 2/3 do motor sobre DÍVIDAS (ação requerida por gate), não pela lógica de
+  # blindagem antidívidas do Bloco 12 — não existe hoje, em SnapshotOrdem,
+  # um campo dedicado a "regras de blindagem pessoal propostas". Usar
+  # ORDEM_ACOES aqui exercita o mecanismo de opcoes_efetivas/OrigemOpcoes
+  # (fonte=SNAPSHOT, leitura por nome via getattr, AC-42) sem inventar campo
+  # novo no motor — não é uma proposta de que ORDEM_ACOES vire a fonte real
+  # de B12.16 caso o Bloco 12 um dia seja implementado como fluxo.
+  - ID: B12.16
+    bloco: 12
+    enunciado: "Qual destas frases você quer adotar como sua regra principal?"
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes: []
+    # Opções vazias no registro: com fonte=SNAPSHOT, opcoes_efetivas nunca
+    # lê collection/registro.py::RegistroPergunta.opcoes (collection/
+    # opcoes_do_motor.py::opcoes_efetivas) — as opções reais vêm de
+    # ORDEM_ACOES no snapshot do caso, nunca de uma lista fixa aqui (AC-20).
+    VARIAVEL_GRAVADA: REGRA_PESSOAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes:
+      fonte: SNAPSHOT
+      campo_do_snapshot: ORDEM_ACOES
+    admite_nao_sei: false
+    salto_consequencia: "Quero escrever -> B12.16A (fora de escopo desta tarefa; B12.16A não está neste arquivo)."

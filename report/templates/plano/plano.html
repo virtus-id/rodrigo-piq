@@ -1,0 +1,111 @@
+{#
+    Template único do plano de quitação — RF-21, AC-14, AC-15 (T-59);
+    RF-20, RF-22, AC-16, AC-17, AC-42 (T-60); EC-07, EC-08, EC-09 (T-62).
+
+    Renderiza a MESMA marcação para tela e PDF (WeasyPrint), como decidido em
+    plans/app-aluno.plan.md §5.3/§10 (OQ-09): um único template evita que a
+    redação canônica de Q-03 exista em dois lugares e divirja entre as duas
+    apresentações.
+
+    Recebe o contexto de `report/plano.py::montar_contexto_plano`
+    (`ContextoPlano`):
+
+        titulo               — a redação canônica de Q-03
+        corpo                — a redação canônica de Q-03
+        ordem                — tupla de report.plano.ContextoPosicao, uma por
+                                posição de ORDEM_QUITACAO
+        PRAZO_TOTAL          — leitura de Cenario.PRAZO_TOTAL do método
+                                recomendado, já como texto
+        CUSTO_FUTURO_TOTAL   — leitura de Cenario.CUSTO_FUTURO_TOTAL,
+                                já formatado por quantizar_exibicao
+        ENGINE_VERSION       — leitura de SnapshotOrdem.ENGINE_VERSION
+        PARAMETROS_VERSION   — leitura de SnapshotOrdem.PARAMETROS_VERSION
+        cenario              — report.plano.CENARIO_APRESENTACAO (T-62):
+                                NORMAL, ORDEM_VAZIA (EC-07) ou ESTABILIZACAO
+                                (EC-09) — decide qual bloco abaixo é incluído
+        acoes                — tupla de report.plano.ContextoAcaoRequerida
+                                (ORDEM_ACOES), conteúdo principal de
+                                ordem_vazia.html (EC-07)
+        pendencias           — report.plano.ContextoPendencias | None
+                                (EC-08), incluído sempre que não-vazio,
+                                independente do `cenario`
+        MODO_ESTABILIZACAO   — leitura de Diagnostico.MODO_ESTABILIZACAO
+        RESULTADO_CAIXA_OBSERVADO — leitura de Diagnostico.
+                                RESULTADO_CAIXA_OBSERVADO, já formatada
+        reserva_mobilizavel  — report.plano.ContextoReservaMobilizavel
+                                (RF-43, T-116), alimenta
+                                reserva_mobilizavel.html; incluído sempre,
+                                independente do `cenario`
+
+    NENHUM texto normativo é literal aqui: título e corpo vêm inteiramente de
+    `textos-canonicos.yaml`, via `report/plano.py::carregar_textos_canonicos`
+    — a única leitura desse arquivo em todo o projeto (AC-14). O termo
+    "projetada" é o único usado para qualificar a ordem em toda a tela; nunca
+    "definitiva", "final" ou "fixa" (AC-15, Q-02) — nem aqui nem em qualquer
+    outro texto fixo deste template.
+
+    T-60: cada posição é renderizada por `plano/posicao.html` (uma inclusão
+    por item de `ordem`, RF-20/AC-17), e o carimbo de versão do snapshot
+    aparece ao final (RF-22/AC-16). Nenhum valor é inventado ou recalculado
+    aqui — tudo já chega pronto de `montar_contexto_plano` (AC-42).
+
+    T-62 — a escolha de bloco principal é feita SÓ por `cenario`, já decidido
+    por `report/plano.py::decidir_cenario_apresentacao` a partir de leitura
+    de campo do snapshot (nunca recalculado aqui): `ESTABILIZACAO` inclui
+    `estabilizacao.html` (EC-09) no lugar da ordem/método/cronograma;
+    `ORDEM_VAZIA` inclui `ordem_vazia.html` (EC-07), com ORDEM_ACOES em
+    primeiro plano, no lugar de uma ordem vazia sem explicação; `NORMAL`
+    mantém o `{% for %}` de posições já existente. `pendencias.html`
+    (EC-08) é incluído à parte, sempre que houver pendências — mesmo dentro
+    de ESTABILIZACAO/ORDEM_VAZIA, já que "plano provisório" é uma condição
+    independente de qual bloco principal está sendo mostrado.
+
+    T-116 — `reserva_mobilizavel.html` (RF-43, AC-70, EC-18) é incluído no
+    MESMO ponto que `pendencias.html`, pela mesma razão: "quanto da reserva
+    o aluno decidiu colocar em análise" é uma condição do caso, independente
+    de qual bloco principal aparece. Quando `RESERVA_MOBILIZAVEL` é
+    DESCONHECIDO (§13.1, Regra 3), o bloco mostra o estado de pendência de
+    decisão — nunca `R$ 0,00`, nunca omissão. A REDAÇÃO do estado pendente é
+    `OQ-21`, ABERTA: ver o cabeçalho de `reserva_mobilizavel.html`.
+#}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <title>{{ titulo }}</title>
+</head>
+<body>
+    <h1>{{ titulo }}</h1>
+
+    <p>{{ corpo }}</p>
+
+    {% if cenario is defined and cenario.value == "ESTABILIZACAO" %}
+    {% include "estabilizacao.html" %}
+    {% elif cenario is defined and cenario.value == "ORDEM_VAZIA" %}
+    {% include "ordem_vazia.html" %}
+    {% else %}
+    {# T-177: os dois valores chegam com unidade ("33 meses", "R$ 73.640,56")
+       de `report/plano.py`. O template NÃO prefixa mais "R$" nem sufixa
+       "meses" — fazê-lo agora produziria "R$ R$ 73.640,56". A unidade é do
+       servidor, para que tela e PDF escrevam o mesmo. #}
+    <p>Prazo total projetado: {{ PRAZO_TOTAL }}.
+       Custo futuro total projetado: {{ CUSTO_FUTURO_TOTAL }}.</p>
+
+    {% for posicao in ordem %}
+    {% include "posicao.html" %}
+    {% endfor %}
+    {% endif %}
+
+    {% if pendencias is defined %}
+    {% include "pendencias.html" %}
+    {% endif %}
+
+    {% if reserva_mobilizavel is defined %}
+    {% include "reserva_mobilizavel.html" %}
+    {% endif %}
+
+    <footer>
+        <p>Versão do motor: {{ ENGINE_VERSION }} · Versão dos parâmetros: {{ PARAMETROS_VERSION }}</p>
+    </footer>
+</body>
+</html>

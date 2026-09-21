@@ -1,0 +1,108 @@
+{
+  "_origem": "piq-app-spec.md §10.2 GAB-A — Déficit / falso superávit observado (linhas 433-441)",
+  "_nota_t11": "Campos marcados com sufixo '_preenchimento_fixture' abaixo NAO sao normativos: a canonica nao detalha esses dados para GAB-A (que foca em diagnostico financeiro, nao em comportamento/dividas individuais alem de D001/D002). Sao valores neutros escolhidos apenas para que o objeto EstadoFinanceiro carregue sem erro de tipo. Ver relatorio de T-11.",
+
+  "DATA_REFERENCIA": "2026-09-01",
+  "RENDA_TOTAL_RECORRENTE": "8000",
+  "TIPO_RENDA": "FIXA",
+  "_TIPO_RENDA_preenchimento_fixture": "canonica nao declara estabilidade da renda em GAB-A; FIXA e neutro plausivel",
+  "DESPESAS_OPERACIONAIS_ATUAIS": "6500",
+  "DESPESAS_NAO_MENSAIS_NORMALIZADAS": "500",
+  "CAPACIDADE_ATAQUE_DECLARADA": "0",
+  "_CAPACIDADE_ATAQUE_DECLARADA_preenchimento_fixture": "nao declarada na canonica para GAB-A; 0 e coerente com o cenario de deficit (MODO_ESTABILIZACAO=SIM, sem capacidade de ataque)",
+  "ECONOMIA_POTENCIAL_IMEDIATA": "0",
+  "_ECONOMIA_POTENCIAL_IMEDIATA_preenchimento_fixture": "nao declarada na canonica para GAB-A",
+  "INVENTARIO_COMPLETO": true,
+
+  "dividas": [
+    {
+      "DIVIDA_ID": "D001",
+      "TIPO_DIVIDA": "PESSOAL",
+      "_TIPO_DIVIDA_preenchimento_fixture": "canonica nao declara o tipo de D001 em GAB-A; PESSOAL e neutro plausivel",
+      "STATUS_DIVIDA": "ATIVA",
+      "SALDO_DEVEDOR_ATUAL": "DESCONHECIDO",
+      "_SALDO_DEVEDOR_ATUAL_preenchimento_fixture": "canonica so fornece devido/efetivo para GAB-A, nao saldo devedor; marcado DESCONHECIDO por nao inventar dado (RF-16)",
+      "VALOR_QUITACAO_HOJE": "DESCONHECIDO",
+      "QUITACAO_CONSULTADA": "NAO",
+      "STATUS_VALIDADE_PROPOSTA": "VALIDADE_DESCONHECIDA",
+      "TAXA_EFETIVA_MENSAL_NORMALIZADA": "DESCONHECIDO",
+      "CET": "DESCONHECIDO",
+      "PARCELA_CONTRATUAL": "1200",
+      "PAGAMENTO_MENSAL_EFETIVO": "0",
+      "SEGURO_INCLUIDO_PARCELA": false,
+      "CUSTO_SEGURO": "DESCONHECIDO",
+      "PESO_EMOCIONAL": "DESCONHECIDO",
+      "RENEGOCIACAO_PENDENTE": false,
+      "TROCA_PENDENTE": false,
+      "RISCO_MATERIAL_IMINENTE": false,
+      "OPORTUNIDADE_VIGENTE": null
+    },
+    {
+      "DIVIDA_ID": "D002",
+      "TIPO_DIVIDA": "PESSOAL",
+      "_TIPO_DIVIDA_preenchimento_fixture": "canonica nao declara o tipo de D002 em GAB-A; PESSOAL e neutro plausivel",
+      "STATUS_DIVIDA": "ATIVA",
+      "SALDO_DEVEDOR_ATUAL": "DESCONHECIDO",
+      "_SALDO_DEVEDOR_ATUAL_preenchimento_fixture": "canonica so fornece devido/efetivo para GAB-A, nao saldo devedor; marcado DESCONHECIDO por nao inventar dado (RF-16)",
+      "VALOR_QUITACAO_HOJE": "DESCONHECIDO",
+      "QUITACAO_CONSULTADA": "NAO",
+      "STATUS_VALIDADE_PROPOSTA": "VALIDADE_DESCONHECIDA",
+      "TAXA_EFETIVA_MENSAL_NORMALIZADA": "DESCONHECIDO",
+      "CET": "DESCONHECIDO",
+      "PARCELA_CONTRATUAL": "800",
+      "PAGAMENTO_MENSAL_EFETIVO": "800",
+      "SEGURO_INCLUIDO_PARCELA": false,
+      "CUSTO_SEGURO": "DESCONHECIDO",
+      "PESO_EMOCIONAL": "DESCONHECIDO",
+      "RENEGOCIACAO_PENDENTE": false,
+      "TROCA_PENDENTE": false,
+      "RISCO_MATERIAL_IMINENTE": false,
+      "OPORTUNIDADE_VIGENTE": null
+    }
+  ],
+
+  "_perfil_comportamental_preenchimento_fixture": "GAB-A nao detalha as 8 variaveis do Bloco 2 (foco do gabarito e diagnostico financeiro, nao comportamento). Valores abaixo sao neutros/medianos, escolhidos apenas para completar o objeto — NAO sao dado normativo do gabarito.",
+  "perfil_comportamental": {
+    "REGISTRO_GASTOS": "MAIORIA",
+    "FREQUENCIA_REGISTRO": "SEMANAL",
+    "DEFASAGEM_REGISTRO": "MESMO_DIA",
+    "COBERTURA_PEQUENOS_GASTOS": "MAIORIA",
+    "COBERTURA_MEIOS_PAGAMENTO": "QUASE_TOTAL",
+    "CONHECIMENTO_GASTO": "RAZOAVEL",
+    "GASTOS_NAO_IDENTIFICADOS": "RARAMENTE",
+    "REVISAO_SEMANAL": "MAIORIA"
+  },
+
+  "_sinais_comportamentais_preenchimento_fixture": "GAB-A nao detalha os sinais da regra D.4. Valores abaixo sao neutros (nenhum sinal de risco ativo) — NAO sao dado normativo do gabarito. NECESSIDADE_VITORIA e HISTORICO_ABANDONO (T-18) tambem nao sao declarados pela canonica para GAB-A (foco em diagnostico financeiro); preenchidos com valores neutros que nao disparam INCOMPATIBILIDADE_COMPORTAMENTAL_GRAVE.",
+  "sinais_comportamentais": {
+    "NOVA_DIVIDA_PREVISTA": "NAO",
+    "MECANISMO_DEFICIT": [],
+    "HISTORICO_RECAIDA": "NAO",
+    "NOVO_PARCELAMENTO_PREVISTO": "NAO",
+    "PACTO": "ESTABELECIDO",
+    "RISCO_IMPULSO": "NENHUMA",
+    "LINHA_CONTINUA_SENDO_UTILIZADA": "NAO",
+    "NECESSIDADE_VITORIA": 0,
+    "_NECESSIDADE_VITORIA_preenchimento_fixture": "nao declarada na canonica para GAB-A; 0 e neutro plausivel (nao dispara T-18)",
+    "HISTORICO_ABANDONO": "NAO",
+    "_HISTORICO_ABANDONO_preenchimento_fixture": "nao declarada na canonica para GAB-A; NAO e neutro plausivel",
+    "JANELA_NOVA_DIVIDA": null,
+    "_JANELA_NOVA_DIVIDA_preenchimento_fixture": "NOVA_DIVIDA_PREVISTA=NAO acima; B1.05 (JANELA_NOVA_DIVIDA) so e exibida/coletada quando B1.02=SIM ou TALVEZ (piq-app-spec.md linha 641) — null e ausencia ESTRUTURAL correta, nao dado nao respondido (T-34)"
+  },
+
+  "CONFIABILIDADE_DADOS": "ALTA",
+  "_CONFIABILIDADE_DADOS_preenchimento_fixture": "GAB-A nao declara CONFIABILIDADE_DADOS; ALTA e neutro plausivel dado 'inventario completo' declarado na canonica",
+
+  "AUTOPERCEPCAO_CONTROLE": 5,
+  "_AUTOPERCEPCAO_CONTROLE_preenchimento_fixture": "B2.13 (piq-app-spec.md linha 4880), escala 0-10; nao declarada na canonica para GAB-A (foco em diagnostico financeiro, nao em GAP_AUTOPERCEPCAO). 5 e neutro plausivel — T-23",
+
+  "_reserva_caixa_patrimonio_preenchimento_fixture": "Rodada 3 (T-96/T-97): a canonica NAO declara reserva, caixa nem patrimonio para GAB-A. Todos os nove campos abaixo sao NEUTROS, para que AC-87 seja literalmente 'nada mudou' — nenhum valor numerico de GAB-A muda por causa deles. RESERVA_TOTAL e VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO usam '0' e nao 'DESCONHECIDO' porque RESERVA_EXISTE=NAO faz a Regra 1 da §13.1 vencer ANTES da Regra 3 (RESERVA_MOBILIZAVEL=0, valor informado ignorado): 'DESCONHECIDO' registraria uma pendencia que a Regra 1 ja resolveu.",
+  "RESERVA_EXISTE": "NAO",
+  "RESERVA_TOTAL": "0",
+  "DISPOSICAO_USO_RESERVA": "NAO",
+  "VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO": "0",
+  "DINHEIRO_DISPONIVEL": "0",
+  "investimentos": [],
+  "ativos": [],
+  "recursos_extraordinarios": []
+}

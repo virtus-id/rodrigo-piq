@@ -1,0 +1,1192 @@
+# Bloco 3 — Fluxo de caixa real. 57 perguntas, transcritas caractere por
+# caractere da §11 da canônica (specs/piq-app-spec.md, linhas 1040-1899). T-17
+# (RF-03, RF-04, RF-09, AC-04, AC-36).
+QUESTIONARIO_VERSION: "1.0.0"
+perguntas:
+  # Parte A — Renda
+  - ID: B3.01
+    bloco: 3
+    enunciado: >-
+      Quanto você recebe líquidos, em média, por mês na sua principal fonte
+      de renda?
+    tipo: MOEDA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - rotulo: >-
+          Minha renda é variável e não consigo representá-la por um único
+          valor.
+        valor_interno: null
+    VARIAVEL_GRAVADA: RENDA_PRINCIPAL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      "Renda variável sem valor único" → RENDA_PRINCIPAL = DESCONHECIDA e
+      B3.02 deve ser Variável.
+
+  - ID: B3.02
+    bloco: 3
+    enunciado: Qual destas opções descreve melhor a sua principal renda?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - rotulo: >-
+          Fixa — recebo praticamente o mesmo valor líquido todos os meses.
+        valor_interno: FIXA
+      - rotulo: >-
+          Relativamente estável — o valor varia, mas normalmente dentro de
+          uma faixa pequena.
+        valor_interno: RELATIVAMENTE_ESTAVEL
+      - rotulo: >-
+          Variável — o valor pode mudar bastante de um mês para outro.
+        valor_interno: VARIAVEL
+    VARIAVEL_GRAVADA: TIPO_RENDA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "VARIAVEL → abre B3.02A e B3.02B."
+
+  - ID: B3.02A
+    bloco: 3
+    enunciado: >-
+      Considerando os últimos meses, qual foi aproximadamente a sua renda
+      líquida média mensal?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não consigo estimar., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_VARIAVEL_MEDIA_HISTORICA
+    condicao_exibicao: {tipo: IGUAL, variavel: TIPO_RENDA, valor: VARIAVEL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.02B
+    bloco: 3
+    enunciado: >-
+      Pensando em um mês mais fraco, qual valor líquido você considera
+      realisticamente seguro esperar receber?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não consigo estimar., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_VARIAVEL_PISO_DECLARADO
+    condicao_exibicao: {tipo: IGUAL, variavel: TIPO_RENDA, valor: VARIAVEL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Ambos desconhecidos → PRIORIDADE DE INFORMAÇÃO (não inventar renda).
+
+  - ID: B3.03
+    bloco: 3
+    enunciado: >-
+      Além da sua renda principal, você recebe algum outro valor de forma
+      recorrente?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+    VARIAVEL_GRAVADA: RENDA_RECORRENTE_ADICIONAL_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim → ficha REP B3.03A–C."
+
+  - ID: B3.03A
+    bloco: 3
+    enunciado: Que renda é essa?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: RENDA_ADICIONAL_ID
+    opcoes:
+      - {rotulo: Segundo trabalho ou vínculo, valor_interno: null}
+      - {rotulo: Trabalho autônomo/freelance, valor_interno: null}
+      - {rotulo: Aluguel, valor_interno: null}
+      - {rotulo: Pensão recebida, valor_interno: null}
+      - {rotulo: Benefício, valor_interno: null}
+      - {rotulo: Comissão, valor_interno: null}
+      - {rotulo: Renda de negócio, valor_interno: null}
+      - {rotulo: Outra renda recorrente, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_RENDA_ADICIONAL
+    condicao_exibicao: {tipo: IGUAL, variavel: RENDA_RECORRENTE_ADICIONAL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Aluguel lançado aqui não é relançado em B4.I05A."
+
+  - ID: B3.03B
+    bloco: 3
+    enunciado: Quanto essa renda acrescenta, em média, por mês?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: RENDA_ADICIONAL_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_RECORRENTE_ADICIONAL
+    condicao_exibicao: {tipo: IGUAL, variavel: RENDA_RECORRENTE_ADICIONAL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.03C
+    bloco: 3
+    enunciado: "Esse valor costuma ser:"
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: RENDA_ADICIONAL_ID
+    opcoes:
+      - {rotulo: Praticamente fixo., valor_interno: FIXA}
+      - {rotulo: Relativamente estável., valor_interno: RELATIVAMENTE_ESTAVEL}
+      - {rotulo: Bastante variável., valor_interno: VARIAVEL}
+    VARIAVEL_GRAVADA: TIPO_RENDA_ADICIONAL_ESTABILIDADE
+    condicao_exibicao: {tipo: IGUAL, variavel: RENDA_RECORRENTE_ADICIONAL_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.04
+    bloco: 3
+    enunciado: >-
+      Outra pessoa contribui regularmente com dinheiro para pagar as
+      despesas que fazem parte deste orçamento?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: CONTRIBUICAO_FAMILIAR_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim → abre B3.04A."
+
+  - ID: B3.04A
+    bloco: 3
+    enunciado: >-
+      Quanto essa pessoa efetivamente coloca, em média, por mês nas despesas
+      deste orçamento?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CONTRIBUICAO_FAMILIAR
+    condicao_exibicao: {tipo: IGUAL, variavel: CONTRIBUICAO_FAMILIAR_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.05
+    bloco: 3
+    enunciado: >-
+      Nos próximos 12 meses, você espera receber algum valor extraordinário
+      que não faça parte da sua renda mensal normal?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Talvez, valor_interno: TALVEZ}
+      - {rotulo: Não, valor_interno: NAO}
+    VARIAVEL_GRAVADA: RECURSOS_EXTRAORDINARIOS_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Sim/Talvez → ficha REP B3.05A–D."
+
+  - ID: B3.05A
+    bloco: 3
+    enunciado: Que valor extraordinário é esse?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: 13º salário, valor_interno: null}
+      - {rotulo: Férias/abono, valor_interno: null}
+      - {rotulo: Bônus ou gratificação, valor_interno: null}
+      - {rotulo: Restituição de imposto, valor_interno: null}
+      - {rotulo: Precatório/RPV, valor_interno: null}
+      - {rotulo: Venda já prevista, valor_interno: null}
+      - {rotulo: Valor a receber de terceiro, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_RECURSO_EXTRAORDINARIO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.05B
+    bloco: 3
+    enunciado: Quanto você espera receber?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_RECURSO_EXTRAORDINARIO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.05C
+    bloco: 3
+    enunciado: Quando você espera receber?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Próximos 30 dias, valor_interno: null}
+      - {rotulo: 1–3 meses, valor_interno: null}
+      - {rotulo: 4–6 meses, valor_interno: null}
+      - {rotulo: 7–12 meses, valor_interno: null}
+      - {rotulo: Ainda não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: JANELA_RECURSO_EXTRAORDINARIO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.05D
+    bloco: 3
+    enunciado: "Esse recebimento é:"
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Confirmado., valor_interno: CONFIRMADO}
+      - {rotulo: "Provável, mas ainda não garantido.", valor_interno: PROVAVEL}
+      - {rotulo: Apenas uma possibilidade., valor_interno: POSSIVEL}
+    VARIAVEL_GRAVADA: CERTEZA_RECURSO_EXTRAORDINARIO
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Não compõe renda recorrente."
+
+  - ID: B3.06
+    bloco: 3
+    enunciado: >-
+      Existe alguma forma realista de aumentar sua renda mensal de maneira
+      recorrente nos próximos meses?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim, e já tenho uma possibilidade concreta.", valor_interno: CONCRETA}
+      - {rotulo: "Talvez, mas ainda não existe nada definido.", valor_interno: INDEFINIDA}
+      - {rotulo: Não vejo essa possibilidade no momento., valor_interno: NAO}
+    VARIAVEL_GRAVADA: RENDA_EXTRA_RECORRENTE_POTENCIAL_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "CONCRETA → abre B3.06A e B3.06B."
+
+  - ID: B3.06A
+    bloco: 3
+    enunciado: De onde viria essa renda adicional?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Trabalho extra, valor_interno: null}
+      - {rotulo: Novo vínculo ou atividade, valor_interno: null}
+      - {rotulo: Horas extras/adicional, valor_interno: null}
+      - {rotulo: Aluguel, valor_interno: null}
+      - {rotulo: Negócio, valor_interno: null}
+      - {rotulo: Serviço autônomo, valor_interno: null}
+      - {rotulo: Outra, valor_interno: null}
+    VARIAVEL_GRAVADA: ORIGEM_RENDA_EXTRA_POTENCIAL
+    condicao_exibicao: {tipo: IGUAL, variavel: RENDA_EXTRA_RECORRENTE_POTENCIAL_EXISTE, valor: CONCRETA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.06B
+    bloco: 3
+    enunciado: Quanto você estima que essa renda poderia acrescentar por mês?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Ainda não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_EXTRA_RECORRENTE_POTENCIAL
+    condicao_exibicao: {tipo: IGUAL, variavel: RENDA_EXTRA_RECORRENTE_POTENCIAL_EXISTE, valor: CONCRETA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  # Parte B — Despesas mensais
+  - ID: B3.D01
+    bloco: 3
+    enunciado: Quais destes gastos de moradia fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Aluguel, valor_interno: null}
+      - {rotulo: Condomínio, valor_interno: null}
+      - {rotulo: Água, valor_interno: null}
+      - {rotulo: Energia, valor_interno: null}
+      - {rotulo: Gás, valor_interno: null}
+      - {rotulo: Internet, valor_interno: null}
+      - {rotulo: Telefone, valor_interno: null}
+      - {rotulo: Empregado/serviço doméstico, valor_interno: null}
+      - {rotulo: Manutenção recorrente, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_MORADIA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D02
+    bloco: 3
+    enunciado: Quais destes gastos de alimentação fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Supermercado, valor_interno: null}
+      - {rotulo: Feira/açougue, valor_interno: null}
+      - {rotulo: Alimentação no trabalho, valor_interno: null}
+      - {rotulo: Delivery, valor_interno: null}
+      - {rotulo: Restaurantes, valor_interno: null}
+      - {rotulo: Lanches/cafés, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_ALIMENTACAO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D03
+    bloco: 3
+    enunciado: Quais destes gastos de transporte fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Combustível, valor_interno: null}
+      - {rotulo: Transporte público, valor_interno: null}
+      - {rotulo: Aplicativos/táxi, valor_interno: null}
+      - {rotulo: Estacionamento, valor_interno: null}
+      - {rotulo: Pedágio, valor_interno: null}
+      - {rotulo: Seguro do veículo, valor_interno: null}
+      - {rotulo: Manutenção média, valor_interno: null}
+      - {rotulo: Outros custos recorrentes, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_TRANSPORTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D04
+    bloco: 3
+    enunciado: Quais destes gastos de saúde fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Plano de saúde, valor_interno: null}
+      - {rotulo: Medicamentos contínuos, valor_interno: null}
+      - {rotulo: Terapias, valor_interno: null}
+      - {rotulo: Consultas/exames recorrentes, valor_interno: null}
+      - {rotulo: Tratamentos, valor_interno: null}
+      - {rotulo: Odontologia, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_SAÚDE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D05
+    bloco: 3
+    enunciado: Quais destes gastos de educação fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Escola/faculdade, valor_interno: null}
+      - {rotulo: Cursos, valor_interno: null}
+      - {rotulo: Material, valor_interno: null}
+      - {rotulo: Transporte escolar, valor_interno: null}
+      - {rotulo: Atividades extracurriculares, valor_interno: null}
+      - {rotulo: Reforço/aulas, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_EDUCACAO
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D06
+    bloco: 3
+    enunciado: >-
+      Quais destes gastos de filhos e dependentes fazem parte da sua
+      rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Pensão paga, valor_interno: null}
+      - {rotulo: Mesada, valor_interno: null}
+      - {rotulo: Cuidador/babá, valor_interno: null}
+      - {rotulo: Vestuário recorrente, valor_interno: null}
+      - {rotulo: Apoio financeiro, valor_interno: null}
+      - {rotulo: Outras despesas, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_FILHOS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D07
+    bloco: 3
+    enunciado: >-
+      Quais destes gastos de seguros e proteção fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Seguro de vida, valor_interno: null}
+      - {rotulo: Seguro residencial, valor_interno: null}
+      - {rotulo: Seguro de equipamentos, valor_interno: null}
+      - {rotulo: Outros seguros, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_SEGUROS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D08
+    bloco: 3
+    enunciado: Quais destes gastos de lazer fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Restaurantes/lazer ainda não lançados, valor_interno: null}
+      - {rotulo: Streaming, valor_interno: null}
+      - {rotulo: Clubes, valor_interno: null}
+      - {rotulo: Viagens recorrentes, valor_interno: null}
+      - {rotulo: Eventos, valor_interno: null}
+      - {rotulo: Hobbies, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_LAZER
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D09
+    bloco: 3
+    enunciado: >-
+      Quais destes gastos de compras e consumo fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Roupas, valor_interno: null}
+      - {rotulo: Cosméticos, valor_interno: null}
+      - {rotulo: Eletrônicos, valor_interno: null}
+      - {rotulo: Compras online, valor_interno: null}
+      - {rotulo: Presentes, valor_interno: null}
+      - {rotulo: Outros, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_COMPRAS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D10
+    bloco: 3
+    enunciado: >-
+      Quais destes gastos de cuidados pessoais fazem parte da sua rotina?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Academia, valor_interno: null}
+      - {rotulo: Salão/barbearia, valor_interno: null}
+      - {rotulo: Estética, valor_interno: null}
+      - {rotulo: Serviços pessoais, valor_interno: null}
+      - {rotulo: Outro, valor_interno: null}
+    VARIAVEL_GRAVADA: ITENS_DESPESA_CUIDADOS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Cada item marcado → abre B3.DF01–DF04. "Outro" → texto curto OPT.
+
+  - ID: B3.D11
+    bloco: 3
+    enunciado: Existe alguma despesa mensal relevante que ainda não apareceu?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+    VARIAVEL_GRAVADA: DESPESA_EXTRA_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      Sim → ficha REP: nome (texto curto) + B3.DF01–DF04.
+
+  - ID: B3.DF01
+    bloco: 3
+    enunciado: Qual é o valor mensal de [despesa]?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: ITEM_DESPESA
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_DESPESA
+    condicao_exibicao: null
+    interpolacoes:
+      - {marcador: "[despesa]", origem: ID_DO_ITEM, referencia: ""}
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.DF02
+    bloco: 3
+    enunciado: Esse gasto costuma ser fixo ou variável?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: ITEM_DESPESA
+    opcoes:
+      - {rotulo: Fixo, valor_interno: FIXA}
+      - {rotulo: Variável, valor_interno: VARIAVEL}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CLASSIFICACAO_FIXA_VARIAVEL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não inferir pela categoria."
+
+  - ID: B3.DF03
+    bloco: 3
+    enunciado: >-
+      No seu orçamento atual, esse gasto é obrigatório ou não obrigatório?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: ITEM_DESPESA
+    opcoes:
+      - {rotulo: Obrigatório, valor_interno: OBRIGATORIA}
+      - {rotulo: Não obrigatório, valor_interno: NAO_OBRIGATORIA}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CLASSIFICACAO_OBRIGATORIA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não inferir pela categoria."
+
+  - ID: B3.DF04
+    bloco: 3
+    enunciado: >-
+      O valor informado foi conferido recentemente ou é uma estimativa?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: ITEM_DESPESA
+    opcoes:
+      - {rotulo: Conferido., valor_interno: CONFIRMADA}
+      - {rotulo: Estimativa., valor_interno: ESTIMADA}
+      - {rotulo: Não sei., valor_interno: DESCONHECIDA, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: QUALIDADE_VALOR_DESPESA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  # Parte C — Despesas não mensais
+  - ID: B3.NM01
+    bloco: 3
+    enunciado: >-
+      Você tem despesas previsíveis que não acontecem todos os meses, mas
+      que sabe que precisará pagar ao longo do ano?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei / preciso levantar., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DESPESAS_NAO_MENSAIS_EXISTE
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → ficha REP B3.NM02A–D. NAO_SEI → ação de levantamento.
+
+  - ID: B3.NM02A
+    bloco: 3
+    enunciado: Que despesa é essa?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DESPESA_NAO_MENSAL_ID
+    opcoes:
+      - {rotulo: IPTU, valor_interno: null}
+      - {rotulo: IPVA/licenciamento, valor_interno: null}
+      - {rotulo: Matrícula, valor_interno: null}
+      - {rotulo: Material escolar, valor_interno: null}
+      - {rotulo: Seguro anual, valor_interno: null}
+      - {rotulo: Manutenção programada, valor_interno: null}
+      - {rotulo: Imposto/taxa, valor_interno: null}
+      - {rotulo: Assinatura anual, valor_interno: null}
+      - {rotulo: Outra, valor_interno: null}
+    VARIAVEL_GRAVADA: TIPO_DESPESA_NAO_MENSAL
+    condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.NM02B
+    bloco: 3
+    enunciado: Qual é o valor total previsto?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DESPESA_NAO_MENSAL_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_DESPESA_NAO_MENSAL
+    condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.NM02C
+    bloco: 3
+    enunciado: Com que frequência ela ocorre?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DESPESA_NAO_MENSAL_ID
+    opcoes:
+      - {rotulo: Uma vez por ano, valor_interno: ANUAL}
+      - {rotulo: Duas vezes por ano, valor_interno: SEMESTRAL}
+      - {rotulo: Trimestral, valor_interno: TRIMESTRAL}
+      - {rotulo: Outra, valor_interno: OUTRA}
+    VARIAVEL_GRAVADA: FREQUENCIA_DESPESA_NAO_MENSAL
+    condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.NM02D
+    bloco: 3
+    enunciado: >-
+      Esse valor já está sendo reservado ou contabilizado mensalmente em
+      alguma despesa que você informou antes?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DESPESA_NAO_MENSAL_ID
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DESPESA_NAO_MENSAL_JA_CONTABILIZADA
+    condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim → não normalizar novamente (impedir dupla contagem).
+
+  # Parte D — Conferência
+  - ID: B3.C00
+    bloco: 3
+    enunciado: >-
+      Essa fotografia de renda e despesas parece representar razoavelmente o
+      seu mês?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não, acho que alguma despesa ficou de fora.", valor_interno: FALTA_DESPESA}
+      - {rotulo: "Não, algum valor parece errado.", valor_interno: VALOR_ERRADO}
+      - {rotulo: Ainda não consigo avaliar., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CONFIRMACAO_MAPEAMENTO_DESPESAS
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      FALTA_DESPESA → retorna a B3.D11; VALOR_ERRADO → permite editar
+      fichas.
+
+  - ID: B3.C01
+    bloco: 3
+    enunciado: >-
+      Pensando na sua realidade de hoje, qual valor adicional você acredita
+      conseguir separar todos os meses para acelerar a quitação das
+      dívidas, sem precisar fazer uma nova dívida para conseguir fechar o
+      mês?
+    tipo: MOEDA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Hoje não consigo separar nenhum valor adicional., valor_interno: "0"}
+      - {rotulo: Ainda não consigo estimar., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CAPACIDADE_ATAQUE_DECLARADA
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.C02
+    bloco: 3
+    enunciado: Na prática, como seus últimos meses costumam terminar?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Normalmente sobra dinheiro., valor_interno: SOBRA}
+      - {rotulo: Normalmente fica praticamente no zero a zero., valor_interno: ZERO}
+      - {rotulo: Normalmente falta dinheiro., valor_interno: FALTA}
+      - {rotulo: Varia muito de um mês para outro., valor_interno: VARIA}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: PERCEPCAO_FECHAMENTO_MES
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "SOBRA → B3.C02A; FALTA → B3.C02B."
+
+  - ID: B3.C02A
+    bloco: 3
+    enunciado: Quanto costuma sobrar, aproximadamente?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+    VARIAVEL_GRAVADA: SOBRA_PERCEBIDA
+    condicao_exibicao: {tipo: IGUAL, variavel: PERCEPCAO_FECHAMENTO_MES, valor: SOBRA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.C02B
+    bloco: 3
+    enunciado: Quanto costuma faltar, aproximadamente?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+    VARIAVEL_GRAVADA: FALTA_PERCEBIDA
+    condicao_exibicao: {tipo: IGUAL, variavel: PERCEPCAO_FECHAMENTO_MES, valor: FALTA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  # Parte E — Servidor / consignação
+  - ID: B3.S01
+    bloco: 3
+    enunciado: >-
+      Alguma das suas rendas está ligada a vínculo público, aposentadoria ou
+      pensão com possibilidade de consignação?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [OBR]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VINCULO_CONSIGNAVEL
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Não → encerra a Parte E. Sim/Não sei → B3.S02.
+
+  - ID: B3.S02
+    bloco: 3
+    enunciado: Qual é a sua situação principal?
+    tipo: SELECAO_MULTIPLA
+    obrigatoriedade: [COND]
+    escopo_repeticao: VINCULO_ID
+    opcoes:
+      - {rotulo: Servidor público federal, valor_interno: FEDERAL}
+      - {rotulo: Servidor público estadual, valor_interno: ESTADUAL}
+      - {rotulo: Servidor público municipal, valor_interno: MUNICIPAL}
+      - {rotulo: Militar, valor_interno: MILITAR}
+      - {rotulo: Aposentado/pensionista do serviço público, valor_interno: APOSENTADO_PUBLICO}
+      - {rotulo: Aposentado/pensionista do INSS, valor_interno: INSS}
+      - {rotulo: Outra situação com consignação, valor_interno: OUTRO}
+    VARIAVEL_GRAVADA: REGIME_MARGEM
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Permitir mais de um vínculo."
+
+  - ID: B3.S03
+    bloco: 3
+    enunciado: Qual é o órgão ou a fonte pagadora desse vínculo?
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND]
+    escopo_repeticao: VINCULO_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: ORGAO_FONTE_PAGADORA
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B3.S04
+    bloco: 3
+    enunciado: Qual é a sua remuneração bruta nesse vínculo?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: VINCULO_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_BRUTA_VINCULO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Não calcular margem por percentual legal; usar o valor declarado."
+
+  - ID: B3.S05
+    bloco: 3
+    enunciado: Você consegue consultar atualmente suas margens consignáveis?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: VINCULO_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: Tenho apenas parte das informações., valor_interno: PARCIAL}
+      - {rotulo: "Não.", valor_interno: NAO}
+    VARIAVEL_GRAVADA: ACESSO_MARGENS
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: >-
+      NAO → gera ação de obtenção (Bloco 11); ficha B3.S06 fica com valores
+      DESCONHECIDOS.
+
+  - ID: B3.S06A
+    bloco: 3
+    enunciado: Qual é o tipo desta margem?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: MARGEM_ID
+    opcoes:
+      - {rotulo: Empréstimo consignado, valor_interno: EMPRESTIMO}
+      - {rotulo: Cartão consignado, valor_interno: CARTAO_CONSIGNADO}
+      - {rotulo: Cartão benefício, valor_interno: CARTAO_BENEFICIO}
+      - {rotulo: Outra margem do regime, valor_interno: OUTRA_DO_REGIME}
+    VARIAVEL_GRAVADA: TIPO_MARGEM
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "SYS: MARGEM_ID por ficha."
+
+  - ID: B3.S06B
+    bloco: 3
+    enunciado: Qual é o valor total disponível para essa modalidade?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: MARGEM_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_TOTAL_MARGEM
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas:
+      - variavel_esquerda: VALOR_UTILIZADO_MARGEM
+        operador: "<="
+        variavel_direita: VALOR_TOTAL_MARGEM
+        escopo: MARGEM_ID
+        mensagem: "O valor utilizado não pode superar o valor total da margem."
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.S06C
+    bloco: 3
+    enunciado: Quanto está atualmente utilizado?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: MARGEM_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_UTILIZADO_MARGEM
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas:
+      - variavel_esquerda: VALOR_UTILIZADO_MARGEM
+        operador: "<="
+        variavel_direita: VALOR_TOTAL_MARGEM
+        escopo: MARGEM_ID
+        mensagem: "O valor utilizado não pode superar o valor total da margem."
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.S06D
+    bloco: 3
+    enunciado: Qual é o valor livre informado pelo sistema ou contracheque?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: MARGEM_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_LIVRE_MARGEM
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Margem livre não é dinheiro nem recomendação de crédito."
+
+  - ID: B3.S06E
+    bloco: 3
+    enunciado: De quando é essa informação?
+    tipo: DATA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: MARGEM_ID
+    opcoes:
+      - {rotulo: Data, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DATA_REFERENCIA_MARGEM
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.S07
+    bloco: 3
+    enunciado: >-
+      Você sabe se alguma parcela consignada termina nos próximos 12 meses e
+      liberará margem?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: MARGEM_A_LIBERAR_EXISTE
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sim → B3.S07A e B3.S07B."
+
+  - ID: B3.S07A
+    bloco: 3
+    enunciado: Qual é o valor da parcela que deixará de ocupar margem?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_A_LIBERAR_MARGEM
+    condicao_exibicao: {tipo: IGUAL, variavel: MARGEM_A_LIBERAR_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Conciliar com a dívida consignada correspondente no Bloco 5.
+
+  - ID: B3.S07B
+    bloco: 3
+    enunciado: Quando isso deve ocorrer?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: 1–3 meses, valor_interno: null}
+      - {rotulo: 4–6 meses, valor_interno: null}
+      - {rotulo: 7–12 meses, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: JANELA_LIBERACAO_MARGEM
+    condicao_exibicao: {tipo: IGUAL, variavel: MARGEM_A_LIBERAR_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B3.S08
+    bloco: 3
+    enunciado: >-
+      Existe algum desconto relacionado a crédito ou consignação no seu
+      contracheque que você não reconhece ou não consegue identificar?
+    tipo: SIM_NAO_TALVEZ
+    obrigatoriedade: [COND]
+    escopo_repeticao: NENHUM
+    opcoes:
+      - {rotulo: Sim, valor_interno: null}
+      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: DESCONTO_CONTRACHEQUE_NAO_RECONHECIDO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Sim/Não sei → ação: obter extrato de consignações (Bloco 11).

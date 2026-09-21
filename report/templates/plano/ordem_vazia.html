@@ -1,0 +1,50 @@
+{#
+    ORDEM_QUITACAO vazia — EC-07, RF-21, RF-22 (T-62).
+
+    Incluído por `plano.html` no lugar do `{% for %}` de posições quando
+    `cenario == CENARIO_APRESENTACAO.ORDEM_VAZIA` (report/plano.py::
+    decidir_cenario_apresentacao) — DIVIDA_ALVO_ATUAL is None: nenhuma
+    dívida ficou elegível após os gates. A ORDEM_ACOES (report/plano.py::
+    ContextoAcaoRequerida, leitura de engine/gates.py::AcaoRequerida) vira o
+    conteúdo PRINCIPAL desta tela: o que precisa ser resolvido antes de
+    existir ataque. Nunca se mostra uma ordem vazia sem explicação (EC-07).
+
+    Recebe do contexto de `plano.html` (report/plano.py::ContextoPlano):
+
+        acoes — tupla de report.plano.ContextoAcaoRequerida (ORDEM_ACOES)
+
+    Todo campo aqui é LEITURA — nenhum cálculo, nenhuma ordenação nova
+    (AC-42).
+
+    T-92 — `acao.DIVIDA_ID` agora é `str | None` (`RF-31`): a ação de
+    economia (`TIPO_ACAO="ECONOMIA"`, `RF-33`) não tem dívida associada.
+    Exibida como `"—"`, a mesma convenção já usada em `report/plano.py::
+    _formatar_valor_ou_desconhecido` para ausência ESTRUTURAL — nenhum texto
+    novo inventado para este caso.
+#}
+<section>
+    <h2>Nenhuma dívida pronta para ataque no momento</h2>
+
+    <p>
+        Sua ordem projetada de quitação está vazia porque nenhuma dívida
+        ficou pronta para entrar no ataque depois da triagem. As ações
+        abaixo são o que precisa ser resolvido antes de existir uma ordem
+        de ataque.
+    </p>
+
+    {% if acoes %}
+    <ul>
+        {% for acao in acoes %}
+        <li>
+            <strong>{{ acao.DIVIDA_ID if acao.DIVIDA_ID is not none else "—" }}</strong>
+            — {{ acao.descricao }}
+            {% if acao.prioridade_excepcional %}
+            <em>(prioridade excepcional)</em>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p>Nenhuma ação pendente identificada para as dívidas informadas.</p>
+    {% endif %}
+</section>

@@ -1,0 +1,139 @@
+[project]
+name = "piq-motor-calculo"
+version = "0.1.0"
+description = "Motor de cálculo do PIQ: ciclo mensal, ranqueamento e os três métodos de quitação de dívidas."
+requires-python = ">=3.12"
+readme = "README.md"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "mypy>=1.11",
+    "ruff>=0.6",
+    "pytest>=8.3",
+    "hypothesis>=6.112",
+    "jsonschema>=4.23",
+]
+supabase = [
+    "psycopg[binary]>=3.2",
+]
+app = [
+    "fastapi>=0.115",
+    "uvicorn>=0.32",
+    "argon2-cffi>=23.1",
+    "weasyprint>=63.0",
+    "pyyaml>=6.0",
+    # jinja2 (T-30): já decidida no plano (§2, "Dependências novas, total: 4
+    # — fastapi, uvicorn, jinja2 (transitiva de FastAPI), argon2-cffi,
+    # weasyprint") como a quarta dependência desta feature. A premissa de
+    # T-03 — "transitiva de FastAPI" — não se confirma na versão instalada
+    # (fastapi>=0.115 puro NÃO traz jinja2; ela só vem com o extra
+    # `fastapi[standard]`/`[all]`, que este projeto não usa): sem esta
+    # entrada explícita, `Jinja2Templates` (Starlette) falha em runtime com
+    # `ModuleNotFoundError`. A dependência em si já estava autorizada pelo
+    # plano — esta linha só corrige a forma de instalá-la.
+    "jinja2>=3.1",
+    # itsdangerous (T-29): starlette.middleware.sessions.SessionMiddleware
+    # importa itsdangerous sob demanda, mas NÃO a declara como dependência
+    # própria (confirmado por `pip show starlette`) — precisa ser explícita
+    # aqui, ou `criar_aplicacao()` falha em runtime com ModuleNotFoundError.
+    "itsdangerous>=2.2",
+    # httpx2 (T-29): a partir do Starlette usado neste projeto,
+    # starlette.testclient (base de fastapi.testclient.TestClient) exige
+    # httpx2, não mais aceita só httpx sem aviso de depreciação. Dependência
+    # de TESTE do extra `app` — só entra quando se testa código que usa
+    # FastAPI, mesmo agrupamento de argon2-cffi (T-28) neste mesmo extra.
+    "httpx2>=2.12",
+]
+browser = [
+    # Playwright (T-129): verificação em NAVEGADOR REAL do que a suíte sem
+    # browser não alcança — a execução de `app/http/estaticos/mascaras.js`
+    # (T-125). O contrato entre a máscara e `app/montagem/conversao.py` já é
+    # testado em Python (`tests/app_aluno/test_mascaras.py`), mas nada
+    # provava que o JS de fato implementa as regras declaradas lá.
+    #
+    # DEPENDÊNCIA NOVA, fora das 4 do plano §2, pedida explicitamente pelo
+    # especialista em 2026-09-14. Isolada num extra PRÓPRIO, nunca em `app`
+    # nem em `dev`: nem a suíte padrão nem o runtime de produção a instalam,
+    # e `pytest -q` continua verde numa máquina que nunca a viu (os testes
+    # marcados `navegador` são pulados sem ela).
+    #
+    # `docs/checklist-acessibilidade.md` registrava a ausência de Chromium/
+    # Playwright como o motivo de `T-48`/`T-97` serem substitutos estáticos;
+    # este extra é o que destrava a execução real, mas NÃO converte aqueles
+    # testes automaticamente — isso é trabalho próprio, não efeito colateral.
+    "playwright>=1.62",
+    "pytest-playwright>=0.9",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["engine*", "persistencia*", "app*", "collection*", "report*"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["engine", "persistencia", "collection", "app", "report", "tests", "scripts"]
+
+[[tool.mypy.overrides]]
+# jsonschema (T-06) não publica stubs de tipo; sem types-jsonschema no plano
+# (plans/motor-calculo.plan.md §2), a fronteira de uso é isolada em
+# persistencia/arquivo/fonte_parametros.py.
+module = "jsonschema"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# pyyaml (T-16) não publica stubs de tipo embutidos; sem types-PyYAML no
+# plano (plans/app-aluno.plan.md §4.1), a fronteira de uso é isolada em
+# collection/carga.py, mesmo precedente do override de jsonschema acima.
+module = "yaml"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# weasyprint (T-03, extra `app`) não publica stubs de tipo nem `py.typed`;
+# sem types-weasyprint no plano (plans/app-aluno.plan.md §2), a fronteira de
+# uso é isolada em report/pdf.py (T-63), mesmo precedente dos dois overrides
+# acima.
+module = "weasyprint"
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# T-129: desliga o PLUGIN pytest do Playwright, nunca a biblioteca.
+#
+# `pytest-playwright` instala um wrapper global de `pytest_runtest_call` que
+# abre um escopo de "soft assertion" em TODO teste da suíte. Isso colide com
+# `tests/app_aluno/test_reabertura.py`, que já roda dentro de um escopo
+# desses, e quebrava 16 testes com "nested soft assertion scopes are not
+# supported" — testes que nada têm a ver com navegador.
+#
+# Nenhum teste deste projeto usa as fixtures do plugin (`page`, `browser`):
+# `tests/app_aluno/e2e/test_navegador_mascaras.py` dirige `sync_playwright()`
+# diretamente, porque precisa subir a aplicação sobre TLS com repositórios
+# de arquivo — coisas que o plugin não monta. Ou seja: o plugin custava 16
+# testes quebrados e não entregava nada em troca.
+#
+# A biblioteca `playwright` continua instalada e em uso pleno.
+addopts = "-p no:playwright"
+markers = [
+    "gabarito: reproduz gabarito numérico ponta a ponta (GAB-A, GAB-B, GAB-C — seção 10 da canônica)",
+    "invariante: prova invariante GAB-01 a GAB-05 (seção 10 da canônica)",
+    "gabarito_ataque_imediato: reproduz gabarito numérico de fórmula isolada da seção 13, NÃO ponta a ponta (GAB-AI-01 a GAB-AI-07 — sem dívidas, gates nem cronograma)",
+    "gabarito_classificacao_ativos: reproduz gabarito de fórmula/classificação isolada da seção 14, NÃO ponta a ponta (GAB-NFI-06 a GAB-NFI-12 — sem dívidas, gates nem cronograma)",
+    "gabarito_necessidade_financeira: reproduz gabarito da fórmula de necessidade financeira imediata e trava de dupla contagem da seção 14.1/14.2, NÃO ponta a ponta (GAB-NFI-01 a GAB-NFI-05 — fonte ResultadoGates/AcaoRequerida, não ItemAtivo/ItemInvestimento)",
+    "regra: testa regra normativa isolada de uma família (M, R, A, F, O, H, S, Q, V, T, G)",
+    "desempenho: mede orçamento de tempo da NFR de 30 dívidas × 10 anos, fora da suíte padrão",
+    "requer_banco: exige Postgres real via DATABASE_URL; pulado automaticamente sem ela (app-aluno T-05)",
+    "e2e: ciclo ponta a ponta da aplicação (cadastro, coleta, plano); não é a suíte padrão (app-aluno T-05)",
+    "navegador: exige Playwright e um navegador real (extra `browser`); pulado automaticamente sem eles (app-aluno T-129)",
+]
