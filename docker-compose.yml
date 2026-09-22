@@ -1,0 +1,30 @@
+services:
+  piq-api:
+    build: .
+    image: piq-api
+    container_name: piq-api
+    restart: unless-stopped
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/saude', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Único ponto de entrada: serve o React e repassa a API. É o que o Nginx
+  # Proxy Manager aponta (Forward Host: piq-web, porta 80).
+  piq-web:
+    build: ./frontend
+    image: piq-web
+    container_name: piq-web
+    restart: unless-stopped
+    depends_on:
+      piq-api:
+        condition: service_healthy
+    networks: [default, proxy]
+
+networks:
+  # Criada pelo compose do rodrigo-nginx.
+  proxy:
+    external: true
