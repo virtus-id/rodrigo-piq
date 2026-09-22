@@ -275,11 +275,18 @@ async def receber_webhook_hotmart(
         if not confere:
             return JSONResponse({"erro": _MENSAGEM_NAO_AUTORIZADO}, status_code=401)
 
+    dados = corpo.get("data")
+    produto = (dados or {}).get("product", {}) if isinstance(dados, dict) else {}
+
+    # Diagnóstico de operação: nome do evento e id do produto, nunca e-mail
+    # nem dado do comprador — mesma disciplina de `EnviadorSMTP` sobre não
+    # logar PII. Existe para responder "que eventos a Hotmart manda aqui,
+    # de fato" sem precisar reproduzir o payload real a cada dúvida.
+    print(f"webhook hotmart: event={corpo.get('event')!r} produto_id={produto.get('id')!r}")
+
     if corpo.get("event") != _EVENTO_APROVADA:
         return JSONResponse({"ignorado": "evento"}, status_code=200)
 
-    dados = corpo.get("data")
-    produto = (dados or {}).get("product", {}) if isinstance(dados, dict) else {}
     produto_esperado = os.environ.get(_VARIAVEL_HOTMART_PRODUTO_ID)
     if produto_esperado and str(produto.get("id", "")) != produto_esperado:
         return JSONResponse({"ignorado": "produto"}, status_code=200)
