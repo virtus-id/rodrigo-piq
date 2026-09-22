@@ -363,6 +363,7 @@ export default function App() {
           casoId={casoId}
           escopo="DIVIDA_ID"
           titulo="Dívida"
+          tituloPlural="Dívidas"
           voltar={voltarAoInicio}
           onAbrirFicha={(itemId) => irPara({ tela: 'pergunta', itemId })}
         />

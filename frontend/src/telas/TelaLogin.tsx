@@ -67,7 +67,7 @@ export default function TelaLogin({ onEntrou }: TelaLoginProps) {
 
   return (
     <Tela
-      titulo="Bem-vinda de volta"
+      titulo="Que bom ter você de volta"
       acoes={
         <Botao type="submit" form={ID_DO_FORM} disabled={enviando}>
           {enviando ? 'Entrando…' : 'Entrar'}

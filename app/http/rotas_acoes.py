@@ -63,7 +63,7 @@ _BLOCO_ACOMPANHAMENTO: Final[int] = 11
 
 # Mensagens curtas de propósito — limiar de `AC-37` (T-08).
 _MENSAGEM_PERGUNTA_INVALIDA: Final[str] = "Pergunta fora do Bloco 11."
-_MENSAGEM_FALHA_SALVAR: Final[str] = "não foi possível salvar"
+_MENSAGEM_FALHA_SALVAR: Final[str] = "Não foi possível salvar."
 
 
 def _agora() -> datetime:

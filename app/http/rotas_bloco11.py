@@ -123,7 +123,7 @@ _TIPOS_QUE_EXIGEM_CONVERSAO_DECIMAL: Final[frozenset[TipoResposta]] = frozenset(
 # (`AC-37`/T-08: literal fora de docstring sob o limiar de 40 caracteres).
 _MENSAGEM_PERGUNTA_NAO_ENCONTRADA: Final[str] = "Registro de pergunta inválido: ID desconhecido."
 _MENSAGEM_PERGUNTA_NAO_ABERTA: Final[str] = "Pergunta não está aberta para resposta."
-_MENSAGEM_FALHA_SALVAR: Final[str] = "não foi possível salvar"
+_MENSAGEM_FALHA_SALVAR: Final[str] = "Não foi possível salvar."
 
 
 class ErroPerguntaForaDoBloco11(Exception):

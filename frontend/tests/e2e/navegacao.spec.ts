@@ -787,7 +787,7 @@ test('T-154: entrar SEM `?caso=` na URL alcança o Início', async ({ page }) =>
   )
 
   await page.goto('/')
-  await expect(page.locator('h1')).toHaveText('Bem-vinda de volta')
+  await expect(page.locator('h1')).toHaveText('Que bom ter você de volta')
 
   await page.getByLabel('Seu e-mail').fill('maria@exemplo.gov.br')
   await page.getByLabel('Sua senha').fill('senha-de-teste')

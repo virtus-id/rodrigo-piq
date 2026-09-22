@@ -318,7 +318,7 @@ def test_ec02_validacao_cruzada_falha_recusa_sem_gravar_apontando_os_dois_campos
 
 
 # ---------------------------------------------------------------------------
-# EC-05 — falha de banco devolve "não foi possível salvar" e NÃO avança.
+# EC-05 — falha de banco devolve "Não foi possível salvar." e NÃO avança.
 # ---------------------------------------------------------------------------
 
 
@@ -348,7 +348,7 @@ def test_ec05_falha_de_gravacao_devolve_mensagem_fixa_e_nao_grava(
     falha (`app.dependency_overrides`, aplicado na MESMA `FastAPI` antes de
     o `TestClient` ser criado — mesmo padrão de `tests/app_aluno/
     test_rotas_conta.py::cliente`), a rota devolve `503` com a mensagem fixa
-    "não foi possível salvar" — e a linha nunca chega a existir no banco
+    "Não foi possível salvar." — e a linha nunca chega a existir no banco
     real (conferido pelo repositório real, fora do override). O caso é
     preparado por um cliente SEM o override (cadastro/consentimento reais
     não devem falhar), e a chamada que falha usa um cliente separado sobre a
@@ -368,5 +368,5 @@ def test_ec05_falha_de_gravacao_devolve_mensagem_fixa_e_nao_grava(
     )
 
     assert resposta.status_code == 503
-    assert "não foi possível salvar" in resposta.text
+    assert "Não foi possível salvar." in resposta.text
     assert _total_de_respostas(caso_id) == 0

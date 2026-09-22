@@ -71,10 +71,10 @@ resposta falha, o comportamento já implementado (`EC-05`,
 `app/http/rotas_coleta.py`, T-42) é:
 
 1. a resposta **não é gravada** — nenhuma transação é confirmada;
-2. o aluno vê a mensagem "não foi possível salvar", vinculada ao campo e
-   anunciada como alerta (`role="alert"`, `report/templates/coleta/
-   erro_resposta.html`) — nunca uma confirmação falsa de que a resposta foi
-   salva;
+2. o aluno vê a mensagem "Não foi possível salvar.", anunciada como alerta
+   (`role="alert"`, na tela React de coleta — `frontend/src/telas/
+   TelaPergunta.tsx` e as outras telas que gravam resposta) — nunca uma
+   confirmação falsa de que a resposta foi salva;
 3. o aluno pode **repetir** a mesma resposta assim que o banco voltar (o
    Supabase "acorda" em segundos a um minuto após a primeira requisição que
    o alcança) — nada do que ele já tinha respondido **antes** desse
@@ -86,7 +86,7 @@ reconectando, sua última resposta foi salva" citada no plano (§6): ela
 descreve a experiência de retomar o sistema depois de uma pausa — o que já
 estava salvo continua salvo, e é só a tentativa em curso que precisa ser
 repetida. Não há duas mensagens conflitantes no código: a tela de erro da
-resposta que falhou agora é honesta e pontual ("não foi possível salvar");
+resposta que falhou agora é honesta e pontual ("Não foi possível salvar.");
 o que essa tela nunca faz é reportar como salva uma resposta que não foi.
 
 ## Antes de abrir o piloto: reavaliar o tier

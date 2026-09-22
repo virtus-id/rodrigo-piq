@@ -21,6 +21,14 @@ interface TelaFichasProps {
   escopo: string
   /** O nome de UM item — "Dívida". Compõe o rótulo de cada linha e do botão. */
   titulo: string
+  /**
+   * O plural de `titulo` — "Dívidas". Prop própria, e não `titulo + "s"`:
+   * plural em português não é regular ("ação" → "ações", "margem" →
+   * "margens"), e um `+ "s"` que hoje acerta por acaso (só existe o
+   * escopo "Dívida") quebraria em silêncio no próximo escopo que usar
+   * esta tela.
+   */
+  tituloPlural: string
   voltar?: () => void
   onAbrirFicha: (itemId: string) => void
 }
@@ -29,6 +37,7 @@ export default function TelaFichas({
   casoId,
   escopo,
   titulo,
+  tituloPlural,
   voltar,
   onAbrirFicha,
 }: TelaFichasProps) {
@@ -73,7 +82,7 @@ export default function TelaFichas({
 
   return (
     <Tela
-      titulo={`Suas ${titulo.toLowerCase()}s`}
+      titulo={`Suas ${tituloPlural.toLowerCase()}`}
       voltar={voltar}
       onde={fichas.length > 0 ? `${fichas.length} cadastrada${fichas.length === 1 ? '' : 's'}` : undefined}
       acoes={

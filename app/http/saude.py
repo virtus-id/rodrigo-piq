@@ -24,7 +24,7 @@ congelado, `AC-44`) sem abrir conexão própria com `search_path` fixado —
 `SET search_path` não é necessário para `SELECT 1`.
 
 **`EC-05` já é tratado, não reimplementado aqui.** A mensagem honesta ao
-aluno ("não foi possível salvar" — ver `_MENSAGEM_FALHA_SALVAR` em
+aluno ("Não foi possível salvar." — ver `_MENSAGEM_FALHA_SALVAR` em
 `app/http/rotas_coleta.py`, T-42) e a garantia de que nenhuma resposta é
 reportada como persistida sem ter sido já existem naquela rota, que é o
 ÚNICO caminho de gravação de resposta de coleta. Esta rota de keep-alive não
