@@ -104,6 +104,10 @@ class Conta:
     senha_hash: str | None
     criado_em: datetime
     e_revisor: bool = False
+    #: `None` = conta ativa. Timestamp = bloqueada (reembolso da Hotmart,
+    #: migração `005`) — `autenticar` recusa a partir daqui, mesma
+    #: disciplina de `senha_hash is None`, acima.
+    bloqueado_em: datetime | None = None
 
 
 class ErroEmailDuplicado(Exception):
@@ -143,13 +147,14 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
 
 
 def _linha_para_conta(linha: tuple[Any, ...]) -> Conta:
-    conta_id, email, senha_hash, criado_em, e_revisor = linha
+    conta_id, email, senha_hash, criado_em, e_revisor, bloqueado_em = linha
     return Conta(
         conta_id=conta_id,
         email=email,
         senha_hash=senha_hash,
         criado_em=criado_em if criado_em.tzinfo is not None else criado_em.replace(tzinfo=UTC),
         e_revisor=e_revisor,
+        bloqueado_em=bloqueado_em,
     )
 
 
@@ -194,6 +199,14 @@ class RepositorioContas(Protocol):
         casos são INDISTINGUÍVEIS pelo retorno (mesmo valor, nenhuma
         exceção diferenciadora). Devolve a `Conta` só quando ambos, e-mail
         existente e senha correta, se confirmam."""
+        ...
+
+    def bloquear(self, conta_id: str) -> None:
+        """Marca a conta como bloqueada (`bloqueado_em`, migração `005`) —
+        `autenticar` passa a recusá-la. Chamado pelo webhook
+        `PURCHASE_REFUNDED` da Hotmart (`app/http/rotas_provisionamento.py`).
+        Idempotente: bloquear uma conta já bloqueada não é erro, só não
+        muda o timestamp original."""
         ...
 
 
@@ -287,7 +300,7 @@ class RepositorioContasSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT conta_id, email, senha_hash, criado_em, e_revisor
+                SELECT conta_id, email, senha_hash, criado_em, e_revisor, bloqueado_em
                 FROM app_aluno.contas
                 WHERE email = %s
                 """,
@@ -305,7 +318,7 @@ class RepositorioContasSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT conta_id, email, senha_hash, criado_em, e_revisor
+                SELECT conta_id, email, senha_hash, criado_em, e_revisor, bloqueado_em
                 FROM app_aluno.contas
                 WHERE conta_id = %s
                 """,
@@ -336,9 +349,34 @@ class RepositorioContasSupabase:
         # errada", pela mesma razão dos dois ramos acima (`RF-02`).
         if conta.senha_hash is None:
             return None
+        # **Conta bloqueada por reembolso NÃO autentica** (migração `005`).
+        # Mesma disciplina do guard acima: `None`, indistinguível de "não
+        # existe" e de "senha errada" — quem tenta entrar não aprende que a
+        # conta já existiu.
+        if conta.bloqueado_em is not None:
+            return None
         if not verificar_senha(conta.senha_hash, senha):
             return None
         return conta
+
+    def bloquear(self, conta_id: str) -> None:
+        """`COALESCE`: se já estava bloqueada, preserva o timestamp
+        original — reembolso duplicado (a Hotmart pode reenviar o mesmo
+        webhook) não apaga QUANDO o bloqueio realmente aconteceu."""
+        try:
+            with _conectar() as conexao, conexao.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE app_aluno.contas
+                    SET bloqueado_em = COALESCE(bloqueado_em, %s)
+                    WHERE conta_id = %s
+                    """,
+                    (datetime.now(UTC), conta_id),
+                )
+        except ErroConexaoAusente:
+            raise
+        except psycopg.Error as erro:
+            raise ErroGravacaoConta(f"falha ao bloquear conta_id={conta_id!r}: {erro}") from erro
 
 
 def promover_a_revisor(email: str) -> None:
@@ -427,7 +465,7 @@ def listar_revisores() -> tuple[Conta, ...]:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT conta_id, email, senha_hash, criado_em, e_revisor
+                SELECT conta_id, email, senha_hash, criado_em, e_revisor, bloqueado_em
                 FROM app_aluno.contas
                 WHERE e_revisor = true
                 ORDER BY criado_em, email

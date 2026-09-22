@@ -66,6 +66,12 @@ class _RepositorioContasDublê(RepositorioContas):
     def definir_senha(self, conta_id: str, senha: str) -> None:  # pragma: no cover
         raise NotImplementedError
 
+    # `005`: bloqueio por reembolso da Hotmart, que nenhum destes testes
+    # exercita — o `Protocol` o exige, o dublê o recusa explicitamente em
+    # vez de fingir comportamento.
+    def bloquear(self, conta_id: str) -> None:  # pragma: no cover
+        raise NotImplementedError
+
     def buscar_por_email(self, email: str) -> Conta | None:  # pragma: no cover
         raise NotImplementedError("não usado por estes testes")
 

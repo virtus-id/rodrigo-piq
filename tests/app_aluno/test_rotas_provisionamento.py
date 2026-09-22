@@ -68,6 +68,7 @@ class _RepositorioContasDublê:
     def __init__(self, provisionamento: _ProvisionamentoDublê) -> None:
         self._provisionamento = provisionamento
         self.senhas_definidas: list[tuple[str, str]] = []
+        self.bloqueadas: list[str] = []
 
     def criar(self, conta_id: str, email: str, senha: str) -> None:  # pragma: no cover
         raise NotImplementedError
@@ -82,12 +83,18 @@ class _RepositorioContasDublê:
         if email not in self._provisionamento.emails:
             return None
         indice = self._provisionamento.emails.index(email) + 1
+        conta_id = f"CONTA_{indice}"
         return Conta(
-            conta_id=f"CONTA_{indice}",
+            conta_id=conta_id,
             email=email,
             senha_hash=None,
             criado_em=datetime.now(UTC),
+            bloqueado_em=datetime.now(UTC) if conta_id in self.bloqueadas else None,
         )
+
+    def bloquear(self, conta_id: str) -> None:
+        if conta_id not in self.bloqueadas:
+            self.bloqueadas.append(conta_id)
 
     def buscar_por_id(self, conta_id: str) -> Conta | None:  # pragma: no cover
         raise NotImplementedError
@@ -427,22 +434,22 @@ def test_hotmart_token_no_corpo_tambem_autentica(ambiente_hotmart: Ambiente) -> 
     assert provisionamento.emails == [_EMAIL]
 
 
-def test_hotmart_evento_diferente_de_aprovada_e_ignorado(
-    ambiente_hotmart: Ambiente,
-) -> None:
-    """Reembolso, cancelamento etc. não são erro — só não criam conta. `200`
-    para a Hotmart não reenviar o mesmo evento pra sempre."""
-    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+def test_hotmart_evento_nao_tratado_e_ignorado(ambiente_hotmart: Ambiente) -> None:
+    """Cancelamento, chargeback etc. — qualquer evento que não seja compra
+    aprovada ou reembolso — não é erro, só não faz nada. `200` para a
+    Hotmart não reenviar o mesmo evento pra sempre."""
+    cliente, provisionamento, contas, _tokens = ambiente_hotmart
 
     resposta = cliente.post(
         "/api/provisionamento/hotmart",
-        json=_payload_hotmart(evento="PURCHASE_REFUNDED"),
+        json=_payload_hotmart(evento="PURCHASE_CANCELED"),
         headers={_NOME_HEADER_HOTTOK: _HOTTOK},
     )
 
     assert resposta.status_code == 200
     assert resposta.json() == {"ignorado": "evento"}
     assert provisionamento.emails == []
+    assert contas.bloqueadas == []
 
 
 def test_hotmart_produto_diferente_e_ignorado(ambiente_hotmart: Ambiente) -> None:
@@ -518,3 +525,67 @@ def test_hotmart_corpo_nao_json_recusa(ambiente_hotmart: Ambiente) -> None:
 
     assert resposta.status_code == 400
     assert provisionamento.emails == []
+
+
+# ---------------------------------------------------------------------------
+# Reembolso — bloqueio da conta
+# ---------------------------------------------------------------------------
+
+
+def test_hotmart_reembolso_bloqueia_conta_existente(ambiente_hotmart: Ambiente) -> None:
+    cliente, provisionamento, contas, _tokens = ambiente_hotmart
+    provisionamento(_EMAIL)  # conta já existia, comprada antes do reembolso
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(evento="PURCHASE_REFUNDED"),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"bloqueado": True}
+    assert contas.bloqueadas == ["CONTA_1"]
+
+
+def test_hotmart_reembolso_de_email_sem_conta_e_no_op(ambiente_hotmart: Ambiente) -> None:
+    """Nada para bloquear — `200` de qualquer forma, a Hotmart não tem
+    retry infinito por causa de um e-mail que nunca comprou por aqui."""
+    cliente, _provisionamento, contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(evento="PURCHASE_REFUNDED"),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"bloqueado": False}
+    assert contas.bloqueadas == []
+
+
+def test_hotmart_reembolso_de_produto_diferente_e_ignorado(
+    ambiente_hotmart: Ambiente,
+) -> None:
+    cliente, provisionamento, contas, _tokens = ambiente_hotmart
+    provisionamento(_EMAIL)
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(evento="PURCHASE_REFUNDED", produto_id="999999"),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"ignorado": "produto"}
+    assert contas.bloqueadas == []
+
+
+def test_hotmart_reembolso_sem_hottok_recusa(ambiente_hotmart: Ambiente) -> None:
+    cliente, _provisionamento, contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart", json=_payload_hotmart(evento="PURCHASE_REFUNDED")
+    )
+
+    assert resposta.status_code == 401
+    assert contas.bloqueadas == []

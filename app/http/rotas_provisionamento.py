@@ -206,6 +206,10 @@ _VARIAVEL_HOTMART_HOTTOK: Final[str] = "HOTMART_HOTTOK"
 _VARIAVEL_HOTMART_PRODUTO_ID: Final[str] = "HOTMART_PRODUTO_ID"
 _NOME_HEADER_HOTTOK: Final[str] = "X-HOTMART-HOTTOK"
 _EVENTO_APROVADA: Final[str] = "PURCHASE_APPROVED"
+#: Confirmado contra o webhook de teste real da Hotmart em 2026-09-22.
+#: Chargeback (`PURCHASE_CHARGEBACK`) e cancelamento não estão cobertos —
+#: só o que foi pedido.
+_EVENTO_REEMBOLSADA: Final[str] = "PURCHASE_REFUNDED"
 
 _MENSAGEM_JSON_INVALIDO: Final[str] = "Corpo não é JSON válido."
 
@@ -241,13 +245,16 @@ async def receber_webhook_hotmart(
     enviador: Annotated[EnviadorDeEmail, Depends(obter_enviador)],
     hottok_header: Annotated[str | None, Header(alias=_NOME_HEADER_HOTTOK)] = None,
 ) -> JSONResponse:
-    """Traduz o webhook `PURCHASE_APPROVED` da Hotmart para o mesmo caminho
-    de `provisionar` acima — mesma criação de conta+caso, mesmo e-mail de
-    primeiro acesso. Não reimplementa nada daquela rota; só troca de onde
-    vem o `email`.
+    """Traduz dois webhooks da Hotmart. `PURCHASE_APPROVED` segue o mesmo
+    caminho de `provisionar` acima — mesma criação de conta+caso, mesmo
+    e-mail de primeiro acesso, sem reimplementar nada daquela rota, só
+    trocando de onde vem o `email`. `PURCHASE_REFUNDED` bloqueia a conta
+    (`RepositorioContas.bloquear`, migração `005`) — `autenticar` passa a
+    recusá-la; a conta e o histórico continuam no banco, só o acesso é
+    cortado.
 
     **Responde `200` para tudo que não seja "processar e falhou".** Evento
-    que não é `PURCHASE_APPROVED` (reembolso, cancelamento, outro produto)
+    que não é um dos dois acima (cancelamento, chargeback, outro produto)
     não é erro — é a Hotmart me contando algo que esta rota não trata. Um
     `4xx`/`5xx` nesses casos faria a Hotmart reenviar o mesmo evento sem
     parar; só a autenticação e o corpo malformado merecem recusa de
@@ -282,9 +289,10 @@ async def receber_webhook_hotmart(
     # nem dado do comprador — mesma disciplina de `EnviadorSMTP` sobre não
     # logar PII. Existe para responder "que eventos a Hotmart manda aqui,
     # de fato" sem precisar reproduzir o payload real a cada dúvida.
-    print(f"webhook hotmart: event={corpo.get('event')!r} produto_id={produto.get('id')!r}")
+    evento = corpo.get("event")
+    print(f"webhook hotmart: event={evento!r} produto_id={produto.get('id')!r}")
 
-    if corpo.get("event") != _EVENTO_APROVADA:
+    if evento not in (_EVENTO_APROVADA, _EVENTO_REEMBOLSADA):
         return JSONResponse({"ignorado": "evento"}, status_code=200)
 
     produto_esperado = os.environ.get(_VARIAVEL_HOTMART_PRODUTO_ID)
@@ -295,6 +303,17 @@ async def receber_webhook_hotmart(
     email = str(comprador.get("email") or "").strip().lower()
     if not email:
         return JSONResponse({"erro": _MENSAGEM_EMAIL_AUSENTE}, status_code=400)
+
+    if evento == _EVENTO_REEMBOLSADA:
+        # **Sem desbloqueio automático em compra nova** — decisão
+        # deliberada (ver a migração `005`). Uma conta bloqueada some do
+        # `buscar_por_email`? Não: continua existindo, só não autentica.
+        # Se não existir conta com este e-mail, não há o que bloquear —
+        # `200` de qualquer forma, a Hotmart não tem retry infinito à toa.
+        alvo = repositorio_contas.buscar_por_email(email)
+        if alvo is not None:
+            repositorio_contas.bloquear(alvo.conta_id)
+        return JSONResponse({"bloqueado": alvo is not None}, status_code=200)
 
     try:
         conta, _caso = provisionamento(email)
