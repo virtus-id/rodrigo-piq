@@ -252,10 +252,55 @@ def test_post_consentimento_grava_registro_e_transiciona_o_caso(
     assert repositorio_consentimentos.registros[0].CASO_ID == caso_id
     assert repositorio_consentimentos.registros[0].aceite is True
 
-    assert repositorio_casos.transicoes_chamadas == [ESTADO_CASO.CONSENTIMENTO_REGISTRADO]
+    # `T-173`: DUAS transições, nesta ordem. O aceite registra o
+    # consentimento e, em seguida, `inicia_coleta` abre a coleta — antes,
+    # a segunda não existia em rota nenhuma, e o aluno travava logo após
+    # aceitar o termo (a gravação da primeira resposta era recusada por
+    # `ErroConsentimentoNaoRegistrado`).
+    assert repositorio_casos.transicoes_chamadas == [
+        ESTADO_CASO.CONSENTIMENTO_REGISTRADO,
+        ESTADO_CASO.COLETA_INICIAL,
+    ]
+    # O estado FINAL é `COLETA_INICIAL`: é onde o aluno precisa estar para
+    # a primeira resposta ser aceita (`exigir_estado_permite_resposta`).
     caso_apos = repositorio_casos.buscar(caso_id)
     assert caso_apos is not None
-    assert caso_apos.estado == ESTADO_CASO.CONSENTIMENTO_REGISTRADO
+    assert caso_apos.estado == ESTADO_CASO.COLETA_INICIAL
+
+
+def test_recusa_registra_mas_nao_avanca_o_caso(
+    cliente_com_sessao: tuple[
+        TestClient, _RepositorioCasosDublê, _RepositorioConsentimentosDublê, str
+    ],
+) -> None:
+    """`RF-30`, `T-178` — quem recusa o termo NÃO tem a coleta iniciada.
+
+    **O defeito que este teste fecha.** A transição acontecia sem olhar o
+    valor de `aceite`: quem recusasse ficava no mesmo estado de quem
+    aceitou, e a coleta começava. A proteção existia só na tela (botão
+    desabilitado sem o checkbox), então um `POST` direto sem `aceite`
+    avançava o caso — e "recusou, mas o sistema seguiu" é exatamente o que
+    a LGPD não admite.
+
+    **A recusa é REGISTRADA.** Negar consentimento é um fato com valor
+    probatório; apagá-lo deixaria o caso indistinguível de "nunca
+    respondeu". O que não acontece é a transição."""
+    cliente, repositorio_casos, repositorio_consentimentos, caso_id = cliente_com_sessao
+
+    # Sem `aceite` no corpo — é o que um POST direto (fora da tela) envia.
+    resposta = cliente.post(f"/caso/{caso_id}/consentimento", data={})
+
+    assert resposta.status_code == 200
+
+    # A recusa foi gravada, com `aceite=False`.
+    assert len(repositorio_consentimentos.registros) == 1
+    assert repositorio_consentimentos.registros[0].aceite is False
+
+    # E NENHUMA transição aconteceu: o caso segue onde estava.
+    assert repositorio_casos.transicoes_chamadas == []
+    caso_apos = repositorio_casos.buscar(caso_id)
+    assert caso_apos is not None
+    assert caso_apos.estado == ESTADO_CASO.CADASTRADO
 
 
 def test_post_consentimento_grava_versao_do_texto_vigente(

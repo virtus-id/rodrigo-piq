@@ -217,6 +217,10 @@ class _RepositorioContasEmMemoria:
         conta = self._por_email.get(email)
         if conta is None:
             return None
+        # `T-179`: conta provisionada sem senha não autentica — mesma
+        # guarda do `RepositorioContasSupabase` real.
+        if conta.senha_hash is None:
+            return None
         if not verificar_senha(conta.senha_hash, senha):
             return None
         return conta
@@ -493,14 +497,19 @@ def test_ciclo_completo_us01_us04_cadastro_a_plano_liberado_ac14_ac15_ac16_ac17_
     assert resposta_consentimento.status_code == 200
     caso_apos_consentimento = ambiente.repositorio_casos.buscar(caso_id)
     assert caso_apos_consentimento is not None
-    assert caso_apos_consentimento.estado is ESTADO_CASO.CONSENTIMENTO_REGISTRADO
-
-    # `inicia_coleta` (CONSENTIMENTO_REGISTRADO -> COLETA_INICIAL) não tem
-    # rota HTTP própria — mesmo precedente documentado e já usado por
-    # `tests/app_aluno/e2e/test_retomada.py` (T-46) e `tests/app_aluno/e2e/
-    # test_rota_resposta.py` (T-42): disparada diretamente sobre o
-    # repositório real (aqui, o de arquivo).
-    ambiente.repositorio_casos.transicionar_estado(caso_id, ESTADO_CASO.COLETA_INICIAL)
+    # `T-173`: a rota de consentimento agora encadeia `inicia_coleta`, e o
+    # caso sai do aceite já em `COLETA_INICIAL`.
+    #
+    # **O contorno que estava aqui foi REMOVIDO.** Até esta tarefa, o teste
+    # chamava `transicionar_estado(caso_id, COLETA_INICIAL)` direto no
+    # repositório, porque nenhuma rota HTTP disparava a transição. Era um
+    # contorno legítimo enquanto o defeito existia — e mascarava o beco sem
+    # saída que um aluno real encontraria: aceitar o termo e, na primeira
+    # resposta, ser recusado por `ErroConsentimentoNaoRegistrado`.
+    #
+    # Agora o ciclo é HTTP de ponta a ponta neste trecho, que é o que este
+    # arquivo se propõe a provar.
+    assert caso_apos_consentimento.estado is ESTADO_CASO.COLETA_INICIAL
 
     # -----------------------------------------------------------------
     # 3. Coleta multissessão real — as 25 respostas do caso completo (T-53),

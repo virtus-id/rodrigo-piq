@@ -130,7 +130,11 @@ async def processar_consentimento(
     persiste a transição E registra o evento na trilha
     (`app.casos.progresso.transicionar_e_registrar`, `T-91`, `RF-31`/`AC-40`)
     num único passo. Se o texto estiver ausente, ou o caso não estiver em
-    `CADASTRADO`, nem o registro nem a transição ocorrem."""
+    `CADASTRADO`, nem o registro nem a transição ocorrem.
+
+    **Recusa é registrada e NÃO avança** (`T-178`): com `aceite=False` o
+    passo (3) acontece — a recusa é um fato com valor probatório — e o (4)
+    não. O caso permanece em `CADASTRADO`."""
     try:
         texto = carregar_texto_vigente()
     except ErroTextoConsentimentoAusente:
@@ -156,6 +160,26 @@ async def processar_consentimento(
     registro: RegistroConsentimento = registrar_consentimento(CASO_ID, texto, aceite, agora)
     repositorio_consentimentos.gravar(f"CONSENTIMENTO_{uuid.uuid4().hex}", registro)
 
+    # **Recusa NÃO avança o caso** — `RF-30`, `T-178`.
+    #
+    # Até aqui a transição acontecia independentemente do valor de `aceite`:
+    # quem recusasse ficava no mesmo estado de quem aceitou, e a coleta
+    # começava. A proteção existia só na tela (o botão fica desabilitado sem
+    # o checkbox), o que significa que um `POST` direto sem `aceite`
+    # avançava o caso — e "recusou, mas o sistema seguiu" é exatamente o que
+    # a LGPD não admite.
+    #
+    # **A recusa é REGISTRADA, não descartada.** O `RegistroConsentimento`
+    # com `aceite=False` já foi gravado acima, de propósito: negar
+    # consentimento é um fato com valor probatório, e apagá-lo deixaria o
+    # caso indistinguível de "nunca respondeu". O que não acontece é a
+    # transição.
+    #
+    # `200`, não erro: o aluno fez uma escolha legítima e o servidor a
+    # registrou com sucesso. O estado devolvido diz à tela que nada avançou.
+    if not aceite:
+        return JSONResponse({"CASO_ID": CASO_ID, "estado": caso_atual.estado.value})
+
     # T-91: transição E registro na trilha num único caminho — nunca dois
     # passos separados que poderiam dessincronizar.
     caso_atualizado = transicionar_e_registrar(
@@ -173,6 +197,39 @@ async def processar_consentimento(
         # rota (sem concorrência real sobre CADASTRADO documentada no plano).
         raise ErroCasoDesaparecidoAposIsolamento(CASO_ID)
 
+    # **`inicia_coleta` — a transição que faltava** (`T-173`, `RF-01`).
+    #
+    # `CONSENTIMENTO_REGISTRADO` existe na máquina desde `T-23`, mas NENHUMA
+    # rota disparava `inicia_coleta`. O efeito, num fluxo com o texto
+    # publicado, era um beco sem saída silencioso: o aluno aceitava, voltava
+    # ao Início, via "Continuar de onde você parou", clicava, respondia a
+    # primeira pergunta — e a gravação era recusada por
+    # `ErroConsentimentoNaoRegistrado`, DEPOIS de ele já ter aceitado.
+    #
+    # Hoje isso não aparecia porque `scripts/subir_demo.py` cria o caso já
+    # em `COLETA_INICIAL`, pulando o estado. `PEND-01` mascarava o defeito:
+    # sem texto, ninguém chegava aqui.
+    #
+    # **Por que encadear aqui, e não numa rota própria.** Não há decisão
+    # entre aceitar e começar a responder: `RF-30` manda registrar o
+    # consentimento ANTES de qualquer coleta, e é exatamente isso que
+    # acabou de acontecer. Uma segunda rota exigiria uma segunda ação do
+    # aluno para um passo que ele não tem como recusar — e deixaria o mesmo
+    # beco aberto para quem fechasse o navegador entre as duas.
+    #
+    # As duas transições são registradas separadamente na trilha (`RF-31`):
+    # são dois fatos distintos do caso, e `AC-40` audita a sequência.
+    caso_em_coleta = transicionar_e_registrar(
+        repositorio_casos=repositorio_casos,
+        repositorio_eventos=repositorio_eventos,
+        caso_id=CASO_ID,
+        de=ESTADO_CASO.CONSENTIMENTO_REGISTRADO,
+        para=ESTADO_CASO.COLETA_INICIAL,
+        agora=agora,
+    )
+    if caso_em_coleta is None:  # pragma: no cover — mesma corrida extrema
+        raise ErroCasoDesaparecidoAposIsolamento(CASO_ID)
+
     return JSONResponse(
-        {"CASO_ID": caso_atualizado.CASO_ID, "estado": caso_atualizado.estado.value}
+        {"CASO_ID": caso_em_coleta.CASO_ID, "estado": caso_em_coleta.estado.value}
     )

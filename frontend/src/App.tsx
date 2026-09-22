@@ -34,6 +34,7 @@ import TelaBloco10 from './telas/TelaBloco10'
 import TelaBoasVindas from './telas/TelaBoasVindas'
 import TelaColetaDirigida from './telas/TelaColetaDirigida'
 import TelaConsentimento from './telas/TelaConsentimento'
+import TelaDefinirSenha from './telas/TelaDefinirSenha'
 import TelaEquipeCaso from './telas/TelaEquipeCaso'
 import TelaFichas from './telas/TelaFichas'
 import TelaInicio from './telas/TelaInicio'
@@ -248,6 +249,33 @@ export default function App() {
   //
   // `temSessao === null` é "ainda perguntando": não decide nada, para que a
   // tela de entrada não pisque na frente de quem já está autenticado.
+  // `T-179`: a tela de definir senha vem ANTES do portão de login, e é a
+  // única além da entrada que dispensa sessão.
+  //
+  // **Este `if` é o que faz o `switch` abaixo continuar exaustivo sem um
+  // `case 'definir-senha'`.** O TypeScript estreita `Rota` depois do
+  // `return`, então `definir-senha` já não é possível lá. Mover este bloco
+  // para depois do `switch` faria a compilação falhar — que é o
+  // comportamento desejado, não um acidente a corrigir.
+  //
+  // **Sem esta exceção o link do e-mail não funcionaria.** Quem clica nele
+  // não tem sessão (acabou de comprar) e não consegue fazer login (a conta
+  // existe, mas sem senha — `autenticar` recusa). Cairia na tela de entrada
+  // e ficaria preso lá, exatamente como o `T-174` descreveu para o
+  // `?caso=`.
+  if (rota.tela === 'definir-senha') {
+    return (
+      <TelaDefinirSenha
+        token={rota.token}
+        // Vai para o login, onde ele usa a senha recém-criada. `irPara` e
+        // não `substituirRota`: o "voltar" do navegador levaria de volta a
+        // um token já consumido, e a tela diria "link inválido" — correto,
+        // porém confuso. Empilhar mantém o histórico honesto.
+        aoDefinir={() => irPara({ tela: 'entrada' })}
+      />
+    )
+  }
+
   if ((!casoId || temSessao === false) && rota.tela !== 'entrada') {
     return (
       <TelaLogin

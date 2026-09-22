@@ -209,6 +209,28 @@ export function entrar(email: string, senha: string): Promise<Response> {
   })
 }
 
+/**
+ * Define a senha a partir do token do link — `T-179`.
+ *
+ * Serve ao PRIMEIRO ACESSO (o aluno comprou, a conta nasceu sem senha) e à
+ * RECUPERAÇÃO. Os dois terminam na mesma rota: o fato é o mesmo — "provei
+ * que sou dono deste e-mail, quero definir a senha".
+ *
+ * **Não instala sessão.** Depois disso o aluno entra pelo login normal, e a
+ * senha que acabou de escolher é exercitada na hora.
+ *
+ * Devolve `Response` cru (como `entrar`) porque a tela precisa distinguir
+ * `400` de senha curta de `400` de token inválido pela mensagem do corpo.
+ */
+export function definirSenha(token: string, senha: string): Promise<Response> {
+  const corpo = new URLSearchParams({ token, senha })
+  return fetch('/api/provisionamento/senha', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: corpo.toString(),
+  })
+}
+
 // ---------------------------------------------------------------------------
 // Plano, fila de revisão e etapas (T-140)
 // ---------------------------------------------------------------------------

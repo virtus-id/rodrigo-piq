@@ -185,7 +185,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.casos.maquina import Caso
-from app.http.isolamento import exigir_papel_revisor
+from app.http.isolamento import (
+    exigir_papel_revisor,
+    obter_repositorio_contas_para_papel,
+)
+from app.notificacao.email import (
+    EnviadorDeEmail,
+    obter_enviador,
+)
+from app.notificacao.mensagens import plano_liberado
 from app.revisao.fila import (
     CLASSIFICACAO_ERRO,
     ErroRevisaoJaDecidida,
@@ -198,6 +206,7 @@ from app.revisao.fila import (
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.casos import RepositorioCasos, RepositorioCasosSupabase
+from persistencia.app_aluno.contas import RepositorioContas
 from persistencia.app_aluno.eventos import (
     RepositorioEventosCaso,
     RepositorioEventosCasoSupabase,
@@ -290,6 +299,45 @@ async def _ler_formulario_de_decisao(request: Request) -> dict[str, str]:
     return dict(parse_qsl(corpo.decode("utf-8"), keep_blank_values=True))
 
 
+def _avisar_plano_liberado(
+    conta_id: str,
+    repositorio_contas: RepositorioContas,
+    enviador: EnviadorDeEmail,
+) -> None:
+    """Avisa o ALUNO de que o plano dele saiu — `RF-31`, `T-182`.
+
+    **Nada aqui pode derrubar a liberação.** Quando esta função é chamada, a
+    decisão do revisor já está gravada e o plano já está acessível. Uma
+    falha de e-mail — SMTP fora do ar, variável de ambiente esquecida,
+    conta sem e-mail — é um aviso não entregue, não uma liberação
+    desfeita. Por isso tudo é capturado aqui e nada propaga.
+
+    O silêncio não é total: `email.py` já registra a falha, e o aluno
+    continua podendo entrar e ver o plano por conta própria.
+
+    **`except Exception`, deliberadamente — não é preguiça de enumerar.** A
+    primeira versão capturava só os três erros de e-mail
+    (`ErroConfiguracaoEmail`, `ErroEnvioEmail`, `ErroUrlBaseAusente`) e a
+    promessa do parágrafo acima era falsa: a busca da conta também está
+    aqui dentro, e um `ErroConexaoAusente` dela escapava e derrubava a
+    liberação já gravada. Enumerar exceções obriga a prever tudo o que as
+    duas dependências podem levantar, hoje e depois de cada mudança nelas —
+    e errar por omissão custa uma liberação perdida. O critério certo não é
+    QUAL erro aconteceu, é ONDE: nada deste bloco é essencial à liberação,
+    então nada deste bloco a desfaz.
+
+    `BaseException` continua propagando: `KeyboardInterrupt` e
+    `SystemExit` não são falha de aviso, são o processo encerrando."""
+    try:
+        conta = repositorio_contas.buscar_por_id(conta_id)
+        if conta is None:  # pragma: no cover — defensivo: o caso tem dono
+            return
+        mensagem = plano_liberado()
+        enviador.enviar(conta.email, mensagem.assunto, mensagem.corpo)
+    except Exception:
+        return
+
+
 def _buscar_caso_e_snapshot_mais_recente(
     caso_id: str,
     repositorio_casos: RepositorioCasosDaDecisao,
@@ -375,6 +423,13 @@ async def processar_decisao(
         RepositorioEventosCaso, Depends(obter_repositorio_eventos_da_decisao)
     ],
     conta_id_revisor: Annotated[str, Depends(exigir_papel_revisor)],
+    # `T-182`: para avisar o ALUNO quando o plano for liberado. O
+    # repositório de contas é o mesmo que `exigir_papel_revisor` já usa —
+    # reaproveitado, não duplicado.
+    repositorio_contas: Annotated[
+        RepositorioContas, Depends(obter_repositorio_contas_para_papel)
+    ],
+    enviador: Annotated[EnviadorDeEmail, Depends(obter_enviador)],
 ) -> JSONResponse:
     """`RF-24`/`AC-27`/`EC-12` — processa a decisão do revisor (liberar ou
     reprovar) sobre o snapshot mais recente do caso, delegando TODA a
@@ -396,7 +451,7 @@ async def processar_decisao(
     `RF-24`). Uma decisão sobre um caso que já saiu de `AGUARDANDO_REVISAO`
     (`ErroRevisaoJaDecidida`) devolve `409` — nunca uma segunda gravação
     silenciosa (mesma disciplina de `app/revisao/fila.py`)."""
-    _caso, snapshot = _buscar_caso_e_snapshot_mais_recente(
+    caso, snapshot = _buscar_caso_e_snapshot_mais_recente(
         CASO_ID_REVISAO, repositorio_casos, repositorio_snapshots
     )
 
@@ -422,6 +477,23 @@ async def processar_decisao(
             )
         except ErroRevisaoJaDecidida as erro:
             raise HTTPException(status_code=409, detail=str(erro)) from erro
+
+        # **O aviso que a interface promete** — `RF-31`, `T-182`.
+        #
+        # `TrilhaDaJornada` diz "Avisamos por e-mail" e `TelaAguardando`
+        # diz "Avisaremos por e-mail assim que o plano estiver liberado".
+        # Até `T-180` não havia envio nenhum: o aluno terminava a coleta,
+        # fechava o navegador, e nunca ficava sabendo que o plano saiu — o
+        # ponto de abandono mais provável do piloto.
+        #
+        # **DEPOIS de `liberar`, nunca antes.** Um e-mail dizendo "seu
+        # plano está pronto" enviado antes da transição confirmada levaria
+        # o aluno a uma tela que ainda recusa mostrar o plano (`AC-25`).
+        #
+        # **Falha de envio não desfaz a liberação.** A decisão do revisor
+        # está gravada e o plano, acessível; devolver erro aqui faria o
+        # revisor decidir de novo, e a segunda tentativa bateria em `409`.
+        _avisar_plano_liberado(caso.conta_id, repositorio_contas, enviador)
     elif decisao == "REPROVAR":
         classificacao_erro_bruta = dados.get("classificacao_erro") or None
         classificacao_erro: CLASSIFICACAO_ERRO | None = None

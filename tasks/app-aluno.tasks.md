@@ -7714,7 +7714,24 @@ real: o revisor não tem como ver o que precisa conferir.
 - [ ] `GET /api/revisao/caso/{id}` devolve o plano em vez de `404`
 - [ ] Gates: lint, build, test
 
-**Status:** `[~] parcial` (ciclo real 2026-09-19)
+**Status:** `[x] concluída` (2026-09-21)
+
+> **Fechada.** `registrar_snapshot_raiz` saiu em 2026-09-19; `inicia_coleta`
+> agora é encadeada por `rotas_consentimento.py` logo após o aceite —
+> `CADASTRADO → CONSENTIMENTO_REGISTRADO → COLETA_INICIAL` num só passo do
+> aluno, com as duas transições registradas separadamente na trilha
+> (`RF-31`).
+>
+> **Por que encadear, e não criar rota própria.** Não há decisão entre
+> aceitar e começar a responder: `RF-30` manda registrar o consentimento
+> ANTES de qualquer coleta, e é isso que acabou de acontecer. Uma segunda
+> rota exigiria uma segunda ação para um passo que o aluno não pode
+> recusar — e deixaria o mesmo beco aberto para quem fechasse o navegador
+> entre as duas.
+>
+> `test_ciclo_completo.py` perdeu o contorno que chamava
+> `transicionar_estado` direto no repositório: o trecho do consentimento
+> passou a ser HTTP de ponta a ponta.
 
 > **O que foi feito.** `registrar_snapshot_raiz` passou a ser chamado em
 > `_executar_e_avancar` quando o snapshot é o primeiro da cadeia
@@ -8017,6 +8034,439 @@ teste.
 - [x] Gates: lint, build, test, e2e
 
 **Status:** `[x] concluída` (2026-09-19)
+
+---
+
+## Abertura ao cliente real (2026-09-21)
+
+> O aluno chega por COMPRA na Hotmart, não por cadastro no PIQ. Estas
+> tarefas são o que fica entre a compra aprovada e o aluno respondendo a
+> primeira pergunta.
+
+### `T-178` — Recusar o consentimento não pode avançar o caso
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-30`, `AC-39`
+- **Arquivos:** `app/http/rotas_consentimento.py`,
+  `tests/app_aluno/test_rotas_consentimento.py`
+
+**Descrição**
+
+`POST /caso/{id}/consentimento` lia `aceite` do formulário, gravava o
+`RegistroConsentimento` com o valor correto — e **transicionava o caso de
+qualquer jeito**, sem nenhum `if aceite`. Quem recusasse ficava no mesmo
+estado de quem aceitou, e a coleta começava.
+
+A proteção existia só na tela (`TelaConsentimento.tsx` desabilita o botão
+sem o checkbox), o que significa que um `POST` direto, fora da interface,
+avançava o caso. Para LGPD, "recusou mas o sistema seguiu" é exatamente o
+que não pode acontecer.
+
+**A recusa é registrada, não descartada.** O `RegistroConsentimento` com
+`aceite=False` continua sendo gravado: negar consentimento é um fato com
+valor probatório, e apagá-lo deixaria o caso indistinguível de "nunca
+respondeu". O que não acontece é a transição.
+
+**Resposta `200`, não erro.** O aluno fez uma escolha legítima e o servidor
+a registrou com sucesso; o estado devolvido diz à tela que nada avançou.
+
+**Critérios de aceite**
+
+- [x] `aceite` ausente ou diferente de `on` não transiciona o caso
+- [x] A recusa é gravada com `aceite=False`
+- [x] O caso permanece em `CADASTRADO`
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-21)
+
+---
+
+### `T-179` — Provisionamento de conta pela compra (Hotmart)
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-178`
+- **Rastreia:** `RF-02`, `RF-30`, `OQ-05`
+- **Arquivos:** `persistencia/supabase/migracoes/004_primeiro_acesso.sql`
+  (novo), `persistencia/app_aluno/cadastro.py`,
+  `persistencia/app_aluno/contas.py`, `app/http/rotas_provisionamento.py`
+  (novo), `app/http/aplicacao.py`, `frontend/src/telas/TelaDefinirSenha.tsx`
+  (novo), `frontend/src/App.tsx`, `frontend/src/navegacao.ts`,
+  `frontend/src/services/api.ts`
+
+**Descrição**
+
+**O aluno compra na Hotmart, não se cadastra no PIQ.** Não existe (nem vai
+existir) tela de cadastro público: a conta nasce de uma compra aprovada, por
+webhook.
+
+**Decisões do especialista (2026-09-21):**
+
+1. **Rota nova de provisionamento, com segredo.** `POST
+   /api/provisionamento/conta`, autenticada por segredo compartilhado em
+   header, cria conta + caso e **não abre sessão** — a rota de cadastro
+   atual (`POST /api/conta/cadastro`) foi desenhada para tela: exige senha e
+   instala cookie de sessão no chamador, o que não faz sentido para uma
+   máquina. Separar "máquina provisiona" de "pessoa se cadastra" mantém as
+   duas honestas.
+2. **Login e senha, como `RF-02`/`OQ-05` já fixavam.** A alternativa
+   levantada — entrar só com o e-mail, se ele estiver na base — foi
+   descartada pelo próprio especialista: qualquer pessoa que soubesse o
+   e-mail de um aluno veria dívidas, renda e contracheque dele.
+
+**O fluxo:**
+
+```
+compra aprovada → webhook → POST /api/provisionamento/conta (segredo)
+                          → cria conta SEM senha + token de primeiro acesso
+                          → aluno abre o link, define a senha
+                          → entra com e-mail + senha, de qualquer aparelho
+```
+
+**O que muda no schema.** `app_aluno.contas.senha_hash` é `NOT NULL` — a
+conta não pode nascer sem senha. A migração `004` o torna anulável e
+acrescenta a tabela de token de primeiro acesso (uso único, com expiração).
+Conta sem `senha_hash` **não autentica**: `autenticar` recusa antes de
+comparar hash.
+
+**O mesmo mecanismo serve para "esqueci minha senha"** — é o que fecha
+aquele bloqueio sem um segundo sistema.
+
+**Dependência externa.** O envio do link por e-mail não existe no sistema
+(`T-180`). Enquanto não existir, o token pode ser entregue por outro canal
+(página de obrigado da Hotmart), mas isso precisa de decisão do
+especialista.
+
+**Critérios de aceite**
+
+- [ ] `POST /api/provisionamento/conta` sem o segredo correto responde `401`
+- [ ] Com o segredo, cria conta + caso em `CADASTRADO` e devolve o token
+- [ ] A rota **não** instala cookie de sessão
+- [ ] E-mail já provisionado não cria conta duplicada nem confirma
+      existência ao chamador
+- [ ] Conta sem senha definida não autentica por nenhum caminho
+- [ ] Token é de uso único e expira
+- [ ] A tela de definir senha aplica a política de senha (`T-181`)
+- [ ] Gates: lint, build, test, e2e
+
+**Status:** `[~] parcial` (2026-09-21)
+
+> **Feito:** migração `004` (senha anulável + tabela de tokens),
+> `RepositorioTokensAcessoSupabase` (emitir com revogação do anterior,
+> consumir atômico), `provisionar`/`definir_senha` em `contas.py`,
+> `provisionar_conta_e_caso`, e as rotas `POST /api/provisionamento/conta`
+> e `/senha` com 11 testes.
+>
+> **A guarda central:** conta sem senha não autentica. Ao trocar o tipo
+> para `str | None`, o mypy apontou todos os pontos que precisavam tratar
+> o caso — o `autenticar` real e dois dublês.
+>
+> **Por que os testes de rota importam:** a auditoria de isolamento só
+> cobre rotas que recebem `CASO_ID`. Estas duas não recebem — passavam
+> por vacuidade, e a porta que cria conta no sistema não tinha teste
+> nenhum guardando quem pode abri-la.
+>
+> **Tela pronta (2026-09-21):** `TelaDefinirSenha.tsx`, rota
+> `#definir-senha/{token}` e `definirSenha()` no cliente da API, com 6
+> testes.
+>
+> **O token vai no HASH, não em `?token=`.** O hash não é enviado ao
+> servidor em requisição nenhuma — numa query string, o token apareceria
+> em log de proxy, de CDN e no `Referer` de qualquer recurso externo.
+>
+> **A tela vem ANTES do portão de login** (`App.tsx`), e é a única além da
+> entrada que dispensa sessão: quem clica no link do e-mail não tem sessão
+> e não consegue logar (conta sem senha), então cairia preso na entrada —
+> o mesmo beco que `T-174` descreveu para o `?caso=`.
+>
+> **Feito (2026-09-21):** os três e-mails, em `T-182`.
+
+---
+
+### `T-180` — Envio de e-mail (AWS SES por SMTP)
+
+- **Tipo:** `FEATURE`
+- **Dependências:** —
+- **Rastreia:** `RF-31`
+- **Arquivos:** `app/notificacao/email.py` (novo),
+  `app/notificacao/__init__.py` (novo)
+
+**Descrição**
+
+Duas telas prometiam ao aluno o que o sistema não cumpria: *"A espera é com
+a equipe. Avisamos por e-mail."* (`TrilhaDaJornada.tsx:132`) e *"Avisaremos
+por e-mail assim que o plano estiver liberado."* (`TelaAguardando.tsx:59`).
+**Não havia nenhum envio de e-mail no projeto** — a promessa era falsa, e o
+aluno que fechasse o navegador depois da coleta nunca sabia que o plano
+saiu. Num acompanhamento de meses (`OQ-06`), esse é o ponto de abandono
+mais provável do piloto.
+
+E-mail é também a peça de que dependem o primeiro acesso (`T-179`) e a
+recuperação de senha: as duas entregam um token ao dono do endereço, e só o
+e-mail prova essa posse.
+
+**Provedor: AWS SES por SMTP** (decisão do especialista, 2026-09-21).
+`smtplib` é stdlib — **nenhuma dependência nova**. Nada no módulo é
+específico de SES: qualquer servidor com STARTTLS serve, e trocar de
+provedor é trocar variável de ambiente.
+
+**Configuração só por ambiente** (`SMTP_SERVIDOR`, `SMTP_PORTA`,
+`SMTP_USUARIO`, `SMTP_SENHA`, `SMTP_REMETENTE`), mesma disciplina de
+`CHAVE_ASSINATURA_SESSAO` e `DATABASE_URL`. Sem elas, `enviar` levanta —
+nunca um envio silenciosamente descartado, que faria a aplicação achar ter
+avisado o aluno.
+
+**STARTTLS obrigatório**, antes do login: sem ele a credencial do SES
+trafegaria em claro.
+
+**O erro não carrega o destinatário**: e-mail é dado pessoal sob LGPD, e a
+exceção vai para o log do processo.
+
+**Fora de escopo, deliberadamente.** Sem fila, sem repetição automática,
+sem redação (quem chama passa assunto e corpo). `OQ-06` (1 a 3 alunos) não
+justifica a infraestrutura; quando justificar, o ponto de injeção é este
+módulo, não os chamadores.
+
+**Critérios de aceite**
+
+- [x] `EnviadorDeEmail` é `Protocol` — chamadores não dependem de `smtplib`
+- [x] Variável ausente levanta `ErroConfiguracaoEmail`, nunca envio mudo
+- [x] STARTTLS antes do login
+- [x] A exceção de falha não contém o destinatário
+- [x] `EnviadorEmMemoria` permite teste sem servidor
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-21) · **envio real confirmado**
+(2026-09-22)
+
+> **Verificado contra o SES de produção**, não só com dublê: os três e-mails
+> foram aceitos e ENTREGUES (`noreply@multiplicaservidor.com.br` →
+> caixa de entrada, sem spam, acentuação correta). O ciclo completo pela
+> aplicação — provisionar → `email_enviado=true` → definir senha → login →
+> recuperação — rodou com `EnviadorSMTP` real, sem override.
+>
+> **A armadilha que custou a primeira tentativa: a senha SMTP do SES NÃO é
+> a Secret Access Key do IAM.** São valores distintos — a senha SMTP é
+> derivada da secret key pelo algoritmo SigV4 da AWS. Usar a secret key
+> direto falha com `535 Authentication Credentials Invalid`, mensagem que
+> aponta para "credencial errada" quando o problema é a credencial CERTA no
+> formato ERRADO. O formato denuncia num relance:
+>
+> | | SES espera | Secret key IAM |
+> | --- | --- | --- |
+> | Usuário | 20 chars, `AKIA…` | igual |
+> | Senha | **44 chars, `B…`** | 40 chars, não começa com `B` |
+>
+> Documentado em `.env.example` para não se repetir no deploy.
+
+---
+
+### `T-182` — Os três e-mails ao aluno
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-179`, `T-180`
+- **Rastreia:** `RF-02`, `RF-31`
+- **Arquivos:** `app/notificacao/mensagens.py` (novo),
+  `app/notificacao/textos/emails.yaml` (novo),
+  `app/http/rotas_provisionamento.py`, `app/http/rotas_revisao.py`,
+  `tests/app_aluno/test_mensagens_de_email.py` (novo)
+
+**Descrição**
+
+`T-180` sabe FALAR SMTP; `T-179` cria a conta e emite o token. Faltava o
+que fecha o circuito: QUAL mensagem vai em cada momento. Três momentos —
+primeiro acesso (a compra foi aprovada, a conta existe sem senha),
+recuperação de senha, e plano liberado (o aviso que `TrilhaDaJornada` e
+`TelaAguardando` prometem em texto e que o sistema não cumpria).
+
+**A redação NÃO vive em `.py`.** Escrevi o módulo primeiro com o texto
+embutido, argumentando na docstring que e-mail transacional não é peça
+normativa como o termo (`PEND-01`) ou a redação do plano (`Q-03`) — e a
+trava estática de `AC-37` reprovou. Ela estava certa: `AC-37` audita
+literal longo em `app/`, sem perguntar se o texto é normativo. Uma regra
+que vale só quando o autor concorda com ela não é regra. O texto saiu para
+`textos/emails.yaml` e o módulo passou a ler de lá, validando na carga.
+
+**O token vai no fragmento (`#`), nunca em query string.** O hash não é
+enviado ao servidor em requisição nenhuma; numa query string, o token
+apareceria em log de proxy, de CDN e no `Referer` de qualquer recurso
+externo que a página carregasse — e quem lesse esse log entraria na conta.
+
+**`str.replace`, nunca `str.format`.** O corpo é dado externo: um `{` que
+alguém escreva no YAML por acidente quebraria `format` com `KeyError`.
+
+**Bug encontrado no caminho — o aviso derrubava a liberação.**
+`_avisar_plano_liberado` documentava que "nada aqui pode derrubar a
+liberação", mas capturava só os três erros de e-mail. A busca da conta
+também está dentro do `try`, e um `ErroConexaoAusente` dela escapava: a
+decisão do revisor ficava gravada, o plano acessível, e a rota devolvia
+`500` — o revisor decidiria de novo e bateria em `409`. Trocado por
+`except Exception`: o critério certo não é QUAL erro aconteceu, é ONDE.
+Nada daquele bloco é essencial à liberação, então nada dele a desfaz.
+
+**Critérios de aceite**
+
+- [x] Nenhuma redação de e-mail é literal em `app/` (`AC-37` passa)
+- [x] O token vai no fragmento, nunca em query string
+- [x] Mensagem ou campo ausente no YAML levanta na CARGA, nomeando a chave
+- [x] Nenhuma mensagem sai com `{placeholder}` por substituir
+- [x] `URL_BASE_APP` ausente levanta — nunca link para `localhost`
+- [x] Falha de envio não desfaz a liberação do plano
+- [x] Gates: lint, build, test, e2e
+
+**Status:** `[x] concluída` (2026-09-21)
+
+> **19 testes**, conferidos por mutação: token em query string, interpolação
+> silenciosamente pulada e validação removida foram os três defeitos
+> injetados — os três falharam a suíte. Os testes olham para o contrato
+> (link certo, token no lugar certo, recusa a montar texto quebrado), nunca
+> para a redação palavra por palavra: ela vive em YAML justamente para
+> poder mudar sem tocar em código.
+
+---
+
+### `T-183` — Provisionamento do primeiro revisor
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-100`
+- **Rastreia:** `RF-23`, `RF-25`
+- **Arquivos:** `scripts/papel_revisor.py` (novo),
+  `docs/papel-revisor.md` (novo), `persistencia/app_aluno/contas.py`,
+  `tests/app_aluno/test_comando_papel_revisor.py` (novo),
+  `tests/app_aluno/integracao/test_persistencia_contas.py`
+
+**Descrição**
+
+**O bloqueio: instalação nova não tem revisor, e não havia como criar o
+primeiro.** `e_revisor` nasce `false` para toda conta (migração `003`) —
+correto, nenhuma vira revisora por acidente. Mas `promover_a_revisor` era
+chamada só pelos testes: não havia caminho operacional nenhum. Numa
+instalação nova, os alunos terminariam a coleta e o plano jamais seria
+liberado, porque não existe revisor para liberá-lo e não há como criar o
+primeiro. O sistema inteiro parava no penúltimo passo.
+
+**Comando, não rota HTTP.** É um problema de origem: não há revisor para
+autorizar a promoção do primeiro revisor. Uma rota teria de aceitar um
+segredo de ambiente como autoridade — e seria, permanentemente, uma porta
+pública dando acesso de leitura ao caso de TODOS os alunos a quem tivesse o
+segredo. O comando exige acesso ao servidor e à `DATABASE_URL`: superfície
+de ataque zero pela internet. A operação acontece uma vez na instalação e
+quase nunca depois; essa raridade não paga o risco permanente da porta
+aberta.
+
+**Três verbos, não um.** `promover` sozinho é irreversível pela via normal:
+promover o e-mail errado — um caractere trocado que bata com outra conta
+real — daria a um aluno acesso aos casos de todos os outros, e desfazer
+exigiria SQL direto em produção, no susto. `revogar` fecha isso (sem apagar
+a conta: ela volta a ser conta comum, com caso e histórico intactos).
+`listar` existe porque conferir é parte da operação — promover às cegas
+deixa quem administra sem saber se acertou o e-mail, e sem como auditar
+depois quem ficou com acesso.
+
+**O e-mail é normalizado** (`.strip().lower()`, como no cadastro e no
+login). Sem isso, `Revisor@Exemplo.BR` digitado no terminal não encontraria
+a conta gravada em minúsculas, e o comando diria "não existe" sobre uma
+conta que existe.
+
+**Critérios de aceite**
+
+- [x] `promover` concede o papel a uma conta existente
+- [x] `promover` de e-mail inexistente falha nomeando o e-mail, sem criar
+      conta
+- [x] `revogar` tira o papel sem apagar a conta nem o caso
+- [x] `revogar` de quem já não é revisor é sucesso silencioso
+- [x] `listar` mostra os revisores; lista vazia avisa que a fila está
+      inalcançável
+- [x] O e-mail é normalizado nos três verbos
+- [x] Falha de operação vira código de saída distinto em `stderr`, nunca
+      traceback
+- [x] Nenhuma rota HTTP expõe as três funções
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-21)
+
+> **23 testes de comando** (sem banco) + **7 de integração** (com Postgres
+> real, executados). Os de comando foram conferidos por mutação: a troca de
+> verbo (`revogar` chamando `promover`), a normalização removida e os
+> códigos de saída zerados — os três falharam a suíte. A troca de verbo é a
+> mutação que mais importa: se `revogar` promovesse, quem tentasse TIRAR o
+> acesso de alguém estaria concedendo, e o comando diria que deu certo.
+>
+> **Defeito encontrado rodando de verdade**, não pelos testes: no console do
+> Windows a mensagem saiu `promo��o recusada` (cp1252). Num servidor, essas
+> mensagens são a única orientação de quem opera. `main` passou a
+> reconfigurar `stdout`/`stderr` para UTF-8, com teste de regressão.
+>
+> Procedimento documentado em `docs/papel-revisor.md`.
+
+---
+
+### `T-184` — Rate limiting nas rotas expostas
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-179`, `T-180`, `T-182`
+- **Rastreia:** `RF-02`
+- **Arquivos:** `persistencia/supabase/migracoes/005_rate_limit.sql` (novo),
+  `persistencia/app_aluno/tentativas.py` (novo),
+  `app/http/limitador.py` (novo), `app/http/rotas_api_conta.py`,
+  `app/http/rotas_provisionamento.py`, testes correspondentes
+
+**Descrição**
+
+Quatro rotas aceitam requisição não autenticada, e nenhuma tem limite. Cada
+uma é abusável de um jeito diferente:
+
+| Rota | O que o abuso causa |
+| --- | --- |
+| `POST /api/conta/login` | Força bruta de senha |
+| `POST /api/provisionamento/recuperacao` | **Envio de e-mail ilimitado** |
+| `POST /api/provisionamento/senha` | Força bruta de token de 43 chars |
+| `POST /api/conta/cadastro` | Criação de contas em massa |
+
+**A de recuperação é a mais urgente, e ficou pior depois de `T-180`.**
+Enquanto o envio não existia, abusá-la não produzia nada. Agora cada chamada
+dispara um e-mail REAL pelo SES — confirmado em 2026-09-22. Um laço simples
+manda milhares de mensagens em minutos, e quem paga a conta não é só o
+orçamento: é a **reputação do domínio**. Uma vez que o SES marca a conta
+como fonte de abuso, os e-mails legítimos de primeiro acesso passam a cair
+em spam — e o cliente que comprou não recebe o acesso.
+
+**Decisões do especialista (2026-09-22):** estado em **tabela do Postgres**
+(sobrevive a restart e a múltiplas instâncias) e resposta **`429` com janela
+fixa** (previsível de entender e de explicar ao aluno).
+
+**Bloqueio de conta foi recusado, deliberadamente.** Travar a conta após N
+falhas vira arma: um atacante tranca o acesso de um aluno real só errando a
+senha dele de propósito. O limite recai sobre a ORIGEM da requisição, nunca
+sobre a identidade alvo.
+
+**Critérios de aceite**
+
+- [ ] As quatro rotas recusam com `429` ao estourar a janela
+- [ ] A resposta `429` não revela se o e-mail existe (mesma disciplina de
+      `/recuperacao`, que hoje responde igual para e-mail existente e
+      inexistente)
+- [ ] Estourar o limite de uma rota não afeta as outras
+- [ ] A contagem não bloqueia conta: recai sobre a origem, nunca sobre o
+      e-mail alvo
+- [ ] Requisição legítima depois da janela volta a passar
+- [ ] Gates: lint, build, test
+
+**Open Questions**
+
+- `OQ-14` — **A contagem no Postgres vira o gargalo sob ataque?** Cada
+  tentativa, inclusive as que falham, é uma escrita no banco — e as que
+  falham são exatamente as que um atacante produz em volume. Saída provável:
+  contagem em memória na frente (barra a enxurrada sem tocar o banco) e o
+  Postgres guardando só os bloqueios consolidados, preservando a
+  sobrevivência a restart que motivou a escolha. **Decidir no plano, antes
+  de implementar.**
+- `OQ-15` — **Qual a chave da janela?** IP puro pune quem está atrás de NAT
+  (uma repartição inteira sai pelo mesmo endereço — e a persona é servidor
+  público). Provável: par (IP, rota), com janela mais frouxa no login que na
+  recuperação.
+
+**Status:** `[ ] pendente`
 
 ---
 

@@ -1,0 +1,91 @@
+# Redação dos e-mails ao aluno — T-182.
+#
+# ÚNICO arquivo onde esta redação vive. `app/notificacao/mensagens.py` lê
+# daqui e nunca embute o texto como literal — a mesma disciplina de
+# `report/templates/plano/textos-canonicos.yaml` (Q-03),
+# `collection/registros/*.yaml` (enunciados) e `app/consentimento/textos/`
+# (PEND-01): texto ao aluno é DADO, nunca `.py`.
+#
+# Diferente daqueles três, esta redação NÃO é normativa: ninguém a revisa
+# como peça jurídica ou metodológica. Ela vive aqui pela outra metade da
+# mesma regra (`AC-37`) — texto longo não pertence ao código da aplicação,
+# e uma trava estática audita isso.
+#
+# `{link}` é substituído em tempo de execução. Nenhuma outra interpolação
+# existe: qualquer chave a mais aqui seria silenciosamente ignorada.
+
+# ---------------------------------------------------------------------------
+# A compra foi aprovada e a conta existe, sem senha (T-179).
+#
+# A redação evita duas coisas: prometer o que o PIQ ainda não fez (o plano
+# não existe até a coleta terminar) e soar como cobrança. Quem recebe acabou
+# de comprar um produto para sair de dívidas; o tom é de quem abre a porta.
+# ---------------------------------------------------------------------------
+primeiro_acesso:
+  assunto: "Seu acesso ao PIQ está pronto"
+  corpo: |
+    Olá!
+
+    Sua compra foi confirmada e o seu acesso ao PIQ já está liberado.
+
+    Para começar, crie a sua senha neste link:
+
+    {link}
+
+    O link vale por 48 horas. Depois de criar a senha, você entra com o seu
+    e-mail e ela, de qualquer aparelho.
+
+    Até já,
+    Equipe PIQ
+
+# ---------------------------------------------------------------------------
+# O aluno esqueceu a senha — mesmo mecanismo de token.
+#
+# A mensagem diz o que fazer se NÃO foi ele quem pediu. Um e-mail de
+# recuperação que omite isso deixa quem o recebe sem saber se a conta foi
+# invadida.
+# ---------------------------------------------------------------------------
+recuperacao_de_senha:
+  assunto: "Criar uma nova senha do PIQ"
+  corpo: |
+    Olá!
+
+    Recebemos um pedido para criar uma nova senha da sua conta no PIQ.
+
+    Se foi você, é só usar este link:
+
+    {link}
+
+    O link vale por 48 horas e só pode ser usado uma vez.
+
+    Se não foi você que pediu, ignore este e-mail: a sua senha atual
+    continua valendo e ninguém teve acesso à sua conta.
+
+    Equipe PIQ
+
+# ---------------------------------------------------------------------------
+# O revisor liberou o plano (RF-23, RF-31).
+#
+# É a promessa que a interface faz em duas telas — `TrilhaDaJornada`
+# ("Avisamos por e-mail") e `TelaAguardando` ("Avisaremos por e-mail assim
+# que o plano estiver liberado") — e que o sistema não cumpria até T-180.
+# Sem ela, o aluno que fechasse o navegador depois da coleta nunca voltava.
+#
+# `{link}` é a URL base: quem entra cai no Início, que lê a fase do caso e
+# oferece o plano (RF-58). Pôr o CASO_ID no link exporia o identificador num
+# e-mail sem necessidade.
+# ---------------------------------------------------------------------------
+plano_liberado:
+  assunto: "Seu plano de quitação está pronto"
+  corpo: |
+    Olá!
+
+    Uma pessoa da nossa equipe conferiu o seu caso e o seu plano de quitação
+    já está disponível.
+
+    Entre para ver a ordem projetada das suas dívidas, o prazo e quanto isso
+    custa:
+
+    {link}
+
+    Equipe PIQ

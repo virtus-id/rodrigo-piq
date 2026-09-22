@@ -39,19 +39,28 @@ pertence_a_conta` (T-31): a sessão (`app/http/sessao.py`) nunca carrega
 `e_revisor`, só `conta_id`.
 
 **Provisionamento de conta revisora — fora de escopo de UI (T-100).** Não
-existe, nesta feature, tela nem rota de "promover a revisor": a única
-maneira de uma conta se tornar revisora é a operação manual abaixo
-(`promover_a_revisor`, ou o SQL equivalente executado diretamente por quem
-administra o banco):
+existe, nesta feature, tela nem rota de "promover a revisor". O papel se
+concede por operação administrativa deliberada, fora da aplicação: três
+funções deste módulo (`promover_a_revisor`, `revogar_revisor`,
+`listar_revisores`), expostas pela linha de comando em
+`scripts/papel_revisor.py` (`T-183`). Nenhuma delas é chamada por rota
+HTTP, e nenhuma dependência do FastAPI as expõe.
+
+**Por que não há rota, e por que isso não muda.** O primeiro revisor é um
+problema de origem: não há revisor para autorizar a promoção do primeiro
+revisor. Qualquer rota que resolvesse isso teria de aceitar um segredo de
+ambiente como autoridade — e passaria a ser, permanentemente, uma porta
+pública que concede acesso de leitura ao caso de TODOS os alunos a quem
+tiver aquele segredo. Um comando que exige acesso ao servidor e à
+`DATABASE_URL` tem superfície de ataque zero pela internet. A raridade da
+operação (uma vez na instalação, depois quase nunca) não paga o risco
+permanente de manter a porta aberta.
+
+O SQL equivalente continua válido para quem administra o banco direto:
 
 ```sql
 UPDATE app_aluno.contas SET e_revisor = true WHERE email = 'revisor@exemplo.invalido';
 ```
-
-`promover_a_revisor` (função deste módulo) existe só para permitir que os
-testes desta tarefa provisionem uma conta revisora sem SQL solto espalhado
-pela suíte — não é chamada por nenhuma rota HTTP, e não há dependência do
-FastAPI que a exponha.
 
 Direção de dependência: este módulo importa de `app.http.senhas` (hash/
 verify puro) e de `psycopg`/stdlib — nunca de `engine/` (escopo desta
@@ -88,7 +97,11 @@ class Conta:
 
     conta_id: str
     email: str
-    senha_hash: str
+    #: `None` = conta provisionada, senha ainda não definida (`T-179`) — o
+    #: estado de quem comprou e ainda não usou o link de primeiro acesso.
+    #: `autenticar` recusa este caso explicitamente: sem senha definida,
+    #: nenhum login passa.
+    senha_hash: str | None
     criado_em: datetime
     e_revisor: bool = False
 
@@ -151,6 +164,19 @@ class RepositorioContas(Protocol):
         se `email` já existir."""
         ...
 
+    def provisionar(self, conta_id: str, email: str) -> None:
+        """Cria conta SEM senha (`T-179`) — o caminho de quem compra pela
+        Hotmart, que nunca informa senha. `senha_hash` fica `NULL` até o
+        aluno definir a dele; enquanto isso, `autenticar` recusa. Levanta
+        `ErroEmailDuplicado` se `email` já existir."""
+        ...
+
+    def definir_senha(self, conta_id: str, senha: str) -> None:
+        """Grava a senha escolhida pelo aluno (`T-179`) — primeiro acesso e
+        recuperação terminam aqui, depois de o token provar posse do
+        e-mail. Levanta `ErroContaInexistente` se `conta_id` não existir."""
+        ...
+
     def buscar_por_email(self, email: str) -> Conta | None:
         """`None` se `email` não existir — nunca lança para "não
         encontrado", só para falha de acesso ao banco."""
@@ -196,6 +222,67 @@ class RepositorioContasSupabase:
                 f"falha ao criar conta conta_id={conta_id!r} email={email!r}: {erro}"
             ) from erro
 
+    def provisionar(self, conta_id: str, email: str) -> None:
+        """Cria uma conta SEM senha — `T-179`.
+
+        **O caminho de quem compra, não de quem se cadastra.** O webhook da
+        Hotmart traz nome e e-mail; senha, nunca. A conta nasce com
+        `senha_hash = NULL` (migração `004`) e o aluno a define depois, pelo
+        link de primeiro acesso.
+
+        Enquanto `senha_hash` for `NULL`, `autenticar` recusa — conta sem
+        senha não é conta aberta."""
+        try:
+            with _conectar() as conexao, conexao.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO app_aluno.contas (conta_id, email, senha_hash, criado_em)
+                    VALUES (%s, %s, NULL, %s)
+                    """,
+                    (conta_id, email, datetime.now(UTC)),
+                )
+        except ErroConexaoAusente:
+            raise
+        except psycopg.errors.UniqueViolation as erro:
+            raise ErroEmailDuplicado(f"e-mail já cadastrado: email={email!r}") from erro
+        except psycopg.Error as erro:
+            raise ErroGravacaoConta(
+                f"falha ao provisionar conta conta_id={conta_id!r} email={email!r}: {erro}"
+            ) from erro
+
+    def definir_senha(self, conta_id: str, senha: str) -> None:
+        """Grava a senha que o aluno escolheu — `T-179`.
+
+        Serve ao primeiro acesso E à recuperação: os dois terminam aqui,
+        depois de o token provar a posse do e-mail. A senha em texto claro
+        vive só na variável local, hasheada antes de qualquer gravação.
+
+        `ErroContaInexistente` se `conta_id` não existir — nunca cria conta
+        por efeito colateral de definir senha."""
+        senha_hash = hashear_senha(senha)
+        try:
+            with _conectar() as conexao, conexao.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE app_aluno.contas
+                    SET senha_hash = %s
+                    WHERE conta_id = %s
+                    """,
+                    (senha_hash, conta_id),
+                )
+                if cursor.rowcount == 0:
+                    raise ErroContaInexistente(
+                        f"definir_senha recusada: conta_id={conta_id!r} não existe"
+                    )
+        except ErroConexaoAusente:
+            raise
+        except ErroContaInexistente:
+            raise
+        except psycopg.Error as erro:
+            raise ErroGravacaoConta(
+                f"falha ao definir senha conta_id={conta_id!r}: {erro}"
+            ) from erro
+
     def buscar_por_email(self, email: str) -> Conta | None:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
@@ -238,6 +325,17 @@ class RepositorioContasSupabase:
         conta = self.buscar_por_email(email)
         if conta is None:
             return None
+        # **Conta provisionada e sem senha definida NÃO autentica** —
+        # `T-179`. Desde a migração `004`, `senha_hash` aceita `NULL`: é o
+        # estado de quem comprou (webhook da Hotmart criou a conta) e ainda
+        # não definiu a própria senha pelo link de primeiro acesso.
+        #
+        # Sem esta guarda, `verificar_senha(None, ...)` teria comportamento
+        # indefinido — e uma conta sem senha seria uma conta aberta. O
+        # retorno é `None`, indistinguível de "não existe" e de "senha
+        # errada", pela mesma razão dos dois ramos acima (`RF-02`).
+        if conta.senha_hash is None:
+            return None
         if not verificar_senha(conta.senha_hash, senha):
             return None
         return conta
@@ -274,3 +372,69 @@ def promover_a_revisor(email: str) -> None:
         raise
     except psycopg.Error as erro:
         raise ErroGravacaoConta(f"falha ao promover a revisor email={email!r}: {erro}") from erro
+
+
+def revogar_revisor(email: str) -> None:
+    """Tira o papel de revisor de uma conta — `RF-23`/`RF-25`, `T-183`.
+
+    **Existe porque `promover_a_revisor` sozinha é irreversível.** Promover
+    o e-mail errado — um caractere trocado que bata com outra conta real —
+    dava a um aluno acesso de leitura ao caso de todos os outros, e desfazer
+    isso exigia SQL direto em produção, no susto. Uma operação de
+    autorização que não tem como ser desfeita pela via normal empurra quem
+    administra para a via perigosa justamente no pior momento.
+
+    A conta NÃO é apagada: perde o papel e volta a ser conta comum, com o
+    caso e o histórico dela intactos.
+
+    Levanta `ErroContaInexistente` se `email` não corresponder a nenhuma
+    conta. Revogar de quem já não é revisor é sucesso silencioso — o estado
+    final é o pedido, e falhar aqui só faria quem administra hesitar diante
+    de um comando que já fez o que devia."""
+    try:
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE app_aluno.contas
+                SET e_revisor = false
+                WHERE email = %s
+                """,
+                (email,),
+            )
+            if cursor.rowcount == 0:
+                raise ErroContaInexistente(f"revogação recusada: email={email!r} não existe")
+    except ErroConexaoAusente:
+        raise
+    except ErroContaInexistente:
+        raise
+    except psycopg.Error as erro:
+        raise ErroGravacaoConta(f"falha ao revogar revisor email={email!r}: {erro}") from erro
+
+
+def listar_revisores() -> tuple[Conta, ...]:
+    """Quem tem o papel de revisor, agora — `RF-23`/`RF-25`, `T-183`.
+
+    **Conferir é parte da operação, não um extra.** Promover às cegas e não
+    ter como listar o resultado deixa quem administra sem saber se acertou
+    o e-mail, e sem como auditar depois quem ficou com acesso aos casos de
+    todos os alunos. Uma lista vazia é resposta legítima (e é o estado do
+    sistema recém-instalado), nunca um erro.
+
+    Ordenado por `criado_em` para que a saída seja estável entre chamadas —
+    uma lista que muda de ordem sozinha não serve para comparar antes e
+    depois."""
+    try:
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT conta_id, email, senha_hash, criado_em, e_revisor
+                FROM app_aluno.contas
+                WHERE e_revisor = true
+                ORDER BY criado_em, email
+                """
+            )
+            return tuple(_linha_para_conta(linha) for linha in cursor.fetchall())
+    except ErroConexaoAusente:
+        raise
+    except psycopg.Error as erro:
+        raise ErroGravacaoConta(f"falha ao listar revisores: {erro}") from erro

@@ -23,8 +23,10 @@ evita alargar a lista de exceções daquele teste com um padrão amplo demais.
 
 Direção de dependência: este módulo importa de `app.http.senhas` (hash
 puro), `app.casos.maquina` (`ESTADO_CASO`/`Caso`, tipos de domínio) e
-`persistencia.app_aluno.contas` (`Conta`, `ErroEmailDuplicado`) e de
-`psycopg`/stdlib — nunca de `engine/`.
+`persistencia.app_aluno.contas` (`Conta`, `ErroEmailDuplicado`),
+`collection.carga` (a versão corrente do questionário, `T-179` — mesmo
+precedente de `persistencia/app_aluno/arquivo.py`) e de `psycopg`/stdlib —
+nunca de `engine/`.
 
 REGRAS: `RF-02`, `AC-03`
 """
@@ -41,6 +43,7 @@ import psycopg
 
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.senhas import hashear_senha
+from collection.carga import carregar_registros
 from persistencia.app_aluno.contas import Conta, ErroEmailDuplicado
 from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
 
@@ -48,13 +51,23 @@ REGRAS: Final[tuple[str, ...]] = ("RF-02", "AC-03")
 
 _SCHEMA: Final[str] = "app_aluno"
 
-# QUESTIONARIO_VERSION do caso recém-cadastrado. `collection/carga.py`
-# (T-16) expõe a versão corrente dos registros — este módulo não decide o
-# número, só evita um literal solto: fixado aqui por não haver, nesta
-# tarefa, ainda um ponto único de "versão corrente do questionário"
-# consumido por T-30 (o valor é sobrescrito pela carga real quando o Bloco
-# 1 começa, fora deste escopo).
-QUESTIONARIO_VERSION_INICIAL: Final[str] = "PENDENTE"
+def _questionario_version_corrente() -> str:
+    """A versão do questionário que o caso novo carrega — `T-179`.
+
+    **Era o literal `"PENDENTE"` até aqui.** O comentário que o acompanhava
+    admitia ser provisório ("o valor é sobrescrito pela carga real quando o
+    Bloco 1 começa, fora deste escopo") — mas nada o sobrescrevia, e todo
+    caso criado pela rota real nascia com `QUESTIONARIO_VERSION =
+    "PENDENTE"`. Como esse campo é o que diz QUAL versão do questionário o
+    aluno respondeu, o dado de auditoria e de reprodutibilidade
+    metodológica saía corrompido desde a criação.
+
+    `carregar_registros()` é o ponto único que a nota original procurava:
+    ele já existe (`T-16`) e é o mesmo que `scripts/subir_demo.py` usa.
+    Lido a cada cadastro, e não em constante de módulo, para que uma
+    atualização do questionário valha para os casos seguintes sem reiniciar
+    o processo."""
+    return carregar_registros().QUESTIONARIO_VERSION
 
 
 class ErroCadastro(Exception):
@@ -84,6 +97,72 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.close()
 
 
+def provisionar_conta_e_caso(email: str) -> tuple[Conta, Caso]:
+    """Cria `Conta` SEM SENHA + `Caso` na MESMA transação — `T-179`.
+
+    **O caminho de quem COMPRA, não de quem se cadastra.** O webhook da
+    Hotmart traz e-mail; senha, nunca. A conta nasce com `senha_hash =
+    NULL` (migração `004`) e o aluno a define depois, pelo link de primeiro
+    acesso — até lá, `autenticar` recusa.
+
+    Mesma atomicidade de `cadastrar_conta_e_caso`: se o `INSERT` do caso
+    falhar, o `ROLLBACK` desfaz também o da conta — nunca conta órfã.
+
+    `ErroEmailDuplicado` se `email` já existir. Quem chama decide o que
+    fazer com isso; a rota de provisionamento trata como reenvio de link,
+    não como erro (uma compra repetida do mesmo aluno é normal)."""
+    conta_id = f"CONTA_{uuid.uuid4().hex}"
+    caso_id = f"CASO_{uuid.uuid4().hex}"
+    agora = datetime.now(UTC)
+    hoje = date.today()
+    questionario_version = _questionario_version_corrente()
+
+    try:
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                "INSERT INTO app_aluno.contas "
+                "(conta_id, email, senha_hash, criado_em) VALUES (%s, %s, NULL, %s)",
+                (conta_id, email, agora),
+            )
+            cursor.execute(
+                'INSERT INTO app_aluno.casos ("CASO_ID", conta_id, estado, '
+                '"DATA_REFERENCIA", "QUESTIONARIO_VERSION", snapshot_raiz_id, '
+                "snapshot_liberado_id, ultima_interacao_em, criado_em) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    caso_id,
+                    conta_id,
+                    ESTADO_CASO.CADASTRADO.value,
+                    hoje,
+                    questionario_version,
+                    None,
+                    None,
+                    agora,
+                    agora,
+                ),
+            )
+    except ErroConexaoAusente:
+        raise
+    except psycopg.errors.UniqueViolation as erro:
+        raise ErroEmailDuplicado(f"e-mail já cadastrado: email={email!r}") from erro
+    except psycopg.Error as erro:
+        raise ErroCadastro(f"falha ao provisionar conta+caso email={email!r}: {erro}") from erro
+
+    conta = Conta(conta_id=conta_id, email=email, senha_hash=None, criado_em=agora)
+    caso = Caso(
+        CASO_ID=caso_id,
+        conta_id=conta_id,
+        estado=ESTADO_CASO.CADASTRADO,
+        DATA_REFERENCIA=hoje,
+        QUESTIONARIO_VERSION=questionario_version,
+        snapshot_raiz_id=None,
+        snapshot_liberado_id=None,
+        ultima_interacao_em=agora,
+        criado_em=agora,
+    )
+    return conta, caso
+
+
 def cadastrar_conta_e_caso(email: str, senha: str) -> tuple[Conta, Caso]:
     """Cria `Conta` e `Caso` (em `ESTADO_CASO.CADASTRADO`) na MESMA
     transação: se o `INSERT` do caso falhar, o `ROLLBACK` desfaz também o
@@ -95,6 +174,9 @@ def cadastrar_conta_e_caso(email: str, senha: str) -> tuple[Conta, Caso]:
     senha_hash = hashear_senha(senha)
     agora = datetime.now(UTC)
     hoje = date.today()
+    # Uma leitura só: `carregar_registros()` reparseia os YAML a cada
+    # chamada, e o `Caso` devolvido no fim precisa da MESMA versão gravada.
+    questionario_version = _questionario_version_corrente()
 
     try:
         with _conectar() as conexao, conexao.cursor() as cursor:
@@ -113,7 +195,7 @@ def cadastrar_conta_e_caso(email: str, senha: str) -> tuple[Conta, Caso]:
                     conta_id,
                     ESTADO_CASO.CADASTRADO.value,
                     hoje,
-                    QUESTIONARIO_VERSION_INICIAL,
+                    questionario_version,
                     None,
                     None,
                     agora,
@@ -133,7 +215,7 @@ def cadastrar_conta_e_caso(email: str, senha: str) -> tuple[Conta, Caso]:
         conta_id=conta_id,
         estado=ESTADO_CASO.CADASTRADO,
         DATA_REFERENCIA=hoje,
-        QUESTIONARIO_VERSION=QUESTIONARIO_VERSION_INICIAL,
+        QUESTIONARIO_VERSION=questionario_version,
         snapshot_raiz_id=None,
         snapshot_liberado_id=None,
         ultima_interacao_em=agora,

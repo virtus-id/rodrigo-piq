@@ -1,0 +1,42 @@
+# O que NÃO entra no contexto de build.
+#
+# Além de deixar o build mais rápido, isto é barreira de segurança: sem a
+# linha do `.env`, um arquivo com a senha do SES e a `DATABASE_URL` de
+# produção seria copiado para dentro da imagem, e qualquer pessoa com acesso
+# a ela leria os segredos com `docker history`.
+
+# Segredos — nunca dentro da imagem.
+.env
+.env.*
+!.env.example
+
+# Ambiente e caches locais.
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Git e metadados.
+.git/
+.gitignore
+.github/
+
+# Frontend: o bundle é publicado à parte (ver docs/deploy.md); o backend
+# não serve estático. Copiar `node_modules/` para o contexto tornaria o
+# build minutos mais lento sem servir a nada.
+frontend/
+
+# Não é código de produção.
+tests/
+plans/
+specs/
+tasks/
+docs/
+*.md
+!README.md
+
+# Artefatos locais.
+certificados/
+*.log

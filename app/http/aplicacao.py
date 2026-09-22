@@ -126,6 +126,7 @@ from app.http.rotas_inicio import roteador as roteador_inicio
 from app.http.rotas_operador import roteador as roteador_operador
 from app.http.rotas_pergunta import roteador as roteador_pergunta
 from app.http.rotas_plano import roteador as roteador_plano
+from app.http.rotas_provisionamento import roteador as roteador_provisionamento
 from app.http.rotas_respostas import roteador as roteador_respostas
 from app.http.rotas_revisao import roteador as roteador_revisao
 from app.http.saude import roteador as roteador_saude_banco
@@ -204,6 +205,9 @@ def criar_aplicacao() -> FastAPI:
     # T-140: API JSON do plano, da fila e do painel — as telas viram React.
     aplicacao.include_router(roteador_api_plano)
     aplicacao.include_router(roteador_api_conta)
+    # `T-179`: a porta de entrada do webhook de compra. Protegida por
+    # segredo próprio, nunca por sessão — quem chama é máquina.
+    aplicacao.include_router(roteador_provisionamento)
     # T-143: Bloco 11 — ações e seu andamento, por ACAO_ID.
     aplicacao.include_router(roteador_acoes)
     aplicacao.include_router(roteador_calculo)

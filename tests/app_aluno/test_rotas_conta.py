@@ -99,6 +99,15 @@ class _RepositorioContasDublê(RepositorioContas):
     def criar(self, conta_id: str, email: str, senha: str) -> None:  # pragma: no cover
         raise NotImplementedError("não usado por estas rotas")
 
+    # `T-179`: estes dois nascem do provisionamento pela Hotmart, que
+    # nenhum destes testes exercita — o `Protocol` os exige, o dublê os
+    # recusa explicitamente em vez de fingir comportamento.
+    def provisionar(self, conta_id: str, email: str) -> None:  # pragma: no cover
+        raise NotImplementedError
+
+    def definir_senha(self, conta_id: str, senha: str) -> None:  # pragma: no cover
+        raise NotImplementedError
+
     def buscar_por_email(self, email: str) -> Conta | None:
         for conta in self._cadastro.contas.values():
             if conta.email == email:

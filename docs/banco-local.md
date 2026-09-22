@@ -1,9 +1,14 @@
 # Postgres local para a suíte completa
 
-Sem `DATABASE_URL`, 63 testes marcados `requer_banco` são **pulados** — não
+Sem `DATABASE_URL`, os testes marcados `requer_banco` são **pulados** — não
 falham, mas também não provam nada sobre persistência, isolamento por caso,
 consentimento ou imutabilidade de snapshot. Este documento sobe um Postgres
-descartável que destrava esses 63.
+descartável que destrava esses testes.
+
+> As contagens deste documento são de **2026-09-21** e envelhecem a cada
+> tarefa. Conferir a atual com
+> `.venv/Scripts/python.exe -m pytest -q -m requer_banco --collect-only`;
+> o que importa é **zero falhas**, não bater o número exato.
 
 > **Não é ambiente de produção nem de piloto.** É um container efêmero, com
 > senha de desenvolvimento em texto claro neste arquivo. Nada de dado real de
@@ -16,25 +21,27 @@ descartável que destrava esses 63.
 docker run -d --name piq-postgres \
   -e POSTGRES_PASSWORD=piq_local_dev \
   -e POSTGRES_DB=piq \
-  -p 55432:5432 \
+  -p 15432:5432 \
   postgres:16
 ```
 
-Porta **55432** de propósito: não colide com um Postgres já instalado na
+Porta **15432** de propósito: não colide com um Postgres já instalado na
 máquina em 5432.
 
-> **Se `docker run` recusar a porta no Windows.** A mensagem é
+> **Por que não 55432**, que parecia a escolha óbvia: o Windows reserva
+> faixas inteiras de porta para o Hyper-V/WSL, e `55432` cai dentro de uma
+> delas nesta máquina (`55407–55506`). O `docker run` recusa com
 > `bind: An attempt was made to access a socket in a way forbidden by its
-> access permissions` — e não é falta de privilégio: o Windows reserva faixas
-> inteiras de porta para o Hyper-V/WSL, e `55432` cai dentro de uma delas
-> nesta máquina (`55407–55506`). Conferir com:
+> access permissions` — que parece falta de privilégio e não é. As faixas
+> variam por máquina; conferir com:
 >
 > ```powershell
 > netsh interface ipv4 show excludedportrange protocol=tcp
 > ```
 >
-> Escolha uma porta fora das faixas listadas (aqui usamos **15432**) e troque
-> os dois lugares: o `-p` do `docker run` e a `DATABASE_URL`. O container não
+> Se `15432` também estiver reservada na sua máquina, escolha outra fora
+> das faixas listadas e troque os dois lugares: o `-p` do `docker run` e a
+> `DATABASE_URL`. O container não
 > precisa ser recriado do zero — um `docker run` novo apontando para o mesmo
 > volume preserva os dados:
 >
@@ -78,28 +85,29 @@ colunas, e digitar parâmetro de motor de cálculo à mão é como um número er
 entra num plano de quitação sem ninguém notar.
 
 ```bash
-DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:55432/piq" \
+DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:15432/piq" \
   .venv/Scripts/python.exe scripts/semear_parametros.py
 ```
 
 ## 4. Rodar a suíte
 
 ```bash
-export DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:55432/piq"
+export DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:15432/piq"
 .venv/Scripts/python.exe -m pytest -q
 ```
 
-Esperado: **1620 passed, 3 skipped**. Os 3 que sobram são do WeasyPrint
+Esperado: **1768 passed, 3 skipped**. Os 3 que sobram são do WeasyPrint
 (`libgobject-2.0-0` ausente neste Windows) — geração de PDF, sem relação com
 banco, limitação já documentada em `report/pdf.py`.
 
-Sem `DATABASE_URL`: `1548 passed, 75 skipped`. As duas contagens são válidas;
-a segunda só cobre menos.
+Sem `DATABASE_URL`: `1687 passed, 82 skipped`. Os 82 se dividem em 70
+marcados `requer_banco`, 9 de adaptador Supabase opcional (plano §2.1) e os
+3 do WeasyPrint. As duas contagens são válidas; a segunda só cobre menos.
 
 ## 5. Abrir a aplicação no navegador
 
 ```bash
-DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:55432/piq" \
+DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:15432/piq" \
   .venv/Scripts/python.exe scripts/subir_demo.py
 ```
 

@@ -161,6 +161,10 @@ class _RepositorioContasEmMemoria:
         conta = self._por_email.get(email)
         if conta is None:
             return None
+        # `T-179`: conta provisionada sem senha não autentica — mesma
+        # guarda do `RepositorioContasSupabase` real.
+        if conta.senha_hash is None:
+            return None
         if not verificar_senha(conta.senha_hash, senha):
             return None
         return conta

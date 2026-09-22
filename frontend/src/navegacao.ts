@@ -22,6 +22,17 @@ import { useCallback, useEffect, useState } from 'react'
 /** Uma tela do fluxo. O `switch` do `App.tsx` cobre todos os membros. */
 export type Rota =
   | { tela: 'entrada' }
+  /**
+   * Definir a própria senha — primeiro acesso e recuperação (`T-179`).
+   *
+   * O `token` chega pelo link que o aluno recebe por e-mail e é a prova de
+   * que ele é o dono daquele endereço. Vive no hash, não em `?token=`,
+   * porque o hash **não é enviado ao servidor em requisição nenhuma**: ele
+   * fica no navegador até o JavaScript o ler. Numa query string, o token
+   * apareceria em log de proxy, de CDN e no `Referer` de qualquer recurso
+   * externo que a página carregasse.
+   */
+  | { tela: 'definir-senha'; token: string }
   | { tela: 'consentimento' }
   | { tela: 'inicio' }
   | { tela: 'progresso' }
@@ -116,6 +127,8 @@ export function rotaParaHash(rota: Rota): string {
       return `${rota.tela}/${rota.bloco}`
     case 'equipe-caso':
       return `${rota.tela}/${rota.casoId}`
+    case 'definir-senha':
+      return `${rota.tela}/${rota.token}`
     default:
       return rota.tela
   }
@@ -158,6 +171,9 @@ export function hashParaRota(hash: string): Rota {
     }
     case 'acao':
       return resto[0] ? { tela, acaoId: resto[0] } : ROTA_PADRAO
+    // Sem token não há o que definir: cai no padrão, que leva ao login.
+    case 'definir-senha':
+      return resto[0] ? { tela, token: resto[0] } : ROTA_PADRAO
     case 'equipe-caso':
       return resto[0] ? { tela, casoId: resto[0] } : ROTA_PADRAO
     default:
