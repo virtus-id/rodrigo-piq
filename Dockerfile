@@ -28,7 +28,7 @@ RUN python -m venv "$VIRTUAL_ENV"
 # `pyproject.toml` primeiro, sozinho: enquanto ele não mudar, o Docker
 # reaproveita a camada de instalação e o build não baixa nada de novo.
 COPY pyproject.toml ./
-COPY parameters/ ./parameters/
+COPY README.md ./
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir ".[app,supabase]"
 

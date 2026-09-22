@@ -4,7 +4,17 @@ version = "0.1.0"
 description = "Motor de cálculo do PIQ: ciclo mensal, ranqueamento e os três métodos de quitação de dívidas."
 requires-python = ">=3.12"
 readme = "README.md"
-dependencies = []
+# `jsonschema` é dependência de EXECUÇÃO, não de desenvolvimento:
+# `collection/carga.py` e `persistencia/arquivo/fonte_parametros.py` a
+# importam no topo do módulo, e ambos são carregados pela API em produção.
+# Esteve listada só em `dev` até 2026-09-22, o que passava despercebido
+# porque o venv de desenvolvimento instala tudo — o erro só apareceu ao
+# subir o container com `[app,supabase]`, que falhou com
+# `ModuleNotFoundError: No module named 'jsonschema'` na importação das
+# rotas. Aqui, uma instalação de produção a recebe por padrão.
+dependencies = [
+    "jsonschema>=4.23",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -12,7 +22,6 @@ dev = [
     "ruff>=0.6",
     "pytest>=8.3",
     "hypothesis>=6.112",
-    "jsonschema>=4.23",
 ]
 supabase = [
     "psycopg[binary]>=3.2",
