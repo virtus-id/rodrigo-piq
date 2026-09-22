@@ -329,3 +329,192 @@ def test_definir_senha_nao_instala_sessao(ambiente: Ambiente) -> None:
 
     assert resposta.status_code == 200
     assert "set-cookie" not in {chave.lower() for chave in resposta.headers}
+
+
+# ---------------------------------------------------------------------------
+# Webhook da Hotmart
+# ---------------------------------------------------------------------------
+
+_HOTTOK: Final[str] = "hottok-de-teste"
+_NOME_HEADER_HOTTOK: Final[str] = "X-HOTMART-HOTTOK"
+_PRODUTO_ID: Final[str] = "7079006"
+
+
+def _payload_hotmart(
+    *, evento: str = "PURCHASE_APPROVED", produto_id: str = _PRODUTO_ID, email: str = _EMAIL
+) -> dict[str, object]:
+    """Só os campos que a rota lê — a Hotmart manda muito mais, mas o
+    restante do payload real (`purchase`, `producer`, `commissions`...)
+    é irrelevante para este teste."""
+    return {
+        "event": evento,
+        "data": {"product": {"id": produto_id}, "buyer": {"email": email}},
+    }
+
+
+@pytest.fixture
+def ambiente_hotmart(monkeypatch: pytest.MonkeyPatch) -> Iterator[Ambiente]:
+    monkeypatch.setenv("CHAVE_ASSINATURA_SESSAO", _CHAVE_TESTE)
+    monkeypatch.setenv("HOTMART_HOTTOK", _HOTTOK)
+    monkeypatch.setenv("HOTMART_PRODUTO_ID", _PRODUTO_ID)
+
+    provisionamento = _ProvisionamentoDublê()
+    contas = _RepositorioContasDublê(provisionamento)
+    tokens = _RepositorioTokensDublê()
+
+    aplicacao = criar_aplicacao()
+    aplicacao.dependency_overrides[obter_provisionamento] = lambda: provisionamento
+    aplicacao.dependency_overrides[obter_repositorio_contas_provisionamento] = lambda: contas
+    aplicacao.dependency_overrides[obter_repositorio_tokens] = lambda: tokens
+
+    with TestClient(aplicacao) as cliente:
+        yield cliente, provisionamento, contas, tokens
+
+
+def test_hotmart_sem_hottok_recusa(ambiente_hotmart: Ambiente) -> None:
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post("/api/provisionamento/hotmart", json=_payload_hotmart())
+
+    assert resposta.status_code == 401
+    assert provisionamento.emails == []
+
+
+def test_hotmart_hottok_errado_recusa(ambiente_hotmart: Ambiente) -> None:
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(),
+        headers={_NOME_HEADER_HOTTOK: "token-errado"},
+    )
+
+    assert resposta.status_code == 401
+    assert provisionamento.emails == []
+
+
+def test_hotmart_sem_variavel_de_ambiente_fica_indisponivel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CHAVE_ASSINATURA_SESSAO", _CHAVE_TESTE)
+    monkeypatch.delenv("HOTMART_HOTTOK", raising=False)
+
+    provisionamento = _ProvisionamentoDublê()
+    aplicacao = criar_aplicacao()
+    aplicacao.dependency_overrides[obter_provisionamento] = lambda: provisionamento
+
+    with TestClient(aplicacao) as cliente:
+        resposta = cliente.post(
+            "/api/provisionamento/hotmart",
+            json=_payload_hotmart(),
+            headers={_NOME_HEADER_HOTTOK: "qualquer-coisa"},
+        )
+
+    assert resposta.status_code == 503
+    assert provisionamento.emails == []
+
+
+def test_hotmart_token_no_corpo_tambem_autentica(ambiente_hotmart: Ambiente) -> None:
+    """A Hotmart documenta o token tanto no header quanto no campo
+    `hottok` do corpo, conforme a versão — a rota aceita as duas formas."""
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    corpo = _payload_hotmart()
+    corpo["hottok"] = _HOTTOK
+    resposta = cliente.post("/api/provisionamento/hotmart", json=corpo)
+
+    assert resposta.status_code == 200
+    assert provisionamento.emails == [_EMAIL]
+
+
+def test_hotmart_evento_diferente_de_aprovada_e_ignorado(
+    ambiente_hotmart: Ambiente,
+) -> None:
+    """Reembolso, cancelamento etc. não são erro — só não criam conta. `200`
+    para a Hotmart não reenviar o mesmo evento pra sempre."""
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(evento="PURCHASE_REFUNDED"),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"ignorado": "evento"}
+    assert provisionamento.emails == []
+
+
+def test_hotmart_produto_diferente_e_ignorado(ambiente_hotmart: Ambiente) -> None:
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(produto_id="999999"),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert resposta.json() == {"ignorado": "produto"}
+    assert provisionamento.emails == []
+
+
+def test_hotmart_compra_aprovada_provisiona_e_nao_devolve_token(
+    ambiente_hotmart: Ambiente,
+) -> None:
+    """Diferente de `/conta`: o token não volta no corpo — quem chama é a
+    Hotmart, o único caminho de entrega ao aluno é o e-mail."""
+    cliente, provisionamento, _contas, tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    corpo = resposta.json()
+    assert corpo["provisionado"] is True
+    assert "token" not in corpo
+    assert provisionamento.emails == [_EMAIL]
+    assert tokens.emitidos == ["CONTA_1"]
+
+
+def test_hotmart_compra_repetida_reprovisiona_sem_erro(ambiente_hotmart: Ambiente) -> None:
+    cliente, _provisionamento, _contas, tokens = ambiente_hotmart
+
+    for _ in range(2):
+        resposta = cliente.post(
+            "/api/provisionamento/hotmart",
+            json=_payload_hotmart(),
+            headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+        )
+        assert resposta.status_code == 200
+
+    assert tokens.emitidos == ["CONTA_1", "CONTA_1"]
+
+
+def test_hotmart_sem_email_no_payload_recusa(ambiente_hotmart: Ambiente) -> None:
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    corpo = _payload_hotmart()
+    corpo["data"] = {"product": {"id": _PRODUTO_ID}, "buyer": {}}
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart", json=corpo, headers={_NOME_HEADER_HOTTOK: _HOTTOK}
+    )
+
+    assert resposta.status_code == 400
+    assert provisionamento.emails == []
+
+
+def test_hotmart_corpo_nao_json_recusa(ambiente_hotmart: Ambiente) -> None:
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        content=b"isto nao e json",
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK, "Content-Type": "application/json"},
+    )
+
+    assert resposta.status_code == 400
+    assert provisionamento.emails == []

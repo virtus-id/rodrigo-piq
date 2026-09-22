@@ -196,6 +196,125 @@ async def provisionar(
     )
 
 
+# -----------------------------------------------------------------------------
+# Webhook da Hotmart — adaptador para `/conta`, adicionado operacionalmente
+# em 2026-09-22, fora do fluxo Discovery → Spec do `CLAUDE.md`. Registrar
+# como tarefa formal (RF próprio) fica para o dev reconciliar.
+# -----------------------------------------------------------------------------
+
+_VARIAVEL_HOTMART_HOTTOK: Final[str] = "HOTMART_HOTTOK"
+_VARIAVEL_HOTMART_PRODUTO_ID: Final[str] = "HOTMART_PRODUTO_ID"
+_NOME_HEADER_HOTTOK: Final[str] = "X-HOTMART-HOTTOK"
+_EVENTO_APROVADA: Final[str] = "PURCHASE_APPROVED"
+
+_MENSAGEM_JSON_INVALIDO: Final[str] = "Corpo não é JSON válido."
+
+
+def _hottok_confere(recebido: str | None) -> bool | None:
+    """Mesmo contrato de `_segredo_confere`: `None` = variável ausente
+    (`503`), `True`/`False` = bate ou não com o token configurado no painel
+    da Hotmart (Ferramentas → Webhook → Token).
+
+    **Aceita o token tanto no header `X-HOTMART-HOTTOK` quanto no campo
+    `hottok` do corpo.** A Hotmart documenta as duas formas conforme a
+    versão do webhook; validar as duas é mais barato do que apostar em
+    qual esta conta usa, e não abre exceção nenhuma — as duas exigem o
+    mesmo valor exato."""
+    esperado = os.environ.get(_VARIAVEL_HOTMART_HOTTOK)
+    if not esperado:
+        return None
+    if not recebido:
+        return False
+    return secrets.compare_digest(recebido, esperado)
+
+
+@roteador.post("/hotmart")
+async def receber_webhook_hotmart(
+    request: Request,
+    provisionamento: Annotated[ProvisionaContaECaso, Depends(obter_provisionamento)],
+    repositorio_contas: Annotated[
+        RepositorioContas, Depends(obter_repositorio_contas_provisionamento)
+    ],
+    repositorio_tokens: Annotated[
+        RepositorioTokensAcesso, Depends(obter_repositorio_tokens)
+    ],
+    enviador: Annotated[EnviadorDeEmail, Depends(obter_enviador)],
+    hottok_header: Annotated[str | None, Header(alias=_NOME_HEADER_HOTTOK)] = None,
+) -> JSONResponse:
+    """Traduz o webhook `PURCHASE_APPROVED` da Hotmart para o mesmo caminho
+    de `provisionar` acima — mesma criação de conta+caso, mesmo e-mail de
+    primeiro acesso. Não reimplementa nada daquela rota; só troca de onde
+    vem o `email`.
+
+    **Responde `200` para tudo que não seja "processar e falhou".** Evento
+    que não é `PURCHASE_APPROVED` (reembolso, cancelamento, outro produto)
+    não é erro — é a Hotmart me contando algo que esta rota não trata. Um
+    `4xx`/`5xx` nesses casos faria a Hotmart reenviar o mesmo evento sem
+    parar; só a autenticação e o corpo malformado merecem recusa de
+    verdade.
+
+    **Filtro por produto, se `HOTMART_PRODUTO_ID` estiver configurado.**
+    Sem ele, qualquer produto aprovado nesta conta Hotmart provisiona no
+    PIQ — inofensivo enquanto só existir um webhook apontando para cá, mas
+    a variável existe para quando não for mais o caso."""
+    confere = _hottok_confere(hottok_header)
+    if confere is None:
+        return JSONResponse({"erro": _MENSAGEM_SEM_SEGREDO}, status_code=503)
+
+    try:
+        corpo: dict[str, object] = await request.json()
+    except ValueError:
+        return JSONResponse({"erro": _MENSAGEM_JSON_INVALIDO}, status_code=400)
+
+    if not confere:
+        # O token também pode vir no corpo (`hottok`), não só no header —
+        # ver a nota de `_hottok_confere`. Só dá pra checar isso depois de
+        # ler o corpo, então a recusa por header sozinho fica pendurada até
+        # aqui.
+        confere = _hottok_confere(str(corpo.get("hottok") or "") or None)
+        if not confere:
+            return JSONResponse({"erro": _MENSAGEM_NAO_AUTORIZADO}, status_code=401)
+
+    if corpo.get("event") != _EVENTO_APROVADA:
+        return JSONResponse({"ignorado": "evento"}, status_code=200)
+
+    dados = corpo.get("data")
+    produto = (dados or {}).get("product", {}) if isinstance(dados, dict) else {}
+    produto_esperado = os.environ.get(_VARIAVEL_HOTMART_PRODUTO_ID)
+    if produto_esperado and str(produto.get("id", "")) != produto_esperado:
+        return JSONResponse({"ignorado": "produto"}, status_code=200)
+
+    comprador = (dados or {}).get("buyer", {}) if isinstance(dados, dict) else {}
+    email = str(comprador.get("email") or "").strip().lower()
+    if not email:
+        return JSONResponse({"erro": _MENSAGEM_EMAIL_AUSENTE}, status_code=400)
+
+    try:
+        conta, _caso = provisionamento(email)
+        conta_id = conta.conta_id
+    except ErroEmailDuplicado:
+        # Mesma disciplina de `provisionar`: compra repetida reemite o
+        # link, nunca é erro.
+        existente = repositorio_contas.buscar_por_email(email)
+        if existente is None:  # pragma: no cover — defensivo: o UNIQUE acusou
+            return JSONResponse({"erro": _MENSAGEM_NAO_AUTORIZADO}, status_code=401)
+        conta_id = existente.conta_id
+
+    token: TokenEmitido = repositorio_tokens.emitir(conta_id)
+
+    email_enviado = True
+    try:
+        mensagem = primeiro_acesso(token.valor)
+        enviador.enviar(email, mensagem.assunto, mensagem.corpo)
+    except (ErroConfiguracaoEmail, ErroEnvioEmail, ErroUrlBaseAusente):
+        email_enviado = False
+
+    # Diferente de `/conta`: o token NÃO volta no corpo. Quem chama é a
+    # Hotmart, não um sistema que precise repassá-lo — o único caminho de
+    # entrega ao aluno é o e-mail que acabou de sair.
+    return JSONResponse({"provisionado": True, "email_enviado": email_enviado}, status_code=200)
+
+
 #: Tamanho mínimo de senha — `T-181`.
 #:
 #: Oito caracteres é o piso da OWASP (Authentication Cheat Sheet) e o que o
