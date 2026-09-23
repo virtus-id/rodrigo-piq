@@ -4,10 +4,11 @@ Grava e lê `app.consentimento.registro.RegistroConsentimento` em
 `app_aluno.consentimentos` (`persistencia/supabase/migracoes/
 002_app_aluno.sql`, T-21), schema dedicado desta feature. Mesmo padrão de
 conexão/transação de `persistencia/app_aluno/casos.py` e `respostas.py`
-(T-22/T-23): reaproveita `obter_database_url`/`ErroConexaoAusente` de
-`persistencia.supabase.conexao` (genéricos, não amarrados a um schema), sem
-tocar naquele módulo (congelado, `AC-44`), com `search_path=app_aluno`
-fixado por conexão própria deste adaptador.
+(T-22/T-23): reaproveita `obter_pool`/`ErroConexaoAusente` de
+`persistencia.supabase.conexao` (genéricos, não amarrados a um schema) — o
+MESMO pool do processo inteiro, `T-187`, nunca uma conexão própria — com
+`search_path=app_aluno` fixado a cada checkout (a conexão física pode ter
+servido `motor_calculo` no checkout anterior).
 
 **Este módulo só grava o CARIMBO de aceite — nunca o texto.** `versao_texto`
 é o identificador da versão (`QUESTIONARIO_VERSION` do texto vigente, lido
@@ -31,7 +32,7 @@ from typing import Any, Final, Protocol
 import psycopg
 
 from app.consentimento.registro import RegistroConsentimento
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = ("RF-30", "AC-39")
 
@@ -50,7 +51,8 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     """Mesmo padrão de `persistencia/app_aluno/respostas.py::_conectar`:
     `search_path` fixado em `app_aluno`, commit ao sair sem exceção,
     rollback e propagação ao sair com exceção."""
-    conexao = psycopg.connect(obter_database_url())
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -60,7 +62,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 def _como_utc(instante: datetime) -> datetime:

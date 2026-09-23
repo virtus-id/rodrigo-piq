@@ -4,10 +4,11 @@
 Grava e lê `Caso` em `app_aluno.casos` (`persistencia/supabase/migracoes/
 002_app_aluno.sql`, T-21), schema dedicado desta feature. Mesmo padrão de
 conexão/transação/commit/rollback de `persistencia/app_aluno/respostas.py`
-(T-22): reaproveita `obter_database_url`/`ErroConexaoAusente` de
-`persistencia.supabase.conexao` (genéricos, não amarrados a um schema), sem
-tocar naquele módulo (congelado, `AC-44`), com `search_path=app_aluno`
-fixado por conexão própria deste adaptador.
+(T-22): reaproveita `obter_pool`/`ErroConexaoAusente` de
+`persistencia.supabase.conexao` (genéricos, não amarrados a um schema) — o
+MESMO pool do processo inteiro, `T-187`, nunca uma conexão própria — com
+`search_path=app_aluno` fixado a cada checkout (a conexão física pode ter
+servido `motor_calculo` no checkout anterior).
 
 **`ESTADO_CASO`/`Caso` nascem em `app/casos/maquina.py` (T-33), não aqui.**
 T-23 originalmente definiu os dois tipos provisoriamente aqui, antes de a
@@ -89,7 +90,7 @@ from typing import Any, Final, Protocol
 import psycopg
 
 from app.casos.maquina import ESTADO_CASO, Caso
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = (
     "RF-01",
@@ -131,10 +132,11 @@ class ErroGravacaoCaso(Exception):
 def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     """Mesmo padrão de `persistencia/app_aluno/respostas.py::_conectar`:
     `search_path` fixado em `app_aluno`, commit ao sair sem exceção,
-    rollback e propagação ao sair com exceção. Reescrito aqui (em vez de
-    reaproveitar `persistencia.supabase.conexao.conectar`) porque aquele
-    módulo fixa `search_path=motor_calculo` e está congelado (`AC-44`)."""
-    conexao = psycopg.connect(obter_database_url())
+    rollback e propagação ao sair com exceção. `conectar()` daquele módulo
+    não serve aqui mesmo com o pool compartilhado (`T-187`): fixa
+    `search_path=motor_calculo`, o schema errado para este adaptador."""
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -144,7 +146,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 def _linha_para_caso(linha: tuple[Any, ...]) -> Caso:

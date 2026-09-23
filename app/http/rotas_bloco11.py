@@ -280,8 +280,9 @@ def _resposta_de_erro(mensagem: str, status_code: int) -> JSONResponse:
 
 
 @roteador.post("/{CASO_ID}/bloco-11/resposta")
-async def responder_confirmacao_quitacao(
+def responder_confirmacao_quitacao(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
@@ -291,10 +292,12 @@ async def responder_confirmacao_quitacao(
     quando a pergunta respondida é `B11.Q01` (`AC-30`/`AC-31`). Devolve `200`
     com a confirmação de gravação (mais `evento_recalculo`, quando
     aplicável) somente APÓS a gravação ter retornado sem exceção — mesma
-    garantia de `AC-02` que `rotas_coleta.py` já oferece."""
+    garantia de `AC-02` que `rotas_coleta.py` já oferece.
+
+    **`def`, não `async def` — `T-187`.** Ver a nota em
+    `rotas_api_conta.py::cadastrar`."""
     # Passo 1 já ocorreu: `exigir_caso_da_sessao` verificou, no servidor, que
     # a sessão possui este CASO_ID.
-    dados = await _ler_formulario(request)
     id_pergunta = dados.get("ID_PERGUNTA", "")
     item_id = dados.get("item_id") or None
 

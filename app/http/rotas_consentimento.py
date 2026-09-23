@@ -109,8 +109,9 @@ async def _ler_formulario(request: Request) -> dict[str, str]:
 
 
 @roteador.post("/{CASO_ID}/consentimento")
-async def processar_consentimento(
+def processar_consentimento(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
     repositorio_consentimentos: Annotated[
         RepositorioConsentimentos, Depends(obter_repositorio_consentimentos)
@@ -134,7 +135,10 @@ async def processar_consentimento(
 
     **Recusa é registrada e NÃO avança** (`T-178`): com `aceite=False` o
     passo (3) acontece — a recusa é um fato com valor probatório — e o (4)
-    não. O caso permanece em `CADASTRADO`."""
+    não. O caso permanece em `CADASTRADO`.
+
+    **`def`, não `async def` — `T-187`.** Ver a nota em
+    `rotas_api_conta.py::cadastrar`."""
     try:
         texto = carregar_texto_vigente()
     except ErroTextoConsentimentoAusente:
@@ -153,7 +157,6 @@ async def processar_consentimento(
     # uma transição inválida nunca deixe um registro de aceite órfão.
     transicionar(caso_atual.estado, ESTADO_CASO.CONSENTIMENTO_REGISTRADO)
 
-    dados = await _ler_formulario(request)
     aceite = dados.get("aceite") == "on"
 
     agora = datetime.now(UTC)

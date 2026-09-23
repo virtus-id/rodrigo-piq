@@ -407,8 +407,9 @@ def formulario_de_decisao(
 
 
 @roteador.post("/caso/{CASO_ID_REVISAO}/decisao")
-async def processar_decisao(
+def processar_decisao(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario_de_decisao)],
     CASO_ID_REVISAO: str,
     repositorio_casos: Annotated[
         RepositorioCasosDaDecisao, Depends(obter_repositorio_casos_da_fila)
@@ -450,12 +451,15 @@ async def processar_decisao(
     `observacao` (texto livre do revisor, gravado junto à decisão,
     `RF-24`). Uma decisão sobre um caso que já saiu de `AGUARDANDO_REVISAO`
     (`ErroRevisaoJaDecidida`) devolve `409` — nunca uma segunda gravação
-    silenciosa (mesma disciplina de `app/revisao/fila.py`)."""
+    silenciosa (mesma disciplina de `app/revisao/fila.py`).
+
+    **`def`, não `async def` — `T-187`.** `liberar`/`reprovar` gravam no
+    banco, e `_avisar_plano_liberado` envia e-mail por SMTP — as duas
+    bloqueantes. Ver a nota em `rotas_api_conta.py::cadastrar`."""
     caso, snapshot = _buscar_caso_e_snapshot_mais_recente(
         CASO_ID_REVISAO, repositorio_casos, repositorio_snapshots
     )
 
-    dados = await _ler_formulario_de_decisao(request)
     decisao = dados.get("decisao", "")
     observacao = dados.get("observacao") or None
 

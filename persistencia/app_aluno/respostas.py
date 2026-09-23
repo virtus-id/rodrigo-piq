@@ -4,11 +4,14 @@
 Grava e lê `collection.respostas.Resposta` em `app_aluno.respostas`
 (`persistencia/supabase/migracoes/002_app_aluno.sql`, T-21), schema dedicado
 desta feature — nunca `motor_calculo` (NFR de segurança). Reaproveita
-`obter_database_url`/`ErroConexaoAusente` de `persistencia.supabase.conexao`
-(genéricos, não amarrados a um schema) sem tocar naquele módulo — que
-permanece fixando `search_path=motor_calculo` para o adaptador do motor,
-intocado por esta tarefa (`engine/` e os três módulos Supabase do motor estão
-CONGELADOS neste backlog).
+`obter_pool`/`ErroConexaoAusente` de `persistencia.supabase.conexao`
+(genéricos, não amarrados a um schema) — o MESMO pool do processo inteiro,
+`T-187`, nunca uma conexão própria — mas `search_path=app_aluno` é fixado
+por este módulo a cada checkout, nunca pela função `conectar()` daquele
+módulo, que continua fixando `search_path=motor_calculo` para o adaptador
+do motor. `engine/` e a lógica de `fonte_parametros.py`/
+`repositorio_snapshots.py` (os outros dois módulos Supabase do motor)
+seguem intocados por esta tarefa.
 
 **Exatamente um valor por resposta (EC-10, sem merge).** `RegravarResposta`
 grava por `INSERT ... ON CONFLICT ("CASO_ID", "ID_PERGUNTA", item_id) DO
@@ -76,7 +79,7 @@ from app.casos.maquina import (
     exigir_estado_permite_resposta,
 )
 from collection.respostas import NAO_SEI, NaoSei, Resposta, ValorResposta
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = (
     "RF-10",
@@ -118,13 +121,14 @@ class ErroCasoInexistenteParaResposta(Exception):
 
 @contextmanager
 def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
-    """Abre uma conexão `psycopg 3` a partir de `DATABASE_URL`, com
+    """Retira uma conexão do pool compartilhado (`T-187`), com
     `search_path` fixado em `app_aluno` — nunca `motor_calculo` nem
     `public`. Mesmo padrão de `persistencia.supabase.conexao.conectar`
     (commit ao sair sem exceção, rollback e propagação ao sair com
-    exceção), reescrito aqui porque aquele módulo é específico do schema do
-    motor e está congelado neste backlog (`AC-44`)."""
-    conexao = psycopg.connect(obter_database_url())
+    exceção), reescrito aqui porque aquele módulo fixa `search_path` para
+    o schema do motor, o errado para este adaptador."""
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -134,7 +138,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 def _serializar_valor(

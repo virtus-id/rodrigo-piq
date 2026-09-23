@@ -47,7 +47,7 @@ from typing import Any, Final, Protocol
 
 import psycopg
 
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = ("RF-02",)
 
@@ -88,7 +88,8 @@ def _hash_do_token(valor: str) -> str:
 @contextmanager
 def _conectar() -> Iterator[psycopg.Connection[tuple[Any, ...]]]:
     """Mesmo padrão de `contas.py::_conectar`."""
-    conexao = psycopg.connect(obter_database_url())
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -98,7 +99,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[Any, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 class RepositorioTokensAcesso(Protocol):

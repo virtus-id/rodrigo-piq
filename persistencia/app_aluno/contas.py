@@ -5,10 +5,11 @@ Grava e lê contas em `app_aluno.contas` (`persistencia/supabase/migracoes/
 002_app_aluno.sql`, T-21: `conta_id`, `email UNIQUE`, `senha_hash`,
 `criado_em`). Mesmo padrão de conexão/transação/commit/rollback de
 `persistencia/app_aluno/respostas.py` e `persistencia/app_aluno/casos.py`
-(T-22/T-23): reaproveita `obter_database_url`/`ErroConexaoAusente` de
-`persistencia.supabase.conexao` (genéricos, não amarrados a um schema), sem
-tocar naquele módulo (congelado, `AC-44`), com `search_path=app_aluno`
-fixado por conexão própria deste adaptador.
+(T-22/T-23): reaproveita `obter_pool`/`ErroConexaoAusente` de
+`persistencia.supabase.conexao` (genéricos, não amarrados a um schema) — o
+MESMO pool do processo inteiro, `T-187`, nunca uma conexão própria — com
+`search_path=app_aluno` fixado a cada checkout (a conexão física pode ter
+servido `motor_calculo` no checkout anterior).
 
 **Hash, nunca senha em texto claro.** Este módulo NUNCA recebe nem grava a
 senha em texto claro numa coluna: `criar` recebe a senha em texto claro do
@@ -80,7 +81,7 @@ from typing import Any, Final, Protocol
 import psycopg
 
 from app.http.senhas import hashear_senha, verificar_senha
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = ("RF-02", "RF-23", "RF-25")
 
@@ -133,7 +134,8 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     """Mesmo padrão de `persistencia/app_aluno/casos.py::_conectar`:
     `search_path` fixado em `app_aluno`, commit ao sair sem exceção,
     rollback e propagação ao sair com exceção."""
-    conexao = psycopg.connect(obter_database_url())
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -143,7 +145,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 def _linha_para_conta(linha: tuple[Any, ...]) -> Conta:

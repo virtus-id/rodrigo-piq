@@ -151,6 +151,7 @@ import os
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from app.casos.maquina import ESTADO_CASO, ErroTransicaoNaoDeclarada
@@ -179,6 +180,7 @@ from collection.respostas import RespostasCaso
 from engine.comportamento import derivar_CONFIABILIDADE_DADOS, derivar_NIVEL_CONTROLE
 from engine.estado import Divida, EstadoFinanceiro
 from engine.portas import FonteParametros, RepositorioSnapshots
+from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.casos import Caso, RepositorioCasos
 from persistencia.app_aluno.eventos import RepositorioEventosCaso, RepositorioEventosCasoSupabase
 from persistencia.app_aluno.itens import RepositorioItens, RepositorioItensSupabase
@@ -422,7 +424,54 @@ async def disparar_calculo(
     (com a trava de concorrência de `T-23` dentro dela), montagem do
     `EstadoFinanceiro` real e agendamento da execução em segundo plano.
     Responde IMEDIATAMENTE com a tela de progresso — nunca aguarda o
-    cálculo terminar (ver docstring do módulo)."""
+    cálculo terminar (ver docstring do módulo).
+
+    **Continua `async def` — `T-187`.** `asyncio.create_task` (abaixo) exige
+    um loop de eventos rodando na thread corrente; uma rota `def` comum roda
+    numa thread do pool do Starlette, sem loop, e a chamada falharia. Tudo
+    que é bloqueante — as várias consultas e a transição de estado, com
+    seus retornos antecipados — fica em `_preparar_calculo`, uma função
+    síncrona comum, chamada por `run_in_threadpool`; só o agendamento da
+    tarefa de fundo permanece aqui, no `async def`."""
+    resultado = await run_in_threadpool(
+        _preparar_calculo,
+        CASO_ID,
+        colecao,
+        repositorio_casos,
+        repositorio_respostas,
+        repositorio_itens,
+        fonte_parametros,
+        repositorio_snapshots,
+        repositorio_eventos,
+        parametros_externos,
+    )
+    if isinstance(resultado, JSONResponse):
+        return resultado
+    estado_financeiro, insumos = resultado
+
+    asyncio.create_task(
+        _executar_e_avancar(estado_financeiro, insumos, repositorio_eventos)
+    )
+
+    return JSONResponse({"CASO_ID": CASO_ID, "calculando": True})
+
+
+def _preparar_calculo(
+    CASO_ID: str,
+    colecao: ColecaoDeRegistros,
+    repositorio_casos: RepositorioCasos,
+    repositorio_respostas: RepositorioRespostas,
+    repositorio_itens: RepositorioItens,
+    fonte_parametros: FonteParametros,
+    repositorio_snapshots: RepositorioSnapshots,
+    repositorio_eventos: RepositorioEventosCaso,
+    parametros_externos: ParametrosExternosDoBloco6,
+) -> JSONResponse | tuple[EstadoFinanceiro, ParametrosDoCalculo]:
+    """A parte síncrona e bloqueante de `disparar_calculo` — `T-187`. Devolve
+    a resposta de erro pronta quando alguma guarda recusa, ou o par
+    `(estado_financeiro, insumos)` que a rota usa para agendar a execução.
+    Corpo idêntico ao que vivia direto na rota antes desta tarefa; só o
+    ponto de chamada mudou."""
     caso = repositorio_casos.buscar(CASO_ID)
     if caso is None:  # pragma: no cover — defensivo: isolamento já garantiu
         raise ErroCasoDesaparecidoAposIsolamento(CASO_ID)
@@ -527,11 +576,7 @@ async def disparar_calculo(
         estado_anterior_do_caso=ESTADO_CASO.COLETA_INICIAL,
     )
 
-    asyncio.create_task(
-        _executar_e_avancar(estado_financeiro, insumos, repositorio_eventos)
-    )
-
-    return JSONResponse({"CASO_ID": CASO_ID, "calculando": True})
+    return estado_financeiro, insumos
 
 
 async def _executar_e_avancar(
@@ -567,20 +612,39 @@ async def _executar_e_avancar(
     sobrescrevê-la a cada recálculo quebraria `historico`, que agrupa pela
     raiz. O critério é `snapshot_anterior_id is None` — a definição de
     "este é o primeiro" que o próprio snapshot carrega, em vez de reler o
-    `Caso` e decidir por ausência."""
+    `Caso` e decidir por ausência.
+
+    **`T-187`.** `snapshot = await ...` já é async por natureza (é o motor
+    de cálculo em si, com o próprio timeout). O que vem depois — gravar a
+    raiz e transicionar o estado — é bloqueante e roda numa `asyncio.Task`
+    no loop principal: sem `run_in_threadpool` aqui, esta função travaria o
+    processo inteiro pela duração das duas escritas, para qualquer outra
+    requisição em andamento, não só para quem disparou este cálculo."""
     snapshot = await executar_calculo_com_timeout_async(estado, insumos)
     if snapshot is not None:
-        if snapshot.snapshot_anterior_id is None:
-            insumos.repositorio_casos.registrar_snapshot_raiz(
-                insumos.caso_id, snapshot.SNAPSHOT_ID
-            )
-        transicionar_e_registrar(
-            repositorio_casos=insumos.repositorio_casos,
-            repositorio_eventos=repositorio_eventos,
-            caso_id=insumos.caso_id,
-            de=ESTADO_CASO.CALCULANDO,
-            para=ESTADO_CASO.AGUARDANDO_REVISAO,
+        await run_in_threadpool(
+            _gravar_snapshot_e_avancar, snapshot, insumos, repositorio_eventos
         )
+
+
+def _gravar_snapshot_e_avancar(
+    snapshot: SnapshotOrdem,
+    insumos: ParametrosDoCalculo,
+    repositorio_eventos: RepositorioEventosCaso,
+) -> None:
+    """A parte bloqueante de `_executar_e_avancar` — `T-187`. Corpo idêntico
+    ao que vivia direto naquela função antes desta tarefa."""
+    if snapshot.snapshot_anterior_id is None:
+        insumos.repositorio_casos.registrar_snapshot_raiz(
+            insumos.caso_id, snapshot.SNAPSHOT_ID
+        )
+    transicionar_e_registrar(
+        repositorio_casos=insumos.repositorio_casos,
+        repositorio_eventos=repositorio_eventos,
+        caso_id=insumos.caso_id,
+        de=ESTADO_CASO.CALCULANDO,
+        para=ESTADO_CASO.AGUARDANDO_REVISAO,
+    )
 
 
 def _parametros_versao_vigente() -> str:

@@ -427,8 +427,10 @@ class ErroValidacaoCruzadaFalhou(Exception):
 
 
 @roteador.post("/{CASO_ID}/resposta", response_class=HTMLResponse)
-async def responder_pergunta(
+def responder_pergunta(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
+    valores_brutos: Annotated[tuple[str, ...], Depends(_ler_todos_os_valores)],
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
@@ -440,12 +442,17 @@ async def responder_pergunta(
     materialidade, quando houver) somente APÓS o passo 6 ter commitado a
     transação — nunca antes (`AC-02`). Qualquer recusa (passos 2, 4 ou 5)
     devolve `400` sem gravar nada; falha do passo 6 devolve `503`
-    (`EC-05`)."""
+    (`EC-05`).
+
+    **`def`, não `async def` — `T-187`.** É a rota mais chamada do sistema
+    — uma vez por resposta, das 291 perguntas do questionário, por aluno.
+    `repositorio.gravar` (passo 6) é bloqueante; ver a nota em
+    `rotas_api_conta.py::cadastrar`. `dados`/`valores_brutos` chegam por
+    `Depends`, resolvidos antes do handler — a mesma leitura de corpo que
+    antes acontecia aqui dentro, agora feita pelo FastAPI."""
     # Passo 1 já ocorreu: `exigir_caso_da_sessao` (Depends acima) verificou,
     # no servidor, que a sessão possui este CASO_ID — 401/404 antes de
     # qualquer leitura de dado do caso, se aplicável.
-    dados = await _ler_formulario(request)
-    valores_brutos = await _ler_todos_os_valores(request)
     id_pergunta = dados.get("ID_PERGUNTA", "")
     item_id = dados.get("item_id") or None
 

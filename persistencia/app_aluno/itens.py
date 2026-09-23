@@ -3,9 +3,11 @@
 Grava e lê `app_aluno.itens_repetidos` (`persistencia/supabase/migracoes/
 002_app_aluno.sql`, T-21). Mesmo padrão de conexão/transação/commit/rollback
 de `persistencia/app_aluno/respostas.py` (T-22) e `persistencia/app_aluno/
-casos.py` (T-23): reaproveita `obter_database_url`/`ErroConexaoAusente` de
-`persistencia.supabase.conexao`, com `search_path=app_aluno` fixado por
-conexão própria deste adaptador.
+casos.py` (T-23): reaproveita `obter_pool`/`ErroConexaoAusente` de
+`persistencia.supabase.conexao` — o MESMO pool do processo inteiro,
+`T-187`, nunca uma conexão própria — com `search_path=app_aluno` fixado a
+cada checkout (a conexão física pode ter servido `motor_calculo` no
+checkout anterior).
 
 **Este módulo fornece a implementação REAL de
 `collection.repeticao.GeradorDeIdentificadorDeItem`** (T-15) sobre a
@@ -96,7 +98,7 @@ import psycopg
 
 from collection.registro import EscopoRepeticao
 from collection.repeticao import PREFIXO_POR_ESCOPO, erro_escopo_sem_item
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = ("RF-04", "EC-10")
 
@@ -154,7 +156,8 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     """Mesmo padrão de `_conectar` em `persistencia/app_aluno/respostas.py`
     e `persistencia/app_aluno/casos.py`: `search_path=app_aluno`, commit ao
     sair sem exceção, rollback e propagação ao sair com exceção."""
-    conexao = psycopg.connect(obter_database_url())
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -164,7 +167,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 def _como_utc(instante: datetime) -> datetime:

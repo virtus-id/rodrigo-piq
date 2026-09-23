@@ -8,9 +8,10 @@ tarefa, sem nenhum repositório que a usasse (confirmado por busca: nenhum
 `.py` do projeto referenciava `eventos_caso` antes de `T-87`). Mesmo padrão
 de conexão/transação/commit/rollback de `persistencia/app_aluno/casos.py`
 (T-23) e `persistencia/app_aluno/respostas.py` (T-22): reaproveita
-`obter_database_url`/`ErroConexaoAusente` de `persistencia.supabase.conexao`
-(genéricos, não amarrados a um schema), com `search_path=app_aluno` fixado
-por conexão própria deste adaptador.
+`obter_pool`/`ErroConexaoAusente` de `persistencia.supabase.conexao`
+(genéricos, não amarrados a um schema) — o MESMO pool do processo inteiro,
+`T-187`, nunca uma conexão própria — com `search_path=app_aluno` fixado a
+cada checkout.
 
 **Registrar um evento na trilha NUNCA muda `estado`.** `registrar` só faz um
 `INSERT` em `eventos_caso` — nenhuma linha deste módulo toca a coluna
@@ -38,7 +39,7 @@ from typing import Any, Final, Protocol
 
 import psycopg
 
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = ("RF-31", "AC-40", "AC-35")
 
@@ -55,7 +56,8 @@ class ErroGravacaoEventoCaso(Exception):
 @contextmanager
 def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     """Mesmo padrão de `persistencia/app_aluno/casos.py::_conectar`."""
-    conexao = psycopg.connect(obter_database_url())
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -65,7 +67,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 class EventoCaso:

@@ -7,8 +7,8 @@ atômico (a conta commitaria antes de o caso sequer começar a ser gravado).
 Como `app_aluno.contas` e `app_aluno.casos` vivem no MESMO banco Postgres
 (schema `app_aluno`; `casos.conta_id` é FK de `contas.conta_id`), a
 atomicidade real exige as duas gravações na MESMA conexão/transação — este
-módulo existe só para isso: `cadastrar_conta_e_caso` abre UMA conexão
-(reaproveitando `obter_database_url`, genérico, e `app.http.senhas.
+módulo existe só para isso: `cadastrar_conta_e_caso` retira UMA conexão do
+pool compartilhado (`obter_pool`, `T-187`, genérico, e `app.http.senhas.
 hashear_senha`, puro) e faz os dois `INSERT`s antes de um único commit. Se o
 segundo falhar, o `ROLLBACK` desfaz também o primeiro — nunca uma conta
 órfã sem caso.
@@ -45,7 +45,7 @@ from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.senhas import hashear_senha
 from collection.carga import carregar_registros
 from persistencia.app_aluno.contas import Conta, ErroEmailDuplicado
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
 
 REGRAS: Final[tuple[str, ...]] = ("RF-02", "AC-03")
 
@@ -80,11 +80,11 @@ class ErroCadastro(Exception):
 def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
     """Mesmo padrão de `persistencia/app_aluno/casos.py::_conectar`:
     `search_path` fixado em `app_aluno`, commit ao sair sem exceção,
-    rollback e propagação ao sair com exceção — reescrito aqui (não
-    reaproveitado) pelas mesmas razões documentadas naquele módulo:
-    `persistencia.supabase.conexao.conectar` fixa `search_path=motor_calculo`
-    e está congelado (`AC-44`)."""
-    conexao = psycopg.connect(obter_database_url())
+    rollback e propagação ao sair com exceção. `conectar()` daquele módulo
+    não serve aqui mesmo com o pool compartilhado (`T-187`): fixa
+    `search_path=motor_calculo`, o schema errado para este adaptador."""
+    pool = obter_pool()
+    conexao = pool.getconn()
     try:
         with conexao.cursor() as cursor:
             cursor.execute(f"SET search_path TO {_SCHEMA}, public")
@@ -94,7 +94,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         conexao.rollback()
         raise
     finally:
-        conexao.close()
+        pool.putconn(conexao)
 
 
 def provisionar_conta_e_caso(email: str) -> tuple[Conta, Caso]:

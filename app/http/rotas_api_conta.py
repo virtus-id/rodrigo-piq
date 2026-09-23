@@ -75,8 +75,9 @@ def obter_casos_da_conta() -> CasosDaConta:
 
 
 @roteador.post("/conta/cadastro")
-async def cadastrar(
+def cadastrar(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     cadastro: Annotated[CadastroConta, Depends(obter_cadastro_conta)],
 ) -> JSONResponse:
     """`RF-02` — cria conta e caso ATOMICAMENTE e já abre a sessão.
@@ -86,8 +87,16 @@ async def cadastrar(
 
     E-mail duplicado devolve uma mensagem que **não confirma** que aquele
     e-mail já existe — dizer "já cadastrado" entregaria a um atacante a
-    lista de quem usa o sistema."""
-    dados = await _ler_formulario(request)
+    lista de quem usa o sistema.
+
+    **`def`, não `async def` — `T-187`.** O corpo do formulário chega por
+    `Depends(_ler_formulario)`, resolvido pelo FastAPI antes de chamar esta
+    função; o handler em si só faz chamadas síncronas ao banco
+    (`cadastro(...)`, que abre transação). Uma rota `async def` que chama
+    código bloqueante direto trava o loop de eventos inteiro por essa
+    duração — nenhuma outra requisição do processo avança enquanto isso.
+    `def` faz o Starlette rodar o handler inteiro numa thread do pool,
+    automaticamente, sem precisar de `run_in_threadpool` explícito aqui."""
     try:
         conta, caso = cadastro(dados.get("email", "").strip(), dados.get("senha", ""))
     except ErroEmailDuplicado:
@@ -109,11 +118,19 @@ async def cadastrar(
 
 
 @roteador.post("/conta/login")
-async def entrar(
+def entrar(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     repositorio: Annotated[RepositorioContas, Depends(obter_repositorio_contas)],
 ) -> JSONResponse:
     """`RF-02` — autentica e instala a sessão.
+
+    **`def`, não `async def` — `T-187`.** `autenticar` faz uma consulta ao
+    banco E a verificação Argon2id da senha (deliberadamente lenta) — as
+    duas são bloqueantes. Numa rota `async def` isso travaria o loop de
+    eventos do processo inteiro por essa duração, a cada login; `def` faz o
+    Starlette rodar o handler numa thread do pool. É a rota mais sensível a
+    isto: todo início de sessão passa por aqui.
 
     Conta inexistente e senha errada devolvem **a mesma** mensagem e o mesmo
     `401`: `repositorio.autenticar` já devolve `None` para os dois casos, e
@@ -132,7 +149,6 @@ async def entrar(
     depois desta tarefa. Um cliente que forje `e_revisor: true` não ganha
     acesso a nada: ganha telas que o servidor recusa. Esconder um botão nunca
     foi segurança, e este código não finge que seja."""
-    dados = await _ler_formulario(request)
     conta = repositorio.autenticar(dados.get("email", "").strip(), dados.get("senha", ""))
     if conta is None:
         return JSONResponse({"erro": _MENSAGEM_LOGIN_INVALIDO}, status_code=401)

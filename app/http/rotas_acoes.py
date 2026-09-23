@@ -160,8 +160,9 @@ def listar_acoes(
 
 
 @roteador.post("/{CASO_ID}/acoes/resposta")
-async def responder_acao(
+def responder_acao(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
@@ -176,8 +177,10 @@ async def responder_acao(
 
     Só `SELECAO_UNICA` aqui — as quatro perguntas deste subconjunto são
     todas de domínio fechado, e valor é gravado como `str` direto, sem
-    passar pela fronteira decimal."""
-    dados = await _ler_formulario(request)
+    passar pela fronteira decimal.
+
+    **`def`, não `async def` — `T-187`.** `repositorio.gravar` é
+    bloqueante; ver a nota em `rotas_api_conta.py::cadastrar`."""
     id_pergunta = dados.get("ID_PERGUNTA", "")
     item_id = dados.get("item_id") or None
 

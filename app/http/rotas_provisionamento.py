@@ -46,6 +46,7 @@ import secrets
 from typing import Annotated, Final, Protocol
 
 from fastapi import APIRouter, Depends, Header, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
 from app.http.rotas_conta import _ler_formulario
@@ -120,8 +121,9 @@ def _segredo_confere(recebido: str | None) -> bool | None:
 
 
 @roteador.post("/conta")
-async def provisionar(
+def provisionar(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     provisionamento: Annotated[ProvisionaContaECaso, Depends(obter_provisionamento)],
     repositorio_contas: Annotated[
         RepositorioContas, Depends(obter_repositorio_contas_provisionamento)
@@ -140,7 +142,11 @@ async def provisionar(
 
     O token volta no corpo em CLARO — é a única vez em que ele existe assim
     (o banco guarda só o hash). Quem chama é responsável por entregá-lo ao
-    aluno, por e-mail ou pelo canal da plataforma."""
+    aluno, por e-mail ou pelo canal da plataforma.
+
+    **`def`, não `async def` — `T-187`.** `provisionamento(...)` grava no
+    banco e `enviador.enviar` fala por SMTP — as duas bloqueantes. Ver a
+    nota em `rotas_api_conta.py::cadastrar`."""
     confere = _segredo_confere(segredo)
     if confere is None:
         # Variável ausente no ambiente. `503`, nunca "aceita qualquer um".
@@ -148,7 +154,6 @@ async def provisionar(
     if not confere:
         return JSONResponse({"erro": _MENSAGEM_NAO_AUTORIZADO}, status_code=401)
 
-    dados = await _ler_formulario(request)
     email = dados.get("email", "").strip().lower()
     if not email:
         return JSONResponse({"erro": _MENSAGEM_EMAIL_AUSENTE}, status_code=400)
@@ -263,7 +268,13 @@ async def receber_webhook_hotmart(
     **Filtro por produto, se `HOTMART_PRODUTO_ID` estiver configurado.**
     Sem ele, qualquer produto aprovado nesta conta Hotmart provisiona no
     PIQ — inofensivo enquanto só existir um webhook apontando para cá, mas
-    a variável existe para quando não for mais o caso."""
+    a variável existe para quando não for mais o caso.
+
+    **Continua `async def` — `T-187`.** `await request.json()` é I/O real;
+    tudo que vem depois (checagem do `hottok` no corpo, gravação no banco,
+    envio de e-mail) é bloqueante e vive em `_processar_webhook_hotmart`,
+    chamada por `run_in_threadpool` — mesmo padrão de
+    `rotas_calculo.py::disparar_calculo`."""
     confere = _hottok_confere(hottok_header)
     if confere is None:
         return JSONResponse({"erro": _MENSAGEM_SEM_SEGREDO}, status_code=503)
@@ -273,6 +284,28 @@ async def receber_webhook_hotmart(
     except ValueError:
         return JSONResponse({"erro": _MENSAGEM_JSON_INVALIDO}, status_code=400)
 
+    return await run_in_threadpool(
+        _processar_webhook_hotmart,
+        corpo,
+        confere,
+        provisionamento,
+        repositorio_contas,
+        repositorio_tokens,
+        enviador,
+    )
+
+
+def _processar_webhook_hotmart(
+    corpo: dict[str, object],
+    confere: bool | None,
+    provisionamento: ProvisionaContaECaso,
+    repositorio_contas: RepositorioContas,
+    repositorio_tokens: RepositorioTokensAcesso,
+    enviador: EnviadorDeEmail,
+) -> JSONResponse:
+    """A parte síncrona e bloqueante de `receber_webhook_hotmart` — `T-187`.
+    Corpo idêntico ao que vivia direto na rota antes desta tarefa; só o
+    ponto de chamada mudou."""
     if not confere:
         # O token também pode vir no corpo (`hottok`), não só no header —
         # ver a nota de `_hottok_confere`. Só dá pra checar isso depois de
@@ -360,8 +393,9 @@ _MENSAGEM_TOKEN_INVALIDO: Final[str] = "Link inválido ou expirado."
 
 
 @roteador.post("/senha")
-async def definir_senha(
+def definir_senha(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     repositorio_contas: Annotated[
         RepositorioContas, Depends(obter_repositorio_contas_provisionamento)
     ],
@@ -381,8 +415,11 @@ async def definir_senha(
 
     **Não instala sessão.** Depois de definir a senha, o aluno entra pelo
     login normal — assim o fluxo de autenticação é um só, e a senha que ele
-    acabou de escolher é exercitada na hora."""
-    dados = await _ler_formulario(request)
+    acabou de escolher é exercitada na hora.
+
+    **`def`, não `async def` — `T-187`.** `consumir`/`definir_senha` (do
+    repositório) gravam no banco. Ver a nota em
+    `rotas_api_conta.py::cadastrar`."""
     token = dados.get("token", "").strip()
     senha = dados.get("senha", "")
 
@@ -401,8 +438,9 @@ async def definir_senha(
 
 
 @roteador.post("/recuperacao")
-async def pedir_recuperacao(
+def pedir_recuperacao(
     request: Request,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     repositorio_contas: Annotated[
         RepositorioContas, Depends(obter_repositorio_contas_provisionamento)
     ],
@@ -424,8 +462,11 @@ async def pedir_recuperacao(
 
     **Sem rate limiting ainda** (`BLOQUEIA-8` da auditoria): esta rota
     dispara envio de e-mail a cada chamada, então é um amplificador. Entra
-    junto com o limitador do login, na tarefa dedicada."""
-    dados = await _ler_formulario(request)
+    junto com o limitador do login, na tarefa dedicada.
+
+    **`def`, não `async def` — `T-187`.** Consulta o banco e envia e-mail
+    por SMTP — as duas bloqueantes. Ver a nota em
+    `rotas_api_conta.py::cadastrar`."""
     email = dados.get("email", "").strip().lower()
 
     conta = repositorio_contas.buscar_por_email(email) if email else None
