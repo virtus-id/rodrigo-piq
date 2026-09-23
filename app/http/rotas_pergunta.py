@@ -51,6 +51,7 @@ from app.casos.progresso import (
     posicao_na_ficha,
     proxima_pergunta_nao_respondida,
 )
+from app.http.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
@@ -141,9 +142,18 @@ def proxima_pergunta(
     """`RF-46`, `AC-72` — a primeira pergunta não respondida e exibível.
 
     Coleta completa (`EC-23`) devolve a tela de conclusão, nunca `500` nem
-    uma pergunta arbitrária."""
-    respostas = RespostasCaso(respostas=repositorio.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    uma pergunta arbitrária.
+
+    **Duas consultas em paralelo (`T-191`).** `respostas` e
+    `itens_por_escopo` não dependem uma da outra — cada uma só precisa de
+    `CASO_ID`. Esta é a rota mais frequente do sistema (uma chamada por
+    pergunta, até ~291 vezes por aluno); em sequência, cada uma paga
+    ~484ms de distância Boston↔São Paulo (`T-187`) por nada."""
+    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
+    respostas = RespostasCaso(respostas=respostas_brutas)
 
     encontrada = _primeira_exibivel(colecao, respostas, itens_por_escopo)
     if encontrada is None:
@@ -171,9 +181,14 @@ def pergunta_especifica(
     Pergunta inexistente ⇒ `404`. Pergunta cuja condição é falsa ⇒ `404`
     também: do ponto de vista do aluno ela não existe, e dizer "existe mas
     está fechada" devolveria ao cliente justamente a informação de
-    condicional que `RF-45` mantém no servidor."""
-    respostas = RespostasCaso(respostas=repositorio.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    condicional que `RF-45` mantém no servidor.
+
+    Mesmo paralelismo de `proxima_pergunta`, acima (`T-191`)."""
+    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
+    respostas = RespostasCaso(respostas=respostas_brutas)
 
     try:
         registro = _localizar_registro(colecao, ID_PERGUNTA)

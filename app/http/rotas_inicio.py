@@ -58,6 +58,7 @@ from app.casos.confirmacao_ataque import (
 from app.casos.fases import FASE_INICIO, fase_do_estado, fase_do_plano_liberado
 from app.casos.maquina import ESTADO_CASO
 from app.casos.progresso import contar_coleta, proxima_pergunta_nao_respondida
+from app.http.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
 from app.http.rotas_coleta import _itens_por_escopo
@@ -309,13 +310,23 @@ def inicio_do_caso(
     `app.http.isolamento` (`AC-74`). Sem sessão ⇒ `401`; caso de outra conta
     ou inexistente ⇒ `404` indistinguível.
 
-    Todo valor monetário sai como `str` (`RF-13`)."""
-    caso = repositorio_casos.buscar(CASO_ID)
+    Todo valor monetário sai como `str` (`RF-13`).
+
+    **As três primeiras consultas rodam em paralelo (`T-191`).** `caso`,
+    `respostas` e `itens_por_escopo` não dependem uma da outra — cada uma só
+    precisa de `CASO_ID`. Medido em produção: ~484ms por consulta nesta
+    conexão (Boston↔São Paulo, T-187), então em sequência isso sozinho já
+    custava ~1450ms desta rota. Só `snapshot` depende de `caso` (precisa de
+    `caso.snapshot_liberado_id`), então continua depois."""
+    caso, respostas_brutas, itens_por_escopo = tres_em_paralelo(
+        lambda: repositorio_casos.buscar(CASO_ID),
+        lambda: repositorio_respostas.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
     if caso is None:  # pragma: no cover — defensivo: isolamento já garantiu
         raise ErroCasoDesaparecidoAposIsolamento(CASO_ID)
 
-    respostas = RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    respostas = RespostasCaso(respostas=respostas_brutas)
     snapshot = _snapshot_liberado(caso, repositorio_snapshots)
 
     fase = _fase_do_caso(caso, snapshot)
