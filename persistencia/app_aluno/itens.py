@@ -301,3 +301,35 @@ class RepositorioItensSupabase:
             linhas = cursor.fetchall()
 
         return tuple(_linha_para_item(linha) for linha in linhas)
+
+    def listar_de_varios_casos(
+        self, caso_ids: tuple[str, ...], *, incluir_removidos: bool = True
+    ) -> dict[str, tuple[ItemRepetido, ...]]:
+        """`T-187` — os itens de vários casos, numa consulta só. Único
+        consumidor: o painel do operador. Ver a nota de
+        `RepositorioCasosSupabase.buscar_varios` sobre por que uma consulta
+        por caso não escala.
+
+        `CASO_ID` sem nenhum item (ou só removidos, com
+        `incluir_removidos=False`) não aparece no dict — trate a ausência
+        como tupla vazia, igual a `listar_do_caso` para um caso novo."""
+        if not caso_ids:
+            return {}
+        filtro_removidos = "" if incluir_removidos else "AND removido_em IS NULL"
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em
+                FROM app_aluno.itens_repetidos
+                WHERE "CASO_ID" = ANY(%s) {filtro_removidos}
+                ORDER BY "CASO_ID", criado_em
+                """,
+                (list(caso_ids),),
+            )
+            linhas = cursor.fetchall()
+
+        agrupado: dict[str, list[ItemRepetido]] = {}
+        for linha in linhas:
+            item = _linha_para_item(linha)
+            agrupado.setdefault(item.CASO_ID, []).append(item)
+        return {caso_id: tuple(itens) for caso_id, itens in agrupado.items()}

@@ -339,6 +339,39 @@ class RepositorioRespostasSupabase:
 
         return tuple(_linha_para_resposta(linha) for linha in linhas)
 
+    def listar_de_varios_casos(
+        self, caso_ids: tuple[str, ...]
+    ) -> dict[str, tuple[Resposta, ...]]:
+        """`T-187` — as respostas de vários casos, numa consulta só. Único
+        consumidor: o painel do operador, que precisava de `RespostasCaso`
+        por caso só para montar `RelatoDeProgresso` (`consultar_trilha_
+        de_progresso`) — ver a nota de `RepositorioCasosSupabase.
+        buscar_varios` sobre por que uma consulta por caso não escala.
+
+        `CASO_ID` sem nenhuma resposta ainda não aparece no dict — quem
+        consome trata a ausência como tupla vazia (`.get(caso_id, ())`),
+        igual a `listar_do_caso` para um caso novo."""
+        if not caso_ids:
+            return {}
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT "CASO_ID", "ID_PERGUNTA", item_id,
+                       valor_texto, valor_numerico, valor_nao_sei,
+                       "QUESTIONARIO_VERSION", respondida_em
+                FROM app_aluno.respostas
+                WHERE "CASO_ID" = ANY(%s)
+                """,
+                (list(caso_ids),),
+            )
+            linhas = cursor.fetchall()
+
+        agrupado: dict[str, list[Resposta]] = {}
+        for linha in linhas:
+            resposta = _linha_para_resposta(linha)
+            agrupado.setdefault(resposta.CASO_ID, []).append(resposta)
+        return {caso_id: tuple(respostas) for caso_id, respostas in agrupado.items()}
+
 
 def _linha_para_resposta(linha: tuple[Any, ...]) -> Resposta:
     (

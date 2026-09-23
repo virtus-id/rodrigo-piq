@@ -35,9 +35,12 @@ from app.http.isolamento import (
     obter_repositorio_casos,
 )
 from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
-from app.http.rotas_coleta import _itens_por_escopo
 from app.http.rotas_operador import (
+    CasosDoPainel,
+    ItensDoPainel,
+    RespostasDoPainel,
     _relato_para_linha,
+    agrupar_itens_por_escopo,
     obter_colecao_de_registros_do_painel,
     obter_repositorio_casos_do_painel,
     obter_repositorio_itens_do_painel,
@@ -58,8 +61,6 @@ from collection.carga import ColecaoDeRegistros
 from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
 from persistencia.app_aluno.casos import RepositorioCasos
-from persistencia.app_aluno.itens import RepositorioItens
-from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
 from report.pdf import snapshot_tem_liberacao_registrada
 from report.plano import (
@@ -224,26 +225,38 @@ def caso_para_revisao(
 def painel_do_operador(
     _revisor: Annotated[str, Depends(exigir_papel_revisor)],
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros_do_painel)],
-    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos_do_painel)],
+    repositorio_casos: Annotated[CasosDoPainel, Depends(obter_repositorio_casos_do_painel)],
     repositorio_respostas: Annotated[
-        RepositorioRespostas, Depends(obter_repositorio_respostas_do_painel)
+        RespostasDoPainel, Depends(obter_repositorio_respostas_do_painel)
     ],
-    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens_do_painel)],
+    repositorio_itens: Annotated[ItensDoPainel, Depends(obter_repositorio_itens_do_painel)],
 ) -> JSONResponse:
     """`RF-35` — quem está onde, sem nenhum valor financeiro.
 
     Só etapa, pendência e tempo desde a última atividade: é critério de
     aceite de `T-102` que esta tela nunca exiba dinheiro do aluno. A
     montagem reusa `consultar_trilha_de_progresso` — nenhuma trilha nova
-    calculada aqui."""
+    calculada aqui.
+
+    **Três consultas, não `1 + 3N` — `T-187`.** Antes desta tarefa, cada
+    caso do piloto custava três consultas próprias (`buscar`,
+    `listar_do_caso` de respostas, idem de itens) — com N casos, N vezes a
+    viagem de rede até o banco. `buscar_varios`/`listar_de_varios_casos`
+    trazem TUDO de uma vez; o `for` abaixo só organiza dados que já estão
+    em memória, sem tocar o banco de novo."""
     agora = datetime.now(UTC)
+    caso_ids = repositorio_casos.listar_todos()
+    casos_por_id = repositorio_casos.buscar_varios(caso_ids)
+    respostas_por_caso = repositorio_respostas.listar_de_varios_casos(caso_ids)
+    itens_por_caso = repositorio_itens.listar_de_varios_casos(caso_ids, incluir_removidos=False)
+
     linhas = []
-    for caso_id in repositorio_casos.listar_todos():
-        caso = repositorio_casos.buscar(caso_id)
-        if caso is None:  # pragma: no cover — defensivo
+    for caso_id in caso_ids:
+        caso = casos_por_id.get(caso_id)
+        if caso is None:  # pragma: no cover — defensivo: removido entre as duas consultas
             continue
-        respostas = RespostasCaso(respostas=repositorio_respostas.listar_do_caso(caso_id))
-        itens = _itens_por_escopo(repositorio_itens, caso_id)
+        respostas = RespostasCaso(respostas=respostas_por_caso.get(caso_id, ()))
+        itens = agrupar_itens_por_escopo(itens_por_caso.get(caso_id, ()))
         relato = consultar_trilha_de_progresso(caso, colecao.registros, respostas, itens)
         linha = _relato_para_linha(relato, agora)
         linhas.append(

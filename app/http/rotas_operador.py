@@ -63,17 +63,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final
+from typing import Final, Protocol
 
 from fastapi import APIRouter
 
-from app.casos.maquina import ESTADO_CASO
+from app.casos.maquina import ESTADO_CASO, Caso
 from app.casos.progresso import RelatoDeProgresso
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.registro import EscopoRepeticao
-from persistencia.app_aluno.casos import RepositorioCasos, RepositorioCasosSupabase
-from persistencia.app_aluno.itens import RepositorioItens, RepositorioItensSupabase
-from persistencia.app_aluno.respostas import RepositorioRespostas, RepositorioRespostasSupabase
+from collection.respostas import Resposta
+from persistencia.app_aluno.casos import RepositorioCasosSupabase
+from persistencia.app_aluno.itens import ItemRepetido, RepositorioItensSupabase
+from persistencia.app_aluno.respostas import RepositorioRespostasSupabase
 
 REGRAS: Final[tuple[str, ...]] = ("RF-35", "RF-31")
 
@@ -90,20 +91,51 @@ def obter_colecao_de_registros_do_painel() -> ColecaoDeRegistros:
     return carregar_registros()
 
 
-def obter_repositorio_casos_do_painel() -> RepositorioCasos:
-    """Ponto único de injeção de `RepositorioCasos` para esta rota —
+class CasosDoPainel(Protocol):
+    """O que o painel precisa de um repositório de casos — `T-187`.
+
+    **Estreito de propósito, não `RepositorioCasos`.** Aquele contrato tem
+    20+ implementações e dublês (`RepositorioCasosArquivo` incluída) — ver a
+    nota de `CasosDaConta` em `app/http/rotas_api_conta.py` sobre por que um
+    contrato que só uma rota consome pertence perto dela, estreito. Este
+    aqui pertence ao painel."""
+
+    def listar_todos(self) -> tuple[str, ...]: ...
+
+    def buscar_varios(self, caso_ids: tuple[str, ...]) -> dict[str, Caso]: ...
+
+
+class RespostasDoPainel(Protocol):
+    """`T-187` — só o que o painel precisa: as respostas de vários casos,
+    numa chamada. Mesma disciplina de `CasosDoPainel`, acima."""
+
+    def listar_de_varios_casos(
+        self, caso_ids: tuple[str, ...]
+    ) -> dict[str, tuple[Resposta, ...]]: ...
+
+
+class ItensDoPainel(Protocol):
+    """`T-187` — idem, para itens repetidos."""
+
+    def listar_de_varios_casos(
+        self, caso_ids: tuple[str, ...], *, incluir_removidos: bool = True
+    ) -> dict[str, tuple[ItemRepetido, ...]]: ...
+
+
+def obter_repositorio_casos_do_painel() -> CasosDoPainel:
+    """Ponto único de injeção de `CasosDoPainel` para esta rota —
     sobrescrito nos testes via `app.dependency_overrides`, mesmo padrão de
     `app/http/rotas_revisao.py::obter_repositorio_casos_da_fila`."""
     return RepositorioCasosSupabase()
 
 
-def obter_repositorio_respostas_do_painel() -> RepositorioRespostas:
+def obter_repositorio_respostas_do_painel() -> RespostasDoPainel:
     """Ponto único de injeção do repositório de respostas — mesmo padrão de
     `app/http/rotas_coleta.py::obter_repositorio_respostas`."""
     return RepositorioRespostasSupabase()
 
 
-def obter_repositorio_itens_do_painel() -> RepositorioItens:
+def obter_repositorio_itens_do_painel() -> ItensDoPainel:
     """Ponto único de injeção do repositório de itens repetidos — usado só
     para montar `itens_por_escopo` que `consultar_trilha_de_progresso`
     consome (mesmo padrão de `app/http/rotas_coleta.py::
@@ -111,14 +143,26 @@ def obter_repositorio_itens_do_painel() -> RepositorioItens:
     return RepositorioItensSupabase()
 
 
-def _itens_por_escopo(
-    repositorio_itens: RepositorioItens, caso_id: str
+def agrupar_itens_por_escopo(
+    itens: tuple[ItemRepetido, ...],
 ) -> dict[EscopoRepeticao, tuple[str, ...]]:
-    """Mesma agregação de `app/http/rotas_coleta.py::_itens_por_escopo`: só
-    itens ATIVOS (`removido_em is None`), agrupados por `EscopoRepeticao`."""
-    itens_ativos = repositorio_itens.listar_do_caso(caso_id, incluir_removidos=False)
+    """Agrupa itens JÁ BUSCADOS por `EscopoRepeticao` — `T-187`. Mesma
+    agregação de `app/http/rotas_coleta.py::_itens_por_escopo`, mas recebe
+    os itens prontos em vez de buscá-los: `painel_do_operador`
+    (`rotas_api_plano.py`) busca os itens de TODOS os casos numa consulta
+    só (`ItensDoPainel.listar_de_varios_casos`) e chama esta função uma vez
+    por caso, sem tocar o banco de novo.
+
+    Antes desta tarefa, esta função (então chamada `_itens_por_escopo`, e
+    nunca importada por ninguém) buscava por caso — código morto que
+    somava confusão a uma rota que na prática usa a versão de
+    `rotas_coleta.py`. Substituída aqui em vez de deletada: o painel
+    passou a precisar exatamente desta metade — o agrupamento — sem a
+    busca, que agora é em lote."""
     agrupado: dict[EscopoRepeticao, list[str]] = {}
-    for item in itens_ativos:
+    for item in itens:
+        if item.removido_em is not None:
+            continue
         agrupado.setdefault(item.escopo, []).append(item.item_id)
     return {escopo: tuple(item_ids) for escopo, item_ids in agrupado.items()}
 

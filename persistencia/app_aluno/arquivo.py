@@ -267,6 +267,18 @@ class RepositorioRespostasArquivo(RepositorioRespostas):
 
         return tuple(_linha_para_resposta(linha) for linha in ultima_por_chave.values())
 
+    def listar_de_varios_casos(
+        self, caso_ids: tuple[str, ...]
+    ) -> dict[str, tuple[Resposta, ...]]:
+        """`T-187` — espelha `RepositorioRespostasSupabase.
+        listar_de_varios_casos`, aditivo. Loop sobre `listar_do_caso`."""
+        resultado: dict[str, tuple[Resposta, ...]] = {}
+        for caso_id in caso_ids:
+            respostas = self.listar_do_caso(caso_id)
+            if respostas:
+                resultado[caso_id] = respostas
+        return resultado
+
 
 def _linha_para_resposta(linha: dict[str, Any]) -> Resposta:
     item_id: str = linha["item_id"]
@@ -451,6 +463,18 @@ class RepositorioCasosArquivo(RepositorioCasos):
 
         return tuple(ultimo_por_caso.keys())
 
+    def buscar_varios(self, caso_ids: tuple[str, ...]) -> dict[str, Caso]:
+        """`T-187` — espelha `RepositorioCasosSupabase.buscar_varios`,
+        aditivo. Loop sobre `buscar`: arquivo não tem a pressão de rede
+        que motivou a versão em lote do Postgres, só a fidelidade ao
+        contrato importa aqui."""
+        resultado: dict[str, Caso] = {}
+        for caso_id in caso_ids:
+            caso = self.buscar(caso_id)
+            if caso is not None:
+                resultado[caso_id] = caso
+        return resultado
+
     def _ultimo_registro(self, caso_id: str) -> dict[str, Any] | None:
         ultimo: dict[str, Any] | None = None
         for linha in _ler_linhas(self._caminho_arquivo):
@@ -595,6 +619,18 @@ class RepositorioItensArquivo(RepositorioItens):
             itens = [item for item in itens if item.removido_em is None]
         itens.sort(key=lambda item: item.criado_em)
         return tuple(itens)
+
+    def listar_de_varios_casos(
+        self, caso_ids: tuple[str, ...], *, incluir_removidos: bool = True
+    ) -> dict[str, tuple[ItemRepetido, ...]]:
+        """`T-187` — espelha `RepositorioItensSupabase.
+        listar_de_varios_casos`, aditivo. Loop sobre `listar_do_caso`."""
+        resultado: dict[str, tuple[ItemRepetido, ...]] = {}
+        for caso_id in caso_ids:
+            itens = self.listar_do_caso(caso_id, incluir_removidos=incluir_removidos)
+            if itens:
+                resultado[caso_id] = itens
+        return resultado
 
 
 def _linha_para_item(linha: dict[str, Any]) -> ItemRepetido:

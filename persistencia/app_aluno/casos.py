@@ -340,6 +340,38 @@ class RepositorioCasosSupabase:
 
         return _linha_para_caso(linha) if linha is not None else None
 
+    def buscar_varios(self, caso_ids: tuple[str, ...]) -> dict[str, Caso]:
+        """`RF-35`/`T-187` — os `Caso` de vários `CASO_ID`, numa consulta só.
+
+        **Único consumidor: o painel do operador.** `listar_todos` devolve
+        os IDs; até esta tarefa, o painel chamava `buscar(caso_id)` uma vez
+        POR CASO — cada chamada paga a viagem de rede até o banco (o
+        servidor da aplicação e o Postgres não estão na mesma região), e
+        com N casos isso é N viagens onde uma bastaria. `WHERE "CASO_ID" =
+        ANY(%s)` é a mesma pergunta, feita uma vez só.
+
+        Aditivo, não substitui `buscar`: aquele continua servindo quem
+        precisa de UM caso (a maioria das rotas). `CASO_ID` ausente do
+        banco simplesmente não aparece no dict devolvido — não é erro,
+        um caso pode ter sido removido entre `listar_todos` e esta chamada."""
+        if not caso_ids:
+            return {}
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT "CASO_ID", conta_id, estado, "DATA_REFERENCIA",
+                       "QUESTIONARIO_VERSION", snapshot_raiz_id,
+                       snapshot_liberado_id, ultima_interacao_em, criado_em
+                FROM app_aluno.casos
+                WHERE "CASO_ID" = ANY(%s)
+                """,
+                (list(caso_ids),),
+            )
+            linhas = cursor.fetchall()
+
+        casos = (_linha_para_caso(linha) for linha in linhas)
+        return {caso.CASO_ID: caso for caso in casos}
+
     def pertence_a_conta(self, caso_id: str, conta_id: str) -> bool:
         """Uma única consulta que já compara `conta_id` no `WHERE` — o
         resultado não distingue "não existe" de "existe mas é de outra
