@@ -32,6 +32,22 @@ export default {
           ink: '#FFFFFF',
           soft: '#E3F1EB',
         },
+        // O painel de marca da tela de entrada (`TelaLogin`, `RF-50`).
+        //
+        // **Derivados do `accent`, nunca cores novas soltas**: é o mesmo
+        // matiz verde escurecido, o que mantém a entrada reconhecível como
+        // o mesmo produto das telas seguintes. Existem só porque um fundo
+        // escuro precisa do seu próprio par de texto — `ink` sobre
+        // `#0B3B30` não teria contraste.
+        //
+        // Usados SÓ na tela de entrada. Nenhuma outra tela do aluno tem
+        // fundo escuro (`AC-82`), e espalhá-los criaria um segundo tema.
+        marca: {
+          DEFAULT: '#0B3B30',
+          topo: '#124F41',
+          texto: '#EAF3EF',
+          suave: '#9CC4B6',
+        },
         warn: {
           DEFAULT: '#8A5A00',
           soft: '#FFF4DC',

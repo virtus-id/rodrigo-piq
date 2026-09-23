@@ -698,6 +698,19 @@
     gap: 0.45rem;
   }
 
+  /* O painel de marca da tela de entrada — `RF-50`.
+   *
+   * Gradiente, e não `bg-marca` chapado: o verde plano fica pesado num
+   * bloco dessa altura. O clarear no canto superior esquerdo acompanha a
+   * leitura — selo, título, subtítulo — e escurece na direção das curvas de
+   * quitação, que ficam mais legíveis sobre o tom fechado.
+   *
+   * Os dois tons são tokens (`marca.topo`, `marca.DEFAULT`), não literais:
+   * trocar o verde do produto troca este painel junto. */
+  .painel-marca {
+    background: radial-gradient(120% 90% at 8% 0%, theme(colors.marca.topo) 0%, theme(colors.marca.DEFAULT) 62%);
+  }
+
   .field label {
     @apply font-bold;
   }

@@ -8470,5 +8470,81 @@ sobre a identidade alvo.
 
 ---
 
+### `T-185` — A tela de entrada afirma o produto
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-179`
+- **Rastreia:** `RF-50`, `RF-57`
+- **Arquivos:** `frontend/src/telas/TelaLogin.tsx`,
+  `frontend/src/telas/textosDaEntrada.ts` (novo),
+  `frontend/src/index.css`, `frontend/tailwind.config.js`,
+  `frontend/tests/unit/componentes/TelaLogin.test.tsx` (novo)
+
+**Descrição**
+
+*"Estou achando ela muito feia, não dá a impressão de que o sistema
+realmente é bom nem que é algo personalizado."* (especialista, 2026-09-22.)
+
+A entrada usava a casca genérica `Tela` — a mesma da tela de pergunta, de
+progresso e de espera. A **primeira coisa que alguém que acabou de pagar
+via** era visualmente indistinguível de um formulário interno, e não usava
+nenhum argumento do produto.
+
+**Layout próprio, e só aqui.** `AC-82` já isentava a entrada ("é anterior ao
+fluxo, e o 'voltar' dali é sair do app"); a isenção passa a ser usada por
+inteiro. Painel de marca à esquerda, formulário à direita, coluna única no
+celular. Nenhuma outra tela do aluno ganha layout próprio — `AC-82` existe
+contra o segundo modelo de navegação, e foi assim que a barra de sete abas
+nasceu.
+
+**Os componentes são os do projeto** (`.campo-texto`, `.btn-primario`, alvos
+de toque de 56px). O que muda é a composição, não o vocabulário: as cores do
+painel (`marca.*`) são o verde do produto escurecido, derivadas de `accent`,
+nunca cores novas soltas.
+
+**O texto não anuncia o sistema.** A primeira redação dizia "177 perguntas"
+e "3 métodos comparados" — recusada pelo especialista: *"se ela ver que são
+177 perguntas já vai pedir reembolso."* Estava certo. Isso é o preço que a
+pessoa paga, não o que ela ganha, e anunciá-lo antes do benefício é o
+caminho mais curto para o arrependimento da compra. Nenhum número do sistema
+aparece: a tela diz **por onde começar**, **quantos meses faltam** e
+**quanto do salário volta a ser dela**.
+
+**Uma correção de honestidade.** Uma versão do rodapé dizia "ninguém mais vê
+o que você respondeu" — falso: o plano é conferido por uma pessoa da equipe
+antes de ser liberado (`RF-23`). Promessa de sigilo que o próprio produto
+quebra é pior que nenhuma, e estaria na tela onde a confiança começa. O
+texto passou a "o que você responde fica entre você e a nossa equipe".
+
+**A redação vive em `textosDaEntrada.ts`**, fora do componente: quem a
+revisa é o especialista, não quem escreve React. Mesma disciplina de
+`app/notificacao/textos/emails.yaml`; em `.ts` e não YAML porque o frontend
+não tem carregador de YAML, e montar um só para este arquivo seria custo sem
+ganho.
+
+**Critérios de aceite**
+
+- [x] A entrada tem layout próprio, e nenhuma outra tela do aluno muda
+- [x] Nenhum número do sistema (perguntas, métodos) aparece na tela
+- [x] O rodapé não promete sigilo que o produto não cumpre
+- [x] A redação fica fora do componente
+- [x] Um único `<h1>`, e o gráfico de fundo é `aria-hidden`
+- [x] O Enter no campo de senha submete (o botão é filho do `<form>`)
+- [x] Credencial recusada não revela se o e-mail existe
+- [x] Contraste WCAG AA em todo o texto do painel escuro
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-22)
+
+> **14 testes novos** (a tela não tinha nenhum) e contraste conferido no
+> painel escuro: o pior caso é 4,95:1 contra o mínimo de 4,5 — a persona tem
+> baixa visão, que é o motivo de a Atkinson Hyperlegible estar no projeto.
+>
+> Os testes de texto apontam para `textosDaEntrada.ts`, nunca para literais:
+> a redação vai mudar quando o especialista revisar, e um teste que
+> repetisse a frase quebraria a cada revisão de copy.
+
+---
+
 > Requisito sem tarefa não será implementado. Tarefa sem requisito é escopo
 > extra — remova ou volte à spec.
