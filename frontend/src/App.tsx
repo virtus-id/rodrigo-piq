@@ -66,11 +66,9 @@ function casoDaUrl(): string {
  * não no meio dela.
  */
 function RedirecionarAoInicio({
-  casoId,
   irPara,
   aoSair,
 }: {
-  casoId: string
   irPara: (rota: Rota) => void
   aoSair: () => void
 }) {
@@ -80,7 +78,10 @@ function RedirecionarAoInicio({
     substituirRota({ tela: 'inicio' })
   }, [])
 
-  return <TelaInicio casoId={casoId} irPara={irPara} aoSair={aoSair} />
+  // `inicio={null}`: este componente só aparece por um quadro, antes do
+  // `substituirRota` acima levar ao `case 'inicio'` de verdade (com o
+  // `inicio` elevado já carregado) — nunca vale a pena buscar aqui.
+  return <TelaInicio inicio={null} irPara={irPara} aoSair={aoSair} />
 }
 
 /**
@@ -378,7 +379,7 @@ export default function App() {
   // se a conta não puder. Negar por omissão era o lado seguro para o
   // ACESSO; mas quem nega acesso é o servidor, não esta linha.
   if (eTelaDaEquipe(rota) && eRevisor === false) {
-    return <RedirecionarAoInicio casoId={casoId} irPara={irPara} aoSair={aoSair} />
+    return <RedirecionarAoInicio irPara={irPara} aoSair={aoSair} />
   }
 
   // O espelho da guarda acima — `T-186`. Uma conta revisora não vê o fluxo
@@ -428,7 +429,7 @@ export default function App() {
       }
       return (
         <TelaInicio
-          casoId={casoId}
+          inicio={inicio}
           irPara={irPara}
           eRevisor={eRevisor === true}
           aoSair={aoSair}

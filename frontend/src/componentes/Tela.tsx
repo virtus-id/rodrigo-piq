@@ -40,6 +40,7 @@
 import { type ReactNode, useEffect, useRef } from 'react'
 
 import { aplicarFocoDeNavegacao } from '../navegacao'
+import Icone from './Icone'
 
 interface TelaProps {
   /** Vai para `document.title` e, por padrão, para o `<h1>` visível. */
@@ -48,6 +49,22 @@ interface TelaProps {
   voltar?: () => void
   /** O localizador à direita do topo — "Dívida 3 · pergunta 4 de 12". */
   onde?: string
+  /**
+   * Encerra a sessão — `T-188`, movido para o topo em `T-190`.
+   *
+   * **Por que no `.top`, e não em `.acoes`.** "Sair" morava no rodapé de
+   * ação, junto de botões de fluxo (Atualizar, Ver painel) — a raiz de
+   * navegação do aluno e a do revisor são as únicas telas sem `voltar`, e
+   * nelas "Sair" competia por atenção com a ação principal, no lugar que um
+   * UI profissional reserva para ela: canto superior direito, separada do
+   * fluxo. Só as duas raízes passam esta prop; toda outra tela tem `voltar`
+   * em vez de `aoSair` — não se sai por uma tela no meio de um fluxo.
+   *
+   * **Recolhe em telas estreitas.** Abaixo de `sm` (640px) só o ícone
+   * aparece — o rótulo "Sair" continua no DOM (`sr-only`), então o nome
+   * acessível do botão não muda com a largura da tela.
+   */
+  aoSair?: () => void
   /** `aluno` = 560px (a coluna de leitura); `equipe` = 900px (`AC-87`). */
   largura?: 'aluno' | 'equipe'
   /**
@@ -93,6 +110,7 @@ export default function Tela({
   titulo,
   voltar,
   onde,
+  aoSair,
   largura = 'aluno',
   mostrarTitulo = true,
   chave,
@@ -153,7 +171,19 @@ export default function Tela({
             // isso (linhas 227 e 409).
             <span />
           )}
-          {onde ? <span className="where">{onde}</span> : <span />}
+          {onde || aoSair ? (
+            <div className="flex items-center gap-3">
+              {onde && <span className="where">{onde}</span>}
+              {aoSair && (
+                <button type="button" className="sair" onClick={aoSair}>
+                  <Icone nome="sair" />
+                  <span className="sair-rotulo">Sair</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <span />
+          )}
         </div>
 
         <div className="corpo">

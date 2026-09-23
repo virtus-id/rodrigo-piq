@@ -103,6 +103,7 @@ export default function TelaRevisao({
       voltar={voltar}
       largura="equipe"
       onde={itens.length > 0 ? `${itens.length} na fila` : undefined}
+      aoSair={aoSair}
       acoes={
         <>
           {/* A fila é lida em turnos: recarregar é a ação principal do
@@ -116,9 +117,6 @@ export default function TelaRevisao({
               Ver o painel da equipe
             </Botao>
           )}
-          <Botao variante="discreto" onClick={aoSair}>
-            Sair
-          </Botao>
         </>
       }
     >

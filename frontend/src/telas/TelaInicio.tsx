@@ -14,8 +14,6 @@
  * — o `destino` vem do servidor (`RF-34`, Lei nº 3). O `switch` abaixo escolhe
  * o TEXTO e o enquadramento visual de cada fase, que é trabalho de interface.
  */
-import { useCallback, useEffect, useState } from 'react'
-
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
 import Icone from '../componentes/Icone'
@@ -23,11 +21,24 @@ import Tela from '../componentes/Tela'
 import TrilhaDaJornada from '../componentes/TrilhaDaJornada'
 import { formatarDecimalDoServidor } from '../mascaras'
 import { type Rota } from '../navegacao'
-import { obterInicio } from '../services/api'
 import type { DestinoDaEtapa, Inicio } from '../tipos'
 
 interface TelaInicioProps {
-  casoId: string
+  /**
+   * O payload de `/inicio`, buscado UMA vez em `App.tsx` — nunca por esta
+   * tela (`T-190`).
+   *
+   * **Até `T-190`, esta tela buscava por conta própria** — a mesma
+   * requisição que `App.tsx` já eleva para `TelaProgresso`/`TelaAguardando`/
+   * `TelaRecalculo` consumirem, duplicada aqui. Todo "voltar" (que sempre
+   * cai no Início — `voltarAoInicio`) disparava as DUAS buscas em paralelo,
+   * dobrando o número de conexões tiradas do pool compartilhado (`T-187`)
+   * por um único clique, para jogar fora o resultado de uma delas. `null`
+   * enquanto a busca elevada não resolveu — mesma convenção das três telas
+   * irmãs, que já tratam `inicio` como propriedade, nunca com fetch
+   * próprio.
+   */
+  inicio: Inicio | null
   irPara: (rota: Rota) => void
   /**
    * `true` quando a conta é revisora — `RF-59`, `AC-80`.
@@ -168,41 +179,11 @@ const CHAMADA_DA_FASE: Readonly<Record<Inicio['fase'], string>> = {
   acompanhamento: 'Sua próxima ação',
 }
 
-export default function TelaInicio({ casoId, irPara, eRevisor, aoSair }: TelaInicioProps) {
-  const [inicio, setInicio] = useState<Inicio | null>(null)
-  const [erro, setErro] = useState<string | null>(null)
-  const [carregando, setCarregando] = useState(true)
-
-  const carregar = useCallback(async () => {
-    setCarregando(true)
-    setErro(null)
-    try {
-      setInicio(await obterInicio(casoId))
-    } catch {
-      setErro('Não foi possível carregar a sua próxima etapa.')
-    } finally {
-      setCarregando(false)
-    }
-  }, [casoId])
-
-  useEffect(() => {
-    void carregar()
-  }, [carregar])
-
-  if (carregando) {
-    return (
-      <Tela titulo="Início">
-        <Esqueleto forma="resumo" anuncio="Carregando sua próxima etapa" />
-      </Tela>
-    )
-  }
-
+export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaInicioProps) {
   if (!inicio) {
     return (
       <Tela titulo="Início">
-        <p role="alert" className="aviso-erro">
-          {erro ?? 'Nada para mostrar agora.'}
-        </p>
+        <Esqueleto forma="resumo" anuncio="Carregando sua próxima etapa" />
       </Tela>
     )
   }
@@ -234,6 +215,7 @@ export default function TelaInicio({ casoId, irPara, eRevisor, aoSair }: TelaIni
       // está antes de receber uma ordem do que fazer); no computador vira
       // coluna ao lado, e o conteúdo deixa de ser uma fresta.
       lateral={<TrilhaDaJornada inicio={inicio} />}
+      aoSair={aoSair}
       acoes={
         <>
           <Botao onClick={() => irPara(rotaDoDestino(inicio))}>{texto.rotulo}</Botao>
@@ -268,9 +250,6 @@ export default function TelaInicio({ casoId, irPara, eRevisor, aoSair }: TelaIni
               Ir para a fila de conferência
             </Botao>
           )}
-          <Botao variante="discreto" onClick={aoSair}>
-            Sair
-          </Botao>
         </>
       }
     >

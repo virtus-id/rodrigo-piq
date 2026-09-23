@@ -44,6 +44,7 @@ export type NomeDoIcone =
   | 'conferencia'
   | 'baixar'
   | 'reserva'
+  | 'sair'
 
 /**
  * Traçado aberto, 20×20, `stroke` herdando `currentColor`.
@@ -66,6 +67,8 @@ const TRACADO: Readonly<Record<NomeDoIcone, string>> = {
   baixar: 'M10 3v9M6 8.5l4 4 4-4M4 16h12',
   // Cofre/reserva — o dinheiro guardado, não mobilizado.
   reserva: 'M4 7.5h12v8H4zM7 7.5V5.2h6v2.3M10 10.4v2.2',
+  // Porta (moldura aberta à direita) + seta saindo — encerrar sessão (`T-190`).
+  sair: 'M8 4H4v12h4M8 10h7M12 6l4 4-4 4',
 }
 
 /** Ícones cujo desenho inclui um círculo além do traçado. */

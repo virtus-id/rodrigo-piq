@@ -476,6 +476,25 @@
     font-size: 0.9rem;
   }
 
+  /* Botão "Sair" do topo — `T-190`. Mesmo alvo de toque de `.back` (48px,
+     `AC-85`); ícone sempre visível, rótulo recolhe abaixo de `sm` (640px) —
+     a persona lê no celular, e o topo já disputa espaço com "‹ Voltar" e o
+     localizador. O rótulo continua na árvore de acessibilidade (`sr-only`
+     em vez de removido), então o nome acessível do botão não muda com a
+     largura da tela. */
+  .sair {
+    @apply inline-flex min-h-toque items-center text-muted cursor-pointer;
+    gap: 0.35rem;
+    padding: 0.5rem 0.25rem;
+    margin-right: -0.25rem;
+    background: none;
+    border: 0;
+  }
+
+  .sair-rotulo {
+    @apply sr-only sm:not-sr-only;
+  }
+
   .corpo {
     @apply flex flex-1 flex-col;
     gap: 1.25rem;
