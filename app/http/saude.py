@@ -51,7 +51,7 @@ import psycopg
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from persistencia.supabase.conexao import ErroConexaoAusente, obter_database_url
+from persistencia.supabase.conexao import ErroConexaoAusente, conectar
 
 REGRAS: Final[tuple[str, ...]] = ("RF-10", "EC-05")
 
@@ -72,12 +72,17 @@ def tocar_banco() -> None:
     """Query mínima de keep-alive: `SELECT 1` puro, sem tabela nenhuma —
     nenhum dado do aluno é lido (critério de aceite desta tarefa). Levanta
     `ErroTocarBanco`/`ErroConexaoAusente` em qualquer falha; nunca devolve
-    silenciosamente um "sucesso" que não ocorreu."""
+    silenciosamente um "sucesso" que não ocorreu.
+
+    **Usa o pool compartilhado (`T-187`), não uma conexão direta.** Não
+    muda o propósito: se o pool estiver ocioso (`max_idle`), retirar uma
+    conexão dele ainda abre uma nova por baixo, exatamente como antes —
+    só que essa conexão fica disponível para reaproveitar depois, em vez
+    de ser fechada na hora."""
     try:
-        with psycopg.connect(obter_database_url()) as conexao:
-            with conexao.cursor() as cursor:
-                cursor.execute("SELECT 1")
-                cursor.fetchone()
+        with conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
     except ErroConexaoAusente:
         raise
     except psycopg.Error as erro:

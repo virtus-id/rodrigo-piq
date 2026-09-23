@@ -51,14 +51,19 @@ _SCHEMA: Final[str] = "motor_calculo"
 
 # `max_connections` do Postgres é 60 (medido 2026-09-23) — compartilhado com
 # TODOS os sistemas hospedados no mesmo projeto Supabase (`ads_*`, `core_*`,
-# `trv_*`, `vtr_*`), não uma cota exclusiva do PIQ. 10 é conservador de
-# propósito: sobra para os outros sistemas, e já é folgado para o piloto —
-# cada checkout dura só o tempo de uma consulta (~240ms), não o request
-# inteiro, então 10 conexões giram rápido o bastante para servir dezenas de
-# alunos simultâneos sem fila. Subir este número é uma linha, quando o
-# piloto crescer o bastante para justificar — não antes.
-_TAMANHO_MINIMO_POOL: Final[int] = 2
-_TAMANHO_MAXIMO_POOL: Final[int] = 10
+# `trv_*`, `vtr_*`), não uma cota exclusiva do PIQ.
+#
+# 20 (não 10) porque a distância importa mesmo com pool: o servidor fica em
+# Boston, o Postgres em São Paulo, e cada CONSULTA — não só abrir a conexão
+# — paga essa viagem (~250–500ms medidos, T-187). Um checkout dura o tempo
+# da consulta inteira, não é instantâneo; testado com 30 "alunos"
+# concorrentes fazendo o mesmo par de consultas de `GET /api/conta/eu`, 10
+# conexões para 60 checkouts formava fila real (~5–6s por aluno). Com 20,
+# a fila encurta pela metade. Ainda deixa 40 de folga para os outros
+# sistemas no mesmo banco. Subir mais é uma linha, quando o piloto crescer
+# o bastante para justificar — não antes.
+_TAMANHO_MINIMO_POOL: Final[int] = 3
+_TAMANHO_MAXIMO_POOL: Final[int] = 20
 
 _pool: ConnectionPool | None = None
 # Trava só para a CRIAÇÃO do pool (dupla checagem abaixo) — o pool em si já
