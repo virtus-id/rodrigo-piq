@@ -51,9 +51,18 @@ interface TelaRevisaoProps {
    * interface.
    */
   abrirCaso?: (casoId: string) => void
+  /**
+   * Abre o painel "Quem está onde" — `T-186`.
+   *
+   * Sem isto o painel só era alcançável digitando `#equipe-painel` na mão:
+   * nenhuma tela linkava para lá. A fila é a raiz da navegação do revisor
+   * (não recebe `voltar` — ver a nota em `App.tsx`), então é dela que a
+   * segunda área da equipe precisa ficar a um clique.
+   */
+  abrirPainel?: () => void
 }
 
-export default function TelaRevisao({ voltar, abrirCaso }: TelaRevisaoProps) {
+export default function TelaRevisao({ voltar, abrirCaso, abrirPainel }: TelaRevisaoProps) {
   const [itens, setItens] = useState<ItemDaFila[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -82,11 +91,19 @@ export default function TelaRevisao({ voltar, abrirCaso }: TelaRevisaoProps) {
       largura="equipe"
       onde={itens.length > 0 ? `${itens.length} na fila` : undefined}
       acoes={
-        // A fila é lida em turnos: recarregar é a ação principal do revisor,
-        // e sem ela a única forma de ver o que entrou é recarregar a página.
-        <Botao variante="secundario" onClick={() => void carregar()} disabled={carregando}>
-          {carregando ? 'Atualizando…' : 'Atualizar a fila'}
-        </Botao>
+        <>
+          {/* A fila é lida em turnos: recarregar é a ação principal do
+              revisor, e sem ela a única forma de ver o que entrou é
+              recarregar a página. */}
+          <Botao variante="secundario" onClick={() => void carregar()} disabled={carregando}>
+            {carregando ? 'Atualizando…' : 'Atualizar a fila'}
+          </Botao>
+          {abrirPainel && (
+            <Botao variante="discreto" onClick={abrirPainel}>
+              Ver o painel da equipe
+            </Botao>
+          )}
+        </>
       }
     >
       <p className="lead">

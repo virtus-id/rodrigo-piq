@@ -31,6 +31,10 @@ import {
   ROTULOS_DAS_PARTES,
   voltarDaTela,
 } from './apoio/navegacao'
+// O texto da entrada é redação revisada pelo especialista (`T-185`) — o
+// teste aponta para a fonte, nunca para um literal que divergiria a cada
+// revisão de copy. Mesma disciplina de `TelaLogin.test.tsx`.
+import { TITULO } from '../../src/telas/textosDaEntrada'
 
 const CASO = 'CASO-NAV-E2E'
 
@@ -448,13 +452,6 @@ test('AC-80: conta sem papel não encontra caminho para a área da equipe', asyn
 test('AC-87: a área da equipe usa 900px, distinta da coluna do aluno', async ({
   page,
 }, infoDoTeste) => {
-  await interceptarBase(page, CASO, { eRevisor: true })
-  await page.route(`**/api/revisao/fila`, async (rota) => {
-    await rota.fulfill({ json: { itens: [] } })
-  })
-
-  await entrarComoRevisor(page, CASO)
-
   const larguraDaColuna = () =>
     page.evaluate(() => {
       const corpo = document.querySelector('.corpo')
@@ -462,7 +459,12 @@ test('AC-87: a área da equipe usa 900px, distinta da coluna do aluno', async ({
       return coluna ? getComputedStyle(coluna).maxWidth : ''
     })
 
-  // O fluxo do aluno, para a comparação existir de fato.
+  // O fluxo do aluno, para a comparação existir de fato. `T-186`: a conta
+  // revisora deixou de alcançar o Início, então a largura do aluno é medida
+  // numa sessão à parte, genuinamente não-revisora — comparar as duas
+  // dentro da MESMA sessão de revisor não é mais possível, por desenho.
+  await interceptarBase(page, CASO)
+  await abrirTela(page, CASO, 'inicio')
   await expect(page.getByRole('heading', { name: 'Início' })).toBeVisible()
   const doAluno = await larguraDaColuna()
   if (infoDoTeste.project.name === 'mobile-360') {
@@ -476,10 +478,15 @@ test('AC-87: a área da equipe usa 900px, distinta da coluna do aluno', async ({
     expect(doAluno).not.toBe('900px')
   }
 
-  await abrirTela(page, CASO, 'equipe-fila')
-  await expect(
-    page.getByRole('heading', { name: 'Planos aguardando conferência' }),
-  ).toBeVisible()
+  // Agora a largura da equipe — sessão revisora à parte. A última rota
+  // registrada vence no Playwright, então isto substitui os mocks acima.
+  await interceptarBase(page, CASO, { eRevisor: true })
+  await page.route(`**/api/revisao/fila`, async (rota) => {
+    await rota.fulfill({ json: { itens: [] } })
+  })
+  // `T-186`: o login já leva direto à fila — não há mais um passo de
+  // navegação do Início até lá.
+  await entrarComoRevisor(page, CASO)
   expect(await larguraDaColuna()).toBe('900px')
 })
 
@@ -550,12 +557,16 @@ test('AC-83: o progresso dá acesso às fichas — o CRUD de dívidas de RF-53',
   )
   // `T-154`: o `App` pergunta quem é a sessão na carga da página — sem este
   // intercept o teste espera o proxy do Vite desistir antes de seguir.
+  //
+  // `e_revisor: false` — `T-186` fez o oposto redirecionar (revisor não
+  // alcança tela de aluno), então esta conta precisa ser genuinamente
+  // aluno para chegar ao Progresso.
   await page.route('**/api/conta/eu', (r) =>
     r.fulfill({
       json: {
-        email: 'revisor@exemplo.gov.br',
+        email: 'aluna@exemplo.gov.br',
         conta_id: 'C1',
-        e_revisor: true,
+        e_revisor: false,
         CASO_ID: CASO_ACESSO,
         casos: [CASO_ACESSO],
       },
@@ -641,15 +652,16 @@ test('AC-83 + AC-29: a fila abre a conferência do caso', async ({ page }) => {
   await page.goto(`/?caso=${CASO_ACESSO}#entrada`)
   await page.getByLabel('Seu e-mail').fill('revisor@exemplo.gov.br')
   await page.getByLabel('Sua senha').fill('senha-de-teste')
-  await page.locator('.acoes').getByRole('button', { name: 'Entrar' }).click()
+  // Não é `acaoPrincipal`: `AC-82` isenta a entrada da casca `Tela`
+  // (T-185), e o botão é filho direto do `<form>`, não do rodapé `.acoes`.
+  await page.getByRole('button', { name: 'Entrar' }).click()
 
-  // `AC-80` pelo lado positivo: o revisor VÊ o caminho. O teste de cima
-  // prova que o aluno não vê.
-  const irParaFila = page
-    .locator('.acoes')
-    .getByRole('button', { name: /fila de conferência/i })
-  await expect(irParaFila).toBeVisible()
-  await irParaFila.click()
+  // `T-186`: o revisor cai DIRETO na fila — nunca no Início do aluno. Não
+  // há mais um botão "Ir para a fila" para clicar; `aoEntrar` já manda para
+  // lá assim que sabe que a conta é revisora.
+  await expect(
+    page.getByRole('heading', { name: /aguardando conferência/i }),
+  ).toBeVisible()
 
   // `AC-29`: sem este botão a tela de conferência era inalcançável, e o
   // revisor não tinha como liberar plano nenhum pela interface.
@@ -787,11 +799,15 @@ test('T-154: entrar SEM `?caso=` na URL alcança o Início', async ({ page }) =>
   )
 
   await page.goto('/')
-  await expect(page.locator('h1')).toHaveText('Que bom ter você de volta')
+  await expect(page.locator('h1')).toHaveText(
+    `${TITULO.antes}${TITULO.destaque}${TITULO.depois}`,
+  )
 
   await page.getByLabel('Seu e-mail').fill('maria@exemplo.gov.br')
   await page.getByLabel('Sua senha').fill('senha-de-teste')
-  await page.locator('.acoes').getByRole('button', { name: 'Entrar' }).click()
+  // Não é `acaoPrincipal`: `AC-82` isenta a entrada da casca `Tela`
+  // (T-185), e o botão é filho direto do `<form>`, não do rodapé `.acoes`.
+  await page.getByRole('button', { name: 'Entrar' }).click()
 
   await expect(page.locator('h1')).toHaveText('Início')
   // A prova de que o caso veio da SESSÃO, não da URL.

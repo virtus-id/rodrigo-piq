@@ -235,17 +235,28 @@ export async function interceptarRespostas(
 }
 
 /**
- * Entra como revisor e cai no Início — `RF-59`, `AC-80`, `AC-87`.
+ * Entra como revisor e cai direto na fila — `RF-59`, `AC-80`, `AC-87`,
+ * `T-186`.
  *
  * `#entrada` com `?caso=` na URL é o único caminho: `App.tsx` lê o `CASO_ID`
  * da busca UMA vez, na montagem, então logar sem caso na URL deixaria o caso
- * vazio para todas as telas seguintes. Depois do login a rota vira `#inicio`,
- * e daí o teste navega para onde quiser.
+ * vazio para todas as telas seguintes.
+ *
+ * **`T-186`: a raiz do revisor é a fila, não o Início.** `aoEntrar` já
+ * decide o destino pelo papel — depois do login a rota vira `#equipe-fila`
+ * direto, sem passar pelo Início do aluno.
+ *
+ * **O botão não vive em `.acoes`.** `AC-82` isenta a tela de entrada da
+ * casca `Tela` (T-185): ela tem layout próprio, e o botão "Entrar" é filho
+ * direto do `<form>`, não do rodapé sticky que `acaoPrincipal` busca. Por
+ * isso o seletor aqui é `getByRole` na página inteira, não `acaoPrincipal`.
  */
 export async function entrarComoRevisor(page: Page, caso: string): Promise<void> {
   await abrirTela(page, caso, 'entrada')
   await page.getByLabel('Seu e-mail').fill('revisor@exemplo.gov.br')
   await page.getByLabel('Sua senha').fill('senha-de-teste')
-  await acaoPrincipal(page, 'Entrar').click()
-  await expect(page.getByRole('heading', { name: 'Início' })).toBeVisible()
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Planos aguardando conferência' }),
+  ).toBeVisible()
 }

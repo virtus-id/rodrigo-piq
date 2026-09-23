@@ -81,6 +81,36 @@ function RedirecionarAoInicio({
   return <TelaInicio casoId={casoId} irPara={irPara} />
 }
 
+/**
+ * O espelho de `RedirecionarAoInicio` — manda à fila uma conta revisora
+ * que tentou alcançar uma tela do ALUNO — `T-186`.
+ *
+ * **O revisor não tem caso para "seu".** `provisionar_conta_e_caso` cria um
+ * caso para toda conta nova, revisora ou não — é um efeito colateral da
+ * mesma rota que atende à Hotmart, não uma decisão sobre o que o revisor
+ * deveria ver. Sem esta guarda, uma conta revisora entrando pela primeira
+ * vez caía nas Boas-vindas e na coleta como se fosse abrir o PRÓPRIO caso:
+ * o mesmo formulário que ele existe para CONFERIR, não para preencher.
+ *
+ * `equipe-fila` é o destino, nunca `inicio` — é a raiz da navegação do
+ * revisor, do mesmo jeito que `inicio` é a do aluno (`Tela.tsx`: "a tela
+ * Início é a raiz, não há para onde voltar"). Por isso `TelaRevisao` deixa
+ * de receber `voltar` para esta conta: um "‹ Voltar" que volta para cá
+ * mesmo não é voltar, é decoração.
+ */
+function RedirecionarAFila({ irPara }: { irPara: (rota: Rota) => void }) {
+  useEffect(() => {
+    substituirRota({ tela: 'equipe-fila' })
+  }, [])
+
+  return (
+    <TelaRevisao
+      abrirCaso={(id) => irPara({ tela: 'equipe-caso', casoId: id })}
+      abrirPainel={() => irPara({ tela: 'equipe-painel' })}
+    />
+  )
+}
+
 export default function App() {
   /**
    * O caso da sessão — `T-154`.
@@ -213,7 +243,9 @@ export default function App() {
   }, [casoId, rota.tela])
 
   /**
-   * Depois de entrar: descobre o caso pelo servidor e vai ao Início.
+   * Depois de entrar: descobre o caso e o papel pelo servidor, e vai para a
+   * RAIZ de quem entrou — `inicio` para o aluno, `equipe-fila` para o
+   * revisor (`T-186`).
    *
    * **`POST /api/conta/login` não devolve `CASO_ID`** — só o cadastro devolve.
    * Sem esta reconsulta, quem entrasse sem `?caso=` na URL ficava preso na
@@ -221,15 +253,27 @@ export default function App() {
    * inalcançável. Era o beco sem saída de `T-154`.
    *
    * Quem responde é `GET /api/conta/eu`, que lê o caso e o papel do banco.
+   *
+   * **Por que decidir o destino aqui, e não deixar cair no Início e a
+   * guarda redirecionar.** Cairia certo — `RedirecionarAFila` existe
+   * exatamente para isso — mas por um quadro a mais o revisor veria a tela
+   * do aluno (Início, ou pior, as Boas-vindas) antes de ser levado à fila. A
+   * guarda protege contra chegar lá por qualquer OUTRO caminho (F5, link
+   * antigo, hash digitado); aqui já se sabe o papel a tempo de nunca
+   * desenhar a tela errada.
+   *
    * Se a consulta falhar, o Início ainda é o destino: ele próprio pede
    * `/inicio` e mostra o erro se não houver caso — melhor que travar o aluno
-   * numa tela de login que já aceitou a senha dele.
+   * numa tela de login que já aceitou a senha dele. Papel desconhecido é
+   * tratado como aluno, o lado seguro (`T-170`: nunca o contrário).
    */
   const aoEntrar = useCallback(async () => {
     try {
       const sessao = await obterSessao()
       setERevisor(sessao.e_revisor)
       if (sessao.CASO_ID) setCasoId(sessao.CASO_ID)
+      irPara({ tela: sessao.e_revisor ? 'equipe-fila' : 'inicio' })
+      return
     } catch {
       /* segue para o Início de qualquer forma — ver a nota acima */
     }
@@ -306,6 +350,22 @@ export default function App() {
   // ACESSO; mas quem nega acesso é o servidor, não esta linha.
   if (eTelaDaEquipe(rota) && eRevisor === false) {
     return <RedirecionarAoInicio casoId={casoId} irPara={irPara} />
+  }
+
+  // O espelho da guarda acima — `T-186`. Uma conta revisora não vê o fluxo
+  // do ALUNO: nem as Boas-vindas, nem o próprio "caso" que `provisionar_
+  // conta_e_caso` cria para toda conta nova (revisora ou não — é efeito
+  // colateral da rota que atende à Hotmart). "Ele só deveria acessar as
+  // filas" é o requisito; esta linha é o que o torna verdade em qualquer
+  // caminho de chegada (F5 em `#inicio`, link antigo, hash digitado à mão),
+  // não só na saída de `aoEntrar` logo após o login.
+  //
+  // `'entrada'` fica de fora: é a própria tela de login, alcançável com ou
+  // sem sessão, e tratada à parte acima. Mesma disciplina de `=== true`
+  // (nunca `!== false`): enquanto o papel ainda não chegou (`null`), nada
+  // se decide aqui — só quando o servidor já respondeu que é revisor.
+  if (!eTelaDaEquipe(rota) && rota.tela !== 'entrada' && eRevisor === true) {
+    return <RedirecionarAFila irPara={irPara} />
   }
 
   switch (rota.tela) {
@@ -475,11 +535,14 @@ export default function App() {
     case 'recalculo':
       return <TelaRecalculo inicio={inicio} voltar={voltarAoInicio} />
 
+    // `T-186`: sem `voltar`. É a raiz da navegação do revisor — como
+    // `inicio` é a do aluno (`Tela.tsx`) — e um "‹ Voltar" daqui só levaria
+    // de volta para cá mesmo, pela guarda espelhada acima.
     case 'equipe-fila':
       return (
         <TelaRevisao
-          voltar={voltarAoInicio}
           abrirCaso={(id) => irPara({ tela: 'equipe-caso', casoId: id })}
+          abrirPainel={() => irPara({ tela: 'equipe-painel' })}
         />
       )
 
