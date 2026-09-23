@@ -23,6 +23,8 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 
+import Esqueleto from './componentes/Esqueleto'
+import Tela from './componentes/Tela'
 import { eTelaDaEquipe, type Rota, substituirRota, useRota } from './navegacao'
 import { obterInicio, obterSessao, sair } from './services/api'
 import type { Inicio } from './tipos'
@@ -347,6 +349,30 @@ export default function App() {
         // porém confuso. Empilhar mantém o histórico honesto.
         aoDefinir={() => irPara({ tela: 'entrada' })}
       />
+    )
+  }
+
+  // Ainda perguntando ao servidor quem é a sessão — `T-192`.
+  //
+  // **O bug que isto fecha.** `casoId` só existe na URL como `?caso=...`
+  // (ver o docblock do módulo); em qualquer OUTRA rota (`#pergunta/...`,
+  // `#inicio`, …) ele começa vazio a cada F5, e só `obterSessao()` (abaixo,
+  // no efeito da carga) o preenche de volta. O comentário original de
+  // `T-174` já dizia a intenção — "`temSessao === null` é 'ainda
+  // perguntando': não decide nada" — mas o `if` seguinte checava `!casoId`
+  // mesmo com `temSessao` ainda `null`, e nesse caso `casoId` vazio
+  // TAMBÉM é "ainda não sei": todo F5 piscava para o login e voltava assim
+  // que a resposta chegasse — visível agora que essa resposta leva ~1s
+  // (duas consultas cruzando Boston↔São Paulo, `T-187`/`T-191`).
+  //
+  // `'entrada'` fica de fora pela mesma razão do `if` seguinte: é a própria
+  // tela de login, e não faz sentido atrasá-la esperando uma sessão que,
+  // se existir, vai mandar o dono dela para OUTRO lugar de qualquer forma.
+  if (temSessao === null && rota.tela !== 'entrada') {
+    return (
+      <Tela titulo="Carregando" mostrarTitulo={false}>
+        <Esqueleto forma="texto" anuncio="Verificando sua sessão" />
+      </Tela>
     )
   }
 
