@@ -823,3 +823,139 @@ Rodada 2C — **não iniciar antes de `OQ-26` e `OQ-27`**:
   `motor-calculo`, hoje verificável só com `RESERVA_EXISTE = NAO`)
 - **NÃO desbloqueia** `T-77`/`T-78`/`T-79` (Bloco 10), que seguem dependendo de
   `ATAQUE_IMEDIATO_RECOMENDADO` — placeholder por `OQ-29`, aberta
+
+---
+---
+
+# Discovery — Coleta agrupada por categoria (extensão pós-piloto)
+
+| Campo | Valor |
+| ----- | ----- |
+| Slug afetado | `app-aluno` |
+| Data | `2026-09-23` |
+| Origem do pedido | Coprodutor, direto: "o processo de salvar cada resposta no banco de dados está muito demorado" |
+| Motivo | `T-187` (pool de conexões) e `T-191` (paralelização de consultas independentes) já resolveram a lentidão de NAVEGAÇÃO entre telas — mas não tocaram em `RF-45`, que faz cada pergunta custar uma viagem de rede própria por desenho, não por bug. Esta é a queixa que segue de pé depois dos dois backlogs de performance |
+| Numeração | Questões novas abrem em `OQ-46` |
+
+## 1. Problema
+
+`RF-45` (`app/http/rotas_pergunta.py`) é categórico: o cliente nunca avalia
+condicional, o servidor decide UMA pergunta exibível por vez. Isso significa
+que, mesmo depois de `T-191`, responder a coleta inteira custa no mínimo
+**duas viagens de rede por pergunta** — um `GET` pra buscar a próxima, um
+`POST` pra gravar a resposta — e cada viagem paga ~484ms de distância
+Boston↔São Paulo (medido em produção, `T-187`). Para os Blocos 1–5 (195
+perguntas na base, mais o que se repetir por dívida/renda extra — ver §2),
+isso soma minutos de espera de rede pura ao longo da coleta, e nenhuma
+otimização de round trip dentro de UMA requisição resolve isso: o gargalo é
+o NÚMERO de requisições, proporcional ao número de perguntas.
+
+A proposta em avaliação: agrupar várias perguntas da mesma categoria numa
+tela só, com rascunho em `localStorage` enquanto o aluno preenche, e um
+único botão **"Salvar e continuar"** que grava a categoria inteira no banco
+de uma vez ao avançar para a próxima — decisão já tomada pelo coprodutor
+sobre a alternativa mais arriscada (rascunho só local até o fim da coleta
+inteira, que foi descartada por risco de perda de dado maior).
+
+## 2. O que o protótipo visual já revelou — achado, não especulação
+
+Um protótipo interativo (Artifact, não código) foi construído com o
+conteúdo REAL dos registros (`collection/registros/bloco-0{1..5}.yaml`) para
+testar a ideia antes de qualquer linha de código. Contagem real, não os "50"
+inicialmente estimados pelo coprodutor:
+
+| Bloco | Categoria | Perguntas fixas | Repetem por item |
+| --- | --- | --- | --- |
+| 1 | Pacto da Virada | 16 | 0 |
+| 2 | Autopercepção e controle | 15 | 0 |
+| 3 | Fluxo de caixa real | 37 | 20 (renda adicional, despesa não-mensal) |
+| 4 | Vínculos, margens e patrimônio | 49 | 0 |
+| 5 | Inventário de dívidas | 3 | 55 **por dívida** (ficha inteira) |
+
+Três problemas concretos apareceram ao montar o protótipo com dado real,
+nenhum deles hipotético:
+
+**(a) "Categoria" não tem um grão único.** O Bloco 3 (57 perguntas) já vem
+dividido em 5 "Partes" no próprio YAML (Renda, Despesas mensais, Despesas
+não-mensais, Conferência, Servidor/consignação) — uma categoria sozinha já
+era grande demais pra uma tela antes desta proposta existir. Os Blocos 1, 2
+e 4 não têm essa subdivisão hoje; colocar 49 perguntas do Bloco 4 numa tela
+só (mesmo agrupada) é a mesma rolagem longa que a proposta tenta evitar, só
+que dentro de UMA tela em vez de 49.
+
+**(b) O Bloco 5 não cabe no modelo "categoria = bloco" de jeito nenhum.**
+Só 3 perguntas são fixas; as outras 55 são uma ficha INTEIRA por dívida (9
+grupos: Identificação, Valores e saldo, Fluxo, Custo, Situação, Garantia,
+Oportunidades, Dimensão humana, Documentação). Um aluno com 3 dívidas
+responde 165 perguntas só nessa "categoria". A unidade real de agrupamento
+ali é a DÍVIDA, não a categoria — o mesmo padrão de ficha repetível que já
+existe hoje (`escopo_repeticao`), só que precisa da MESMA tela agrupada
+aplicada por item, não por bloco.
+
+**(c) Perguntas condicionais DENTRO da mesma categoria quebram `RF-45` como
+está.** Exemplo real: `B3.02` ("Fixa/Estável/Variável?") está na mesma
+categoria (Renda) que `B3.02A`/`B3.02B`, que só existem se a resposta for
+"Variável" (`condicao_exibicao: {tipo: IGUAL, variavel: TIPO_RENDA, valor:
+VARIAVEL}`). Hoje quem decide isso é o servidor, a cada pergunta, porque a
+MESMA `avaliar()` também é usada na gravação e na geração do PDF — duas
+implementações da mesma regra é exatamente o que `Lei nº 3`
+(`app/http/rotas_pergunta.py`, docstring) existe pra evitar. Numa tela com
+várias perguntas juntas, alguém precisa decidir, EM TEMPO REAL enquanto o
+aluno digita, se `B3.02A` aparece — e isso é avaliação de condicional no
+cliente, que `RF-45` proíbe hoje.
+
+## 3. Restrições que a proposta precisa respeitar (ou romper, por decisão
+explícita — nunca por omissão)
+
+- **`RF-45`/Lei nº 3**: "o cliente nunca avalia condicional". Ver §2(c) —
+  esta é a restrição mais diretamente em tensão com a proposta.
+- **`AC-01`/retomada**: "continuar de onde parei" hoje tem granularidade de
+  PERGUNTA (`proxima_pergunta_nao_respondida`). Com lote por categoria, a
+  granularidade vira CATEGORIA — muda o contrato de `GET /caso/{id}/inicio`
+  e o que a tela Início oferece como próxima etapa.
+- **`EC-05`**: nunca reportar sucesso sem transação confirmada. O envio de
+  um lote de N respostas precisa da MESMA garantia atômica que hoje existe
+  por pergunta — tudo grava ou nada grava, nunca meio caminho reportado como
+  sucesso.
+- **A persona troca de aparelho entre sessões** (`US-10`, NFR de
+  responsividade da spec original: "quem começa no computador e segue no
+  celular"). Rascunho em `localStorage` não atravessa dispositivo — isso já
+  foi aceito como trade-off pelo coprodutor (ver decisão de `Salvar e
+  continuar` por categoria, não só no fim), mas o risco de perda é MAIOR
+  quanto maior a categoria: perder o rascunho do Bloco 4 (49 perguntas) no
+  meio é uma perda bem maior que perder 1 pergunta (situação de hoje).
+
+## 4. Riscos e incógnitas
+
+- Categoria grande (Bloco 4, 49; Bloco 5, até 55 por dívida) ainda concentra
+  risco de perda de rascunho não-commitado — "Salvar e continuar" por
+  categoria reduz o risco frente à versão "só no fim", mas não o zera, e o
+  tamanho da categoria decide o tamanho da perda.
+- Nenhuma solução para §2(c) foi escolhida ainda — as alternativas
+  plausíveis (o servidor pré-avalia e manda um "mapa" de condições
+  simples junto com a categoria; o cliente reflete só o SUBCONJUNTO de
+  condições já provadas seguras; as fronteiras de categoria são redesenhadas
+  pra nunca conter um par condicional na mesma tela) têm custos de
+  engenharia e de garantia bem diferentes — decisão de arquitetura, não
+  detalhe de implementação.
+- O comportamento de falha parcial no `POST` em lote (rede cai depois de 30
+  campos preenchidos) não foi definido.
+
+## 5. Perguntas abertas
+
+| ID | Pergunta | Por que importa | Impacto |
+| --- | --- | --- | --- |
+| `OQ-46` | Como resolver a pergunta condicional DENTRO da mesma categoria (ex. `B3.02`→`B3.02A/B3.02B`) sem o cliente avaliar `condicao_exibicao` (`RF-45`)? | Decide se a arquitetura muda uma regra fundamental (Lei nº 3) ou se o desenho de categoria evita o conflito por construção | **alto** |
+| `OQ-47` | Qual é a unidade real de "categoria" pra navegação — bloco inteiro (16 a 49 perguntas), a "Parte" que já existe no Bloco 3 (5 a 18 perguntas), ou uma unidade nova? | Blocos com 37+ perguntas parecem grandes demais pra uma tela mesmo agrupados — o protótipo tornou isso visível | **alto** |
+| `OQ-48` | Como o Bloco 5 (ficha por dívida, 55 perguntas cada) se encaixa no modelo de categoria — cada dívida vira sua própria "categoria" dinâmica, uma por item? | Sem resposta, o Bloco 5 não tem pra onde ir nesta proposta — é estruturalmente diferente dos Blocos 1, 2 e 4 | **alto** |
+| `OQ-49` | O que acontece se o `POST` em lote falhar no meio (rede cai depois do aluno preencher 30 dos 49 campos do Bloco 4)? Fica em `localStorage` aguardando novo envio, ou o aluno perde e recomeça a categoria? | Decide a experiência de erro numa coleta que já é longa — reforça ou anula a garantia de `EC-05` | **alto** |
+| `OQ-50` | Ao reabrir o app no meio de uma categoria (F5, trocou de aba, voltou depois), o aluno recupera o rascunho do `localStorage` daquele MESMO aparelho, ou sempre reabre a categoria do zero a partir do que já está no banco? | Muda o que "continuar de onde parei" significa pra quem está no meio de uma categoria grande | **médio** |
+| `OQ-51` | O botão "Salvar e continuar" fica desabilitado enquanto perguntas obrigatórias da categoria não estiverem preenchidas, ou permite avançar parcial e volta depois? | Hoje `pendencias_obrigatorias` bloqueia avanço pergunta a pergunta (`RF-11`); em lote, a mesma checagem precisa de um momento novo pra rodar | **médio** |
+
+> Protótipo de referência (Artifact, não versionado no repo):
+> "Coleta por categoria" — 6 telas com conteúdo real dos Blocos 1–5,
+> incluindo a demonstração ao vivo da tensão de `OQ-46` (`B3.02` abrindo
+> `B3.02A`/`B3.02B` no cliente) e do tamanho real do Bloco 5 (`OQ-48`).
+> Link com o coprodutor; pedir a ele se precisar consultar.
+
+> Discovery levanta o problema. Não decide a solução aqui — isso é a spec.
