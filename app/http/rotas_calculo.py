@@ -160,6 +160,7 @@ from app.casos.progresso import (
     pendencias_obrigatorias,
     transicionar_e_registrar,
 )
+from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.montagem.estado import (
     ErroRespostaAusente,
@@ -472,12 +473,18 @@ def _preparar_calculo(
     `(estado_financeiro, insumos)` que a rota usa para agendar a execução.
     Corpo idêntico ao que vivia direto na rota antes desta tarefa; só o
     ponto de chamada mudou."""
-    caso = repositorio_casos.buscar(CASO_ID)
+    # `caso`, `respostas` e `itens_por_escopo` são três consultas
+    # independentes (nenhuma usa o resultado da outra) — em paralelo,
+    # `T-191`.
+    caso, respostas_brutas, itens_por_escopo = tres_em_paralelo(
+        lambda: repositorio_casos.buscar(CASO_ID),
+        lambda: repositorio_respostas.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
     if caso is None:  # pragma: no cover — defensivo: isolamento já garantiu
         raise ErroCasoDesaparecidoAposIsolamento(CASO_ID)
 
-    respostas = RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    respostas = RespostasCaso(respostas=respostas_brutas)
 
     # Critério de aceite 1: campo OBR pendente nomeia o que falta e recusa a
     # transição — antes de qualquer tentativa de transicionar().

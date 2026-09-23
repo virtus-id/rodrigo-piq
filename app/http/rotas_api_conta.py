@@ -26,6 +26,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from starlette.requests import HTTPConnection
 
+from app.concorrencia import duas_em_paralelo
 from app.consentimento.registro import (
     ErroTextoConsentimentoAusente,
     ErroTextoConsentimentoInvalido,
@@ -194,11 +195,16 @@ def quem_esta_na_sessao(
     if conta_id is None:
         return JSONResponse({"erro": _MENSAGEM_SESSAO_AUSENTE}, status_code=401)
 
-    conta = repositorio_contas.buscar_por_id(conta_id)
+    # Duas consultas independentes em paralelo (`T-191`): `casos` só precisa
+    # de `conta_id`, nunca do resultado de `conta`. ~1 round trip de parede
+    # em vez de 2 (~484ms cada, Boston↔São Paulo, T-187) — a resposta desta
+    # rota é a primeira coisa que TODA carga de página espera.
+    conta, casos = duas_em_paralelo(
+        lambda: repositorio_contas.buscar_por_id(conta_id),
+        lambda: repositorio_casos.listar_da_conta(conta_id),
+    )
     if conta is None:  # pragma: no cover — sessão válida de conta removida
         return JSONResponse({"erro": _MENSAGEM_SESSAO_AUSENTE}, status_code=401)
-
-    casos = repositorio_casos.listar_da_conta(conta_id)
     return JSONResponse(
         {
             "email": conta.email,

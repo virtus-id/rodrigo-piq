@@ -32,6 +32,7 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
 from app.casos.progresso import pendencias_obrigatorias
+from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
@@ -105,8 +106,12 @@ def listar_fichas(
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
 
-    respostas = RespostasCaso(respostas=repositorio.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    # Duas consultas independentes em paralelo — `T-191`.
+    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
+    respostas = RespostasCaso(respostas=respostas_brutas)
     pendentes = {
         (pendencia.ID, pendencia.item_id)
         for pendencia in pendencias_obrigatorias(colecao.registros, respostas, itens_por_escopo)
@@ -139,8 +144,15 @@ def criar_ficha(
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
 
-    item_id = repositorio_itens.proximo_identificador(CASO_ID, membro)
-    respostas = RespostasCaso(respostas=repositorio.listar_do_caso(CASO_ID))
+    # Duas consultas de LEITURA independentes em paralelo (`T-191`):
+    # `proximo_identificador` só conta linhas existentes, não escreve nada
+    # (a ficha em si só passa a existir quando uma resposta referencia o
+    # `item_id` — ver a nota da rota, acima).
+    item_id, respostas_brutas = duas_em_paralelo(
+        lambda: repositorio_itens.proximo_identificador(CASO_ID, membro),
+        lambda: repositorio.listar_do_caso(CASO_ID),
+    )
+    respostas = RespostasCaso(respostas=respostas_brutas)
     campos = _campos_da_ficha(colecao, membro, respostas, CASO_ID, item_id)
 
     return JSONResponse(

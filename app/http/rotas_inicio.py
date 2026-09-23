@@ -58,7 +58,7 @@ from app.casos.confirmacao_ataque import (
 from app.casos.fases import FASE_INICIO, fase_do_estado, fase_do_plano_liberado
 from app.casos.maquina import ESTADO_CASO
 from app.casos.progresso import contar_coleta, proxima_pergunta_nao_respondida
-from app.http.concorrencia import tres_em_paralelo
+from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
 from app.http.rotas_coleta import _itens_por_escopo

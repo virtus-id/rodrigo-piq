@@ -110,6 +110,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.casos.maquina import ErroConsentimentoNaoRegistrado
 from app.casos.progresso import pendencias_obrigatorias
+from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.montagem.conversao import (
     ErroConversaoInvalida,
@@ -530,8 +531,16 @@ def responder_pergunta(
     # caso já incluindo a resposta recém-gravada — `app/casos/progresso.py`
     # é quem decide, por `Obrigatoriedade` do próprio registro, nunca por
     # `ID` codificado aqui.
-    respostas_apos_gravar = RespostasCaso(respostas=repositorio.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    # Duas consultas independentes em paralelo (`T-191`). `itens_por_escopo`
+    # lê `app_aluno.itens`, nunca tocada pelo `gravar` acima (que só grava em
+    # `app_aluno.respostas`/atualiza `casos.ultima_interacao_em`, T-91) —
+    # rodar ao lado da releitura pós-gravação de `respostas` não arrisca
+    # nada.
+    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
+    respostas_apos_gravar = RespostasCaso(respostas=respostas_brutas)
     pendencias = pendencias_obrigatorias(
         colecao.registros, respostas_apos_gravar, itens_por_escopo
     )

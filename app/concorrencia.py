@@ -21,19 +21,35 @@ DEPOIS de validar a transição, de propósito) — paralelizar escrita
 reordenaria isso. Cada chamador decide quais das suas consultas são
 independentes; esta função não adivinha.
 
-**`ThreadPoolExecutor`, não um segundo pool de conexões.** As rotas que usam
-isto já rodam `def` (síncronas, T-187) na threadpool do Starlette — este
-módulo só abre um `ThreadPoolExecutor` PEQUENO e de vida curta, por
-chamada, para as poucas consultas daquela requisição. Ele não compete com o
-pool de conexões do banco (`_TAMANHO_MAXIMO_POOL`, 20) nem o substitui.
+**`ThreadPoolExecutor`, não um segundo pool de conexões.** Os chamadores
+(rotas HTTP em `app/http/*`, ou `app/revisao/fila.py`, que monta a fila
+como CONSULTA) já rodam em thread — rota `def` síncrona na threadpool do
+Starlette (T-187), ou a própria thread da chamadora. Este módulo só abre um
+`ThreadPoolExecutor` PEQUENO e de vida curta, por chamada, para as poucas
+consultas daquela operação. Ele não compete com o pool de conexões do banco
+(`_TAMANHO_MAXIMO_POOL`, 20) nem o substitui.
+
+**Módulo de topo (`app/`), não `app/http/`.** Paralelizar consultas
+independentes não é assunto exclusivo de rota HTTP — `app/revisao/
+fila.py::listar_fila_de_revisao` monta a fila de revisão fora de qualquer
+rota, e precisa do mesmo tratamento. Morar em `app/http/` inverteria a
+direção de dependência (domínio importando de HTTP) só por causa de onde
+o primeiro uso aconteceu.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 
 REGRAS: tuple[str, ...] = ()
+
+# Teto de threads de `mapear_em_paralelo`, abaixo — nunca uma thread por item
+# sem limite (uma fila com centenas de casos não deveria abrir centenas de
+# threads de uma vez). O mesmo teto do pool de conexões
+# (`persistencia/supabase/conexao.py::_TAMANHO_MAXIMO_POOL`) — acima disso as
+# threads extras só fariam fila esperando conexão, sem ganho nenhum.
+_TETO_DE_THREADS: int = 20
 
 
 def duas_em_paralelo[T1, T2](
@@ -57,3 +73,15 @@ def tres_em_paralelo[T1, T2, T3](
         futuro2 = executor.submit(chamada2)
         futuro3 = executor.submit(chamada3)
         return futuro1.result(), futuro2.result(), futuro3.result()
+
+
+def mapear_em_paralelo[T1, T2](chamada: Callable[[T1], T2], itens: Sequence[T1]) -> tuple[T2, ...]:
+    """`duas_em_paralelo`/`tres_em_paralelo` são para um número FIXO de
+    consultas de tipos diferentes; esta é para N consultas independentes da
+    MESMA chamada — ex.: o histórico de snapshot de cada caso de uma fila,
+    onde N é o tamanho da fila, não uma constante. A ordem do resultado é a
+    de `itens`, como `map()`."""
+    if not itens:
+        return ()
+    with ThreadPoolExecutor(max_workers=min(len(itens), _TETO_DE_THREADS)) as executor:
+        return tuple(executor.map(chamada, itens))

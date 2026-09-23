@@ -31,6 +31,7 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import montar_contexto_pergunta
 from app.http.rotas_coleta import (
@@ -134,8 +135,12 @@ def respostas_do_caso(
     Perguntas repetíveis rendem **uma linha por item** — a ficha da dívida
     `D001` e a da `D002` são respostas diferentes à mesma pergunta, e juntá-las
     esconderia qual valor é de qual dívida."""
-    respostas = RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID))
-    itens_por_escopo = _itens_por_escopo(repositorio_itens, CASO_ID)
+    # Duas consultas independentes em paralelo — `T-191`.
+    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio_respostas.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
+    respostas = RespostasCaso(respostas=respostas_brutas)
 
     partes: list[dict[str, Any]] = []
     for numero, rotulo in _PARTES:

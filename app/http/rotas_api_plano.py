@@ -29,6 +29,7 @@ from fastapi.responses import JSONResponse
 
 from app.casos.maquina import ESTADO_CASO
 from app.casos.progresso import consultar_trilha_de_progresso
+from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import (
     exigir_caso_da_sessao,
     exigir_papel_revisor,
@@ -56,7 +57,11 @@ from app.http.serializacao_plano import (
     serializar_item_da_fila,
     serializar_plano,
 )
-from app.revisao.fila import listar_fila_de_revisao, montar_item_da_fila
+from app.revisao.fila import (
+    RepositorioCasosDaFila,
+    listar_fila_de_revisao,
+    montar_item_da_fila,
+)
 from collection.carga import ColecaoDeRegistros
 from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
@@ -154,7 +159,7 @@ def plano_do_aluno(
 @roteador.get("/api/revisao/fila")
 def fila_de_revisao(
     _revisor: Annotated[str, Depends(exigir_papel_revisor)],
-    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos_da_fila)],
+    repositorio_casos: Annotated[RepositorioCasosDaFila, Depends(obter_repositorio_casos_da_fila)],
     repositorio_snapshots: Annotated[
         RepositorioSnapshots, Depends(obter_repositorio_snapshots_da_fila)
     ],
@@ -243,12 +248,19 @@ def painel_do_operador(
     `listar_do_caso` de respostas, idem de itens) — com N casos, N vezes a
     viagem de rede até o banco. `buscar_varios`/`listar_de_varios_casos`
     trazem TUDO de uma vez; o `for` abaixo só organiza dados que já estão
-    em memória, sem tocar o banco de novo."""
+    em memória, sem tocar o banco de novo.
+
+    **As três consultas em massa, em paralelo — `T-191`.** Nenhuma das três
+    usa o resultado da outra (todas só precisam de `caso_ids`) — rodar em
+    sequência pagava ~484ms de distância Boston↔São Paulo (`T-187`) três
+    vezes por nada."""
     agora = datetime.now(UTC)
     caso_ids = repositorio_casos.listar_todos()
-    casos_por_id = repositorio_casos.buscar_varios(caso_ids)
-    respostas_por_caso = repositorio_respostas.listar_de_varios_casos(caso_ids)
-    itens_por_caso = repositorio_itens.listar_de_varios_casos(caso_ids, incluir_removidos=False)
+    casos_por_id, respostas_por_caso, itens_por_caso = tres_em_paralelo(
+        lambda: repositorio_casos.buscar_varios(caso_ids),
+        lambda: repositorio_respostas.listar_de_varios_casos(caso_ids),
+        lambda: repositorio_itens.listar_de_varios_casos(caso_ids, incluir_removidos=False),
+    )
 
     linhas = []
     for caso_id in caso_ids:

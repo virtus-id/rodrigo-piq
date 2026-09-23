@@ -133,6 +133,7 @@ from typing import Final, Protocol
 
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.casos.progresso import transicionar_e_registrar
+from app.concorrencia import mapear_em_paralelo
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.eventos import RepositorioEventosCaso
@@ -149,10 +150,18 @@ POLITICA_REVISAO_INTEGRAL_PILOTO: Final[bool] = True
 
 class RepositorioCasosDaFila(Protocol):
     """Recorte mínimo de `persistencia.app_aluno.casos.RepositorioCasos`
-    exigido por `listar_fila_de_revisao` — só `buscar`. A fila não precisa
-    (e não deve) depender da interface inteira do repositório de casos."""
+    exigido por `fila_de_revisao`/`listar_fila_de_revisao`: `listar_por_
+    estado` (descobre os casos aguardando revisão), `buscar_varios`
+    (T-191: busca em lote, em vez de um `buscar` por caso da fila) e
+    `buscar` (ainda usado por `liberar`/`reprovar` — ver
+    `RepositorioCasosDaDecisao`, abaixo). A fila não precisa (e não deve)
+    depender da interface inteira do repositório de casos."""
 
     def buscar(self, caso_id: str) -> Caso | None: ...
+
+    def buscar_varios(self, caso_ids: tuple[str, ...]) -> dict[str, Caso]: ...
+
+    def listar_por_estado(self, estado: ESTADO_CASO) -> tuple[str, ...]: ...
 
 
 class RepositorioCasosDaDecisao(Protocol):
@@ -264,21 +273,37 @@ def listar_fila_de_revisao(
     RAIZ da cadeia (`engine/portas.py`), não pelo `CASO_ID` de `app_aluno`**
     (identidades distintas, `OQ-11` — ver `Caso.snapshot_raiz_id`,
     `app/casos/maquina.py`). Por isso esta função consulta o histórico por
-    `caso.snapshot_raiz_id`, nunca por `caso_id` diretamente."""
-    itens: list[ItemFila] = []
+    `caso.snapshot_raiz_id`, nunca por `caso_id` diretamente.
+
+    **Busca em lote + histórico em paralelo (`T-191`).** Até esta tarefa,
+    cada `CASO_ID` custava DUAS consultas em SEQUÊNCIA (`buscar`, depois
+    `historico`) — com N casos na fila, 2N viagens ao banco, uma atrás da
+    outra (~484ms cada, Boston↔São Paulo, medido em produção). `buscar_
+    varios` busca todos os casos numa só chamada; `repositorio_snapshots.
+    historico` não tem versão em lote (`persistencia/supabase/
+    repositorio_snapshots.py` está no conjunto CONGELADO de `AC-44` — fora
+    do escopo desta feature tocar), então essas N chamadas rodam em
+    PARALELO via `mapear_em_paralelo`, em vez de uma versão nova do
+    adaptador."""
+    casos_por_id = repositorio_casos.buscar_varios(tuple(casos_ids))
+    candidatos: list[tuple[str, str]] = []
     for caso_id in casos_ids:
-        caso = repositorio_casos.buscar(caso_id)
+        caso = casos_por_id.get(caso_id)
         if caso is None or caso.estado is not ESTADO_CASO.AGUARDANDO_REVISAO:
             continue
         if caso.snapshot_raiz_id is None:
             continue
+        candidatos.append((caso_id, caso.snapshot_raiz_id))
 
-        historico = repositorio_snapshots.historico(caso.snapshot_raiz_id)
+    historicos = mapear_em_paralelo(
+        lambda par: repositorio_snapshots.historico(par[1]), candidatos
+    )
+
+    itens: list[ItemFila] = []
+    for (caso_id, _snapshot_raiz_id), historico in zip(candidatos, historicos, strict=True):
         if not historico:
             continue
-
-        ultimo_snapshot = historico[-1]
-        itens.append(montar_item_da_fila(caso_id, ultimo_snapshot))
+        itens.append(montar_item_da_fila(caso_id, historico[-1]))
 
     return tuple(itens)
 

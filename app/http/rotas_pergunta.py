@@ -51,7 +51,7 @@ from app.casos.progresso import (
     posicao_na_ficha,
     proxima_pergunta_nao_respondida,
 )
-from app.http.concorrencia import duas_em_paralelo
+from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
