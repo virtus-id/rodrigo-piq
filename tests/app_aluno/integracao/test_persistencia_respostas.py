@@ -89,17 +89,33 @@ class _ConexaoQueFalha:
         pass
 
 
+class _PoolQueDevolveConexaoFalsa:
+    """Dublê de `ConnectionPool` (`T-187`): `getconn` sempre devolve a
+    conexão falsa do teste; `putconn` só sinaliza, nunca fecha nada de
+    verdade. `_conectar` (T-187) pega conexão do pool em vez de chamar
+    `psycopg.connect` a cada operação — substituir `psycopg.connect` não
+    intercepta mais nada; este dublê troca o seam certo."""
+
+    def __init__(self, conexao: object) -> None:
+        self._conexao = conexao
+
+    def getconn(self) -> object:
+        return self._conexao
+
+    def putconn(self, _conexao: object) -> None:
+        pass
+
+
 def test_ec05_falha_de_gravacao_propaga_excecao_e_nunca_comita(monkeypatch: Any) -> None:
     """EC-05: com o cursor levantando erro antes do commit, `gravar` propaga
     uma exceção (nunca engole, nunca devolve sucesso) e `commit()` nunca é
     chamado na conexão dublê."""
     conexao_dublê = _ConexaoQueFalha()
 
-    def _connect_falso(*_args: object, **_kwargs: object) -> _ConexaoQueFalha:
-        return conexao_dublê
-
-    monkeypatch.setattr(psycopg, "connect", _connect_falso)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://dublê-nunca-usado/teste")
+    monkeypatch.setattr(
+        "persistencia.app_aluno.respostas.obter_pool",
+        lambda: _PoolQueDevolveConexaoFalsa(conexao_dublê),
+    )
 
     repositorio = RepositorioRespostasSupabase()
     resposta = Resposta(

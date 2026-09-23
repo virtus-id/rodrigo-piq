@@ -28,7 +28,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-import psycopg
 import pytest
 
 from app.casos.maquina import (
@@ -148,6 +147,23 @@ class _ConexaoComEstado:
         pass
 
 
+class _PoolQueDevolveConexaoFalsa:
+    """Dublê de `ConnectionPool` (`T-187`): `getconn` sempre devolve a
+    conexão falsa do teste; `putconn` só sinaliza, nunca fecha nada de
+    verdade. `_conectar` (T-187) pega conexão do pool em vez de chamar
+    `psycopg.connect` a cada operação — substituir `psycopg.connect` não
+    intercepta mais nada; este dublê troca o seam certo."""
+
+    def __init__(self, conexao: object) -> None:
+        self._conexao = conexao
+
+    def getconn(self) -> object:
+        return self._conexao
+
+    def putconn(self, _conexao: object) -> None:
+        pass
+
+
 def _resposta_de_teste(caso_id: str) -> Resposta:
     return Resposta(
         CASO_ID=caso_id,
@@ -166,8 +182,10 @@ def test_ac39_gravar_com_caso_em_cadastrado_e_recusado_e_nada_e_persistido(
     `RepositorioRespostasSupabase.gravar` DIRETO (sem nenhuma rota HTTP no
     caminho) — recusada, e o `INSERT` nunca chega a ser executado."""
     conexao_dublê = _ConexaoComEstado(ESTADO_CASO.CADASTRADO.value)
-    monkeypatch.setattr(psycopg, "connect", lambda *_a, **_k: conexao_dublê)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://dublê-nunca-usado/teste")
+    monkeypatch.setattr(
+        "persistencia.app_aluno.respostas.obter_pool",
+        lambda: _PoolQueDevolveConexaoFalsa(conexao_dublê),
+    )
 
     repositorio = RepositorioRespostasSupabase()
 
@@ -189,8 +207,10 @@ def test_gravar_com_caso_em_consentimento_registrado_tambem_e_recusado(
     critério de aceite é "antes do registro de consentimento" no sentido de
     "antes da coleta começar", não apenas "antes do carimbo existir"."""
     conexao_dublê = _ConexaoComEstado(ESTADO_CASO.CONSENTIMENTO_REGISTRADO.value)
-    monkeypatch.setattr(psycopg, "connect", lambda *_a, **_k: conexao_dublê)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://dublê-nunca-usado/teste")
+    monkeypatch.setattr(
+        "persistencia.app_aluno.respostas.obter_pool",
+        lambda: _PoolQueDevolveConexaoFalsa(conexao_dublê),
+    )
 
     repositorio = RepositorioRespostasSupabase()
 
@@ -207,8 +227,10 @@ def test_gravar_com_coleta_inicial_e_aceito_e_insert_e_executado(
     o `INSERT` É executado — a recusa acima é da guarda, não de um bug que
     recusasse tudo."""
     conexao_dublê = _ConexaoComEstado(ESTADO_CASO.COLETA_INICIAL.value)
-    monkeypatch.setattr(psycopg, "connect", lambda *_a, **_k: conexao_dublê)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://dublê-nunca-usado/teste")
+    monkeypatch.setattr(
+        "persistencia.app_aluno.respostas.obter_pool",
+        lambda: _PoolQueDevolveConexaoFalsa(conexao_dublê),
+    )
 
     repositorio = RepositorioRespostasSupabase()
     repositorio.gravar(_resposta_de_teste("CASO-EM-COLETA"))
@@ -224,8 +246,10 @@ def test_gravar_com_caso_inexistente_e_recusado_sem_assumir_estado_liberado(
     "estado que permite resposta" por omissão — a ausência de linha vira
     `ErroCasoInexistenteParaResposta`, nunca uma gravação silenciosa."""
     conexao_dublê = _ConexaoComEstado(None)
-    monkeypatch.setattr(psycopg, "connect", lambda *_a, **_k: conexao_dublê)
-    monkeypatch.setenv("DATABASE_URL", "postgresql://dublê-nunca-usado/teste")
+    monkeypatch.setattr(
+        "persistencia.app_aluno.respostas.obter_pool",
+        lambda: _PoolQueDevolveConexaoFalsa(conexao_dublê),
+    )
 
     repositorio = RepositorioRespostasSupabase()
 
