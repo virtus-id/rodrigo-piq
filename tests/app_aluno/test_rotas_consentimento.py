@@ -387,6 +387,7 @@ def test_post_consentimento_sem_sessao_recebe_401_antes_de_tocar_o_banco(
 
 def test_post_consentimento_sem_texto_vigente_bloqueia_com_503(
     monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     caso_id = "CASO-CONSENTIMENTO-1"
     repositorio_casos = _RepositorioCasosDublê(
@@ -394,9 +395,14 @@ def test_post_consentimento_sem_texto_vigente_bloqueia_com_503(
     )
     repositorio_consentimentos = _RepositorioConsentimentosDublê()
 
-    # Sem `diretorio_textos`: usa o diretório real `app/consentimento/textos/`,
-    # hoje vazio de `.yaml` de produção (PEND-01 em aberto).
-    cliente = _montar_aplicacao_de_teste(monkeypatch, repositorio_casos, repositorio_consentimentos)
+    # `tmp_path` vazio de `.yaml`, não o diretório real `app/consentimento/
+    # textos/` — desde que o texto de `PEND-01` foi publicado (T-190), o
+    # diretório real deixou de estar vazio, e o bloqueio que este teste prova
+    # precisa de um diretório fabricado sem arquivo, não mais do estado da
+    # produção.
+    cliente = _montar_aplicacao_de_teste(
+        monkeypatch, repositorio_casos, repositorio_consentimentos, tmp_path
+    )
     cliente.post("/_teste/abrir-sessao/CONTA-1")
 
     resposta = cliente.post(f"/caso/{caso_id}/consentimento", data={"aceite": "on"})
