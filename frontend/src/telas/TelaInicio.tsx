@@ -40,6 +40,16 @@ interface TelaInicioProps {
    * o que decide se o caminho é oferecido.
    */
   eRevisor?: boolean
+  /**
+   * Encerra a sessão — `T-188`.
+   *
+   * Sem esta prop não havia NENHUM caminho de sair pela interface, para
+   * ninguém: quem quisesse trocar de conta precisava apagar o cookie na
+   * mão. Fica na raiz da navegação do aluno (aqui, e o equivalente em
+   * `TelaRevisao` para o revisor) — as duas únicas telas sem `voltar`,
+   * mesmo lugar onde "sair" termina fazendo sentido.
+   */
+  aoSair: () => void
 }
 
 /**
@@ -158,7 +168,7 @@ const CHAMADA_DA_FASE: Readonly<Record<Inicio['fase'], string>> = {
   acompanhamento: 'Sua próxima ação',
 }
 
-export default function TelaInicio({ casoId, irPara, eRevisor }: TelaInicioProps) {
+export default function TelaInicio({ casoId, irPara, eRevisor, aoSair }: TelaInicioProps) {
   const [inicio, setInicio] = useState<Inicio | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -258,6 +268,9 @@ export default function TelaInicio({ casoId, irPara, eRevisor }: TelaInicioProps
               Ir para a fila de conferência
             </Botao>
           )}
+          <Botao variante="discreto" onClick={aoSair}>
+            Sair
+          </Botao>
         </>
       }
     >

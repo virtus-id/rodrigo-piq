@@ -24,7 +24,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { eTelaDaEquipe, type Rota, substituirRota, useRota } from './navegacao'
-import { obterInicio, obterSessao } from './services/api'
+import { obterInicio, obterSessao, sair } from './services/api'
 import type { Inicio } from './tipos'
 import TelaAcao from './telas/TelaAcao'
 import TelaAcoes from './telas/TelaAcoes'
@@ -68,9 +68,11 @@ function casoDaUrl(): string {
 function RedirecionarAoInicio({
   casoId,
   irPara,
+  aoSair,
 }: {
   casoId: string
   irPara: (rota: Rota) => void
+  aoSair: () => void
 }) {
   useEffect(() => {
     // `substituirRota` em vez de `irPara`: não deixa no histórico um passo
@@ -78,7 +80,7 @@ function RedirecionarAoInicio({
     substituirRota({ tela: 'inicio' })
   }, [])
 
-  return <TelaInicio casoId={casoId} irPara={irPara} />
+  return <TelaInicio casoId={casoId} irPara={irPara} aoSair={aoSair} />
 }
 
 /**
@@ -98,7 +100,13 @@ function RedirecionarAoInicio({
  * de receber `voltar` para esta conta: um "‹ Voltar" que volta para cá
  * mesmo não é voltar, é decoração.
  */
-function RedirecionarAFila({ irPara }: { irPara: (rota: Rota) => void }) {
+function RedirecionarAFila({
+  irPara,
+  aoSair,
+}: {
+  irPara: (rota: Rota) => void
+  aoSair: () => void
+}) {
   useEffect(() => {
     substituirRota({ tela: 'equipe-fila' })
   }, [])
@@ -107,6 +115,7 @@ function RedirecionarAFila({ irPara }: { irPara: (rota: Rota) => void }) {
     <TelaRevisao
       abrirCaso={(id) => irPara({ tela: 'equipe-caso', casoId: id })}
       abrirPainel={() => irPara({ tela: 'equipe-painel' })}
+      aoSair={aoSair}
     />
   )
 }
@@ -282,6 +291,26 @@ export default function App() {
 
   const voltarAoInicio = useCallback(() => irPara({ tela: 'inicio' }), [irPara])
 
+  /**
+   * Encerra a sessão e volta à entrada.
+   *
+   * `.finally`, não `.then`: mesmo que `sair()` falhe na rede, o estado
+   * local zera e a tela de login aparece — é o lado seguro (`T-174` segue
+   * a mesma disciplina para a sessão AUSENTE: nunca deixar alguém preso
+   * numa tela que pede sessão que já não existe). O cookie `HttpOnly` não
+   * é algo que este código possa inspecionar; se a chamada realmente
+   * falhou, a PRÓXIMA requisição autenticada devolve `401` e a app reage
+   * do mesmo jeito que reage a qualquer sessão expirada.
+   */
+  const aoSair = useCallback(() => {
+    void sair().finally(() => {
+      setTemSessao(false)
+      setERevisor(false)
+      setCasoId('')
+      irPara({ tela: 'entrada' })
+    })
+  }, [irPara])
+
   // Sem caso na URL, a única tela possível é a de entrada — e ela não
   // depende de `CASO_ID`. `RF-58` diz que Início é o ponto de entrada do
   // aluno AUTENTICADO; antes disso, é o login.
@@ -349,7 +378,7 @@ export default function App() {
   // se a conta não puder. Negar por omissão era o lado seguro para o
   // ACESSO; mas quem nega acesso é o servidor, não esta linha.
   if (eTelaDaEquipe(rota) && eRevisor === false) {
-    return <RedirecionarAoInicio casoId={casoId} irPara={irPara} />
+    return <RedirecionarAoInicio casoId={casoId} irPara={irPara} aoSair={aoSair} />
   }
 
   // O espelho da guarda acima — `T-186`. Uma conta revisora não vê o fluxo
@@ -365,7 +394,7 @@ export default function App() {
   // (nunca `!== false`): enquanto o papel ainda não chegou (`null`), nada
   // se decide aqui — só quando o servidor já respondeu que é revisor.
   if (!eTelaDaEquipe(rota) && rota.tela !== 'entrada' && eRevisor === true) {
-    return <RedirecionarAFila irPara={irPara} />
+    return <RedirecionarAFila irPara={irPara} aoSair={aoSair} />
   }
 
   switch (rota.tela) {
@@ -398,7 +427,12 @@ export default function App() {
         return <TelaBoasVindas comecar={() => setBoasVindasVistas(true)} />
       }
       return (
-        <TelaInicio casoId={casoId} irPara={irPara} eRevisor={eRevisor === true} />
+        <TelaInicio
+          casoId={casoId}
+          irPara={irPara}
+          eRevisor={eRevisor === true}
+          aoSair={aoSair}
+        />
       )
     }
 
@@ -543,6 +577,7 @@ export default function App() {
         <TelaRevisao
           abrirCaso={(id) => irPara({ tela: 'equipe-caso', casoId: id })}
           abrirPainel={() => irPara({ tela: 'equipe-painel' })}
+          aoSair={aoSair}
         />
       )
 

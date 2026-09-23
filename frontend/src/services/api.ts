@@ -210,6 +210,28 @@ export function entrar(email: string, senha: string): Promise<Response> {
 }
 
 /**
+ * Encerra a sessão — `POST /conta/logout`, `RF-02`.
+ *
+ * **Não é `/api/conta/logout`.** Só existe a rota antiga
+ * (`rotas_conta.py`), herdada da versão Jinja2 — ela limpa a sessão do
+ * mesmo jeito, e criar uma cópia `/api/` só para isso seria uma segunda
+ * via fazendo a mesma coisa.
+ *
+ * `redirect: 'manual'`: aquela rota devolve um redirecionamento para
+ * `/conta/login`, a tela HTML que não existe mais nesta interface. Sem
+ * `manual`, `fetch` seguiria o redirecionamento e buscaria essa página à
+ * toa; o efeito que importa — a sessão limpa no servidor — já aconteceu
+ * antes do redirecionamento ser montado.
+ */
+export function sair(): Promise<void> {
+  return fetch('/conta/logout', {
+    method: 'POST',
+    credentials: 'include',
+    redirect: 'manual',
+  }).then(() => undefined)
+}
+
+/**
  * Define a senha a partir do token do link — `T-179`.
  *
  * Serve ao PRIMEIRO ACESSO (o aluno comprou, a conta nasceu sem senha) e à

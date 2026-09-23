@@ -60,9 +60,22 @@ interface TelaRevisaoProps {
    * segunda área da equipe precisa ficar a um clique.
    */
   abrirPainel?: () => void
+  /**
+   * Encerra a sessão — `T-188`.
+   *
+   * Mesma nota de `TelaInicio`: sem isto não havia caminho de sair pela
+   * interface para NINGUÉM, revisor incluído. Esta é a raiz da navegação
+   * dele (sem `voltar`), então é aqui que "sair" mora.
+   */
+  aoSair: () => void
 }
 
-export default function TelaRevisao({ voltar, abrirCaso, abrirPainel }: TelaRevisaoProps) {
+export default function TelaRevisao({
+  voltar,
+  abrirCaso,
+  abrirPainel,
+  aoSair,
+}: TelaRevisaoProps) {
   const [itens, setItens] = useState<ItemDaFila[]>([])
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -103,6 +116,9 @@ export default function TelaRevisao({ voltar, abrirCaso, abrirPainel }: TelaRevi
               Ver o painel da equipe
             </Botao>
           )}
+          <Botao variante="discreto" onClick={aoSair}>
+            Sair
+          </Botao>
         </>
       }
     >

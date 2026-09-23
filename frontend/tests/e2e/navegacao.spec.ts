@@ -149,10 +149,14 @@ for (const caso of FASES) {
     // "Ver e editar minhas respostas" entrou em T-160 e é consulta pelo mesmo
     // critério dos outros dois: não leva o caso a lugar nenhum novo, devolve
     // ao aluno o que ele já disse (`RF-68`). A escolha de fluxo segue uma só.
+    // "Sair" entrou em T-188 pelo mesmo critério: não é um passo do CASO,
+    // é uma ação de CONTA, presente em toda fase — nunca competindo com a
+    // próxima etapa.
     const CONSULTAS = [
       'Ver meu progresso',
       'Ver meu plano',
       'Ver e editar minhas respostas',
+      'Sair',
     ]
     const rotulosDoRodape = await page
       .locator('.acoes')
