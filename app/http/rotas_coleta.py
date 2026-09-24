@@ -102,6 +102,7 @@ REGRAS: `RF-05`, `RF-07`, `RF-09`, `RF-10`, `RF-11`, `RF-13`, `AC-02`, `AC-11`,
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from typing import Annotated, Final
 
@@ -109,9 +110,16 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.casos.maquina import ErroConsentimentoNaoRegistrado
-from app.casos.progresso import pendencias_obrigatorias
+from app.casos.progresso import (
+    PendenciaObrigatoria,
+    pendencias_obrigatorias,
+    posicao_na_ficha,
+    proxima_pergunta_nao_respondida,
+)
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
+from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
+from app.http.serializacao import serializar_pergunta
 from app.montagem.conversao import (
     ErroConversaoInvalida,
     converter_para_dinheiro,
@@ -545,6 +553,19 @@ def responder_pergunta(
         colecao.registros, respostas_apos_gravar, itens_por_escopo
     )
 
+    # `T-193`: a PRÓXIMA pergunta já sai nesta mesma resposta — mesmos dados
+    # de `respostas_apos_gravar`/`itens_por_escopo` que acabaram de ser
+    # buscados acima, nenhuma consulta nova ao banco. Sem isto, o cliente
+    # respondia e em seguida fazia um `GET /pergunta` só pra saber a
+    # próxima — uma viagem de rede inteira (com seu próprio check de sessão)
+    # por algo que o servidor já sabia neste exato momento. É a rota mais
+    # chamada do sistema (uma vez por resposta, até ~291 vezes por aluno);
+    # eliminar essa segunda viagem é o ganho, não uma segunda decisão de
+    # QUAL pergunta vem a seguir — quem decide continua sendo só o servidor
+    # (`RF-45`), com a MESMA função (`_primeira_exibivel`) que `GET
+    # /pergunta` usa.
+    proxima = _serializar_proxima(CASO_ID, colecao, respostas_apos_gravar, itens_por_escopo)
+
     # T-144: a resposta é sempre JSON — a tela é React. Os sete passos
     # acima correram idênticos ao que sempre correram; só a montagem da
     # resposta mudou de formato.
@@ -554,6 +575,7 @@ def responder_pergunta(
             "aviso": aviso.texto if aviso is not None else None,
             "avanco_permitido": not pendencias,
             "total_pendencias": len(pendencias),
+            "proxima": proxima,
         }
     )
 
@@ -574,6 +596,71 @@ def _itens_por_escopo(
     for item in itens_ativos:
         agrupado.setdefault(item.escopo, []).append(item.item_id)
     return {escopo: tuple(item_ids) for escopo, item_ids in agrupado.items()}
+
+
+def _primeira_exibivel(
+    colecao: ColecaoDeRegistros,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> tuple[RegistroPergunta, PendenciaObrigatoria] | None:
+    """`EC-24` — a primeira pendência cuja pergunta é de fato EXIBÍVEL.
+
+    Vive aqui (não em `rotas_pergunta.py`, que a importa) por `T-193`:
+    `responder_pergunta`, abaixo, reusa esta mesma função pra devolver a
+    PRÓXIMA pergunta já dentro da resposta do `POST` — reaproveitando os
+    dados que a gravação já buscou em paralelo, sem nova consulta. Import
+    de `rotas_pergunta.py` pra cá criaria ciclo (aquele módulo já importa
+    `_itens_por_escopo` e os pontos de injeção daqui); o caminho natural é
+    o mesmo desta função original.
+
+    `proxima_pergunta_nao_respondida` (T-45) já exclui pergunta cuja
+    condição não vale, mas quem levanta `ErroPerguntaNaoExibivel` é
+    `montar_contexto_pergunta` — e é ele a autoridade, porque é a mesma
+    `avaliar` usada na gravação. Varrer aqui as pendências EM ORDEM e parar
+    na primeira que monta contexto sem erro mantém as duas leituras
+    coerentes sem reimplementar nenhuma delas.
+
+    Devolve `None` quando não há mais pendência exibível — coleta completa
+    do ponto de vista do grafo condicional corrente (`EC-23`)."""
+    pendencia = proxima_pergunta_nao_respondida(colecao.registros, respostas, itens_por_escopo)
+    if pendencia is None:
+        return None
+
+    registro = _localizar_registro(colecao, pendencia.ID)
+    try:
+        montar_contexto_pergunta(registro, respostas, item_id=pendencia.item_id)
+    except ErroPerguntaNaoExibivel:
+        return None
+    return registro, pendencia
+
+
+def _serializar_proxima(
+    CASO_ID: str,
+    colecao: ColecaoDeRegistros,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> dict[str, object]:
+    """`T-193` — o mesmo formato que `GET /caso/{CASO_ID}/pergunta` devolve
+    (`rotas_pergunta.py::_renderizar_pergunta`), montado aqui pra ir junto
+    da resposta do `POST` — o cliente deixa de precisar pedir de novo algo
+    que o servidor já sabia no mesmo instante."""
+    encontrada = _primeira_exibivel(colecao, respostas, itens_por_escopo)
+    if encontrada is None:
+        return {"pergunta": None, "coleta_completa": True}
+
+    registro, pendencia = encontrada
+    contexto = montar_contexto_pergunta(registro, respostas, item_id=pendencia.item_id)
+    posicao = posicao_na_ficha(registro, colecao.registros, respostas)
+    return {
+        "pergunta": serializar_pergunta(
+            contexto,
+            CASO_ID=CASO_ID,
+            item_id=pendencia.item_id,
+            posicao=posicao.posicao if posicao is not None else None,
+            total_na_ficha=posicao.total_na_ficha if posicao is not None else None,
+        ),
+        "coleta_completa": False,
+    }
 
 
 def _respostas_com_valor_provisorio(

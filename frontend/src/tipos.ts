@@ -79,12 +79,25 @@ export interface ListaDeFichas {
   fichas: Ficha[]
 }
 
+/**
+ * A PRÓXIMA pergunta, já dentro da confirmação de gravação — `T-193`.
+ *
+ * Mesmo formato que `RespostaPergunta` devolveria num `GET /pergunta` à
+ * parte, só que sem precisar dessa segunda viagem: o servidor já sabia a
+ * resposta no mesmo instante em que confirmou a gravação.
+ */
+export interface ProximaPergunta {
+  pergunta: Pergunta | null
+  coleta_completa: boolean
+}
+
 /** O que `POST /caso/{id}/resposta` devolve quando se pede JSON. */
 export interface ConfirmacaoDeResposta {
   ID_PERGUNTA: string
   aviso: string | null
   avanco_permitido: boolean
   total_pendencias: number
+  proxima: ProximaPergunta
 }
 
 /** Erro tipado da API — o servidor sempre nomeia o motivo. */

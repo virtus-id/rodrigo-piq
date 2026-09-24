@@ -45,17 +45,13 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from app.casos.progresso import (
-    PendenciaObrigatoria,
-    pendencias_obrigatorias,
-    posicao_na_ficha,
-    proxima_pergunta_nao_respondida,
-)
+from app.casos.progresso import pendencias_obrigatorias, posicao_na_ficha
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
     _itens_por_escopo,
+    _primeira_exibivel,
     obter_colecao_de_registros,
     obter_repositorio_itens,
     obter_repositorio_respostas,
@@ -101,34 +97,6 @@ def _localizar_registro(colecao: ColecaoDeRegistros, id_pergunta: str) -> Regist
         if registro.ID == id_pergunta:
             return registro
     raise ErroPerguntaDesconhecida(id_pergunta)
-
-
-def _primeira_exibivel(
-    colecao: ColecaoDeRegistros,
-    respostas: RespostasCaso,
-    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
-) -> tuple[RegistroPergunta, PendenciaObrigatoria] | None:
-    """`EC-24` — a primeira pendência cuja pergunta é de fato EXIBÍVEL.
-
-    `proxima_pergunta_nao_respondida` (T-45) já exclui pergunta cuja
-    condição não vale, mas quem levanta `ErroPerguntaNaoExibivel` é
-    `montar_contexto_pergunta` — e é ele a autoridade, porque é a mesma
-    `avaliar` usada na gravação. Varrer aqui as pendências EM ORDEM e parar
-    na primeira que monta contexto sem erro mantém as duas leituras
-    coerentes sem reimplementar nenhuma delas.
-
-    Devolve `None` quando não há mais pendência exibível — coleta completa
-    do ponto de vista do grafo condicional corrente (`EC-23`)."""
-    pendencia = proxima_pergunta_nao_respondida(colecao.registros, respostas, itens_por_escopo)
-    if pendencia is None:
-        return None
-
-    registro = _localizar_registro(colecao, pendencia.ID)
-    try:
-        montar_contexto_pergunta(registro, respostas, item_id=pendencia.item_id)
-    except ErroPerguntaNaoExibivel:
-        return None
-    return registro, pendencia
 
 
 @roteador.get("/{CASO_ID}/pergunta", response_class=HTMLResponse)

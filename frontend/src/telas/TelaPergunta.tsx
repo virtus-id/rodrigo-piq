@@ -232,44 +232,6 @@ export default function TelaPergunta({
     }
   }, [casoId, idPergunta, itemId, onColetaCompleta])
 
-  /**
-   * A PRÓXIMA pendente, ignorando o `idPergunta` da rota — `T-175`.
-   *
-   * **Por que não dá para reusar `carregar`.** Ela relê o que a ROTA pede, e
-   * na retomada a rota carrega um `idPergunta` (o Início repassa o
-   * `ID_PERGUNTA` que `/inicio` devolveu). Depois de gravar, reler a rota
-   * significa reler a MESMA pergunta — o aluno responde, grava, e a pergunta
-   * volta, para sempre. A coleta não avançava pelo caminho que o produto
-   * oferece.
-   *
-   * Quem decide qual é a próxima continua sendo o servidor (`RF-45`); esta
-   * função só deixa de impor a pergunta da rota depois que ela já foi
-   * respondida.
-   */
-  const carregarProxima = useCallback(async () => {
-    setCarregando(true)
-    setErro(null)
-    try {
-      const dados = await obterProximaPergunta(casoId)
-      if (!dados.pergunta) {
-        onColetaCompleta()
-        return
-      }
-      setPergunta(dados.pergunta)
-      setPendencias(dados.total_pendencias ?? 0)
-      setValor(
-        dados.pergunta.valores_marcados.length > 0
-          ? dados.pergunta.valores_marcados
-          : ((dados.pergunta.valor_atual as string) ?? ''),
-      )
-      setNaoSei(dados.pergunta.respondida_como_nao_sei)
-    } catch {
-      setErro('Não foi possível carregar a pergunta.')
-    } finally {
-      setCarregando(false)
-    }
-  }, [casoId, onColetaCompleta])
-
   useEffect(() => {
     void carregar()
   }, [carregar])
@@ -305,7 +267,7 @@ export default function TelaPergunta({
     setGravando(true)
     setErro(null)
     try {
-      await gravarResposta(casoId, {
+      const confirmacao = await gravarResposta(casoId, {
         idPergunta: pergunta.ID,
         valor: naoSei ? undefined : valor,
         itemId: pergunta.item_id,
@@ -318,10 +280,26 @@ export default function TelaPergunta({
         aoCorrigir()
         return
       }
-      // `T-175`: a PRÓXIMA pendente, nunca a mesma de novo. `carregar()`
-      // releria o `idPergunta` da rota — que na retomada ainda aponta para
-      // a pergunta que acabou de ser respondida.
-      await carregarProxima()
+      // `T-193`: a PRÓXIMA pendente (`T-175`: nunca a mesma de novo) já veio
+      // dentro da confirmação de gravação — o servidor já sabia qual era no
+      // mesmo instante em que confirmou o `POST`. Sem isto, uma segunda
+      // requisição (`GET /pergunta`, com seu próprio check de sessão) pedia
+      // de volta algo que o servidor tinha acabado de calcular. Quem decide
+      // continua sendo só o servidor (`RF-45`) — isto só para de pedir duas
+      // vezes.
+      if (!confirmacao.proxima.pergunta) {
+        onColetaCompleta()
+        return
+      }
+      const proxima = confirmacao.proxima.pergunta
+      setPergunta(proxima)
+      setPendencias(confirmacao.total_pendencias)
+      setValor(
+        proxima.valores_marcados.length > 0
+          ? proxima.valores_marcados
+          : ((proxima.valor_atual as string) ?? ''),
+      )
+      setNaoSei(proxima.respondida_como_nao_sei)
     } catch (falha) {
       // `AC-104`: a recusa do servidor (`EC-01`/`EC-02`) chega nomeada —
       // mostramos o que ele disse, nunca uma mensagem inventada aqui.
