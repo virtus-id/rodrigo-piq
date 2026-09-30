@@ -213,12 +213,16 @@ class RepositorioRespostasArquivo(RepositorioRespostas):
         self,
         caminho_arquivo: Path | None = None,
         repositorio_casos: RepositorioCasosArquivo | None = None,
+        repositorio_itens: RepositorioItensArquivo | None = None,
     ) -> None:
         self._caminho_arquivo = caminho_arquivo or Path(_NOME_ARQUIVO_RESPOSTAS)
         # T-91 (RF-31/EC-14): opcional, default None — ver a nota extensa do
         # módulo sobre por que esta extensão é aditiva e não quebra nenhum
         # uso pré-existente que instancia este adaptador sem ele.
         self._repositorio_casos = repositorio_casos
+        # T-217: com ele, `listar_do_caso` omite as respostas de item
+        # removido — o `NOT EXISTS` do adaptador Postgres. Aditivo, idem.
+        self._repositorio_itens = repositorio_itens
 
     def gravar(self, resposta: Resposta) -> None:
         """`EC-10`: a linha nova é sempre ANEXADA (nunca reescreve as
@@ -265,7 +269,20 @@ class RepositorioRespostasArquivo(RepositorioRespostas):
             chave = (linha["ID_PERGUNTA"], linha["item_id"])
             ultima_por_chave[chave] = linha
 
-        return tuple(_linha_para_resposta(linha) for linha in ultima_por_chave.values())
+        removidos = (
+            {
+                item.item_id
+                for item in self._repositorio_itens.listar_do_caso(caso_id)
+                if item.removido_em is not None
+            }
+            if self._repositorio_itens is not None
+            else set()
+        )
+        return tuple(
+            _linha_para_resposta(linha)
+            for linha in ultima_por_chave.values()
+            if linha["item_id"] not in removidos
+        )
 
     def listar_de_varios_casos(
         self, caso_ids: tuple[str, ...]
@@ -533,7 +550,9 @@ class RepositorioItensArquivo(RepositorioItens):
         self._caminho_arquivo = caminho_arquivo or Path(_NOME_ARQUIVO_ITENS)
         self._lock = threading.Lock()
 
-    def proximo_identificador(self, CASO_ID: str, escopo: EscopoRepeticao) -> str:
+    def proximo_identificador(
+        self, CASO_ID: str, escopo: EscopoRepeticao, origem: str | None = None
+    ) -> str:
         prefixo = PREFIXO_POR_ESCOPO.get(escopo)
         if prefixo is None:
             raise erro_escopo_sem_item(escopo)
@@ -561,6 +580,7 @@ class RepositorioItensArquivo(RepositorioItens):
                 "escopo": escopo.value,
                 "removido_em": None,
                 "criado_em": agora.isoformat(),
+                "origem": origem,
             }
             try:
                 _anexar_linha(self._caminho_arquivo, registro)
@@ -589,18 +609,27 @@ class RepositorioItensArquivo(RepositorioItens):
                 # silencioso) — aqui, sem linha de criação, não há o que
                 # marcar; não é erro, só não produz efeito observável.
                 return
-            escopo = linhas_do_item[-1]["escopo"]
-            registro = {
-                "item_id": item_id,
-                "CASO_ID": caso_id,
-                "escopo": escopo,
-                "removido_em": instante.isoformat(),
-                "criado_em": linhas_do_item[0]["criado_em"],
-            }
+            registro = {**linhas_do_item[-1], "removido_em": instante.isoformat()}
             try:
                 _anexar_linha(self._caminho_arquivo, registro)
             except OSError as erro:
                 raise ErroGravacaoItem(f"falha ao remover item_id={item_id!r}: {erro}") from erro
+
+    def nomear(self, caso_id: str, item_id: str, nome: str) -> None:
+        """`T-217` — anexa o último estado do item com o `nome` novo; mesma
+        leitura "última linha por `item_id`" de `listar_do_caso`."""
+        with self._lock:
+            linhas_do_item = [
+                linha
+                for linha in _ler_linhas(self._caminho_arquivo)
+                if linha["CASO_ID"] == caso_id and linha["item_id"] == item_id
+            ]
+            if not linhas_do_item:
+                return
+            try:
+                _anexar_linha(self._caminho_arquivo, {**linhas_do_item[-1], "nome": nome})
+            except OSError as erro:
+                raise ErroGravacaoItem(f"falha ao nomear item_id={item_id!r}: {erro}") from erro
 
     def listar_do_caso(
         self, caso_id: str, *, incluir_removidos: bool = True
@@ -643,6 +672,8 @@ def _linha_para_item(linha: dict[str, Any]) -> ItemRepetido:
         if removido_em is not None
         else None,
         criado_em=_como_utc(datetime.fromisoformat(linha["criado_em"])),
+        origem=linha.get("origem"),
+        nome=linha.get("nome"),
     )
 
 

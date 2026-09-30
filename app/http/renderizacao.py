@@ -94,6 +94,7 @@ def montar_contexto_pergunta(
     item_id: str | None = None,
     snapshot: SnapshotOrdem | None = None,
     aviso: AvisoMaterialidade | None = None,
+    rotulo_do_item: str | None = None,
 ) -> ContextoPergunta:
     """Resolve tudo que o template precisa a partir do registro + respostas
     já dadas + snapshot opcional do caso (T-14).
@@ -101,18 +102,20 @@ def montar_contexto_pergunta(
     `item_id` é o identificador do item corrente, para pergunta `REP`
     (`escopo_repeticao != NENHUM`) — usado tanto para ler o valor já
     respondido NAQUELE item quanto como `ContextoItem.item_id` da
-    interpolação (`[Dxxx]` em `B11.Q01`, RF-06/AC-05).
+    interpolação (`[Dxxx]` em `B11.Q01`, RF-06/AC-05). `rotulo_do_item`
+    (`T-217`) é o nome do item para o aluno, quando ele tem um.
 
     Levanta `ErroPerguntaNaoExibivel` quando `condicao_exibicao` do registro
     avalia como falsa — a MESMA função `avaliar` de `collection/condicoes.py`
-    usada pela rota de gravação (T-42), nunca uma segunda implementação."""
+    usada pela rota de gravação (T-42), nunca uma segunda implementação —
+    avaliada no `item_id` corrente (`T-199`)."""
     if registro.condicao_exibicao is not None and not avaliar(
-        registro.condicao_exibicao, respostas
+        registro.condicao_exibicao, respostas, item_id
     ):
         raise ErroPerguntaNaoExibivel(registro.ID)
 
     contexto_interpolacao = ContextoItem(
-        item_id=item_id, respostas=respostas, snapshot=snapshot
+        item_id=item_id, respostas=respostas, snapshot=snapshot, rotulo_do_item=rotulo_do_item
     )
     enunciado = interpolar(registro.enunciado, registro.interpolacoes, contexto_interpolacao)
     opcoes = opcoes_efetivas(registro, snapshot)

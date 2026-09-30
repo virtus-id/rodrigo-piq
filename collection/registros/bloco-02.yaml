@@ -137,14 +137,14 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Pix, valor_interno: null}
-      - {rotulo: Cartão de crédito, valor_interno: null}
-      - {rotulo: Cartão de débito, valor_interno: null}
-      - {rotulo: Dinheiro, valor_interno: null}
-      - {rotulo: Débito automático, valor_interno: null}
-      - {rotulo: Transferências, valor_interno: null}
-      - {rotulo: Compras parceladas, valor_interno: null}
-      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Pix, valor_interno: PIX}
+      - {rotulo: Cartão de crédito, valor_interno: CARTAO_DE_CREDITO}
+      - {rotulo: Cartão de débito, valor_interno: CARTAO_DE_DEBITO}
+      - {rotulo: Dinheiro, valor_interno: DINHEIRO}
+      - {rotulo: Débito automático, valor_interno: DEBITO_AUTOMATICO}
+      - {rotulo: Transferências, valor_interno: TRANSFERENCIAS}
+      - {rotulo: Compras parceladas, valor_interno: COMPRAS_PARCELADAS}
+      - {rotulo: Outra, valor_interno: OUTRA}
     VARIAVEL_GRAVADA: MEIOS_PAGAMENTO_FORA_CONTROLE
     condicao_exibicao:
       tipo: OU

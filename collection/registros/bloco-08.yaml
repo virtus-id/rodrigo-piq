@@ -259,8 +259,8 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "R$ ___ por mês", valor_interno: null }
-      - { rotulo: "R$ ___ total", valor_interno: null }
+      - { rotulo: "R$ ___ por mês", valor_interno: MENSAL }
+      - { rotulo: "R$ ___ total", valor_interno: TOTAL }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: NOVO_SEGURO
     condicao_exibicao:
@@ -319,12 +319,12 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Imóvel", valor_interno: null }
-      - { rotulo: "Veículo", valor_interno: null }
-      - { rotulo: "Investimento", valor_interno: null }
-      - { rotulo: "Outro bem", valor_interno: null }
-      - { rotulo: "Aval/fiança", valor_interno: null }
-      - { rotulo: "Outra", valor_interno: null }
+      - { rotulo: "Imóvel", valor_interno: IMOVEL }
+      - { rotulo: "Veículo", valor_interno: VEICULO }
+      - { rotulo: "Investimento", valor_interno: INVESTIMENTO }
+      - { rotulo: "Outro bem", valor_interno: OUTRO_BEM }
+      - { rotulo: "Aval/fiança", valor_interno: AVAL_FIANCA }
+      - { rotulo: "Outra", valor_interno: OUTRA }
     VARIAVEL_GRAVADA: NOVA_GARANTIA
     condicao_exibicao:
       tipo: IGUAL
@@ -365,8 +365,8 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Data", valor_interno: null }
-      - { rotulo: "Não informado", valor_interno: null }
+      - { rotulo: "Data", valor_interno: DATA, abre_campo: DATA }
+      - { rotulo: "Não informado", valor_interno: NAO_INFORMADO }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: "DATA_VALIDADE_PROPOSTA (troca) → STATUS_VALIDADE_PROPOSTA"
     condicao_exibicao: *condicao_status_troca_proposta_recebida
@@ -383,12 +383,12 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Documento formal", valor_interno: null }
-      - { rotulo: "Aplicativo/internet banking", valor_interno: null }
-      - { rotulo: "Simulação fornecida pela instituição", valor_interno: null }
-      - { rotulo: "Atendimento", valor_interno: null }
-      - { rotulo: "Correspondente", valor_interno: null }
-      - { rotulo: "Outra fonte", valor_interno: null }
+      - { rotulo: "Documento formal", valor_interno: DOCUMENTO_FORMAL }
+      - { rotulo: "Aplicativo/internet banking", valor_interno: APLICATIVO_INTERNET_BANKING }
+      - { rotulo: "Simulação fornecida pela instituição", valor_interno: SIMULACAO_FORNECIDA_PELA_INSTITUICAO }
+      - { rotulo: "Atendimento", valor_interno: ATENDIMENTO }
+      - { rotulo: "Correspondente", valor_interno: CORRESPONDENTE }
+      - { rotulo: "Outra fonte", valor_interno: OUTRA_FONTE }
     VARIAVEL_GRAVADA: "FONTE_DADO (troca)"
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []

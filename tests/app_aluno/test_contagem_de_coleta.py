@@ -59,13 +59,13 @@ from collection.respostas import Resposta, RespostasCaso
 _VARIAVEL_QUE_ABRE: Final[str] = "OBRIGACAO_FUTURA_INEVITAVEL"
 _IDS_ABERTOS_PELA_CONDICAO: Final[tuple[str, ...]] = ("B1.06A", "B1.06B", "B1.06C")
 
-# `B7.13A` é o caso real da divergência deliberada: `obrigatoriedade=[COND]`
-# (sem `REP`) com `escopo_repeticao=DIVIDA_ID`. Ver
+# `B3.S02` é o caso real da divergência deliberada: `obrigatoriedade=[COND]`
+# (sem `REP`) com `escopo_repeticao=VINCULO_ID`. Ver
 # `_percorrer_ocorrencias`: ali `REP` qualificaria "obrigatório por item", e
 # a retomada precisa oferecer toda pergunta que o aluno de fato VERIA por
-# item, inclusive as só `COND`.
-_ID_CONDICIONAL_POR_ITEM_SEM_REP: Final[str] = "B7.13A"
-_VARIAVEL_QUE_ABRE_B7_13A: Final[str] = "PROPOSTA_DESCONTO_EXISTE"
+# item, inclusive as só `COND`. Era `B7.13A` até `T-200` tirar o Bloco 7 da
+# coleta inicial; `B3.S02` abre sem resposta nenhuma (`NAO(... == NAO)`).
+_ID_CONDICIONAL_POR_ITEM_SEM_REP: Final[str] = "B3.S02"
 
 # `B1.03A` é a ÚNICA pergunta `OPT` pura dos 247 registros reais (as demais
 # combinações são `OBR`, `COND`, `REP` e `COND`+`REP`). Ela é condicional,
@@ -143,22 +143,31 @@ def _contar_por_fora(
     respondidas = 0
     total = 0
 
+    def aberta(registro: RegistroPergunta, item_id: str | None) -> bool:
+        return registro.condicao_exibicao is None or avaliar(
+            registro.condicao_exibicao, respostas, item_id
+        )
+
     for registro in registros:
-        if registro.condicao_exibicao is not None and not avaliar(
-            registro.condicao_exibicao, respostas
-        ):
+        # `T-200`: Blocos 7, 8, 10 e 11 não são da coleta inicial.
+        if registro.bloco in {7, 8, 10, 11}:
             continue
 
         variavel = registro.VARIAVEL_GRAVADA
         assert variavel is not None, f"{registro.ID} sem variável gravada"
 
         if registro.escopo_repeticao != EscopoRepeticao.NENHUM:
+            # `T-199`: a condição de ficha é avaliada em cada item.
             for item_id in itens_por_escopo.get(registro.escopo_repeticao, ()):
+                if not aberta(registro, item_id):
+                    continue
                 total += 1
                 if respostas.valor_no_item(item_id, variavel) is not None:
                     respondidas += 1
             continue
 
+        if not aberta(registro, None):
+            continue
         total += 1
         if respostas.valor(variavel) is not None:
             respondidas += 1
@@ -443,12 +452,12 @@ def test_ac11_pendencia_obrigatoria_continua_devolvendo_so_os_obr() -> None:
 def test_ac01_ac11_condicional_por_item_sem_rep_e_vista_so_pela_retomada() -> None:
     """A DIVERGÊNCIA DELIBERADA, preservada pelo gerador parametrizado.
 
-    `B7.13A` é real: `obrigatoriedade=[COND]` (**sem** `REP`) com
-    `escopo_repeticao=DIVIDA_ID`. Com a condição aberta e duas dívidas
-    ativas:
+    `B3.S02` é real: `obrigatoriedade=[COND]` (**sem** `REP`) com
+    `escopo_repeticao=VINCULO_ID`. Com a condição aberta e dois vínculos
+    ativos:
 
     - a **retomada** (`AC-01`) a oferece por item — o aluno de fato veria a
-      pergunta na ficha de `D001`;
+      pergunta na ficha de `V001`;
     - a **pendência bloqueante** (`AC-11`) não a devolve — ela não é
       obrigatória por item, e não deve travar o avanço.
 
@@ -456,31 +465,27 @@ def test_ac01_ac11_condicional_por_item_sem_rep_e_vista_so_pela_retomada() -> No
     uma das duas. É este teste que segura o refactor."""
     registro = _registro_real(_ID_CONDICIONAL_POR_ITEM_SEM_REP)
     assert Obrigatoriedade.REP not in registro.obrigatoriedade
-    assert registro.escopo_repeticao is EscopoRepeticao.DIVIDA_ID
+    assert registro.escopo_repeticao is EscopoRepeticao.VINCULO_ID
 
-    respostas = RespostasCaso(
-        respostas=(_resposta(_VARIAVEL_QUE_ABRE_B7_13A, "SIM"),)
-    )
-    itens = {EscopoRepeticao.DIVIDA_ID: ("D001", "D002")}
+    respostas = RespostasCaso(respostas=())
+    itens = {EscopoRepeticao.VINCULO_ID: ("V001", "V002")}
 
     retomada = proxima_pergunta_nao_respondida((registro,), respostas, itens)
     pendencias = pendencias_obrigatorias((registro,), respostas, itens)
 
-    assert retomada == PendenciaObrigatoria(ID="B7.13A", item_id="D001")
+    assert retomada == PendenciaObrigatoria(ID="B3.S02", item_id="V001")
     assert pendencias == ()
 
 
 def test_rf62_barra_conta_a_condicional_por_item_sem_rep_em_cada_item() -> None:
     """`RF-62` — a barra usa os predicados da RETOMADA, então ela conta a
-    mesma `B7.13A` uma vez por dívida ativa. É o que garante que "continuar
+    mesma `B3.S02` uma vez por vínculo ativo. É o que garante que "continuar
     de onde parei" aponte sempre para dentro do que a barra está medindo."""
     registro = _registro_real(_ID_CONDICIONAL_POR_ITEM_SEM_REP)
-    respostas = RespostasCaso(
-        respostas=(_resposta(_VARIAVEL_QUE_ABRE_B7_13A, "SIM"),)
-    )
+    respostas = RespostasCaso(respostas=())
 
     contagem = contar_coleta(
-        (registro,), respostas, {EscopoRepeticao.DIVIDA_ID: ("D001", "D002")}
+        (registro,), respostas, {EscopoRepeticao.VINCULO_ID: ("V001", "V002")}
     )
 
     assert contagem == ContagemDeColeta(respondidas=0, faltam=2, total=2)
@@ -491,9 +496,7 @@ def test_rf62_sem_item_ativo_a_pergunta_por_item_nao_entra_no_total() -> None:
     pergunta por item não é contada. Nunca se inventa item (mesma convenção
     de `pendencias_obrigatorias`)."""
     registro = _registro_real(_ID_CONDICIONAL_POR_ITEM_SEM_REP)
-    respostas = RespostasCaso(
-        respostas=(_resposta(_VARIAVEL_QUE_ABRE_B7_13A, "SIM"),)
-    )
+    respostas = RespostasCaso(respostas=())
 
     contagem = contar_coleta((registro,), respostas)
 

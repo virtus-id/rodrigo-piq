@@ -66,6 +66,11 @@ interface TelaPerguntaProps {
   aoCorrigir?: () => void
   /** Abre outra pergunta — o caminho para a anterior (`RF-70`, `AC-105`). */
   abrirPergunta?: (idPergunta: string, itemId: string | null) => void
+  /**
+   * Abre a lista de fichas que a resposta acabou de abrir (`T-212`) — ex.:
+   * "Sim" em `B3.03`. Os escopos vêm do servidor, na ordem do registro.
+   */
+  onAbrirFichas?: (escopos: string[]) => void
 }
 
 /**
@@ -159,7 +164,24 @@ function localizador(pergunta: Pergunta, pendencias: number): string {
     const item = pergunta.item_id ? `${rotuloDoItem(pergunta.item_id)} · ` : ''
     return `${item}pergunta ${pergunta.posicao} de ${pergunta.total_na_ficha}`
   }
-  return `Bloco ${pergunta.bloco} · ${pendencias} pendência${pendencias === 1 ? '' : 's'}`
+  // `T-206`: o total é GLOBAL (todas as obrigatórias em branco), não do
+  // bloco — o rótulo diz o que o número conta (`RF-65`, `AC-96`).
+  const obrigatorias = pendencias === 1 ? 'obrigatória restante' : 'obrigatórias restantes'
+  return `Bloco ${pergunta.bloco} · no total, ${pendencias} ${obrigatorias}`
+}
+
+/**
+ * O valor com que a pergunta reabre (`AC-01`, `AC-102`).
+ *
+ * `T-204`: `ESCALA_0_10`/`NUMERO` chegam como `int` do servidor, apesar do
+ * tipo; `String` normaliza, senão `"7" === 7` falha e a nota salva não
+ * aparece marcada.
+ */
+function valorInicial(pergunta: Pergunta): string | string[] {
+  if (pergunta.valores_marcados.length > 0) return pergunta.valores_marcados
+  const atual = pergunta.valor_atual
+  if (atual === null) return ''
+  return Array.isArray(atual) ? atual : String(atual)
 }
 
 /** O avanço dentro da ficha, em pontos percentuais. `null` fora de ficha. */
@@ -177,6 +199,7 @@ export default function TelaPergunta({
   itemId,
   aoCorrigir,
   abrirPergunta,
+  onAbrirFichas,
 }: TelaPerguntaProps) {
   const [pergunta, setPergunta] = useState<Pergunta | null>(null)
   const [pendencias, setPendencias] = useState(0)
@@ -213,7 +236,7 @@ export default function TelaPergunta({
       // coleta de sempre e continua decidida pelo servidor (`RF-45`).
       const dados = idPergunta
         ? await obterPergunta(casoId, idPergunta, itemId)
-        : await obterProximaPergunta(casoId)
+        : await obterProximaPergunta(casoId, itemId)
       if (!dados.pergunta) {
         onColetaCompleta()
         return
@@ -221,9 +244,7 @@ export default function TelaPergunta({
       setPergunta(dados.pergunta)
       setPendencias(dados.total_pendencias ?? 0)
       // Reabre com o valor já respondido, quando houver (`AC-01`, `AC-102`).
-      setValor(dados.pergunta.valores_marcados.length > 0
-        ? dados.pergunta.valores_marcados
-        : (dados.pergunta.valor_atual as string) ?? '')
+      setValor(valorInicial(dados.pergunta))
       setNaoSei(dados.pergunta.respondida_como_nao_sei)
     } catch {
       setErro('Não foi possível carregar a pergunta.')
@@ -280,6 +301,12 @@ export default function TelaPergunta({
         aoCorrigir()
         return
       }
+      // `T-212`: sem ficha criada, o servidor não tem pergunta daquele
+      // escopo a oferecer — o aluno vai à lista criar a primeira.
+      if (onAbrirFichas && confirmacao.abrir_fichas.length) {
+        onAbrirFichas(confirmacao.abrir_fichas)
+        return
+      }
       // `T-193`: a PRÓXIMA pendente (`T-175`: nunca a mesma de novo) já veio
       // dentro da confirmação de gravação — o servidor já sabia qual era no
       // mesmo instante em que confirmou o `POST`. Sem isto, uma segunda
@@ -294,11 +321,7 @@ export default function TelaPergunta({
       const proxima = confirmacao.proxima.pergunta
       setPergunta(proxima)
       setPendencias(confirmacao.total_pendencias)
-      setValor(
-        proxima.valores_marcados.length > 0
-          ? proxima.valores_marcados
-          : ((proxima.valor_atual as string) ?? ''),
-      )
+      setValor(valorInicial(proxima))
       setNaoSei(proxima.respondida_como_nao_sei)
     } catch (falha) {
       // `AC-104`: a recusa do servidor (`EC-01`/`EC-02`) chega nomeada —

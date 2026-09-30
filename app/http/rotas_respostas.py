@@ -33,9 +33,9 @@ from fastapi.responses import JSONResponse
 
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
-from app.http.renderizacao import montar_contexto_pergunta
+from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
-    _itens_por_escopo,
+    _itens_e_rotulos,
     obter_colecao_de_registros,
     obter_repositorio_itens,
     obter_repositorio_respostas,
@@ -83,15 +83,25 @@ def _serializar_resposta_dada(
     registro: RegistroPergunta,
     respostas: RespostasCaso,
     item_id: str | None,
-) -> dict[str, Any]:
+    rotulo_do_item: str | None = None,
+) -> dict[str, Any] | None:
     """Uma linha da revisão: a pergunta **e o que o aluno respondeu**.
 
     O `rotulo_do_valor` é o texto que ele escolheu, não o `valor_interno`:
     quem respondeu "Empréstimo consignado" precisa reler "Empréstimo
     consignado", nunca `CONSIGNADO`. `montar_contexto_pergunta` já resolve
     essa tradução para a tela de pergunta — reusá-la aqui é o que garante que
-    a revisão e a coleta digam a mesma coisa sobre a mesma resposta."""
-    contexto = montar_contexto_pergunta(registro, respostas, item_id=item_id)
+    a revisão e a coleta digam a mesma coisa sobre a mesma resposta.
+
+    `None` quando a condição da pergunta fechou depois da resposta (`T-198`,
+    `EC-24`): a resposta continua gravada, mas deixa de ser listada — a mesma
+    disciplina de `_campos_da_ficha`."""
+    try:
+        contexto = montar_contexto_pergunta(
+            registro, respostas, item_id=item_id, rotulo_do_item=rotulo_do_item
+        )
+    except ErroPerguntaNaoExibivel:
+        return None
 
     rotulos = [
         opcao.rotulo
@@ -136,9 +146,9 @@ def respostas_do_caso(
     `D001` e a da `D002` são respostas diferentes à mesma pergunta, e juntá-las
     esconderia qual valor é de qual dívida."""
     # Duas consultas independentes em paralelo — `T-191`.
-    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+    respostas_brutas, (itens_por_escopo, rotulos) = duas_em_paralelo(
         lambda: repositorio_respostas.listar_do_caso(CASO_ID),
-        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+        lambda: _itens_e_rotulos(repositorio_itens, CASO_ID, colecao),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
 
@@ -150,13 +160,17 @@ def respostas_do_caso(
         for registro in do_bloco:
             if registro.escopo_repeticao != EscopoRepeticao.NENHUM:
                 for item_id in itens_por_escopo.get(registro.escopo_repeticao, ()):
-                    if _respondida(registro, respostas, item_id):
-                        linhas.append(
-                            _serializar_resposta_dada(registro, respostas, item_id)
+                    if _respondida(registro, respostas, item_id) and (
+                        linha := _serializar_resposta_dada(
+                            registro, respostas, item_id, rotulos.get(item_id)
                         )
+                    ):
+                        linhas.append(linha)
                 continue
-            if _respondida(registro, respostas, None):
-                linhas.append(_serializar_resposta_dada(registro, respostas, None))
+            if _respondida(registro, respostas, None) and (
+                linha := _serializar_resposta_dada(registro, respostas, None)
+            ):
+                linhas.append(linha)
 
         partes.append(
             {

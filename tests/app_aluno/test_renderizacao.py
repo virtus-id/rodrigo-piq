@@ -144,8 +144,18 @@ def test_ac1_rotulos_de_opcao_do_payload_vem_do_registro() -> None:
     payload = _serializar(ctx)
 
     assert payload["opcoes"] == [
-        {"rotulo": "Rótulo da opção A", "valor_interno": "OPCAO_A", "admite_nao_sei": False},
-        {"rotulo": "Rótulo da opção B", "valor_interno": "OPCAO_B", "admite_nao_sei": False},
+        {
+            "rotulo": "Rótulo da opção A",
+            "valor_interno": "OPCAO_A",
+            "admite_nao_sei": False,
+            "abre_campo": None,
+        },
+        {
+            "rotulo": "Rótulo da opção B",
+            "valor_interno": "OPCAO_B",
+            "admite_nao_sei": False,
+            "abre_campo": None,
+        },
     ]
 
 

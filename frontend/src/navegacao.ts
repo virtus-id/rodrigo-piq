@@ -36,7 +36,13 @@ export type Rota =
   | { tela: 'consentimento' }
   | { tela: 'inicio' }
   | { tela: 'progresso' }
-  | { tela: 'fichas' }
+  /**
+   * A lista de fichas de um escopo repetível (`T-212`). Sem `escopo`, as
+   * dívidas (`DIVIDA_ID`), como sempre foi `#fichas`. `seguintes` são os
+   * escopos que a mesma resposta abriu (ex.: vínculo e margem): "Continuar"
+   * passa por eles antes de voltar à coleta.
+   */
+  | { tela: 'fichas'; escopo?: string; seguintes?: string[] }
   /**
    * "Minhas respostas" — a revisão do que já foi dito (`RF-68`, T-160).
    *
@@ -118,9 +124,15 @@ export function rotaParaHash(rota: Rota): string {
       // (`respostas`), para que recarregar a página não perca o lugar. Os
       // dois são opcionais: sem eles, `pergunta` deixa o servidor decidir
       // qual é a próxima (`RF-45`) e `respostas` é a lista inteira.
-      const partes = [rota.tela, rota.idPergunta, rota.itemId].filter(Boolean)
-      return partes.join('/')
+      //
+      // Posições fixas (`T-203`): só com `itemId`, o segmento do meio fica
+      // vazio — `pergunta//D001`. Omiti-lo fazia `D001` ser lido de volta
+      // como ID de pergunta, e a ficha abria num `404`.
+      if (rota.itemId) return `${rota.tela}/${rota.idPergunta ?? ''}/${rota.itemId}`
+      return rota.idPergunta ? `${rota.tela}/${rota.idPergunta}` : rota.tela
     }
+    case 'fichas':
+      return [rota.tela, rota.escopo, ...(rota.seguintes ?? [])].filter(Boolean).join('/')
     case 'acao':
       return `${rota.tela}/${rota.acaoId}`
     case 'coleta-dirigida':
@@ -152,7 +164,6 @@ export function hashParaRota(hash: string): Rota {
     case 'consentimento':
     case 'inicio':
     case 'progresso':
-    case 'fichas':
     case 'calculando':
     case 'aguardando':
     case 'plano':
@@ -164,7 +175,12 @@ export function hashParaRota(hash: string): Rota {
       return { tela }
     case 'pergunta':
     case 'respostas':
-      return { tela, idPergunta: resto[0], itemId: resto[1] }
+      return { tela, idPergunta: resto[0] || undefined, itemId: resto[1] || undefined }
+    case 'fichas': {
+      const [escopo, ...seguintes] = resto.filter(Boolean)
+      if (!escopo) return { tela }
+      return seguintes.length ? { tela, escopo, seguintes } : { tela, escopo }
+    }
     case 'coleta-dirigida': {
       const bloco = Number(resto[0])
       return bloco === 7 || bloco === 8 ? { tela, bloco } : ROTA_PADRAO

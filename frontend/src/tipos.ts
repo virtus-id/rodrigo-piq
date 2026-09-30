@@ -33,6 +33,8 @@ export interface Opcao {
   rotulo: string
   valor_interno: string | null
   admite_nao_sei: boolean
+  /** `T-213`: a opção pede um valor digitado (hoje só `DATA`). */
+  abre_campo?: TipoResposta | null
 }
 
 export interface Pergunta {
@@ -69,6 +71,10 @@ export interface RespostaPergunta {
 
 export interface Ficha {
   item_id: string
+  /** O nome do item para o aluno ("Aluguel"), ou `null` — `T-217`. */
+  rotulo: string | null
+  /** "Outro" e despesa não listada: a tela pede um nome curto (`T-217`). */
+  pede_nome: boolean
   completa: boolean
   campos: Pergunta[]
 }
@@ -77,6 +83,12 @@ export interface ListaDeFichas {
   CASO_ID: string
   escopo: string
   fichas: Ficha[]
+}
+
+/** `GET /caso/{id}/escopos` — se cada escopo está aberto para o caso (`T-212`). */
+export interface EscoposDoCaso {
+  CASO_ID: string
+  escopos: { escopo: string; aberto: boolean }[]
 }
 
 /**
@@ -98,6 +110,12 @@ export interface ConfirmacaoDeResposta {
   avanco_permitido: boolean
   total_pendencias: number
   proxima: ProximaPergunta
+  /**
+   * Os escopos de ficha que esta resposta abriu e que ainda não têm item
+   * (`T-212`) — ex.: "Sim" em `B3.03` → `['RENDA_ADICIONAL_ID']`. Vazio na
+   * resposta comum. Quem decide é o servidor (`RF-52`).
+   */
+  abrir_fichas: string[]
 }
 
 /** Erro tipado da API — o servidor sempre nomeia o motivo. */

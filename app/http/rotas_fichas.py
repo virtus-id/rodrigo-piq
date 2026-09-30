@@ -13,7 +13,7 @@ disto.
 ficha (`collection/repeticao.py::perguntas_da_ficha`, por
 `escopo_repeticao`), não geram identificador (`RepositorioItens::
 proximo_identificador`, que garante não-reaproveitamento mesmo após remoção)
-e não decidem se uma ficha está completa (`pendencias_obrigatorias`). Tudo
+e não decidem se uma ficha está completa (`itens_em_aberto`). Tudo
 isso já existe e é apenas orquestrado aqui — mesma disciplina de
 `rotas_pergunta.py`.
 
@@ -31,19 +31,26 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
-from app.casos.progresso import pendencias_obrigatorias
+from app.casos.itens_despesa import DESPESA_NAO_LISTADA, pede_nome, rotulos_dos_itens
+from app.casos.progresso import (
+    cabecas_das_fichas,
+    da_coleta_inicial,
+    escopo_aberto,
+    itens_em_aberto,
+)
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
-    _itens_por_escopo,
+    _agrupar,
+    _ler_formulario,
     obter_colecao_de_registros,
     obter_repositorio_itens,
     obter_repositorio_respostas,
 )
 from app.http.serializacao import serializar_pergunta
 from collection.carga import ColecaoDeRegistros
-from collection.registro import EscopoRepeticao
+from collection.registro import EscopoRepeticao, RegistroPergunta
 from collection.repeticao import perguntas_da_ficha
 from collection.respostas import RespostasCaso
 from persistencia.app_aluno.itens import RepositorioItens
@@ -56,6 +63,11 @@ roteador = APIRouter(prefix="/caso", tags=["fichas"])
 # Mensagens curtas de propósito — limiar de `AC-37` (T-08).
 _MENSAGEM_ESCOPO_INVALIDO: Final[str] = "Escopo de repetição inválido."
 _MENSAGEM_ITEM_INEXISTENTE: Final[str] = "Item não encontrado no caso."
+_MENSAGEM_NOME_INVALIDO: Final[str] = "Informe um nome de até 60 letras."
+_MENSAGEM_ITEM_SEM_NOME: Final[str] = "Este item já tem nome."
+
+# `T-217` — "texto curto" (§11), sem limite na spec; 60 cabem num título.
+_NOME_MAXIMO: Final[int] = 60
 
 
 def _escopo_valido(escopo: str) -> EscopoRepeticao | None:
@@ -68,22 +80,42 @@ def _escopo_valido(escopo: str) -> EscopoRepeticao | None:
     return None if membro is EscopoRepeticao.NENHUM else membro
 
 
+def _perguntas_da_ficha(
+    colecao: ColecaoDeRegistros, escopo: EscopoRepeticao
+) -> tuple[RegistroPergunta, ...]:
+    """As perguntas da ficha do escopo — ver `_campos_da_ficha`."""
+    da_ficha = perguntas_da_ficha(colecao.registros, escopo)
+    return da_coleta_inicial(da_ficha) or da_ficha
+
+
 def _campos_da_ficha(
     colecao: ColecaoDeRegistros,
     escopo: EscopoRepeticao,
     respostas: RespostasCaso,
     CASO_ID: str,
     item_id: str,
+    rotulo: str | None = None,
 ) -> list[dict[str, Any]]:
     """As perguntas da ficha, já serializadas, para UM item.
 
     Pergunta cuja `condicao_exibicao` é falsa **naquele item** é omitida —
     quem decide é `montar_contexto_pergunta`, no servidor (`RF-52`); o
-    cliente recebe só o que deve desenhar."""
+    cliente recebe só o que deve desenhar.
+
+    `T-200`: só as perguntas da coleta inicial. Os Blocos 7 e 8 também são
+    `DIVIDA_ID`, mas são coleta dirigida, outra etapa (`RF-17`, `AC-92`) — o
+    filtro fica aqui, e não em `perguntas_da_ficha`, porque a coleta dirigida
+    usa aquela função justamente para chegar ao Bloco 7.
+
+    `T-211`: o filtro só vale para escopo que TEM registro na coleta inicial
+    — derivado da coleção, sem nome de escopo aqui. Escopo todo pós-plano
+    (hoje, o do Bloco 11) fica com os seus campos."""
     campos: list[dict[str, Any]] = []
-    for registro in perguntas_da_ficha(colecao.registros, escopo):
+    for registro in _perguntas_da_ficha(colecao, escopo):
         try:
-            contexto = montar_contexto_pergunta(registro, respostas, item_id=item_id)
+            contexto = montar_contexto_pergunta(
+                registro, respostas, item_id=item_id, rotulo_do_item=rotulo
+            )
         except ErroPerguntaNaoExibivel:
             continue
         campos.append(serializar_pergunta(contexto, CASO_ID=CASO_ID, item_id=item_id))
@@ -100,28 +132,44 @@ def listar_fichas(
 ) -> JSONResponse:
     """`RF-04`/`AC-04` — as fichas ATIVAS do escopo, com seus campos.
 
-    `completa` é leitura de `pendencias_obrigatorias` (T-44), nunca uma
-    segunda checagem de obrigatoriedade escrita aqui."""
+    `completa` é leitura de `itens_em_aberto` (`T-201`): a ficha está
+    completa quando nenhuma pergunta aberta NAQUELE item está em branco —
+    os predicados da retomada, na mesma varredura de `progresso.py`. Não é
+    `pendencias_obrigatorias`: as perguntas da ficha são `REP`, sem `OBR`, e
+    a ficha recém-criada saía "Completa". `T-219`: sobre as perguntas da
+    própria ficha — as mesmas de `campos`.
+
+    `T-217`: `rotulo` é o nome do item para o aluno ("Aluguel"), ou `None`;
+    `pede_nome`, se a tela deve pedir um ("Outro", despesa não listada)."""
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
 
     # Duas consultas independentes em paralelo — `T-191`.
-    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+    respostas_brutas, itens = duas_em_paralelo(
         lambda: repositorio.listar_do_caso(CASO_ID),
-        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+        lambda: repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
-    pendentes = {
-        (pendencia.ID, pendencia.item_id)
-        for pendencia in pendencias_obrigatorias(colecao.registros, respostas, itens_por_escopo)
-    }
+    em_aberto = itens_em_aberto(_perguntas_da_ficha(colecao, membro), respostas, _agrupar(itens))
+    rotulos = rotulos_dos_itens(itens, colecao.registros)
 
     fichas: list[dict[str, Any]] = []
-    for item_id in itens_por_escopo.get(membro, ()):
-        campos = _campos_da_ficha(colecao, membro, respostas, CASO_ID, item_id)
-        completa = not any(item == item_id for _id, item in pendentes)
-        fichas.append({"item_id": item_id, "completa": completa, "campos": campos})
+    for item in itens:
+        if item.escopo is not membro:
+            continue
+        rotulo = rotulos.get(item.item_id)
+        fichas.append(
+            {
+                "item_id": item.item_id,
+                "rotulo": rotulo,
+                "pede_nome": pede_nome(item.origem),
+                "completa": item.item_id not in em_aberto,
+                "campos": _campos_da_ficha(
+                    colecao, membro, respostas, CASO_ID, item.item_id, rotulo
+                ),
+            }
+        )
 
     return JSONResponse({"CASO_ID": CASO_ID, "escopo": membro.value, "fichas": fichas})
 
@@ -139,7 +187,10 @@ def criar_ficha(
     O identificador vem de `RepositorioItens.proximo_identificador`, que
     conta TODAS as linhas do par `(CASO_ID, escopo)` — removidas inclusive —
     para que um número já usado nunca volte. Criar uma ficha não altera
-    nenhuma das existentes: nenhuma resposta é tocada aqui."""
+    nenhuma das existentes: nenhuma resposta é tocada aqui.
+
+    `T-217`: a ficha de despesa criada pela lista é uma despesa não listada
+    (`B3.D11`) — as dos checklists nascem da resposta a eles."""
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
@@ -148,8 +199,9 @@ def criar_ficha(
     # `proximo_identificador` só conta linhas existentes, não escreve nada
     # (a ficha em si só passa a existir quando uma resposta referencia o
     # `item_id` — ver a nota da rota, acima).
+    origem = DESPESA_NAO_LISTADA if membro is EscopoRepeticao.ITEM_DESPESA else None
     item_id, respostas_brutas = duas_em_paralelo(
-        lambda: repositorio_itens.proximo_identificador(CASO_ID, membro),
+        lambda: repositorio_itens.proximo_identificador(CASO_ID, membro, origem),
         lambda: repositorio.listar_do_caso(CASO_ID),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
@@ -159,7 +211,13 @@ def criar_ficha(
         {
             "CASO_ID": CASO_ID,
             "escopo": membro.value,
-            "ficha": {"item_id": item_id, "completa": False, "campos": campos},
+            "ficha": {
+                "item_id": item_id,
+                "rotulo": None,
+                "pede_nome": pede_nome(origem),
+                "completa": False,
+                "campos": campos,
+            },
         },
         status_code=201,
     )
@@ -192,21 +250,65 @@ def remover_ficha(
     return JSONResponse({"CASO_ID": CASO_ID, "escopo": membro.value, "removido": item_id})
 
 
+@roteador.put("/{CASO_ID}/fichas/{escopo}/{item_id}")
+def nomear_ficha(
+    CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
+    escopo: str,
+    item_id: str,
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
+    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+) -> JSONResponse:
+    """`T-217` — o nome curto de "Outro" e da despesa não listada (§11,
+    `B3.D01`–`D11`), que vira o título da ficha e o `[despesa]` de `B3.DF01`.
+
+    Só item que pede nome aceita: os demais já têm o rótulo da opção
+    marcada, e renomeá-los esconderia qual opção o aluno marcou."""
+    membro = _escopo_valido(escopo)
+    if membro is None:
+        return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
+
+    item = next(
+        (
+            item
+            for item in repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
+            if item.escopo is membro and item.item_id == item_id
+        ),
+        None,
+    )
+    if item is None:
+        return JSONResponse({"erro": _MENSAGEM_ITEM_INEXISTENTE}, status_code=404)
+    if not pede_nome(item.origem):
+        return JSONResponse({"erro": _MENSAGEM_ITEM_SEM_NOME}, status_code=400)
+
+    nome = " ".join(dados.get("nome", "").split())
+    if not nome or len(nome) > _NOME_MAXIMO:
+        return JSONResponse({"erro": _MENSAGEM_NOME_INVALIDO}, status_code=400)
+
+    repositorio_itens.nomear(CASO_ID, item_id, nome)
+    return JSONResponse(
+        {"CASO_ID": CASO_ID, "escopo": membro.value, "item_id": item_id, "rotulo": nome}
+    )
+
+
 @roteador.get("/{CASO_ID}/escopos")
 def listar_escopos(
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
+    repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
 ) -> JSONResponse:
     """Os escopos de repetição que o questionário de fato usa.
 
     Derivado dos próprios registros (`escopo_repeticao`), nunca de uma lista
     escrita aqui — um escopo novo no YAML aparece sem tocar neste código
-    (`RF-03`)."""
-    usados = sorted(
-        {
-            registro.escopo_repeticao.value
-            for registro in colecao.registros
-            if registro.escopo_repeticao is not EscopoRepeticao.NENHUM
-        }
-    )
-    return JSONResponse({"CASO_ID": CASO_ID, "escopos": usados})
+    (`RF-03`).
+
+    `T-212`: cada escopo diz se está `aberto` para o caso — a condição da
+    cabeça da ficha, avaliada aqui (`RF-52`); o cliente não recebe condição."""
+    respostas = RespostasCaso(respostas=repositorio.listar_do_caso(CASO_ID))
+    escopos = [
+        {"escopo": escopo.value, "aberto": escopo_aberto(cabeca, respostas)}
+        for escopo, cabeca in sorted(
+            cabecas_das_fichas(colecao.registros).items(), key=lambda par: par[0].value
+        )
+    ]
+    return JSONResponse({"CASO_ID": CASO_ID, "escopos": escopos})

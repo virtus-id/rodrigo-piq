@@ -45,12 +45,16 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from app.casos.progresso import pendencias_obrigatorias, posicao_na_ficha
+from app.casos.progresso import (
+    pendencias_obrigatorias,
+    posicao_na_ficha,
+    proxima_pergunta_do_item,
+)
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
-    _itens_por_escopo,
+    _itens_e_rotulos,
     _primeira_exibivel,
     obter_colecao_de_registros,
     obter_repositorio_itens,
@@ -106,22 +110,46 @@ def proxima_pergunta(
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    item_id: str | None = None,
 ) -> Response:
     """`RF-46`, `AC-72` — a primeira pergunta não respondida e exibível.
 
     Coleta completa (`EC-23`) devolve a tela de conclusão, nunca `500` nem
     uma pergunta arbitrária.
 
+    `item_id` (`T-203`): abrir uma ficha pela lista. A pergunta é a próxima
+    aberta e em branco DAQUELE item, decidida por `progresso.py` — o cliente
+    não escolhe (`RF-45`). Ficha já completa abre na primeira pergunta aberta
+    do item, para revisão; item sem pergunta aberta (inexistente, removido)
+    é `404`.
+
     **Duas consultas em paralelo (`T-191`).** `respostas` e
     `itens_por_escopo` não dependem uma da outra — cada uma só precisa de
     `CASO_ID`. Esta é a rota mais frequente do sistema (uma chamada por
     pergunta, até ~291 vezes por aluno); em sequência, cada uma paga
     ~484ms de distância Boston↔São Paulo (`T-187`) por nada."""
-    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+    respostas_brutas, (itens_por_escopo, rotulos) = duas_em_paralelo(
         lambda: repositorio.listar_do_caso(CASO_ID),
-        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+        lambda: _itens_e_rotulos(repositorio_itens, CASO_ID, colecao),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
+
+    if item_id is not None:
+        do_item = proxima_pergunta_do_item(
+            colecao.registros, respostas, itens_por_escopo, item_id
+        )
+        if do_item is None:
+            return _resposta_nao_encontrada(request, CASO_ID)
+        return _renderizar_pergunta(
+            request,
+            CASO_ID,
+            _localizar_registro(colecao, do_item.ID),
+            respostas,
+            colecao,
+            itens_por_escopo,
+            item_id,
+            rotulos,
+        )
 
     encontrada = _primeira_exibivel(colecao, respostas, itens_por_escopo)
     if encontrada is None:
@@ -129,7 +157,14 @@ def proxima_pergunta(
 
     registro, pendencia = encontrada
     return _renderizar_pergunta(
-        request, CASO_ID, registro, respostas, colecao, itens_por_escopo, pendencia.item_id
+        request,
+        CASO_ID,
+        registro,
+        respostas,
+        colecao,
+        itens_por_escopo,
+        pendencia.item_id,
+        rotulos,
     )
 
 
@@ -152,9 +187,9 @@ def pergunta_especifica(
     condicional que `RF-45` mantém no servidor.
 
     Mesmo paralelismo de `proxima_pergunta`, acima (`T-191`)."""
-    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+    respostas_brutas, (itens_por_escopo, rotulos) = duas_em_paralelo(
         lambda: repositorio.listar_do_caso(CASO_ID),
-        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+        lambda: _itens_e_rotulos(repositorio_itens, CASO_ID, colecao),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
 
@@ -165,7 +200,7 @@ def pergunta_especifica(
 
     try:
         return _renderizar_pergunta(
-            request, CASO_ID, registro, respostas, colecao, itens_por_escopo, item_id
+            request, CASO_ID, registro, respostas, colecao, itens_por_escopo, item_id, rotulos
         )
     except ErroPerguntaNaoExibivel:
         return _resposta_nao_encontrada(request, CASO_ID)
@@ -179,6 +214,7 @@ def _renderizar_pergunta(
     colecao: ColecaoDeRegistros,
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
     item_id: str | None,
+    rotulos: Mapping[str, str],
 ) -> Response:
     """Monta a página de uma pergunta. `avanco_permitido`/`total_pendencias`
     são leitura de `pendencias_obrigatorias` — nunca recontados aqui.
@@ -186,12 +222,14 @@ def _renderizar_pergunta(
     `T-144`: a tela é React e a resposta é sempre JSON. A decisão de QUAL
     pergunta exibir continua inteira no servidor (`RF-52`) — o cliente
     recebe uma pergunta já decidida e nunca avalia `condicao_exibicao`."""
-    contexto = montar_contexto_pergunta(registro, respostas, item_id=item_id)
+    contexto = montar_contexto_pergunta(
+        registro, respostas, item_id=item_id, rotulo_do_item=rotulos.get(item_id or "")
+    )
     pendencias = pendencias_obrigatorias(colecao.registros, respostas, itens_por_escopo)
     # `RF-63` (T-148): o localizador do `.top` — "Dívida 3 · pergunta 4 de
     # 12". `None` fora de ficha repetível, e aí o cliente cai no rótulo do
     # bloco. Quem conta é o servidor: ele é que conhece o conjunto exibível.
-    posicao = posicao_na_ficha(registro, colecao.registros, respostas)
+    posicao = posicao_na_ficha(registro, colecao.registros, respostas, item_id)
 
     return JSONResponse(
         {

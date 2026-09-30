@@ -276,7 +276,7 @@ def test_ec01_entrada_monetaria_invalida_recusa_sem_gravar_apontando_o_campo(
     )
 
     assert resposta.status_code == 400
-    assert "VALOR_TOTAL_MARGEM" in resposta.text
+    assert "VALOR_TOTAL_MARGEM" not in resposta.text  # T-205: variável só no log
     assert _total_de_respostas(caso_id, "VALOR_TOTAL_MARGEM") == 0
 
 
@@ -310,8 +310,11 @@ def test_ec02_validacao_cruzada_falha_recusa_sem_gravar_apontando_os_dois_campos
     )
 
     assert resposta_utilizado.status_code == 400
-    assert "VALOR_UTILIZADO_MARGEM" in resposta_utilizado.text
-    assert "VALOR_TOTAL_MARGEM" in resposta_utilizado.text
+    # `T-209`: só a `mensagem` do registro; os nomes das variáveis vão para o log.
+    assert "O valor utilizado não pode superar o valor total da margem." in (
+        resposta_utilizado.text
+    )
+    assert "VALOR_UTILIZADO_MARGEM" not in resposta_utilizado.text
     # A resposta recusada nunca chegou a ser gravada — só a primeira
     # (VALOR_TOTAL_MARGEM=1000) está no banco para este item.
     assert _total_de_respostas(caso_id, "VALOR_UTILIZADO_MARGEM") == 0

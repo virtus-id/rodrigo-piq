@@ -24,16 +24,16 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Quitar a dívida à vista", valor_interno: null }
-      - { rotulo: "Dar desconto", valor_interno: null }
-      - { rotulo: "Reduzir juros", valor_interno: null }
-      - { rotulo: "Reduzir CET", valor_interno: null }
-      - { rotulo: "Reduzir custo total", valor_interno: null }
-      - { rotulo: "Reduzir parcela", valor_interno: null }
-      - { rotulo: "Reduzir prazo", valor_interno: null }
-      - { rotulo: "Regularizar valores em atraso", valor_interno: null }
-      - { rotulo: "Retirar seguro, tarifa ou outro custo", valor_interno: null }
-      - { rotulo: "Outra condição", valor_interno: null }
+      - { rotulo: "Quitar a dívida à vista", valor_interno: QUITAR_A_DIVIDA_A_VISTA }
+      - { rotulo: "Dar desconto", valor_interno: DAR_DESCONTO }
+      - { rotulo: "Reduzir juros", valor_interno: REDUZIR_JUROS }
+      - { rotulo: "Reduzir CET", valor_interno: REDUZIR_CET }
+      - { rotulo: "Reduzir custo total", valor_interno: REDUZIR_CUSTO_TOTAL }
+      - { rotulo: "Reduzir parcela", valor_interno: REDUZIR_PARCELA }
+      - { rotulo: "Reduzir prazo", valor_interno: REDUZIR_PRAZO }
+      - { rotulo: "Regularizar valores em atraso", valor_interno: REGULARIZAR_VALORES_EM_ATRASO }
+      - { rotulo: "Retirar seguro, tarifa ou outro custo", valor_interno: RETIRAR_SEGURO_TARIFA_OU_OUTRO_CUSTO }
+      - { rotulo: "Outra condição", valor_interno: OUTRA_CONDICAO }
     VARIAVEL_GRAVADA: OBJETIVO_RENEGOCIACAO
     condicao_exibicao: &condicao_proposta_vigente_validade_desconhecida_ou_expirada
       tipo: OU
@@ -201,9 +201,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "____ %", valor_interno: null }
-      - { rotulo: "O credor informou apenas que existe desconto, sem detalhar.", valor_interno: null }
+      - { rotulo: "R$ ______", valor_interno: VALOR }
+      - { rotulo: "____ %", valor_interno: PERCENTUAL }
+      - { rotulo: "O credor informou apenas que existe desconto, sem detalhar.", valor_interno: O_CREDOR_INFORMOU_APENAS_QUE_EXISTE_DESCONTO_SEM_DETALHAR }
       - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: PROPOSTA_DESCONTO
     condicao_exibicao:
@@ -241,8 +241,8 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Data", valor_interno: null }
-      - { rotulo: "O credor não informou validade.", valor_interno: null }
+      - { rotulo: "Data", valor_interno: DATA, abre_campo: DATA }
+      - { rotulo: "O credor não informou validade.", valor_interno: O_CREDOR_NAO_INFORMOU_VALIDADE }
       - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: "DATA_VALIDADE_PROPOSTA → STATUS_VALIDADE_PROPOSTA"
     condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada

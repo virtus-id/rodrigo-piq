@@ -18,6 +18,7 @@ REGRAS: `RF-45`, `RF-46`, `AC-72`, `AC-74`, `EC-23`, `EC-24`
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Final
@@ -352,5 +353,77 @@ def test_pergunta_inexistente_devolve_404(
     cliente = _montar_cliente(monkeypatch, tmp_path, colecao=colecao)
 
     resposta = cliente.get(f"/caso/{_CASO_ID}/pergunta/NAO_EXISTE")
+
+    assert resposta.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# T-203 — abrir a ficha pela lista abre a próxima pergunta DAQUELE item.
+# ---------------------------------------------------------------------------
+
+
+def _colecao_de_ficha() -> ColecaoDeRegistros:
+    def de_ficha(identificador: str, variavel: str) -> RegistroPergunta:
+        return replace(
+            _registro(identificador, variavel=variavel),
+            obrigatoriedade=frozenset({Obrigatoriedade.REP}),
+            escopo_repeticao=EscopoRepeticao.DIVIDA_ID,
+        )
+
+    return ColecaoDeRegistros(
+        QUESTIONARIO_VERSION="1.0.0",
+        registros=(de_ficha("F1", "VAR_F1"), de_ficha("F2", "VAR_F2")),
+    )
+
+
+def _no_item(variavel: str, item_id: str) -> Resposta:
+    return replace(_resposta(variavel, "x"), item_id=item_id)
+
+
+def _cliente_com_duas_fichas(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *respostas: Resposta
+) -> TestClient:
+    cliente = _montar_cliente(
+        monkeypatch, tmp_path, colecao=_colecao_de_ficha(), respostas_iniciais=respostas
+    )
+    for _ in range(2):
+        assert cliente.post(f"/caso/{_CASO_ID}/fichas/DIVIDA_ID").status_code == 201
+    return cliente
+
+
+def test_t203_item_id_abre_a_primeira_em_branco_daquele_item(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Reproduz P1 no servidor: sem o filtro, `D002` recebia `F2/D001` — a
+    próxima da coleta, não a da ficha pedida."""
+    cliente = _cliente_com_duas_fichas(monkeypatch, tmp_path, _no_item("VAR_F1", "D001"))
+
+    d002 = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": "D002"}).json()
+    d001 = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": "D001"}).json()
+
+    assert (d002["pergunta"]["ID"], d002["pergunta"]["item_id"]) == ("F1", "D002")
+    assert (d001["pergunta"]["ID"], d001["pergunta"]["item_id"]) == ("F2", "D001")
+
+
+def test_t203_ficha_completa_abre_na_primeira_pergunta_para_revisao(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cliente = _cliente_com_duas_fichas(
+        monkeypatch, tmp_path, _no_item("VAR_F1", "D001"), _no_item("VAR_F2", "D001")
+    )
+
+    resposta = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": "D001"})
+
+    assert resposta.status_code == 200
+    pergunta = resposta.json()["pergunta"]
+    assert (pergunta["ID"], pergunta["item_id"], pergunta["valor_atual"]) == ("F1", "D001", "x")
+
+
+def test_t203_item_inexistente_devolve_404(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cliente = _cliente_com_duas_fichas(monkeypatch, tmp_path)
+
+    resposta = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": "D009"})
 
     assert resposta.status_code == 404

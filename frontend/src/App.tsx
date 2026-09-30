@@ -38,7 +38,7 @@ import TelaColetaDirigida from './telas/TelaColetaDirigida'
 import TelaConsentimento from './telas/TelaConsentimento'
 import TelaDefinirSenha from './telas/TelaDefinirSenha'
 import TelaEquipeCaso from './telas/TelaEquipeCaso'
-import TelaFichas from './telas/TelaFichas'
+import TelaFichas, { TITULOS_POR_ESCOPO } from './telas/TelaFichas'
 import TelaInicio from './telas/TelaInicio'
 import TelaLogin from './telas/TelaLogin'
 import TelaOperador from './telas/TelaOperador'
@@ -466,6 +466,7 @@ export default function App() {
     case 'progresso':
       return (
         <TelaProgresso
+          casoId={casoId}
           inicio={inicio}
           voltar={voltarAoInicio}
           continuar={() => irPara({ tela: 'pergunta' })}
@@ -474,21 +475,39 @@ export default function App() {
           // um segundo caminho explícito, porque "continuar" agora vai para
           // a próxima pergunta. Sem isto o aluno não tem como cadastrar nem
           // remover dívida — regressão que a morte da barra de abas criou.
-          verFichas={() => irPara({ tela: 'fichas' })}
+          verFichas={(escopo) => irPara({ tela: 'fichas', escopo })}
         />
       )
 
-    case 'fichas':
+    case 'fichas': {
+      // `T-212`: o escopo vem da rota; `#fichas` sem escopo são as dívidas.
+      // Escopo sem nome no mapa não tem tela (ex.: `ACAO_ID`).
+      const escopo = rota.escopo ?? 'DIVIDA_ID'
+      const titulos = TITULOS_POR_ESCOPO[escopo]
+      if (!titulos) return <RedirecionarAoInicio irPara={irPara} aoSair={aoSair} />
+      const [proximo, ...depois] = rota.seguintes ?? []
       return (
         <TelaFichas
+          key={escopo}
           casoId={casoId}
-          escopo="DIVIDA_ID"
-          titulo="Dívida"
-          tituloPlural="Dívidas"
+          escopo={escopo}
+          {...titulos}
           voltar={voltarAoInicio}
-          onAbrirFicha={(itemId) => irPara({ tela: 'pergunta', itemId })}
+          // `T-203`: a ficha abre na pergunta que o servidor escolheu para
+          // aquele item. Só com `itemId`, `TelaPergunta` pediria a próxima
+          // da coleta inteira, que pode ser de outra ficha.
+          onAbrirFicha={(itemId, idPergunta) => irPara({ tela: 'pergunta', idPergunta, itemId })}
+          // Os escopos que a mesma resposta abriu vêm antes da coleta.
+          onContinuar={() =>
+            irPara(
+              proximo
+                ? { tela: 'fichas', escopo: proximo, seguintes: depois }
+                : { tela: 'pergunta' },
+            )
+          }
         />
       )
+    }
 
     /**
      * `RF-68`/`RF-69` (T-160) — a revisão, e a correção de uma resposta.
@@ -549,6 +568,10 @@ export default function App() {
           abrirPergunta={(id, item) =>
             irPara({ tela: 'pergunta', idPergunta: id, itemId: item ?? undefined })
           }
+          // `T-212`: a resposta que abre uma ficha leva à lista dela.
+          onAbrirFichas={([escopo, ...seguintes]) =>
+            irPara({ tela: 'fichas', escopo, seguintes })
+          }
         />
       )
 
@@ -558,6 +581,9 @@ export default function App() {
           casoId={casoId}
           voltar={voltarAoInicio}
           onTerminou={voltarAoInicio}
+          onAbrirPergunta={(idPergunta, itemId) =>
+            irPara({ tela: 'pergunta', idPergunta, itemId: itemId ?? undefined })
+          }
         />
       )
 

@@ -21,6 +21,8 @@ REGRAS: `RF-11`, `RF-13`, `AC-08`, `AC-13`
 
 from __future__ import annotations
 
+import logging
+import re
 from datetime import UTC, date, datetime
 
 import pytest
@@ -47,6 +49,7 @@ from collection.registro import (
     TipoResposta,
 )
 from collection.respostas import Resposta, RespostasCaso
+from collection.validacao import ValidacaoCruzada
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-t101-conversao"
 _CONTA_ID = "CONTA-T101-1"
@@ -106,6 +109,7 @@ def _registro(
     VARIAVEL_GRAVADA: str,
     *,
     opcoes: tuple[OpcaoRegistro, ...] = (),
+    validacoes_cruzadas: tuple[ValidacaoCruzada, ...] = (),
 ) -> RegistroPergunta:
     """Registro sintético mínimo — nenhum conteúdo das 291 perguntas reais,
     só a estrutura necessária para exercitar `_resolver_valor` por tipo."""
@@ -120,7 +124,7 @@ def _registro(
         VARIAVEL_GRAVADA=VARIAVEL_GRAVADA,
         condicao_exibicao=None,
         interpolacoes=(),
-        validacoes_cruzadas=(),
+        validacoes_cruzadas=validacoes_cruzadas,
         origem_opcoes=OrigemOpcoes(fonte="REGISTRO", campo_do_snapshot=None),
         admite_nao_sei=True,
         salto_consequencia=None,
@@ -157,6 +161,31 @@ _REGISTRO_SIM_NAO_TALVEZ = _registro(
         OpcaoRegistro(rotulo="Talvez", valor_interno="TALVEZ"),
     ),
 )
+# `T-213`: opção "Data" que abre campo, como `B7.15` (com `valor_interno`)
+# e `B5.B05B` (sem) — a data grava na própria `VARIAVEL_GRAVADA`.
+_REGISTRO_SELECAO_COM_DATA = _registro(
+    "T213.SEL_DATA",
+    TipoResposta.SELECAO_UNICA,
+    "DATA_VALIDADE_TESTE",
+    opcoes=(
+        OpcaoRegistro(rotulo="Data", valor_interno="DATA", abre_campo=TipoResposta.DATA),
+        OpcaoRegistro(rotulo="Não informada", valor_interno="NAO_INFORMADA"),
+    ),
+)
+# `T-209`: a validação cruzada normativa de `B3.S06B`/`B3.S06C` (`AC-06`).
+_MARGEM = ValidacaoCruzada(
+    variavel_esquerda="VALOR_UTILIZADO_MARGEM",
+    operador="<=",
+    variavel_direita="VALOR_TOTAL_MARGEM",
+    escopo=EscopoRepeticao.NENHUM,
+    mensagem="O valor utilizado não pode superar o valor total da margem.",
+)
+_REGISTRO_MARGEM_TOTAL = _registro(
+    "T209.TOTAL", TipoResposta.MOEDA, "VALOR_TOTAL_MARGEM", validacoes_cruzadas=(_MARGEM,)
+)
+_REGISTRO_MARGEM_UTILIZADO = _registro(
+    "T209.UTILIZADO", TipoResposta.MOEDA, "VALOR_UTILIZADO_MARGEM", validacoes_cruzadas=(_MARGEM,)
+)
 
 _COLECAO_DE_TESTE = ColecaoDeRegistros(
     QUESTIONARIO_VERSION="T101-1.0.0",
@@ -168,6 +197,9 @@ _COLECAO_DE_TESTE = ColecaoDeRegistros(
         _REGISTRO_SELECAO_UNICA,
         _REGISTRO_TEXTO_CURTO,
         _REGISTRO_SIM_NAO_TALVEZ,
+        _REGISTRO_SELECAO_COM_DATA,
+        _REGISTRO_MARGEM_TOTAL,
+        _REGISTRO_MARGEM_UTILIZADO,
     ),
 )
 
@@ -288,7 +320,7 @@ def test_ec01_numero_com_entrada_nao_numerica_e_recusado_sem_gravar(
     )
 
     assert resposta.status_code == 400
-    assert "NUMERO_TESTE" in resposta.text
+    assert "não é um número inteiro" in resposta.json()["erro"]
     assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
 
 
@@ -353,8 +385,32 @@ def test_ec01_data_invalida_e_recusada_sem_gravar(monkeypatch: pytest.MonkeyPatc
     )
 
     assert resposta.status_code == 400
-    assert "DATA_TESTE" in resposta.text
+    assert "não é uma data válida" in resposta.json()["erro"]
     assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
+
+
+def test_t205_mensagem_de_recusa_nao_expoe_nome_de_variavel(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`T-205` (achado P4) — o aluno lia "RENDA_PRINCIPAL: entrada vazia".
+
+    A recusa continua (`EC-01`); a mensagem é para humano. A variável vai
+    para o log, onde quem investiga precisa dela."""
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    with caplog.at_level(logging.INFO, logger="app.http.rotas_coleta"):
+        resposta = cliente.post(
+            f"/caso/{_CASO_ID}/resposta",
+            data={"ID_PERGUNTA": "T101.NUMERO", "valor": ""},
+        )
+
+    assert resposta.status_code == 400
+    erro = resposta.json()["erro"]
+    assert "entrada vazia" in erro
+    assert not re.search(r"[A-Z]{2,}_[A-Z_]+", erro), erro
+    assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
+    assert "NUMERO_TESTE" in caplog.text
+    assert "entrada vazia" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -428,3 +484,90 @@ def test_regressao_mecanismo_deficit_recusaria_string_bruta_pre_t101(
     regressão acima está testando a coisa certa."""
     with pytest.raises(ErroSinalComportamentalAusente):
         _mecanismo_deficit("CORTE")
+
+
+# ---------------------------------------------------------------------------
+# T-213 — opção que abre campo de data grava `date` na VARIAVEL_GRAVADA.
+# ---------------------------------------------------------------------------
+
+
+def _valor_gravado(repositorio: _RepositorioRespostasEmMemoria, variavel: str) -> object:
+    return next(r.valor for r in repositorio.listar_do_caso(_CASO_ID) if r.ID_PERGUNTA == variavel)
+
+
+def test_t213_opcao_de_data_grava_date_na_variavel_da_pergunta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta",
+        data={"ID_PERGUNTA": "T213.SEL_DATA", "valor": "2026-12-31"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert _valor_gravado(repositorio_respostas, "DATA_VALIDADE_TESTE") == date(2026, 12, 31)
+
+
+def test_t213_outra_opcao_continua_gravando_o_valor_interno(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta",
+        data={"ID_PERGUNTA": "T213.SEL_DATA", "valor": "NAO_INFORMADA"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert _valor_gravado(repositorio_respostas, "DATA_VALIDADE_TESTE") == "NAO_INFORMADA"
+
+
+@pytest.mark.parametrize("valor_bruto", ["DATA", "", "31/02/2026", "2026-02-31"])
+def test_t213_data_invalida_ou_radio_sozinho_e_recusado_sem_gravar(
+    monkeypatch: pytest.MonkeyPatch, valor_bruto: str
+) -> None:
+    """`EC-01`: o rádio "Data" sem data (`valor_interno` `DATA`, ou vazio)
+    não é resposta — recusa sem gravar."""
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta",
+        data={"ID_PERGUNTA": "T213.SEL_DATA", "valor": valor_bruto},
+    )
+
+    assert resposta.status_code == 400
+    assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
+
+
+# ---------------------------------------------------------------------------
+# T-209 — a recusa de validação cruzada é a mensagem do registro, sem nome
+# de variável; as variáveis vão para o log.
+# ---------------------------------------------------------------------------
+
+
+def test_t209_validacao_cruzada_devolve_so_a_mensagem_do_registro(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`AC-06`/`AC-104`: total 1000, utilizado 800 gravado; corrigir para
+    1200 é recusado e o 800 permanece."""
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+    for id_pergunta, valor in (("T209.TOTAL", "1000,00"), ("T209.UTILIZADO", "800,00")):
+        assert cliente.post(
+            f"/caso/{_CASO_ID}/resposta", data={"ID_PERGUNTA": id_pergunta, "valor": valor}
+        ).status_code == 200
+
+    with caplog.at_level(logging.INFO, logger="app.http.rotas_coleta"):
+        resposta = cliente.post(
+            f"/caso/{_CASO_ID}/resposta",
+            data={"ID_PERGUNTA": "T209.UTILIZADO", "valor": "1200,00"},
+        )
+
+    assert resposta.status_code == 400
+    erro = resposta.json()["erro"]
+    assert erro == _MARGEM.mensagem
+    assert not re.search(r"[A-Z]{2,}_[A-Z_]+", erro), erro
+    assert str(_valor_gravado(repositorio_respostas, "VALOR_UTILIZADO_MARGEM")) == "800.00"
+    assert "VALOR_UTILIZADO_MARGEM" in caplog.text
+    assert "VALOR_TOTAL_MARGEM" in caplog.text
+    assert _MARGEM.mensagem in caplog.text

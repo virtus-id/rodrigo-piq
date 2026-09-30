@@ -303,6 +303,9 @@ class _RespostasParaB1208:
     def valor(self, variavel: str) -> ValorResposta | None:
         return self.escalares.get(variavel)
 
+    def valor_no_item(self, item_id: str, variavel: str) -> ValorResposta | None:
+        return None
+
     def valores_do_escopo(
         self, escopo: EscopoRepeticao, variavel: str
     ) -> tuple[ValorResposta, ...]:

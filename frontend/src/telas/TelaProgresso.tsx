@@ -32,11 +32,16 @@
  * mostra o que é verdade: **o total geral, que vem do servidor, e as cinco
  * partes como mapa do caminho**. Progresso por parte é `OQ-31`, registrada.
  */
+import { useEffect, useState } from 'react'
+
 import Botao from '../componentes/Botao'
 import Tela from '../componentes/Tela'
+import { listarEscopos } from '../services/api'
 import type { Inicio } from '../tipos'
+import { TITULOS_POR_ESCOPO } from './TelaFichas'
 
 interface TelaProgressoProps {
+  casoId: string
   /** O mesmo payload da tela Início — uma requisição serve as duas. */
   inicio: Inicio | null
   voltar: () => void
@@ -48,8 +53,12 @@ interface TelaProgressoProps {
    * a barra de abas ("Dívidas") morreu. Sem esta porta o aluno não cadastra
    * nem remove dívida, e o inventário do Bloco 5 fica travado no que ele
    * declarou de primeira.
+   *
+   * `T-212`: também as fichas do Bloco 3 (renda adicional, despesa não
+   * mensal, vínculo, margem), quando o servidor diz que o escopo está
+   * aberto para o caso.
    */
-  verFichas?: () => void
+  verFichas?: (escopo: string) => void
 }
 
 /**
@@ -71,9 +80,26 @@ const PARTES: readonly string[] = [
 export default function TelaProgresso({
   inicio,
   voltar,
+  casoId,
   continuar,
   verFichas,
 }: TelaProgressoProps) {
+  // `T-212`: quais escopos estão abertos é o servidor que diz (`RF-52`).
+  // Falha aqui só esconde os atalhos; as dívidas seguem acessíveis.
+  const [abertos, setAbertos] = useState<string[]>([])
+  useEffect(() => {
+    let ativo = true
+    listarEscopos(casoId)
+      .then((dados) => {
+        if (ativo) setAbertos(dados.escopos.filter((e) => e.aberto).map((e) => e.escopo))
+      })
+      .catch(() => undefined)
+    return () => {
+      ativo = false
+    }
+  }, [casoId])
+  const outrasFichas = abertos.filter((escopo) => escopo !== 'DIVIDA_ID' && TITULOS_POR_ESCOPO[escopo])
+
   const progresso = inicio?.progresso ?? null
   const pct =
     progresso && progresso.total > 0
@@ -88,10 +114,16 @@ export default function TelaProgresso({
         <>
           <Botao onClick={continuar}>Continuar de onde parei</Botao>
           {verFichas && (
-            <Botao variante="discreto" onClick={verFichas}>
+            <Botao variante="discreto" onClick={() => verFichas('DIVIDA_ID')}>
               Ver e editar minhas dívidas
             </Botao>
           )}
+          {verFichas &&
+            outrasFichas.map((escopo) => (
+              <Botao key={escopo} variante="discreto" onClick={() => verFichas(escopo)}>
+                Ver e editar: {TITULOS_POR_ESCOPO[escopo].tituloPlural.toLowerCase()}
+              </Botao>
+            ))}
         </>
       }
     >

@@ -22,6 +22,8 @@ REGRAS: `RF-17`, `RF-18`, `AC-19`, `AC-22`, `AC-23`, `AC-24`
 from __future__ import annotations
 
 import dataclasses
+import logging
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -321,7 +323,7 @@ def test_aceite_nenhum_e_gravado_quando_bloco_alcancavel(
 
 
 def test_ac23_valor_parcial_maior_que_recomendado_e_recusado(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     """`AC-23` — recomendado `1000`, `B10.C01A = 1500`: recusado, nada
     gravado. Tolerância ZERO: `1000,01` já seria suficiente para recusar,
@@ -336,15 +338,19 @@ def test_ac23_valor_parcial_maior_que_recomendado_e_recusado(
         data={"ID_PERGUNTA": "B10.C01", "valor": "PARTE"},
     )
 
-    resposta = cliente.post(
-        f"/caso/{caso.CASO_ID}/bloco-10/resposta",
-        data={"ID_PERGUNTA": "B10.C01A", "valor": "1500,00"},
-    )
+    with caplog.at_level(logging.INFO, logger="app.http.rotas_bloco10"):
+        resposta = cliente.post(
+            f"/caso/{caso.CASO_ID}/bloco-10/resposta",
+            data={"ID_PERGUNTA": "B10.C01A", "valor": "1500,00"},
+        )
 
     assert resposta.status_code == 400
-    corpo = resposta.json()
-    assert "ATAQUE_IMEDIATO_APROVADO" in corpo["erro"]
-    assert "ATAQUE_IMEDIATO_RECOMENDADO" in corpo["erro"]
+    # `T-209`: o aluno lê a `mensagem` do registro; as variáveis vão para o log.
+    erro = resposta.json()["erro"]
+    assert erro == "O valor confirmado não pode ser maior que o valor recomendado pelo PIQ."
+    assert not re.search(r"[A-Z]{2,}_[A-Z_]+", erro), erro
+    assert "ATAQUE_IMEDIATO_APROVADO" in caplog.text
+    assert "ATAQUE_IMEDIATO_RECOMENDADO" in caplog.text
     gravadas = RepositorioRespostasArquivo(
         caminho_arquivo=tmp_path / "respostas.jsonl"
     ).listar_do_caso(caso.CASO_ID)

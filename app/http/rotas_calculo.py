@@ -147,6 +147,7 @@ REGRAS: `RF-16`, `AC-12`
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from typing import Annotated, Final
 
@@ -156,14 +157,18 @@ from fastapi.responses import JSONResponse
 
 from app.casos.maquina import ESTADO_CASO, ErroTransicaoNaoDeclarada
 from app.casos.progresso import (
-    PendenciaObrigatoria,
     pendencias_obrigatorias,
     transicionar_e_registrar,
 )
 from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
+from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
+from app.montagem.conversao import ErroConversaoInvalida, converter_para_dinheiro
 from app.montagem.estado import (
+    ErroCampoAgregadoDesconhecido,
+    ErroDinheiroDisponivelIndeterminado,
     ErroRespostaAusente,
+    ErroSinalComportamentalAusente,
     ErroValorInternoDesconhecido,
     montar_divida,
     montar_estado_financeiro,
@@ -171,7 +176,9 @@ from app.montagem.estado import (
 )
 from app.motor.executor import ParametrosDoCalculo, executar_calculo_com_timeout_async
 from collection.carga import ColecaoDeRegistros, carregar_registros
-from collection.registro import EscopoRepeticao
+from collection.condicoes import Condicao, avaliar
+from collection.interpolacao import ErroInterpolacao
+from collection.registro import EscopoRepeticao, RegistroPergunta
 from collection.respostas import RespostasCaso
 
 # `T-176` — as DUAS derivações comportamentais do Bloco 2, invocadas como
@@ -200,6 +207,27 @@ roteador = APIRouter(prefix="/caso", tags=["calculo"])
 _MENSAGEM_PENDENCIA: Final[str] = "Há perguntas obrigatórias pendentes."
 _MENSAGEM_ESTADO_INVALIDO: Final[str] = "Caso não está pronto para calcular."
 _MENSAGEM_PARAMETROS_PENDENTES: Final[str] = "Cálculo indisponível no momento."
+_MENSAGEM_MONTAGEM_RECUSADA: Final[str] = "Algumas respostas precisam de revisão."
+
+_LOGGER: Final[logging.Logger] = logging.getLogger("app.http.rotas_calculo")
+
+# `T-197` — tudo o que a montagem (e `ParametrosExternosDoBloco6.obter`) pode
+# levantar sobre respostas que não fecham um `EstadoFinanceiro`. `ValueError`
+# cobre `valor_interno` fora do enum (`'' is not a valid ...`). Antes desta
+# tarefa só as duas primeiras eram capturadas; as demais escapavam como `500`.
+_ERROS_DE_MONTAGEM: Final[tuple[type[Exception], ...]] = (
+    ErroRespostaAusente,
+    ErroValorInternoDesconhecido,
+    ErroSinalComportamentalAusente,
+    ErroCampoAgregadoDesconhecido,
+    ErroDinheiroDisponivelIndeterminado,
+    ErroConversaoInvalida,
+    ValueError,
+    # `estado.py:502` confere com `assert` o tipo de um valor monetário; em
+    # `B5.D05A`, `MENSAL`/`TOTAL` caem ali até a decisão do especialista
+    # sobre valor + base numa só variável (`T-213`) — 422, nunca 500.
+    AssertionError,
+)
 
 # Variável de ambiente que supre a versão de parâmetros vigente do piloto —
 # nunca um literal de versão no código (mesmo padrão de `app/http/
@@ -281,14 +309,12 @@ class _ParametrosExternosDerivadosDoBloco2(ParametrosExternosDoBloco6):
     como primeiro parâmetro posicional, sem default. É a ordem do grafo da
     §11.10 (`RF-27`), reforçada por assinatura.
 
-    **`economia_nao_identificada` NÃO é devolvida.** Ela é opcional em
-    `montar_estado_financeiro` (default `None`), e a montagem já sabe o que
-    fazer com a ausência — `_economia_potencial_imediata` a trata como
-    "nenhum gasto fantasma identificado". Construir um `dinheiro(0)` aqui
-    seria um `Decimal` monetário nascido fora da fronteira única de
-    conversão (`RF-13`, `app/montagem/conversao.py`), que
-    `tests/app_aluno/estatica/test_fronteira_decimal_unica.py` audita — e a
-    trava está certa: dinheiro tem um lugar só para nascer.
+    **`economia_nao_identificada` é devolvida como zero** (`T-214`). A spec
+    só conta economia de gasto fantasma quando `B2.10A` = Sim; fora disso,
+    `_economia_potencial_imediata` exige que a CHAMADORA informe o valor —
+    ela não inventa `0` e, sem ele, recusava com `ErroRespostaAusente
+    ("B2.10/B2.10A")` todo aluno sem gasto fantasma aceito. O zero nasce
+    em `converter_para_dinheiro`, a fronteira única de dinheiro (`RF-13`).
     """
 
     def obter(self, caso: Caso, respostas: RespostasCaso) -> dict[str, object]:
@@ -296,6 +322,7 @@ class _ParametrosExternosDerivadosDoBloco2(ParametrosExternosDoBloco6):
         nivel_controle = derivar_NIVEL_CONTROLE(perfil)
         return {
             "CONFIABILIDADE_DADOS": derivar_CONFIABILIDADE_DADOS(nivel_controle, perfil),
+            "economia_nao_identificada": converter_para_dinheiro("0"),
         }
 
 
@@ -363,12 +390,81 @@ def _itens_por_escopo(
     return {escopo: tuple(item_ids) for escopo, item_ids in agrupado.items()}
 
 
-def _formatar_pendencia(pendencia: PendenciaObrigatoria) -> str:
-    """Nomeia a pergunta pendente (critério de aceite 1: "nomeando o que
-    falta") — `ID` do registro mais o item, quando `REP`."""
-    if pendencia.item_id is None:
-        return pendencia.ID
-    return f"{pendencia.ID} ({pendencia.item_id})"
+def _formatar_pendencia(
+    colecao: ColecaoDeRegistros, respostas: RespostasCaso, ID: str, item_id: str | None
+) -> dict[str, str | None]:
+    """Nomeia a pergunta pendente em linguagem do aluno — `T-210`, `AC-100`:
+    `{ID, item_id, enunciado}`, para a tela mostrar o texto e abrir a
+    pergunta. O enunciado vem do registro, pela MESMA montagem da tela de
+    pergunta (`montar_contexto_pergunta`, interpolando os marcadores do item);
+    pergunta não exibível agora leva o enunciado cru do registro. Sem registro
+    ou com marcador sem valor, cai no `ID` — nunca quebra a recusa."""
+    registro = next((r for r in colecao.registros if r.ID == ID), None)
+    enunciado = ID
+    if registro is not None:
+        try:
+            enunciado = montar_contexto_pergunta(registro, respostas, item_id=item_id).enunciado
+        except ErroPerguntaNaoExibivel:
+            enunciado = registro.enunciado
+        except ErroInterpolacao:
+            enunciado = ID
+    return {"ID": ID, "item_id": item_id, "enunciado": enunciado}
+
+
+def _respostas_do_calculo(
+    registros: tuple[RegistroPergunta, ...], respostas: RespostasCaso
+) -> RespostasCaso:
+    """`T-217` item 6 — só as respostas cuja `condicao_exibicao` ainda abre
+    a pergunta (no item, quando repetível) entram no cálculo. As demais
+    continuam gravadas (auditoria); só não chegam à montagem. Itera até
+    ponto fixo: resposta que abria outra pergunta, ao cair, derruba a
+    dependente junto. Variável sem registro conhecido passa intacta."""
+    condicoes: dict[str, list[Condicao | None]] = {}
+    for registro in registros:
+        if registro.VARIAVEL_GRAVADA is not None:
+            condicoes.setdefault(registro.VARIAVEL_GRAVADA, []).append(
+                registro.condicao_exibicao
+            )
+    while True:
+        abertas = tuple(
+            r
+            for r in respostas.respostas
+            if any(
+                c is None or avaliar(c, respostas, r.item_id)
+                for c in condicoes.get(r.ID_PERGUNTA, [None])
+            )
+        )
+        if len(abertas) == len(respostas.respostas):
+            return respostas
+        respostas = RespostasCaso(respostas=abertas)
+
+
+def _recusar_montagem(
+    CASO_ID: str, erro: Exception, colecao: ColecaoDeRegistros, respostas: RespostasCaso
+) -> JSONResponse:
+    """`422` legível para falha de montagem — `T-197`, `EC-25`. O corpo não
+    leva nome de classe nem `VARIAVEL_GRAVADA`; só a pergunta, quando a
+    exceção a conhece (mesma forma das pendências do `400`, `T-210`). O
+    detalhe técnico vai para o log — sem `str(erro)`, que pode carregar o
+    valor monetário recusado (`ErroConversaoInvalida`)."""
+    _LOGGER.warning(
+        "montagem recusada",
+        extra={
+            "CASO_ID": CASO_ID,
+            "erro": type(erro).__name__,
+            "VARIAVEL_GRAVADA": getattr(erro, "VARIAVEL_GRAVADA", None),
+        },
+    )
+    id_pergunta = getattr(erro, "ID_PERGUNTA", None)
+    # `ErroRespostaAusente` grava `""` quando a pergunta não é de item.
+    item_id = getattr(erro, "DIVIDA_ID", None) or None
+    pendencias = (
+        (_formatar_pendencia(colecao, respostas, id_pergunta, item_id),) if id_pergunta else ()
+    )
+    return JSONResponse(
+        {"mensagem": _MENSAGEM_MONTAGEM_RECUSADA, "pendencias": pendencias},
+        status_code=422,
+    )
 
 
 def _montar_dividas_do_caso(
@@ -484,14 +580,19 @@ def _preparar_calculo(
     if caso is None:  # pragma: no cover — defensivo: isolamento já garantiu
         raise ErroCasoDesaparecidoAposIsolamento(CASO_ID)
 
-    respostas = RespostasCaso(respostas=respostas_brutas)
+    # `T-217` item 6 — resposta de pergunta que a condição fechou fica fora.
+    respostas = _respostas_do_calculo(
+        colecao.registros, RespostasCaso(respostas=respostas_brutas)
+    )
 
     # Critério de aceite 1: campo OBR pendente nomeia o que falta e recusa a
     # transição — antes de qualquer tentativa de transicionar().
     pendencias = pendencias_obrigatorias(colecao.registros, respostas, itens_por_escopo)
     if pendencias:
         return JSONResponse({"mensagem": _MENSAGEM_PENDENCIA,
-                "pendencias": tuple(_formatar_pendencia(p) for p in pendencias)}, status_code=400)
+                "pendencias": tuple(
+                    _formatar_pendencia(colecao, respostas, p.ID, p.item_id) for p in pendencias
+                )}, status_code=400)
 
     # `T-106` — ver a nota extensa na docstring do módulo: os parâmetros
     # externos (`CONFIABILIDADE_DADOS` e, se aplicável, `economia_nao_
@@ -507,6 +608,8 @@ def _preparar_calculo(
             {"mensagem": _MENSAGEM_PARAMETROS_PENDENTES, "pendencias": ()},
             status_code=503,
         )
+    except _ERROS_DE_MONTAGEM as erro:
+        return _recusar_montagem(CASO_ID, erro, colecao, respostas)
 
     # A montagem do EstadoFinanceiro (passo 2 do plano §5.2) ocorre ANTES de
     # qualquer transição de estado: se as respostas reais do caso não forem
@@ -520,11 +623,8 @@ def _preparar_calculo(
         estado_financeiro = _montar_estado_financeiro_do_caso(
             caso, respostas, itens_por_escopo, parametros_externos_resolvidos
         )
-    except (ErroRespostaAusente, ErroValorInternoDesconhecido) as erro:
-        return JSONResponse(
-            {"mensagem": _MENSAGEM_ESTADO_INVALIDO, "pendencias": (str(erro),)},
-            status_code=422,
-        )
+    except _ERROS_DE_MONTAGEM as erro:
+        return _recusar_montagem(CASO_ID, erro, colecao, respostas)
 
     # `RF-32`/`T-54`: a versão de parâmetros vigente também é lida ANTES de
     # qualquer transição — mesma disciplina das duas checagens acima. Sem

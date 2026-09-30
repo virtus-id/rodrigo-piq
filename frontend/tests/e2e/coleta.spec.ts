@@ -78,7 +78,7 @@ test.describe('coleta', () => {
     await abrirTela(page, CASO, 'pergunta')
 
     await expect(enunciadoVisivel(page)).toBeVisible()
-    await expect(page.getByText(/3 pendências/)).toBeVisible()
+    await expect(page.getByText(/3 obrigatórias restantes/)).toBeVisible()
   })
 
   test('AC-75: a máscara formata o valor enquanto o aluno digita', async ({ page }) => {

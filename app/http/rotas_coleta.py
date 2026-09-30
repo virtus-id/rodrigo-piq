@@ -102,6 +102,7 @@ REGRAS: `RF-05`, `RF-07`, `RF-09`, `RF-10`, `RF-11`, `RF-13`, `AC-02`, `AC-11`,
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import UTC, date, datetime
 from typing import Annotated, Final
@@ -109,9 +110,17 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from app.casos.itens_despesa import (
+    CHECKLISTS_DE_DESPESA,
+    DESPESA_NAO_LISTADA,
+    pede_nome,
+    rotulos_dos_itens,
+    sincronizar,
+)
 from app.casos.maquina import ErroConsentimentoNaoRegistrado
 from app.casos.progresso import (
     PendenciaObrigatoria,
+    escopos_abertos_pela_resposta,
     pendencias_obrigatorias,
     posicao_na_ficha,
     proxima_pergunta_nao_respondida,
@@ -131,7 +140,13 @@ from collection.materialidade import AvisoMaterialidade, avaliar_ao_responder
 from collection.registro import EscopoRepeticao, RegistroPergunta, TipoResposta
 from collection.respostas import NAO_SEI, Resposta, RespostasCaso, ValorResposta
 from collection.validacao import validar_cruzada
-from persistencia.app_aluno.itens import RepositorioItens, RepositorioItensSupabase
+from persistencia.app_aluno.arquivo import ErroGravacaoItem as ErroGravacaoItemArquivo
+from persistencia.app_aluno.itens import (
+    ErroGravacaoItem,
+    ItemRepetido,
+    RepositorioItens,
+    RepositorioItensSupabase,
+)
 from persistencia.app_aluno.respostas import (
     ErroCasoInexistenteParaResposta,
     ErroGravacaoResposta,
@@ -170,6 +185,8 @@ _TIPOS_QUE_EXIGEM_CONVERSAO_DECIMAL: Final[frozenset[TipoResposta]] = frozenset(
 _MENSAGEM_PERGUNTA_NAO_ENCONTRADA: Final[str] = "Registro de pergunta inválido: ID desconhecido."
 _MENSAGEM_PERGUNTA_NAO_ABERTA: Final[str] = "Pergunta não está aberta para resposta."
 _MENSAGEM_FALHA_SALVAR: Final[str] = "Não foi possível salvar."
+
+_LOGGER: Final[logging.Logger] = logging.getLogger("app.http.rotas_coleta")
 
 
 class ErroRegistroSemVariavelGravada(Exception):
@@ -284,15 +301,18 @@ def _localizar_registro(
     raise ErroPerguntaDesconhecida(id_pergunta)
 
 
-def _exigir_pergunta_aberta(registro: RegistroPergunta, respostas: RespostasCaso) -> None:
+def _exigir_pergunta_aberta(
+    registro: RegistroPergunta, respostas: RespostasCaso, item_id: str | None = None
+) -> None:
     """Passo 2 (segunda metade): a pergunta está de fato aberta — sua
     `condicao_exibicao` avalia como verdadeira sobre as respostas já dadas
     (`RF-05`). Registro sem `condicao_exibicao` (`None`) está sempre aberto.
     `ErroPerguntaNaoAberta` recusa, sem nenhuma gravação, quando a condição
-    é falsa."""
+    é falsa. Pergunta de ficha avalia no próprio item (`T-199`), com o
+    mesmo `item_id` que a retomada usou para oferecê-la."""
     if registro.condicao_exibicao is None:
         return
-    if not avaliar(registro.condicao_exibicao, respostas):
+    if not avaliar(registro.condicao_exibicao, respostas, item_id):
         raise ErroPerguntaNaoAberta(registro.ID)
 
 
@@ -337,10 +357,26 @@ def _resolver_valor(
         return _resolver_escala_0_10(valor_bruto)
     if registro.tipo is TipoResposta.DATA:
         return _resolver_data(valor_bruto)
-    # SELECAO_UNICA, TEXTO_CURTO, SIM_NAO_TALVEZ: `str` direto — já corretos
+    if registro.tipo is TipoResposta.SELECAO_UNICA:
+        return _resolver_selecao_unica(registro, valor_bruto)
+    # TEXTO_CURTO, SIM_NAO_TALVEZ: `str` direto — já corretos
     # antes desta tarefa, nenhuma mudança de comportamento (quarto critério
     # de aceite de T-101).
     return valor_bruto
+
+
+def _resolver_selecao_unica(registro: RegistroPergunta, valor_bruto: str) -> ValorResposta:
+    """`T-213`: com uma opção que abre campo (`abre_campo`, só `DATA` hoje),
+    o que não é `valor_interno` de outra opção é a data digitada — convertida
+    por `_resolver_data` e gravada na `VARIAVEL_GRAVADA` da pergunta. O rádio
+    sozinho (vazio ou o próprio `valor_interno` da opção) recusa (`EC-01`).
+    Sem essa opção, `str` direto, como sempre."""
+    if not any(opcao.abre_campo for opcao in registro.opcoes):
+        return valor_bruto
+    comuns = {opcao.valor_interno for opcao in registro.opcoes if opcao.abre_campo is None}
+    if valor_bruto in comuns:
+        return valor_bruto
+    return _resolver_data(valor_bruto)
 
 
 def _resolver_selecao_multipla(valores_brutos: tuple[str, ...]) -> frozenset[str]:
@@ -425,8 +461,9 @@ class ErroValidacaoCruzadaFalhou(Exception):
     """`EC-02` — a validação cruzada declarada pelo registro falhou; carrega
     OS DOIS nomes de campo (`variavel_esquerda`/`variavel_direita`, de
     `ResultadoValidacao`, T-13) e a `mensagem` do próprio registro (nunca uma
-    redação composta por esta rota) — a rota usa os três para montar a
-    resposta HTTP que aponta o(s) campo(s), como o critério de aceite exige."""
+    redação composta por esta rota) — a resposta HTTP leva só a `mensagem`,
+    que já aponta os dois campos em linguagem do aluno; os nomes vão para o
+    log (`T-209`)."""
 
     def __init__(self, variavel_esquerda: str, variavel_direita: str, mensagem: str) -> None:
         self.variavel_esquerda = variavel_esquerda
@@ -476,7 +513,7 @@ def responder_pergunta(
 
     # Passo 2 (segunda metade): a pergunta precisa estar de fato aberta.
     try:
-        _exigir_pergunta_aberta(registro, respostas_do_caso)
+        _exigir_pergunta_aberta(registro, respostas_do_caso, item_id)
     except ErroPerguntaNaoAberta:
         return _resposta_de_erro(request, _MENSAGEM_PERGUNTA_NAO_ABERTA, 400)
 
@@ -486,8 +523,11 @@ def responder_pergunta(
     try:
         valor = _resolver_valor(registro, dados, valores_brutos)
     except (ErroConversaoInvalida, ErroValorInvalido) as erro:
-        mensagem = f"{registro.VARIAVEL_GRAVADA}: {erro.motivo}"
-        return _resposta_de_erro(request, mensagem, 400)
+        # `T-205`: o aluno lê só o motivo; a variável vai para o log.
+        _LOGGER.info(
+            "resposta recusada: %s — %s", registro.VARIAVEL_GRAVADA, erro.motivo
+        )
+        return _resposta_de_erro(request, f"Resposta não aceita: {erro.motivo}.", 400)
 
     # Passo 5: validação cruzada, só quando o registro a declara. EC-02:
     # recusa apontando os dois campos, nenhum é gravado.
@@ -497,8 +537,15 @@ def responder_pergunta(
     try:
         _exigir_validacao_cruzada(registro, item_id, respostas_com_valor_corrente)
     except ErroValidacaoCruzadaFalhou as erro:
-        mensagem = f"{erro.variavel_esquerda}/{erro.variavel_direita}: {erro.mensagem}"
-        return _resposta_de_erro(request, mensagem, 400)
+        # `T-209`: o aluno lê só a `mensagem` do registro; as variáveis vão
+        # para o log.
+        _LOGGER.info(
+            "validação cruzada recusada: %s/%s — %s",
+            erro.variavel_esquerda,
+            erro.variavel_direita,
+            erro.mensagem,
+        )
+        return _resposta_de_erro(request, erro.mensagem, 400)
 
     # Passo 6: gravação com transação confirmada. EC-05: falha nunca reporta
     # sucesso — devolve erro explícito e NÃO avança.
@@ -525,6 +572,16 @@ def responder_pergunta(
         # a mensagem exigida pelo critério de aceite, sem avançar.
         return _resposta_de_erro(request, _MENSAGEM_FALHA_SALVAR, 503)
 
+    # `T-217`: o checklist de despesa cria e remove as fichas dos itens. A
+    # resposta já está gravada; se isto falhar, o aluno reenvia e a
+    # sincronização, idempotente, completa o que faltou.
+    try:
+        abriu_ficha_sem_nome = _sincronizar_itens_de_despesa(
+            registro, valor, repositorio_itens, CASO_ID
+        )
+    except (ErroGravacaoItem, ErroGravacaoItemArquivo):
+        return _resposta_de_erro(request, _MENSAGEM_FALHA_SALVAR, 503)
+
     # Neste ponto a resposta JÁ ESTÁ commitada no banco
     # (`RepositorioRespostasSupabase.gravar` só retorna sem exceção após
     # `conexao.commit()` de `_conectar`) — encerrar o processo agora não
@@ -544,9 +601,9 @@ def responder_pergunta(
     # `app_aluno.respostas`/atualiza `casos.ultima_interacao_em`, T-91) —
     # rodar ao lado da releitura pós-gravação de `respostas` não arrisca
     # nada.
-    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+    respostas_brutas, (itens_por_escopo, rotulos) = duas_em_paralelo(
         lambda: repositorio.listar_do_caso(CASO_ID),
-        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+        lambda: _itens_e_rotulos(repositorio_itens, CASO_ID, colecao),
     )
     respostas_apos_gravar = RespostasCaso(respostas=respostas_brutas)
     pendencias = pendencias_obrigatorias(
@@ -564,7 +621,19 @@ def responder_pergunta(
     # QUAL pergunta vem a seguir — quem decide continua sendo só o servidor
     # (`RF-45`), com a MESMA função (`_primeira_exibivel`) que `GET
     # /pergunta` usa.
-    proxima = _serializar_proxima(CASO_ID, colecao, respostas_apos_gravar, itens_por_escopo)
+    proxima = _serializar_proxima(
+        CASO_ID, colecao, respostas_apos_gravar, itens_por_escopo, rotulos
+    )
+
+    # `T-212`: a resposta que abre uma ficha ainda vazia (ex.: "Sim" em
+    # `B3.03`) aponta a lista daquele escopo — sem item, o gerador não
+    # produz as perguntas dela e a coleta seguiria como se nada houvesse.
+    abrir_fichas = escopos_abertos_pela_resposta(
+        colecao.registros, registro.VARIAVEL_GRAVADA, respostas_apos_gravar, itens_por_escopo
+    )
+    # `T-217`: "Outro" e a despesa não listada pedem nome — na lista.
+    if abriu_ficha_sem_nome:
+        abrir_fichas = (*abrir_fichas, EscopoRepeticao.ITEM_DESPESA)
 
     # T-144: a resposta é sempre JSON — a tela é React. Os sete passos
     # acima correram idênticos ao que sempre correram; só a montagem da
@@ -576,6 +645,7 @@ def responder_pergunta(
             "avanco_permitido": not pendencias,
             "total_pendencias": len(pendencias),
             "proxima": proxima,
+            "abrir_fichas": [escopo.value for escopo in abrir_fichas],
         }
     )
 
@@ -591,11 +661,43 @@ def _itens_por_escopo(
     `EscopoRepeticao`, no formato que `app/casos/progresso.py::
     pendencias_obrigatorias` consome — um item removido nunca é varrido por
     obrigatoriedade `REP` (não há mais ficha a completar)."""
-    itens_ativos = repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
+    return _agrupar(repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False))
+
+
+def _agrupar(itens_ativos: tuple[ItemRepetido, ...]) -> dict[EscopoRepeticao, tuple[str, ...]]:
     agrupado: dict[EscopoRepeticao, list[str]] = {}
     for item in itens_ativos:
         agrupado.setdefault(item.escopo, []).append(item.item_id)
     return {escopo: tuple(item_ids) for escopo, item_ids in agrupado.items()}
+
+
+def _itens_e_rotulos(
+    repositorio_itens: RepositorioItens, CASO_ID: str, colecao: ColecaoDeRegistros
+) -> tuple[dict[EscopoRepeticao, tuple[str, ...]], dict[str, str]]:
+    """`T-217` — `_itens_por_escopo` e, da mesma leitura, o nome de cada
+    item para o aluno ("Aluguel"), que `[despesa]` em `B3.DF01` mostra."""
+    itens_ativos = repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
+    return _agrupar(itens_ativos), rotulos_dos_itens(itens_ativos, colecao.registros)
+
+
+def _sincronizar_itens_de_despesa(
+    registro: RegistroPergunta,
+    valor: ValorResposta,
+    repositorio_itens: RepositorioItens,
+    CASO_ID: str,
+) -> bool:
+    """`T-217` — aplica `app/casos/itens_despesa.py::sincronizar`: remove a
+    ficha de cada item desmarcado (remoção lógica, `AC-04`) e cria a de cada
+    item marcado. Devolve se nasceu ficha que pede nome."""
+    if registro.ID not in CHECKLISTS_DE_DESPESA and registro.ID != DESPESA_NAO_LISTADA:
+        return False
+    ativos = repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
+    sincronizacao = sincronizar(registro, valor, ativos)
+    for item_id in sincronizacao.remover:
+        repositorio_itens.remover(CASO_ID, item_id)
+    for origem in sincronizacao.criar:
+        repositorio_itens.proximo_identificador(CASO_ID, EscopoRepeticao.ITEM_DESPESA, origem)
+    return any(pede_nome(origem) for origem in sincronizacao.criar)
 
 
 def _primeira_exibivel(
@@ -639,6 +741,7 @@ def _serializar_proxima(
     colecao: ColecaoDeRegistros,
     respostas: RespostasCaso,
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    rotulos: Mapping[str, str] | None = None,
 ) -> dict[str, object]:
     """`T-193` — o mesmo formato que `GET /caso/{CASO_ID}/pergunta` devolve
     (`rotas_pergunta.py::_renderizar_pergunta`), montado aqui pra ir junto
@@ -649,8 +752,13 @@ def _serializar_proxima(
         return {"pergunta": None, "coleta_completa": True}
 
     registro, pendencia = encontrada
-    contexto = montar_contexto_pergunta(registro, respostas, item_id=pendencia.item_id)
-    posicao = posicao_na_ficha(registro, colecao.registros, respostas)
+    contexto = montar_contexto_pergunta(
+        registro,
+        respostas,
+        item_id=pendencia.item_id,
+        rotulo_do_item=(rotulos or {}).get(pendencia.item_id or ""),
+    )
+    posicao = posicao_na_ficha(registro, colecao.registros, respostas, pendencia.item_id)
     return {
         "pergunta": serializar_pergunta(
             contexto,

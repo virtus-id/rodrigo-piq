@@ -76,6 +76,7 @@ REGRAS: `RF-29`, `AC-05`, `AC-30`, `AC-31`
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Annotated, Final
 
@@ -105,6 +106,8 @@ from persistencia.app_aluno.respostas import (
     RepositorioRespostas,
     RepositorioRespostasSupabase,
 )
+
+_LOGGER: Final[logging.Logger] = logging.getLogger("app.http.rotas_bloco11")
 
 REGRAS: Final[tuple[str, ...]] = ("RF-29", "AC-05", "AC-30", "AC-31")
 
@@ -321,8 +324,9 @@ def responder_confirmacao_quitacao(
     try:
         valor = _resolver_valor(registro, dados)
     except ErroConversaoInvalida as erro:
-        mensagem = f"{registro.VARIAVEL_GRAVADA}: {erro.motivo}"
-        return _resposta_de_erro(mensagem, 400)
+        # Mesma correção de `T-205`: a variável vai para o log, nunca ao aluno.
+        _LOGGER.info("resposta recusada: %s — %s", registro.VARIAVEL_GRAVADA, erro.motivo)
+        return _resposta_de_erro(f"Resposta não aceita: {erro.motivo}.", 400)
 
     # Passo 5: validação cruzada, só quando o registro a declara.
     respostas_com_valor_corrente = _respostas_com_valor_provisorio(
@@ -331,8 +335,15 @@ def responder_confirmacao_quitacao(
     try:
         _exigir_validacao_cruzada(registro, item_id, respostas_com_valor_corrente)
     except ErroValidacaoCruzadaFalhou as erro:
-        mensagem = f"{erro.variavel_esquerda}/{erro.variavel_direita}: {erro.mensagem}"
-        return _resposta_de_erro(mensagem, 400)
+        # `T-209`: o aluno lê só a `mensagem` do registro; as variáveis vão
+        # para o log.
+        _LOGGER.info(
+            "validação cruzada recusada: %s/%s — %s",
+            erro.variavel_esquerda,
+            erro.variavel_direita,
+            erro.mensagem,
+        )
+        return _resposta_de_erro(erro.mensagem, 400)
 
     # AC-05: o enunciado (com `[Dxxx]` já resolvido, quando aplicável) é
     # calculado ANTES da gravação — é só leitura, não depende do passo 6.

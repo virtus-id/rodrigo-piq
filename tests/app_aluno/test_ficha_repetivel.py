@@ -41,6 +41,7 @@ REGRAS: `RF-04`, `RF-51`, `RF-52`, `AC-04`
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any, Final
@@ -59,6 +60,7 @@ from app.http.rotas_coleta import (
 )
 from app.http.sessao import iniciar_sessao_conta
 from collection.carga import ColecaoDeRegistros
+from collection.condicoes import Condicao, CondicaoIgual
 from collection.opcoes_do_motor import OrigemOpcoes
 from collection.registro import (
     EscopoRepeticao,
@@ -390,3 +392,250 @@ def test_ac4_payload_da_ficha_nao_vaza_obrigatoriedade(
         assert "obrigatoriedade" not in campo
         assert "condicao_exibicao" not in campo
         assert "validacoes_cruzadas" not in campo
+
+
+# ---------------------------------------------------------------------------
+# T-200 / T-201 — achados C4/C5 do QA (2026-09-29).
+# ---------------------------------------------------------------------------
+
+
+def test_t200_ficha_de_divida_nao_traz_perguntas_do_bloco_7(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Reproduz C5: a ficha mostrava "37 campos" — os do Bloco 5 mais
+    `B7.08`/`B7.09`, cuja condição `NAO(...)` abria sem resposta nenhuma."""
+    from collection.carga import carregar_registros
+
+    cliente = _montar_cliente(monkeypatch, tmp_path, colecao=carregar_registros())
+    _criar(cliente)
+
+    campos = _listar(cliente)["fichas"][0]["campos"]
+
+    assert campos
+    assert {campo["bloco"] for campo in campos} == {5}
+
+
+def _registro_de_ficha(
+    ID: str, variavel: str, condicao: Condicao | None = None
+) -> RegistroPergunta:
+    """Como as perguntas reais da ficha do Bloco 5: `REP`/`COND, REP`, sem `OBR`."""
+    obrigatoriedade = {Obrigatoriedade.REP} | ({Obrigatoriedade.COND} if condicao else set())
+    registro = _registro_rep(ID, variavel=variavel, obrigatoriedade=frozenset(obrigatoriedade))
+    return replace(registro, condicao_exibicao=condicao)
+
+
+_COLECAO_DE_FICHA_REAL_LIKE = ColecaoDeRegistros(
+    QUESTIONARIO_VERSION="1.0.0",
+    registros=(
+        _registro_de_ficha("B5.C01", "TEM_PARCELA"),
+        _registro_de_ficha("B5.C02", "PARCELA", CondicaoIgual(variavel="TEM_PARCELA", valor="SIM")),
+    ),
+)
+
+
+def test_t201_ficha_recem_criada_de_perguntas_rep_nao_e_completa(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Reproduz C5: sem `OBR`, nada pendia e a ficha vazia saía "Completa"."""
+    cliente = _montar_cliente(monkeypatch, tmp_path, colecao=_COLECAO_DE_FICHA_REAL_LIKE)
+    _criar(cliente)
+
+    assert _listar(cliente)["fichas"][0]["completa"] is False
+
+
+def test_t201_ficha_com_as_abertas_respondidas_e_completa_mesmo_com_condicao_falsa(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`D001` abre a condicional e responde as duas; `D002` a fecha e
+    responde a única aberta; `D003` abre e deixa a condicional em branco."""
+    cliente = _montar_cliente(
+        monkeypatch,
+        tmp_path,
+        colecao=_COLECAO_DE_FICHA_REAL_LIKE,
+        respostas_iniciais=(
+            _resposta_no_item("TEM_PARCELA", "D001", "SIM"),
+            _resposta_no_item("PARCELA", "D001", "300"),
+            _resposta_no_item("TEM_PARCELA", "D002", "NAO"),
+            _resposta_no_item("TEM_PARCELA", "D003", "SIM"),
+        ),
+    )
+    for _ in range(3):
+        _criar(cliente)
+
+    completa_por_item = {f["item_id"]: f["completa"] for f in _listar(cliente)["fichas"]}
+
+    assert completa_por_item == {"D001": True, "D002": True, "D003": False}
+
+
+# ---------------------------------------------------------------------------
+# T-211 — `GET /fichas/ACAO_ID` sem campos (efeito de T-200).
+# ---------------------------------------------------------------------------
+
+
+def test_t211_ficha_de_acao_lista_os_campos_do_bloco_11(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Todo registro de `ACAO_ID` é do Bloco 11, fora da coleta inicial; o
+    filtro de `T-200` zerava a ficha. Só vale para escopo que TEM registro na
+    coleta inicial."""
+    from collection.carga import carregar_registros
+
+    cliente = _montar_cliente(monkeypatch, tmp_path, colecao=carregar_registros())
+    escopo = EscopoRepeticao.ACAO_ID.value
+    assert cliente.post(f"/caso/{_CASO_ID}/fichas/{escopo}").status_code == 201
+
+    resposta = cliente.get(f"/caso/{_CASO_ID}/fichas/{escopo}")
+
+    assert resposta.status_code == 200, resposta.text
+    campos = resposta.json()["fichas"][0]["campos"]
+    assert campos
+    assert {campo["bloco"] for campo in campos} == {11}
+    assert all(campo["item_id"] == resposta.json()["fichas"][0]["item_id"] for campo in campos)
+
+
+# ---------------------------------------------------------------------------
+# T-212 — fichas repetíveis do Bloco 3 alcançáveis pelo aluno.
+# ---------------------------------------------------------------------------
+
+
+def _cliente_real(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
+    from collection.carga import carregar_registros
+
+    return _montar_cliente(monkeypatch, tmp_path, colecao=carregar_registros())
+
+
+def _responder(
+    cliente: TestClient, id_pergunta: str, valor: str, item_id: str | None = None
+) -> Any:
+    corpo = {"ID_PERGUNTA": id_pergunta}
+    corpo |= {"nao_sei": "on"} if valor == "NAO_SEI" else {"valor": valor}
+    if item_id:
+        corpo["item_id"] = item_id
+    return cliente.post(f"/caso/{_CASO_ID}/resposta", data=corpo)
+
+
+_GATILHOS_QUE_ABREM: Final = [
+    ("B3.03", "SIM", ["RENDA_ADICIONAL_ID"]),
+    ("B3.NM01", "SIM", ["DESPESA_NAO_MENSAL_ID"]),
+    ("B3.S01", "SIM", ["VINCULO_ID", "MARGEM_ID"]),
+    ("B3.S01", "NAO_SEI", ["VINCULO_ID", "MARGEM_ID"]),
+]
+
+
+@pytest.mark.parametrize(("gatilho", "valor", "escopos"), _GATILHOS_QUE_ABREM)
+def test_t212_gatilho_aponta_a_ficha_e_o_item_criado_abre_a_cabeca(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    gatilho: str,
+    valor: str,
+    escopos: list[str],
+) -> None:
+    """Reproduz o bug: o aluno respondia "Sim" e a coleta seguia sem ficha."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+
+    resposta = _responder(cliente, gatilho, valor)
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["abrir_fichas"] == escopos
+    for escopo in escopos:
+        criada = cliente.post(f"/caso/{_CASO_ID}/fichas/{escopo}")
+        item_id = criada.json()["ficha"]["item_id"]
+        cabeca = criada.json()["ficha"]["campos"][0]["ID"]
+        pergunta = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": item_id})
+        assert pergunta.json()["pergunta"]["ID"] == cabeca
+        assert pergunta.json()["pergunta"]["item_id"] == item_id
+
+
+@pytest.mark.parametrize(
+    ("gatilho", "valor"),
+    [("B3.03", "NAO"), ("B3.03", "NAO_SEI"), ("B3.NM01", "NAO"), ("B3.S01", "NAO")],
+)
+def test_t212_gatilho_que_nao_abre_nao_aponta_ficha(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, gatilho: str, valor: str
+) -> None:
+    cliente = _cliente_real(monkeypatch, tmp_path)
+
+    resposta = _responder(cliente, gatilho, valor)
+
+    assert resposta.status_code == 200, resposta.text
+    assert resposta.json()["abrir_fichas"] == []
+
+
+def test_t212_escopo_que_ja_tem_item_nao_aponta_ficha_de_novo(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    cliente.post(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID")
+
+    assert _responder(cliente, "B3.03", "SIM").json()["abrir_fichas"] == []
+
+
+def test_t212_resposta_fora_de_gatilho_nao_aponta_ficha(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`ITEM_DESPESA` e `DIVIDA_ID` não têm condição na cabeça: nada os abre."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+
+    assert _responder(cliente, "B3.03", "SIM").json()["abrir_fichas"] == ["RENDA_ADICIONAL_ID"]
+    assert _responder(cliente, "B3.NM01", "NAO").json()["abrir_fichas"] == []
+
+
+def test_t212_escopos_informa_se_cada_um_esta_aberto(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cliente = _cliente_real(monkeypatch, tmp_path)
+
+    def abertos() -> dict[str, bool]:
+        corpo = cliente.get(f"/caso/{_CASO_ID}/escopos").json()
+        assert "condicao" not in str(corpo)
+        return {e["escopo"]: e["aberto"] for e in corpo["escopos"]}
+
+    antes = abertos()
+    _responder(cliente, "B3.03", "SIM")
+    _responder(cliente, "B3.S01", "NAO")
+    depois = abertos()
+
+    assert antes["RENDA_ADICIONAL_ID"] is False
+    assert depois["RENDA_ADICIONAL_ID"] is True
+    assert depois["DESPESA_NAO_MENSAL_ID"] is False
+    assert depois["VINCULO_ID"] is False
+    assert depois["MARGEM_ID"] is False
+
+
+def test_t212_validacao_cruzada_na_ficha_de_margem_criada_pela_tela(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`AC-06` — `VALOR_UTILIZADO_MARGEM` (1200) acima de `VALOR_TOTAL_MARGEM`
+    (1000) é recusado, e nada é gravado."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    _responder(cliente, "B3.S01", "SIM")
+    item_id = cliente.post(f"/caso/{_CASO_ID}/fichas/MARGEM_ID").json()["ficha"]["item_id"]
+
+    assert _responder(cliente, "B3.S06B", "1000", item_id).status_code == 200
+    recusa = _responder(cliente, "B3.S06C", "1200", item_id)
+
+    assert recusa.status_code == 400
+    assert "margem" in recusa.json()["erro"]
+    ficha = cliente.get(f"/caso/{_CASO_ID}/fichas/MARGEM_ID").json()["fichas"][0]
+    valores = {campo["ID"]: campo["valor_atual"] for campo in ficha["campos"]}
+    assert valores["B3.S06C"] is None
+
+
+def test_t212_fichas_de_um_escopo_nao_alteram_as_de_outro(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`AC-04` — criar, responder e remover no escopo de renda não toca a de
+    despesa não mensal."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    _responder(cliente, "B3.03", "SIM")
+    _responder(cliente, "B3.NM01", "SIM")
+    despesa = cliente.post(f"/caso/{_CASO_ID}/fichas/DESPESA_NAO_MENSAL_ID").json()["ficha"]
+    antes = cliente.get(f"/caso/{_CASO_ID}/fichas/DESPESA_NAO_MENSAL_ID").json()
+
+    renda = cliente.post(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID").json()["ficha"]
+    assert _responder(cliente, "B3.03B", "2000", renda["item_id"]).status_code == 200
+    cliente.delete(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID/{renda['item_id']}")
+
+    assert cliente.get(f"/caso/{_CASO_ID}/fichas/DESPESA_NAO_MENSAL_ID").json() == antes
+    assert antes["fichas"][0]["item_id"] == despesa["item_id"]
+    assert cliente.get(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID").json()["fichas"] == []

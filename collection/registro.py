@@ -84,11 +84,16 @@ class OpcaoRegistro:
     """Uma opção de resposta. `rotulo` é a redação canônica ao usuário;
     `valor_interno` é a coluna "Valor interno / mapeamento" da §11 (ex.:
     B5.A02 → CONSIGNADO · PESSOAL · ...). Traduzir qualquer um dos dois é
-    proibido — ambos vêm do YAML de registro, nunca deste módulo."""
+    proibido — ambos vêm do YAML de registro, nunca deste módulo.
+
+    `abre_campo` (`T-213`): a opção pede um valor digitado (ex.: "Data" de
+    `B5.B05B`), gravado na `VARIAVEL_GRAVADA` da pergunta no lugar do
+    `valor_interno`. Hoje só `DATA` — o esquema recusa qualquer outro."""
 
     rotulo: str
     valor_interno: str | None
     admite_nao_sei: bool = False
+    abre_campo: TipoResposta | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -186,6 +186,45 @@ _VALORES_CASO: Final[dict[str, object]] = {
     "RESERVA_TOTAL": converter_para_dinheiro("10.000,00"),
     "DISPOSICAO_USO_RESERVA": "PARTE",
     "VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO": converter_para_dinheiro("3.000,00"),
+    # ---------------------------------------------------------------------
+    # T-214 (`AC-11`, `AC-12`) — as 30 perguntas `OBR` não repetíveis que o
+    # registro atual exige e que a fixture não respondia (`pendencias_
+    # obrigatorias` sobre a coleção real devolvia 30). Todos os valores são
+    # `valor_interno` do registro real, caractere por caractere. Escolha: o
+    # ramo que NÃO abre ficha nova (`NAO`/`NAO_APLICAVEL`), exceto onde a
+    # fixture já tem a ficha (`DESPESAS_NAO_MENSAIS_EXISTE=SIM`, dívida de
+    # cartão rotativo). Categorias de despesa: um item por categoria, só
+    # como resposta de seleção — o total segue vindo da ficha `ITEM_DESPESA`.
+    "OBRIGACAO_FUTURA_INEVITAVEL": "NAO",  # B1.06
+    "USO_CREDITO_PREVISTO": frozenset({"NAO_PRETENDE"}),  # B1.08
+    "PARTICIPACAO_FAMILIAR": "NAO_APLICAVEL",  # B1.12
+    "GASTOS_FANTASMAS": "NAO",  # B2.09
+    "RENDA_RECORRENTE_ADICIONAL_EXISTE": "NAO",  # B3.03
+    "CONTRIBUICAO_FAMILIAR_EXISTE": "NAO",  # B3.04
+    "RECURSOS_EXTRAORDINARIOS_EXISTE": "NAO",  # B3.05
+    "RENDA_EXTRA_RECORRENTE_POTENCIAL_EXISTE": "NAO",  # B3.06
+    "ITENS_DESPESA_MORADIA": frozenset({"ALUGUEL"}),  # B3.D01
+    "ITENS_DESPESA_ALIMENTACAO": frozenset({"SUPERMERCADO"}),  # B3.D02
+    "ITENS_DESPESA_TRANSPORTE": frozenset({"TRANSPORTE_PUBLICO"}),  # B3.D03
+    "ITENS_DESPESA_SAÚDE": frozenset({"PLANO_DE_SAUDE"}),  # B3.D04
+    "ITENS_DESPESA_EDUCACAO": frozenset({"CURSOS"}),  # B3.D05
+    "ITENS_DESPESA_FILHOS": frozenset({"OUTRAS_DESPESAS"}),  # B3.D06
+    "ITENS_DESPESA_SEGUROS": frozenset({"SEGURO_DE_VIDA"}),  # B3.D07
+    "ITENS_DESPESA_LAZER": frozenset({"STREAMING"}),  # B3.D08
+    "ITENS_DESPESA_COMPRAS": frozenset({"ROUPAS"}),  # B3.D09
+    "ITENS_DESPESA_CUIDADOS": frozenset({"ACADEMIA"}),  # B3.D10
+    "DESPESA_EXTRA_EXISTE": "NAO",  # B3.D11
+    "DESPESAS_NAO_MENSAIS_EXISTE": "SIM",  # B3.NM01 — a ficha NM já existe
+    "CONFIRMACAO_MAPEAMENTO_DESPESAS": "SIM",  # B3.C00
+    "PERCEPCAO_FECHAMENTO_MES": "SOBRA",  # B3.C02
+    "VINCULO_CONSIGNAVEL": "NAO",  # B3.S01
+    "INVESTIMENTOS_EXISTE": "NAO",  # B4.04
+    "IMOVEL_EXISTE": "NAO",  # B4.I01
+    "VEICULO_EXISTE": "NAO",  # B4.V01
+    "OUTRO_ATIVO_EXISTE": "NAO",  # B4.O01
+    "CONFIRMACAO_MAPEAMENTO_PATRIMONIAL": "COMPLETO",  # B4.F01
+    "QUANTIDADE_DIVIDAS_DECLARADA_INICIAL": 1,  # B5.00 — NUMERO grava int
+    "TIPOS_DIVIDA_DECLARADOS": frozenset({"CARTAO_ROTATIVO"}),  # B5.00A
 }
 
 # ---------------------------------------------------------------------------

@@ -34,9 +34,13 @@ class _RespostasDeTeste:
     repetidas: dict[tuple[EscopoRepeticao, str], tuple[ValorResposta, ...]] = field(
         default_factory=dict
     )
+    por_item: dict[tuple[str, str], ValorResposta] = field(default_factory=dict)
 
     def valor(self, variavel: str) -> ValorResposta | None:
         return self.escalares.get(variavel)
+
+    def valor_no_item(self, item_id: str, variavel: str) -> ValorResposta | None:
+        return self.por_item.get((item_id, variavel))
 
     def valores_do_escopo(
         self, escopo: EscopoRepeticao, variavel: str
@@ -160,3 +164,44 @@ def test_b12_08_e_um_condicaoou_de_quatro_termos_sem_codigo_especifico_dela() ->
     )
     for respostas_com_uma_origem in cada_origem_isolada:
         assert avaliar(condicao_b12_08, respostas_com_uma_origem) is True
+
+
+# ---------------------------------------------------------------------------
+# T-199 — condição avaliada no item da ficha (`EC-24`, achado C4).
+# ---------------------------------------------------------------------------
+
+
+_PARCELA_DEFINIDA = CondicaoIgual(variavel="POSSUI_PARCELA_DEFINIDA", valor="SIM")
+
+
+def test_t199_condicao_sobre_variavel_de_ficha_le_o_valor_do_item() -> None:
+    """Reproduz o bug: a resposta de ficha é gravada com `item_id`, e sem ele
+    `CondicaoIgual` lia a chave do caso — sempre falsa."""
+    respostas = _RespostasDeTeste(por_item={("D001", "POSSUI_PARCELA_DEFINIDA"): "SIM"})
+    assert avaliar(_PARCELA_DEFINIDA, respostas, "D001") is True
+
+
+def test_t199_resposta_de_um_item_nao_abre_a_condicao_em_outro() -> None:
+    respostas = _RespostasDeTeste(por_item={("D001", "POSSUI_PARCELA_DEFINIDA"): "SIM"})
+    assert avaliar(_PARCELA_DEFINIDA, respostas, "D002") is False
+
+
+def test_t199_nao_sobre_variavel_de_ficha_deixa_de_ser_sempre_verdadeira() -> None:
+    respostas = _RespostasDeTeste(por_item={("D001", "POSSUI_PARCELA_DEFINIDA"): "SIM"})
+    assert avaliar(CondicaoNao(termo=_PARCELA_DEFINIDA), respostas, "D001") is False
+
+
+def test_t199_variavel_de_caso_avalia_igual_com_ou_sem_item() -> None:
+    respostas = _RespostasDeTeste(escalares={"RISCO_PRINCIPAL_RECAIDA": "CARTAO"})
+    condicao = CondicaoIgual(variavel="RISCO_PRINCIPAL_RECAIDA", valor="CARTAO")
+    assert avaliar(condicao, respostas) is True
+    assert avaliar(condicao, respostas, "D001") is True
+
+
+def test_t199_contem_sobre_checklist_de_ficha_le_o_item() -> None:
+    respostas = _RespostasDeTeste(
+        por_item={("D001", "DOCUMENTACAO_DISPONIVEL"): frozenset({"Contrato"})}
+    )
+    condicao = CondicaoContem(variavel="DOCUMENTACAO_DISPONIVEL", valor="Contrato")
+    assert avaliar(condicao, respostas, "D001") is True
+    assert avaliar(condicao, respostas, "D002") is False

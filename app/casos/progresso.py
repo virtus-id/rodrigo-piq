@@ -280,10 +280,20 @@ import uuid
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Final, Protocol
+from itertools import groupby
+from typing import Final, Protocol, assert_never
 
 from app.casos.maquina import ESTADO_CASO, transicionar
-from collection.condicoes import avaliar
+from collection.condicoes import (
+    Condicao,
+    CondicaoContem,
+    CondicaoE,
+    CondicaoExisteItem,
+    CondicaoIgual,
+    CondicaoNao,
+    CondicaoOu,
+    avaliar,
+)
 from collection.registro import EscopoRepeticao, Obrigatoriedade, RegistroPergunta
 from collection.respostas import RespostasCaso
 from persistencia.app_aluno.casos import Caso
@@ -314,20 +324,26 @@ class PendenciaObrigatoria:
 
 
 def _condicao_permite_exigencia(
-    registro: RegistroPergunta, respostas: RespostasCaso
+    registro: RegistroPergunta, respostas: RespostasCaso, item_id: str | None = None
 ) -> bool:
     """`COND` só é exigível quando `condicao_exibicao` avalia como
     verdadeira sobre as respostas correntes (T-11). Registro sem
     `condicao_exibicao` (`None`) nunca teve a exibição condicionada — está
     sempre "exibível" do ponto de vista desta checagem, o que é irrelevante
     para um registro que não declara `COND` (`_e_exigivel_agora`, abaixo, só
-    chama esta função quando `COND` está de fato presente)."""
+    chama esta função quando `COND` está de fato presente).
+
+    `item_id` (`T-199`): a condição de uma pergunta de ficha é avaliada
+    naquele item — a mesma pergunta pode estar aberta em `D001` e fechada em
+    `D002`."""
     if registro.condicao_exibicao is None:
         return True
-    return avaliar(registro.condicao_exibicao, respostas)
+    return avaliar(registro.condicao_exibicao, respostas, item_id)
 
 
-def _e_exigivel_agora(registro: RegistroPergunta, respostas: RespostasCaso) -> bool:
+def _e_exigivel_agora(
+    registro: RegistroPergunta, respostas: RespostasCaso, item_id: str | None = None
+) -> bool:
     """Um registro entra na varredura de pendência quando: (1) declara
     `OBR`, e (2) se também declarar `COND`, a condição de exibição vale
     agora. `OPT` puro nunca chega a este ponto: só `OBR` — sozinho ou
@@ -337,7 +353,7 @@ def _e_exigivel_agora(registro: RegistroPergunta, respostas: RespostasCaso) -> b
     if Obrigatoriedade.OBR not in registro.obrigatoriedade:
         return False
     if Obrigatoriedade.COND in registro.obrigatoriedade:
-        return _condicao_permite_exigencia(registro, respostas)
+        return _condicao_permite_exigencia(registro, respostas, item_id)
     return True
 
 
@@ -361,7 +377,7 @@ def _percorrer_ocorrencias(
     respostas: RespostasCaso,
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
     *,
-    elegivel: Callable[[RegistroPergunta, RespostasCaso], bool],
+    elegivel: Callable[[RegistroPergunta, RespostasCaso, str | None], bool],
     e_por_item: Callable[[RegistroPergunta], bool],
 ) -> Iterator[tuple[PendenciaObrigatoria, bool]]:
     """T-146 — a varredura ÚNICA sobre os registros, em ordem, rendendo TODA
@@ -396,25 +412,49 @@ def _percorrer_ocorrencias(
     qualificaria "obrigatório por item", não "existe por item". A retomada
     precisa oferecer TODA pergunta que o aluno de fato veria por item,
     inclusive as só `COND`; a varredura de pendência BLOQUEANTE, não — e essa
-    distinção não afeta `AC-11`.
+    distinção não afeta `AC-11`. (Desde `T-200` a retomada só varre a coleta
+    inicial — `da_coleta_inicial` —, mas o Bloco 3 tem o mesmo caso, com
+    `VINCULO_ID`.)
 
     Fixar qualquer um dos dois predicados aqui dentro quebraria `AC-11` ou
     `AC-01`. Por isso eles entram como parâmetro, e por isso este gerador não
-    tem default para nenhum dos dois."""
-    for registro in registros:
-        if not elegivel(registro, respostas):
+    tem default para nenhum dos dois.
+
+    **`T-199` — a condição é avaliada por OCORRÊNCIA, não por registro.** Uma
+    pergunta de ficha abre ou fecha conforme a resposta daquele item; avaliar
+    uma vez antes do laço de itens (como era) lia a variável fora do item e
+    fechava toda condicional de ficha.
+
+    **`T-202` — ficha item a item, não intercalada.** Registros CONSECUTIVOS
+    da mesma ficha (mesmo bloco e mesmo escopo) são percorridos item →
+    registro: a primeira ficha inteira, depois a segunda. Iterar registro →
+    item fazia o aluno alternar de dívida a cada pergunta, contra o
+    localizador "Dívida N · pergunta X de Y" (`RF-63`, `AC-92`). Como a
+    mudança é aqui, retomada e contagem mudam juntas."""
+    for ficha, grupo in groupby(registros, key=lambda registro: _ficha(registro, e_por_item)):
+        if ficha is None:
+            for registro in grupo:
+                if elegivel(registro, respostas, None):
+                    yield (
+                        PendenciaObrigatoria(ID=registro.ID, item_id=None),
+                        respostas.valor(_variavel(registro)) is None,
+                    )
             continue
 
-        if e_por_item(registro):
-            for item_id in itens_por_escopo.get(registro.escopo_repeticao, ()):
-                em_branco = respostas.valor_no_item(item_id, _variavel(registro)) is None
-                yield PendenciaObrigatoria(ID=registro.ID, item_id=item_id), em_branco
-            continue
+        da_ficha = tuple(grupo)
+        for item_id in itens_por_escopo.get(ficha[1], ()):
+            for registro in da_ficha:
+                if elegivel(registro, respostas, item_id):
+                    em_branco = respostas.valor_no_item(item_id, _variavel(registro)) is None
+                    yield PendenciaObrigatoria(ID=registro.ID, item_id=item_id), em_branco
 
-        yield (
-            PendenciaObrigatoria(ID=registro.ID, item_id=None),
-            respostas.valor(_variavel(registro)) is None,
-        )
+
+def _ficha(
+    registro: RegistroPergunta, e_por_item: Callable[[RegistroPergunta], bool]
+) -> tuple[int, EscopoRepeticao] | None:
+    """A ficha a que o registro pertence nesta varredura — `(bloco, escopo)`,
+    como em `posicao_na_ficha` — ou `None` fora de ficha."""
+    return (registro.bloco, registro.escopo_repeticao) if e_por_item(registro) else None
 
 
 def _ocorrencias_abertas(
@@ -422,7 +462,7 @@ def _ocorrencias_abertas(
     respostas: RespostasCaso,
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
     *,
-    elegivel: Callable[[RegistroPergunta, RespostasCaso], bool],
+    elegivel: Callable[[RegistroPergunta, RespostasCaso, str | None], bool],
     e_por_item: Callable[[RegistroPergunta], bool],
 ) -> Iterator[PendenciaObrigatoria]:
     """As ocorrências de `_percorrer_ocorrencias` que estão EM BRANCO — o que
@@ -502,14 +542,48 @@ def coleta_pode_avancar(
     return not pendencias_obrigatorias(registros, respostas, itens_por_escopo)
 
 
-def _e_pergunta_aberta(registro: RegistroPergunta, respostas: RespostasCaso) -> bool:
+def _e_pergunta_aberta(
+    registro: RegistroPergunta, respostas: RespostasCaso, item_id: str | None = None
+) -> bool:
     """T-45 — uma pergunta está ABERTA quando sua `condicao_exibicao` avalia
     como verdadeira sobre as respostas correntes (T-11), ou quando ela não
     declara condição alguma (`None`, sempre aberta). Mesmo critério de
     `_condicao_permite_exigencia`, mas aplicado a QUALQUER registro — nunca
     só aos `OBR` — porque a retomada precisa considerar toda pergunta que o
     aluno de fato veria no fluxo, `OPT`/`COND` puro inclusive."""
-    return _condicao_permite_exigencia(registro, respostas)
+    return _condicao_permite_exigencia(registro, respostas, item_id)
+
+
+#: `T-200` — os blocos que NÃO são da coleta inicial. `RF-17` abre os Blocos
+#: 7 e 8 só para as dívidas que o motor sinalizou (coleta dirigida, "outra
+#: etapa" em `AC-92`); os Blocos 10 e 11 são posteriores ao plano (`RF-18`,
+#: `RF-27`). O resto dos blocos carregados (1–5 e 9) é a coleta inicial.
+BLOCOS_POS_PLANO: Final[frozenset[int]] = frozenset({7, 8, 10, 11})
+
+
+def da_coleta_inicial(registros: tuple[RegistroPergunta, ...]) -> tuple[RegistroPergunta, ...]:
+    """`T-200` — os registros da coleta inicial, na ordem recebida. A
+    retomada e a contagem usam só estes; a ficha do Bloco 5 também
+    (`rotas_fichas.py`). `perguntas_da_ficha` fica sem o filtro de propósito:
+    a coleta dirigida precisa do Bloco 7 por ela."""
+    return tuple(registro for registro in registros if registro.bloco not in BLOCOS_POS_PLANO)
+
+
+def _ocorrencias_da_retomada(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None,
+) -> Iterator[tuple[PendenciaObrigatoria, bool]]:
+    """A varredura com os predicados da retomada (`AC-01`) sobre a coleta
+    inicial (`T-200`) — a única que `proxima_pergunta_nao_respondida`,
+    `contar_coleta`, `itens_em_aberto` e `proxima_pergunta_do_item` leem."""
+    return _percorrer_ocorrencias(
+        da_coleta_inicial(registros),
+        respostas,
+        itens_por_escopo or {},
+        elegivel=_e_pergunta_aberta,
+        e_por_item=_e_por_item_por_escopo,
+    )
 
 
 def proxima_pergunta_nao_respondida(
@@ -542,15 +616,64 @@ def proxima_pergunta_nao_respondida(
     registro `REP` (nunca se inventa item; a fonte real é `persistencia/
     app_aluno/itens.py::RepositorioItens.listar_do_caso`, T-23)."""
     return next(
-        _ocorrencias_abertas(
+        (
+            ocorrencia
+            for ocorrencia, em_branco in _ocorrencias_da_retomada(
+                registros, respostas, itens_por_escopo
+            )
+            if em_branco
+        ),
+        None,
+    )
+
+
+def itens_em_aberto(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None = None,
+) -> frozenset[str]:
+    """`T-201` — os itens com ao menos uma pergunta ABERTA naquele item e em
+    branco. Uma ficha está completa quando seu `item_id` não está aqui.
+
+    Não é `pendencias_obrigatorias`: as perguntas da ficha do Bloco 5 são
+    `REP`/`COND, REP`, sem `OBR`, e nunca pendiam — a ficha recém-criada
+    aparecia "Completa". São os predicados da retomada, na mesma varredura.
+
+    `T-219`: varre os `registros` recebidos, SEM o filtro da coleta inicial
+    — quem chama passa as perguntas da ficha (`rotas_fichas.py`). Com o
+    filtro, a ficha de ação (toda no Bloco 11) saía sempre completa."""
+    return frozenset(
+        ocorrencia.item_id
+        for ocorrencia, em_branco in _percorrer_ocorrencias(
             registros,
             respostas,
             itens_por_escopo or {},
             elegivel=_e_pergunta_aberta,
             e_por_item=_e_por_item_por_escopo,
-        ),
-        None,
+        )
+        if em_branco and ocorrencia.item_id is not None
     )
+
+
+def proxima_pergunta_do_item(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None,
+    item_id: str,
+) -> PendenciaObrigatoria | None:
+    """`T-203` — a pergunta em que a ficha `item_id` abre: a primeira aberta e
+    em branco DAQUELE item. Ficha já completa abre na primeira pergunta
+    aberta do item, para revisão. `None` só quando o item não tem pergunta
+    aberta nenhuma — inexistente, removido ou de outro caso."""
+    primeira_aberta: PendenciaObrigatoria | None = None
+    for ocorrencia, em_branco in _ocorrencias_da_retomada(registros, respostas, itens_por_escopo):
+        if ocorrencia.item_id != item_id:
+            continue
+        if em_branco:
+            return ocorrencia
+        if primeira_aberta is None:
+            primeira_aberta = ocorrencia
+    return primeira_aberta
 
 
 @dataclass(frozen=True, slots=True)
@@ -568,6 +691,7 @@ def posicao_na_ficha(
     registro: RegistroPergunta,
     registros: tuple[RegistroPergunta, ...],
     respostas: RespostasCaso,
+    item_id: str | None = None,
 ) -> PosicaoNaFicha | None:
     """`RF-63`, `AC-92` — a posição de `registro` entre as perguntas ABERTAS
     da sua ficha, ou `None` quando ele não pertence a ficha nenhuma.
@@ -595,7 +719,8 @@ def posicao_na_ficha(
     que o aluno percebe é a do bloco em que está.
 
     Usa `_e_pergunta_aberta` — os predicados da RETOMADA, não os da pendência:
-    o localizador conta o que o aluno percorre, igual à barra de progresso."""
+    o localizador conta o que o aluno percorre, igual à barra de progresso —
+    avaliados no `item_id` corrente (`T-199`)."""
     if registro.escopo_repeticao == EscopoRepeticao.NENHUM:
         return None
 
@@ -604,7 +729,7 @@ def posicao_na_ficha(
         for candidato in registros
         if candidato.escopo_repeticao == registro.escopo_repeticao
         and candidato.bloco == registro.bloco
-        and _e_pergunta_aberta(candidato, respostas)
+        and _e_pergunta_aberta(candidato, respostas, item_id)
     ]
 
     try:
@@ -617,6 +742,64 @@ def posicao_na_ficha(
         return None
 
     return PosicaoNaFicha(posicao=indice + 1, total_na_ficha=len(abertas))
+
+
+def cabecas_das_fichas(
+    registros: tuple[RegistroPergunta, ...],
+) -> dict[EscopoRepeticao, RegistroPergunta]:
+    """`T-212` — o primeiro registro de cada escopo repetível, na ordem do
+    registro. A condição da cabeça é a condição de a ficha existir."""
+    cabecas: dict[EscopoRepeticao, RegistroPergunta] = {}
+    for registro in registros:
+        if registro.escopo_repeticao is not EscopoRepeticao.NENHUM:
+            cabecas.setdefault(registro.escopo_repeticao, registro)
+    return cabecas
+
+
+def escopo_aberto(cabeca: RegistroPergunta, respostas: RespostasCaso) -> bool:
+    """`T-212` — a ficha está aberta para o caso quando a condição da cabeça
+    vale no nível do caso (sem `item_id`). Decidido aqui, nunca no cliente
+    (`RF-52`)."""
+    return _e_pergunta_aberta(cabeca, respostas)
+
+
+def escopos_abertos_pela_resposta(
+    registros: tuple[RegistroPergunta, ...],
+    variavel: str,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> tuple[EscopoRepeticao, ...]:
+    """`T-212` — os escopos, ainda sem item, que a resposta a `variavel`
+    deixou abertos: a cabeça tem condição, a condição lê `variavel` e vale
+    agora. Cabeça sem condição (nada a abrir) nunca aparece aqui.
+
+    É "lê a variável", e não "estava fechada antes": `NAO(VINCULO_CONSIGNAVEL
+    = NAO)` já vale sem resposta, e o "Sim" em `B3.S01` precisa apontar a
+    ficha mesmo assim."""
+    return tuple(
+        escopo
+        for escopo, cabeca in cabecas_das_fichas(registros).items()
+        if cabeca.condicao_exibicao is not None
+        and variavel in _variaveis_da_condicao(cabeca.condicao_exibicao)
+        and not itens_por_escopo.get(escopo)
+        and escopo_aberto(cabeca, respostas)
+    )
+
+
+def _variaveis_da_condicao(condicao: Condicao) -> frozenset[str]:
+    match condicao:
+        case (
+            CondicaoIgual(variavel=variavel)
+            | CondicaoContem(variavel=variavel)
+            | CondicaoExisteItem(variavel=variavel)
+        ):
+            return frozenset({variavel})
+        case CondicaoE(termos=termos) | CondicaoOu(termos=termos):
+            return frozenset().union(*(_variaveis_da_condicao(termo) for termo in termos))
+        case CondicaoNao(termo=termo):
+            return _variaveis_da_condicao(termo)
+        case _:
+            assert_never(condicao)
 
 
 @dataclass(frozen=True, slots=True)
@@ -660,13 +843,7 @@ def contar_coleta(
     total = 0
     faltam = 0
 
-    for _, em_branco in _percorrer_ocorrencias(
-        registros,
-        respostas,
-        itens_por_escopo or {},
-        elegivel=_e_pergunta_aberta,
-        e_por_item=_e_por_item_por_escopo,
-    ):
+    for _, em_branco in _ocorrencias_da_retomada(registros, respostas, itens_por_escopo):
         total += 1
         if em_branco:
             faltam += 1

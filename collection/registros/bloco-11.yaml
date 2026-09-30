@@ -57,9 +57,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: ACAO_ID
     opcoes:
-      - { rotulo: "Sim.", valor_interno: null }
-      - { rotulo: "Parcialmente.", valor_interno: null }
-      - { rotulo: "Não.", valor_interno: null }
+      - { rotulo: "Sim.", valor_interno: SIM }
+      - { rotulo: "Parcialmente.", valor_interno: PARCIALMENTE }
+      - { rotulo: "Não.", valor_interno: NAO }
     VARIAVEL_GRAVADA: RESULTADO_ACAO_INFORMACAO
     condicao_exibicao:
       tipo: E
@@ -79,9 +79,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: ACAO_ID
     opcoes:
-      - { rotulo: "Sim.", valor_interno: null }
-      - { rotulo: "Não.", valor_interno: null }
-      - { rotulo: "Ainda estou aguardando.", valor_interno: null }
+      - { rotulo: "Sim.", valor_interno: SIM }
+      - { rotulo: "Não.", valor_interno: NAO }
+      - { rotulo: "Ainda estou aguardando.", valor_interno: AINDA_ESTOU_AGUARDANDO }
     VARIAVEL_GRAVADA: RESULTADO_ACAO_RENEGOCIACAO
     condicao_exibicao:
       tipo: IGUAL
@@ -100,9 +100,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: ACAO_ID
     opcoes:
-      - { rotulo: "Sim.", valor_interno: null }
-      - { rotulo: "Não.", valor_interno: null }
-      - { rotulo: "Ainda estou aguardando.", valor_interno: null }
+      - { rotulo: "Sim.", valor_interno: SIM }
+      - { rotulo: "Não.", valor_interno: NAO }
+      - { rotulo: "Ainda estou aguardando.", valor_interno: AINDA_ESTOU_AGUARDANDO }
     VARIAVEL_GRAVADA: RESULTADO_ACAO_TROCA
     condicao_exibicao:
       tipo: IGUAL
@@ -121,9 +121,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: ACAO_ID
     opcoes:
-      - { rotulo: "Sim, integralmente.", valor_interno: null }
-      - { rotulo: "Sim, parcialmente.", valor_interno: null }
-      - { rotulo: "Não.", valor_interno: null }
+      - { rotulo: "Sim, integralmente.", valor_interno: SIM_INTEGRALMENTE }
+      - { rotulo: "Sim, parcialmente.", valor_interno: SIM_PARCIALMENTE }
+      - { rotulo: "Não.", valor_interno: NAO }
     VARIAVEL_GRAVADA: RESULTADO_ACAO_ECONOMIA
     condicao_exibicao:
       tipo: IGUAL
@@ -236,9 +236,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: ACAO_ID
     opcoes:
-      - { rotulo: "Sim.", valor_interno: null }
-      - { rotulo: "Não.", valor_interno: null }
-      - { rotulo: "Ainda não.", valor_interno: null }
+      - { rotulo: "Sim.", valor_interno: SIM }
+      - { rotulo: "Não.", valor_interno: NAO }
+      - { rotulo: "Ainda não.", valor_interno: AINDA_NAO }
     VARIAVEL_GRAVADA: COMPROVANTE_QUITACAO
     condicao_exibicao: *condicao_status_quitacao_real_quitada
     interpolacoes: []

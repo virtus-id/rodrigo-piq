@@ -13,6 +13,8 @@
  * `<label for>`, grupos usam `<fieldset>/<legend>` — semântica nativa, que
  * é o que dá WCAG 2.1 AA de graça.
  */
+import { useState } from 'react'
+
 import { aplicarMascara, temMascara } from '../mascaras'
 import type { Pergunta } from '../tipos'
 
@@ -40,22 +42,54 @@ export default function CampoPergunta({
   const texto = Array.isArray(valor) ? '' : valor
   const marcados = Array.isArray(valor) ? valor : []
 
+  // `T-207`: quando uma opção do registro já é o "não sei", ela é a única
+  // forma de dizê-lo — o checkbox genérico não é desenhado.
+  const naoSeiNaOpcao = pergunta.opcoes.some((opcao) => opcao.admite_nao_sei)
+
   // `RF-48`/`AC-78`: com "não sei" marcado, o campo fica inerte. A máscara
-  // não roda e nada digitado antes é submetido como se fosse valor.
-  const inerte = naoSei
+  // não roda e nada digitado antes é submetido como se fosse valor. Sem o
+  // checkbox não haveria como destravar, então aí as opções seguem ativas.
+  const inerte = naoSei && !naoSeiNaOpcao
 
   function aoDigitar(bruto: string) {
     onValor(temMascara(pergunta.tipo) ? aplicarMascara(pergunta.tipo, bruto) : bruto)
   }
 
+  /** Escolher uma opção desfaz um "não sei" gravado antes (`T-207`). */
+  function escolher(novo: string | string[]) {
+    if (naoSei) onNaoSei(false)
+    onValor(novo)
+  }
+
   function alternarMarcado(valorInterno: string) {
     const jaTem = marcados.includes(valorInterno)
-    onValor(
+    escolher(
       jaTem ? marcados.filter((v) => v !== valorInterno) : [...marcados, valorInterno],
     )
   }
 
   const grupo = pergunta.tipo === 'SELECAO_UNICA' || pergunta.tipo === 'SIM_NAO_TALVEZ'
+
+  // `T-213`: a opção com `abre_campo` ("Data") grava o que o aluno digita,
+  // não o `valor_interno`. Ela está escolhida quando o valor não é o de outra
+  // opção — assim a data gravada reabre marcada (`AC-102`). Com o campo ainda
+  // vazio, só o clique diz que foi escolhida; o estado guarda de qual
+  // pergunta foi, porque a casca reaproveita este componente entre perguntas.
+  const opcaoDoCampo = pergunta.opcoes.find((opcao) => opcao.abre_campo)
+  const chave = `${pergunta.ID}|${pergunta.item_id ?? ''}`
+  const [campoEscolhidoEm, setCampoEscolhidoEm] = useState<string | null>(null)
+  const campoAberto =
+    opcaoDoCampo !== undefined &&
+    !naoSei &&
+    (texto === ''
+      ? campoEscolhidoEm === chave
+      : !pergunta.opcoes.some((o) => o !== opcaoDoCampo && o.valor_interno === texto))
+
+  /** O rádio sozinho não envia nada: o valor é a data digitada. */
+  function escolherCampo() {
+    setCampoEscolhidoEm(chave)
+    escolher('')
+  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -64,17 +98,31 @@ export default function CampoPergunta({
           <legend className="mb-2 font-serif text-[1.35rem] font-semibold">
             {pergunta.enunciado}
           </legend>
-          {pergunta.opcoes.map((opcao) => {
-            const marcado = texto === opcao.valor_interno
+          {pergunta.opcoes.map((opcao, indice) => {
+            // `T-194`: opção sem `valor_interno` não tem o que enviar — o
+            // cliente não inventa identificador (D1). Fica desabilitada, e
+            // `null` nunca é igual a `texto`, então nunca aparece marcada.
+            const valorInterno = opcao.valor_interno
+            const doCampo = opcao === opcaoDoCampo
+            const marcado = doCampo
+              ? campoAberto
+              : !campoAberto && valorInterno !== null && texto === valorInterno
             return (
               <button
-                key={opcao.valor_interno ?? opcao.rotulo}
+                key={indice}
                 type="button"
                 role="radio"
                 aria-checked={marcado}
                 aria-describedby={idAviso}
                 className="opt"
-                onClick={() => onValor(opcao.valor_interno ?? '')}
+                disabled={valorInterno === null && !doCampo}
+                onClick={() => {
+                  if (doCampo) escolherCampo()
+                  else if (valorInterno !== null) {
+                    setCampoEscolhidoEm(null)
+                    escolher(valorInterno)
+                  }
+                }}
               >
                 <span
                   aria-hidden="true"
@@ -88,23 +136,41 @@ export default function CampoPergunta({
               </button>
             )
           })}
+          {campoAberto && (
+            // Mesmo campo do tipo `DATA`; o rótulo é o da própria opção.
+            <input
+              type="date"
+              className="campo-texto"
+              aria-label={opcaoDoCampo.rotulo}
+              aria-describedby={idAviso}
+              value={texto}
+              onChange={(e) => {
+                setCampoEscolhidoEm(chave)
+                onValor(e.target.value)
+              }}
+            />
+          )}
         </fieldset>
       ) : pergunta.tipo === 'SELECAO_MULTIPLA' ? (
         <fieldset className="flex flex-col gap-2 border-0 p-0" disabled={inerte}>
           <legend className="mb-2 font-serif text-[1.35rem] font-semibold">
             {pergunta.enunciado}
           </legend>
-          {pergunta.opcoes.map((opcao) => {
-            const valorInterno = opcao.valor_interno ?? ''
-            const marcado = marcados.includes(valorInterno)
+          {pergunta.opcoes.map((opcao, indice) => {
+            // `T-194`: estado POR opção. Sem `valor_interno` (checklists, D1
+            // em aberto) a opção fica desabilitada em vez de virar `''` — que
+            // marcava o grupo inteiro e quebrava a montagem no servidor.
+            const valorInterno = opcao.valor_interno
+            const marcado = valorInterno !== null && marcados.includes(valorInterno)
             return (
-              <label key={valorInterno || opcao.rotulo} className="opt">
+              <label key={indice} className="opt">
                 <input
                   type="checkbox"
                   className="h-[26px] w-[26px] accent-accent"
                   checked={marcado}
+                  disabled={valorInterno === null}
                   aria-describedby={idAviso}
-                  onChange={() => alternarMarcado(valorInterno)}
+                  onChange={() => valorInterno !== null && alternarMarcado(valorInterno)}
                 />
                 <span>{opcao.rotulo}</span>
               </label>
@@ -185,8 +251,8 @@ export default function CampoPergunta({
         </div>
       )}
 
-      {pergunta.admite_nao_sei && (
-        <label className="flex min-h-toque items-center gap-3">
+      {pergunta.admite_nao_sei && !naoSeiNaOpcao && (
+        <label className="opt">
           <input
             type="checkbox"
             className="h-[26px] w-[26px] accent-accent"

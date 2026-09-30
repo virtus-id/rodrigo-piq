@@ -35,19 +35,19 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Empréstimo consignado, valor_interno: null}
-      - {rotulo: Empréstimo pessoal, valor_interno: null}
-      - {rotulo: Financiamento de veículo, valor_interno: null}
-      - {rotulo: Financiamento imobiliário, valor_interno: null}
-      - {rotulo: Cartão com saldo rotativo, valor_interno: null}
-      - {rotulo: Parcelamento de fatura, valor_interno: null}
-      - {rotulo: Cheque especial, valor_interno: null}
-      - {rotulo: Parcelamento de compra, valor_interno: null}
-      - {rotulo: Dívida tributária, valor_interno: null}
-      - {rotulo: Dívida com familiar ou outra pessoa, valor_interno: null}
-      - {rotulo: Acordo/renegociação, valor_interno: null}
-      - {rotulo: Outra, valor_interno: null}
-      - {rotulo: Não tenho certeza, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Empréstimo consignado, valor_interno: CONSIGNADO}
+      - {rotulo: Empréstimo pessoal, valor_interno: PESSOAL}
+      - {rotulo: Financiamento de veículo, valor_interno: FIN_VEICULO}
+      - {rotulo: Financiamento imobiliário, valor_interno: FIN_IMOBILIARIO}
+      - {rotulo: Cartão com saldo rotativo, valor_interno: CARTAO_ROTATIVO}
+      - {rotulo: Parcelamento de fatura, valor_interno: CARTAO_PARCELADO}
+      - {rotulo: Cheque especial, valor_interno: CHEQUE_ESPECIAL}
+      - {rotulo: Parcelamento de compra, valor_interno: PARCELAMENTO_COMPRA}
+      - {rotulo: Dívida tributária, valor_interno: TRIBUTARIA}
+      - {rotulo: Dívida com familiar ou outra pessoa, valor_interno: PESSOA_FISICA}
+      - {rotulo: Acordo/renegociação, valor_interno: ACORDO}
+      - {rotulo: Outra, valor_interno: OUTRA}
+      - {rotulo: Não tenho certeza, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: TIPOS_DIVIDA_DECLARADOS
     condicao_exibicao: null
     interpolacoes: []
@@ -110,19 +110,19 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Pagar despesas do mês, valor_interno: null}
-      - {rotulo: Emergência ou imprevisto, valor_interno: null}
-      - {rotulo: Saúde, valor_interno: null}
-      - {rotulo: Moradia, valor_interno: null}
-      - {rotulo: Veículo, valor_interno: null}
-      - {rotulo: Educação, valor_interno: null}
-      - {rotulo: Compra de bem ou serviço, valor_interno: null}
-      - {rotulo: Reforma, valor_interno: null}
-      - {rotulo: Viagem/lazer, valor_interno: null}
-      - {rotulo: Ajudar outra pessoa, valor_interno: null}
-      - {rotulo: Quitar ou substituir outra dívida, valor_interno: null}
-      - {rotulo: Não lembro, valor_interno: null, admite_nao_sei: true}
-      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Pagar despesas do mês, valor_interno: PAGAR_DESPESAS_DO_MES}
+      - {rotulo: Emergência ou imprevisto, valor_interno: EMERGENCIA_OU_IMPREVISTO}
+      - {rotulo: Saúde, valor_interno: SAUDE}
+      - {rotulo: Moradia, valor_interno: MORADIA}
+      - {rotulo: Veículo, valor_interno: VEICULO}
+      - {rotulo: Educação, valor_interno: EDUCACAO}
+      - {rotulo: Compra de bem ou serviço, valor_interno: COMPRA_DE_BEM_OU_SERVICO}
+      - {rotulo: Reforma, valor_interno: REFORMA}
+      - {rotulo: Viagem/lazer, valor_interno: VIAGEM_LAZER}
+      - {rotulo: Ajudar outra pessoa, valor_interno: AJUDAR_OUTRA_PESSOA}
+      - {rotulo: Quitar ou substituir outra dívida, valor_interno: QUITAR_OU_SUBSTITUIR_OUTRA_DIVIDA}
+      - {rotulo: Não lembro, valor_interno: NAO_SEI, admite_nao_sei: true}
+      - {rotulo: Outra, valor_interno: OUTRA}
     VARIAVEL_GRAVADA: FINALIDADE_DIVIDA
     condicao_exibicao: null
     interpolacoes: []
@@ -162,9 +162,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: ORIGEM_RENEGOCIACAO
     condicao_exibicao: null
     interpolacoes: []
@@ -261,11 +261,11 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Data (dd/mm/aaaa), valor_interno: null}
-      - {rotulo: Este mês, valor_interno: null}
-      - {rotulo: Mês passado, valor_interno: null}
-      - {rotulo: Há mais tempo, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Data (dd/mm/aaaa), valor_interno: DATA_DD_MM_AAAA, abre_campo: DATA}
+      - {rotulo: Este mês, valor_interno: ESTE_MES}
+      - {rotulo: Mês passado, valor_interno: MES_PASSADO}
+      - {rotulo: Há mais tempo, valor_interno: HA_MAIS_TEMPO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: DATA_REFERENCIA_SALDO
     # AMBIGUIDADE DA CANÔNICA (reportada em T-17): a condição normativa é
     # "B5.B03 ≠ Não sei", mas B5.B03 é MOEDA com admite_nao_sei — o valor
@@ -335,9 +335,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Data, valor_interno: null}
+      - {rotulo: Data, valor_interno: null, abre_campo: DATA}
       - {rotulo: Validade não informada., valor_interno: VALIDADE_DESCONHECIDA}
-      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: DATA_VALIDADE_PROPOSTA
     condicao_exibicao: {tipo: IGUAL, variavel: QUITACAO_CONSULTADA, valor: SIM}
     interpolacoes: []
@@ -357,9 +357,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: POSSUI_PARCELA_DEFINIDA
     condicao_exibicao: null
     interpolacoes: []
@@ -427,9 +427,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: POSSUI_PAGAMENTO_MINIMO
     condicao_exibicao:
       tipo: NAO
@@ -683,9 +683,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: OUTROS_CUSTOS_EXISTE
     condicao_exibicao: null
     interpolacoes: []
@@ -718,9 +718,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: SEGURO_PRESTAMISTA
     condicao_exibicao: null
     interpolacoes: []
@@ -738,7 +738,7 @@ perguntas:
     opcoes:
       - {rotulo: R$ ___ por mês, valor_interno: MENSAL}
       - {rotulo: R$ ___ no total, valor_interno: TOTAL}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: "CUSTO_SEGURO (+ base MENSAL/TOTAL)"
     condicao_exibicao: {tipo: IGUAL, variavel: SEGURO_PRESTAMISTA, valor: SIM}
     interpolacoes: []
@@ -754,9 +754,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: SEGURO_INCLUIDO_PARCELA
     condicao_exibicao: {tipo: IGUAL, variavel: SEGURO_PRESTAMISTA, valor: SIM}
     interpolacoes: []
@@ -793,12 +793,12 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Menos de 30 dias, valor_interno: null}
-      - {rotulo: 1–3 meses, valor_interno: null}
-      - {rotulo: 4–6 meses, valor_interno: null}
-      - {rotulo: 7–12 meses, valor_interno: null}
-      - {rotulo: Mais de 12 meses, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Menos de 30 dias, valor_interno: MENOS_DE_30_DIAS}
+      - {rotulo: 1–3 meses, valor_interno: "1_3M"}
+      - {rotulo: 4–6 meses, valor_interno: "4_6M"}
+      - {rotulo: 7–12 meses, valor_interno: "7_12M"}
+      - {rotulo: Mais de 12 meses, valor_interno: MAIS_DE_12_MESES}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: TEMPO_ATRASO
     condicao_exibicao:
       tipo: OU
@@ -820,9 +820,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: NEGATIVACAO
     condicao_exibicao: null
     interpolacoes: []
@@ -860,9 +860,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: COBRANCA_JUDICIAL_INFORMADA
     condicao_exibicao: null
     interpolacoes: []
@@ -879,9 +879,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: POSSUI_GARANTIA
     condicao_exibicao: null
     interpolacoes: []
@@ -897,13 +897,13 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Imóvel, valor_interno: null}
-      - {rotulo: Veículo, valor_interno: null}
-      - {rotulo: Outro bem, valor_interno: null}
-      - {rotulo: Aval/fiança, valor_interno: null}
-      - {rotulo: Saldo/aplicação financeira, valor_interno: null}
-      - {rotulo: Outra, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Imóvel, valor_interno: IMOVEL}
+      - {rotulo: Veículo, valor_interno: VEICULO}
+      - {rotulo: Outro bem, valor_interno: OUTRO_BEM}
+      - {rotulo: Aval/fiança, valor_interno: AVAL_FIANCA}
+      - {rotulo: Saldo/aplicação financeira, valor_interno: SALDO_APLICACAO_FINANCEIRA}
+      - {rotulo: Outra, valor_interno: OUTRA}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: TIPO_GARANTIA
     condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_GARANTIA, valor: SIM}
     interpolacoes: []
@@ -944,13 +944,13 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Risco sobre um bem dado em garantia, valor_interno: null}
-      - {rotulo: Negativação, valor_interno: null}
-      - {rotulo: Cobrança, valor_interno: null}
-      - {rotulo: Desconto em folha, valor_interno: null}
-      - {rotulo: Outra consequência informada pelo credor/documento, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
-      - {rotulo: Nenhuma consequência específica que eu conheça, valor_interno: null}
+      - {rotulo: Risco sobre um bem dado em garantia, valor_interno: RISCO_SOBRE_UM_BEM_DADO_EM_GARANTIA}
+      - {rotulo: Negativação, valor_interno: NEGATIVACAO}
+      - {rotulo: Cobrança, valor_interno: COBRANCA}
+      - {rotulo: Desconto em folha, valor_interno: DESCONTO_EM_FOLHA}
+      - {rotulo: Outra consequência informada pelo credor/documento, valor_interno: OUTRA_CONSEQUENCIA_INFORMADA_PELO_CREDOR_DOCUMENTO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
+      - {rotulo: Nenhuma consequência específica que eu conheça, valor_interno: NENHUMA_CONSEQUENCIA_ESPECIFICA_QUE_EU_CONHECA}
     VARIAVEL_GRAVADA: CONSEQUENCIA_INADIMPLEMENTO
     condicao_exibicao: null
     interpolacoes: []
@@ -988,9 +988,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: JA_RENEGOCIADA
     condicao_exibicao: null
     interpolacoes: []
@@ -1053,16 +1053,16 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Juros muito altos, valor_interno: null}
-      - {rotulo: Parcela pesada, valor_interno: null}
-      - {rotulo: Está atrasada, valor_interno: null}
-      - {rotulo: Cobranças, valor_interno: null}
-      - {rotulo: Risco sobre algum bem, valor_interno: null}
-      - {rotulo: Envolve familiar ou pessoa próxima, valor_interno: null}
-      - {rotulo: Quero me livrar dela há muito tempo, valor_interno: null}
-      - {rotulo: "Vergonha, culpa ou preocupação", valor_interno: null}
-      - {rotulo: Não consigo entender bem a dívida, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Juros muito altos, valor_interno: JUROS_MUITO_ALTOS}
+      - {rotulo: Parcela pesada, valor_interno: PARCELA_PESADA}
+      - {rotulo: Está atrasada, valor_interno: ESTA_ATRASADA}
+      - {rotulo: Cobranças, valor_interno: COBRANCAS}
+      - {rotulo: Risco sobre algum bem, valor_interno: RISCO_SOBRE_ALGUM_BEM}
+      - {rotulo: Envolve familiar ou pessoa próxima, valor_interno: ENVOLVE_FAMILIAR_OU_PESSOA_PROXIMA}
+      - {rotulo: Quero me livrar dela há muito tempo, valor_interno: QUERO_ME_LIVRAR_DELA_HA_MUITO_TEMPO}
+      - {rotulo: "Vergonha, culpa ou preocupação", valor_interno: VERGONHA_CULPA_OU_PREOCUPACAO}
+      - {rotulo: Não consigo entender bem a dívida, valor_interno: NAO_CONSIGO_ENTENDER_BEM_A_DIVIDA}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: MOTIVO_PESO_EMOCIONAL
     # AMBIGUIDADE DA CANÔNICA (reportada em T-17): a condição normativa é
     # "B5.H01 ≥ 4", mas os seis nós de Condicao (collection/condicoes.py)
@@ -1117,9 +1117,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: PREFERENCIA_QUITACAO
     condicao_exibicao: null
     interpolacoes: []
@@ -1136,14 +1136,14 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Contrato, valor_interno: null}
-      - {rotulo: Extrato/demonstrativo atualizado, valor_interno: null}
-      - {rotulo: "Documento Descritivo de Crédito — DDC ou equivalente", valor_interno: null}
-      - {rotulo: Fatura, valor_interno: null}
-      - {rotulo: Proposta de negociação, valor_interno: null}
-      - {rotulo: Comprovante/print de aplicativo ou internet banking, valor_interno: null}
-      - {rotulo: Outro documento, valor_interno: null}
-      - {rotulo: Não tenho nenhum documento agora, valor_interno: null}
+      - {rotulo: Contrato, valor_interno: CONTRATO}
+      - {rotulo: Extrato/demonstrativo atualizado, valor_interno: EXTRATO_DEMONSTRATIVO_ATUALIZADO}
+      - {rotulo: "Documento Descritivo de Crédito — DDC ou equivalente", valor_interno: DOCUMENTO_DESCRITIVO_DE_CREDITO_DDC_OU_EQUIVALENTE}
+      - {rotulo: Fatura, valor_interno: FATURA}
+      - {rotulo: Proposta de negociação, valor_interno: PROPOSTA_DE_NEGOCIACAO}
+      - {rotulo: Comprovante/print de aplicativo ou internet banking, valor_interno: COMPROVANTE_PRINT_DE_APLICATIVO_OU_INTERNET_BANKING}
+      - {rotulo: Outro documento, valor_interno: OUTRO_DOCUMENTO}
+      - {rotulo: Não tenho nenhum documento agora, valor_interno: NAO_TENHO_NENHUM_DOCUMENTO_AGORA}
     VARIAVEL_GRAVADA: DOCUMENTACAO_DISPONIVEL
     condicao_exibicao: null
     interpolacoes: []
@@ -1161,12 +1161,12 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Documento/contrato, valor_interno: DOCUMENTO}
-      - {rotulo: Aplicativo ou internet banking, valor_interno: DOCUMENTO}
-      - {rotulo: Atendimento do credor, valor_interno: USUARIO}
-      - {rotulo: Contracheque, valor_interno: DOCUMENTO}
-      - {rotulo: Minha memória, valor_interno: USUARIO}
-      - {rotulo: Uma combinação dessas fontes, valor_interno: USUARIO}
+      - {rotulo: Documento/contrato, valor_interno: DOCUMENTO_CONTRATO}
+      - {rotulo: Aplicativo ou internet banking, valor_interno: APLICATIVO}
+      - {rotulo: Atendimento do credor, valor_interno: ATENDIMENTO_CREDOR}
+      - {rotulo: Contracheque, valor_interno: CONTRACHEQUE}
+      - {rotulo: Minha memória, valor_interno: MEMORIA}
+      - {rotulo: Uma combinação dessas fontes, valor_interno: COMBINACAO}
       - {rotulo: Outra, valor_interno: null}
     VARIAVEL_GRAVADA: FONTE_DADO
     condicao_exibicao: null
@@ -1186,12 +1186,12 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: Hoje, valor_interno: null}
-      - {rotulo: Nos últimos 7 dias, valor_interno: null}
-      - {rotulo: Neste mês, valor_interno: null}
-      - {rotulo: Há 1–3 meses, valor_interno: null}
-      - {rotulo: Há mais de 3 meses, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Hoje, valor_interno: HOJE}
+      - {rotulo: Nos últimos 7 dias, valor_interno: NOS_ULTIMOS_7_DIAS}
+      - {rotulo: Neste mês, valor_interno: NESTE_MES}
+      - {rotulo: Há 1–3 meses, valor_interno: HA_13_MESES}
+      - {rotulo: Há mais de 3 meses, valor_interno: HA_MAIS_DE_3_MESES}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: DATA_REFERENCIA_DADO
     condicao_exibicao: null
     interpolacoes: []
@@ -1210,8 +1210,8 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: "Sim, salvar dívida.", valor_interno: null}
-      - {rotulo: Quero corrigir alguma informação., valor_interno: null}
+      - {rotulo: "Sim, salvar dívida.", valor_interno: SIM_SALVAR_DIVIDA}
+      - {rotulo: Quero corrigir alguma informação., valor_interno: QUERO_CORRIGIR_ALGUMA_INFORMACAO}
     VARIAVEL_GRAVADA: "SYS (salvar/editar)"
     condicao_exibicao: null
     interpolacoes: []
@@ -1229,9 +1229,9 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: "Sim, cadastrar outra.", valor_interno: null}
-      - {rotulo: "Não, esta foi a última.", valor_interno: null}
-      - {rotulo: Não tenho certeza., valor_interno: null, admite_nao_sei: true}
+      - {rotulo: "Sim, cadastrar outra.", valor_interno: SIM_CADASTRAR_OUTRA}
+      - {rotulo: "Não, esta foi a última.", valor_interno: NAO_ESTA_FOI_A_ULTIMA}
+      - {rotulo: Não tenho certeza., valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: "SYS (loop)"
     condicao_exibicao: null
     interpolacoes: []

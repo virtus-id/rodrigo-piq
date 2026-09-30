@@ -245,6 +245,7 @@ def _converter_opcao(bruta: dict[str, Any]) -> OpcaoRegistro:
         rotulo=bruta["rotulo"],
         valor_interno=bruta["valor_interno"],
         admite_nao_sei=bruta.get("admite_nao_sei", False),
+        abre_campo=TipoResposta(bruta["abre_campo"]) if "abre_campo" in bruta else None,
     )
 
 

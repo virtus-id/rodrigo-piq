@@ -58,6 +58,12 @@ class Respostas(Protocol):
         NENHUM`). `None` (ausência) é "ainda não respondida"."""
         ...
 
+    def valor_no_item(self, item_id: str, variavel: str) -> ValorResposta | None:
+        """Valor de `variavel` gravado para o item `item_id` de uma ficha —
+        usado por `avaliar` quando a condição é avaliada num item (`T-199`).
+        `None` é "ainda não respondida naquele item"."""
+        ...
+
     def valores_do_escopo(
         self, escopo: EscopoRepeticao, variavel: str
     ) -> tuple[ValorResposta, ...]:
@@ -124,19 +130,26 @@ type Condicao = (
 )
 
 
-def avaliar(condicao: Condicao, respostas: Respostas) -> bool:
+def avaliar(condicao: Condicao, respostas: Respostas, item_id: str | None = None) -> bool:
     """RF-05 — interpretador genérico da árvore de `Condicao`. Percorre os
     nós e devolve booleano; variável ausente de `respostas` avalia como
     falso, sem levantar exceção (caso comum de "ainda não respondida").
     Resposta `NAO_SEI` nunca satisfaz `CondicaoIgual`/`CondicaoContem` de um
     valor concreto: ela não é igual a nenhuma `str` nem pertence a nenhum
     `frozenset[str]`, então a comparação por `==`/`in` já resolve isso sem
-    nenhum tratamento específico."""
+    nenhum tratamento específico.
+
+    `item_id` (`T-199`, `EC-24`): a pergunta de ficha é exibida POR ITEM, e
+    as respostas de ficha são gravadas com o `item_id`. Com ele, a variável é
+    lida primeiro naquele item e, se o item não a tiver, no caso — uma
+    condição de ficha também pode referenciar variável de caso. Sem ele, só
+    o valor do caso é lido (o comportamento de antes, correto para pergunta
+    fora de ficha)."""
     match condicao:
         case CondicaoIgual(variavel=variavel, valor=valor):
-            return respostas.valor(variavel) == valor
+            return _valor(respostas, variavel, item_id) == valor
         case CondicaoContem(variavel=variavel, valor=valor):
-            marcados = respostas.valor(variavel)
+            marcados = _valor(respostas, variavel, item_id)
             return isinstance(marcados, frozenset) and valor in marcados
         case CondicaoExisteItem(escopo=escopo, variavel=variavel, valor_em=valor_em):
             valores_dos_itens = respostas.valores_do_escopo(escopo, variavel)
@@ -145,10 +158,18 @@ def avaliar(condicao: Condicao, respostas: Respostas) -> bool:
                 for valor_do_item in valores_dos_itens
             )
         case CondicaoE(termos=termos):
-            return all(avaliar(termo, respostas) for termo in termos)
+            return all(avaliar(termo, respostas, item_id) for termo in termos)
         case CondicaoOu(termos=termos):
-            return any(avaliar(termo, respostas) for termo in termos)
+            return any(avaliar(termo, respostas, item_id) for termo in termos)
         case CondicaoNao(termo=termo):
-            return not avaliar(termo, respostas)
+            return not avaliar(termo, respostas, item_id)
         case _:
             assert_never(condicao)
+
+
+def _valor(respostas: Respostas, variavel: str, item_id: str | None) -> ValorResposta | None:
+    if item_id is not None:
+        no_item = respostas.valor_no_item(item_id, variavel)
+        if no_item is not None:
+            return no_item
+    return respostas.valor(variavel)

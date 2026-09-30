@@ -93,7 +93,8 @@
       "properties": {
         "rotulo": { "type": "string", "minLength": 1 },
         "valor_interno": { "type": ["string", "null"] },
-        "admite_nao_sei": { "type": "boolean", "default": false }
+        "admite_nao_sei": { "type": "boolean", "default": false },
+        "abre_campo": { "enum": ["DATA"] }
       }
     },
     "condicao": {

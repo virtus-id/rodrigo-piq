@@ -118,14 +118,14 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: RENDA_ADICIONAL_ID
     opcoes:
-      - {rotulo: Segundo trabalho ou vínculo, valor_interno: null}
-      - {rotulo: Trabalho autônomo/freelance, valor_interno: null}
-      - {rotulo: Aluguel, valor_interno: null}
-      - {rotulo: Pensão recebida, valor_interno: null}
-      - {rotulo: Benefício, valor_interno: null}
-      - {rotulo: Comissão, valor_interno: null}
-      - {rotulo: Renda de negócio, valor_interno: null}
-      - {rotulo: Outra renda recorrente, valor_interno: null}
+      - {rotulo: Segundo trabalho ou vínculo, valor_interno: SEGUNDO_TRABALHO_OU_VINCULO}
+      - {rotulo: Trabalho autônomo/freelance, valor_interno: TRABALHO_AUTONOMO_FREELANCE}
+      - {rotulo: Aluguel, valor_interno: ALUGUEL}
+      - {rotulo: Pensão recebida, valor_interno: PENSAO_RECEBIDA}
+      - {rotulo: Benefício, valor_interno: BENEFICIO}
+      - {rotulo: Comissão, valor_interno: COMISSAO}
+      - {rotulo: Renda de negócio, valor_interno: RENDA_DE_NEGOCIO}
+      - {rotulo: Outra renda recorrente, valor_interno: OUTRA_RENDA_RECORRENTE}
     VARIAVEL_GRAVADA: TIPO_RENDA_ADICIONAL
     condicao_exibicao: {tipo: IGUAL, variavel: RENDA_RECORRENTE_ADICIONAL_EXISTE, valor: SIM}
     interpolacoes: []
@@ -178,8 +178,8 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: CONTRIBUICAO_FAMILIAR_EXISTE
     condicao_exibicao: null
     interpolacoes: []
@@ -234,14 +234,14 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: 13º salário, valor_interno: null}
-      - {rotulo: Férias/abono, valor_interno: null}
-      - {rotulo: Bônus ou gratificação, valor_interno: null}
-      - {rotulo: Restituição de imposto, valor_interno: null}
-      - {rotulo: Precatório/RPV, valor_interno: null}
-      - {rotulo: Venda já prevista, valor_interno: null}
-      - {rotulo: Valor a receber de terceiro, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: 13º salário, valor_interno: "13O_SALARIO"}
+      - {rotulo: Férias/abono, valor_interno: FERIAS_ABONO}
+      - {rotulo: Bônus ou gratificação, valor_interno: BONUS_OU_GRATIFICACAO}
+      - {rotulo: Restituição de imposto, valor_interno: RESTITUICAO_DE_IMPOSTO}
+      - {rotulo: Precatório/RPV, valor_interno: PRECATORIO_RPV}
+      - {rotulo: Venda já prevista, valor_interno: VENDA_JA_PREVISTA}
+      - {rotulo: Valor a receber de terceiro, valor_interno: VALOR_A_RECEBER_DE_TERCEIRO}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: TIPO_RECURSO_EXTRAORDINARIO
     condicao_exibicao:
       tipo: OU
@@ -282,11 +282,11 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Próximos 30 dias, valor_interno: null}
-      - {rotulo: 1–3 meses, valor_interno: null}
-      - {rotulo: 4–6 meses, valor_interno: null}
-      - {rotulo: 7–12 meses, valor_interno: null}
-      - {rotulo: Ainda não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Próximos 30 dias, valor_interno: ATE_30D}
+      - {rotulo: 1–3 meses, valor_interno: "1_3M"}
+      - {rotulo: 4–6 meses, valor_interno: "4_6M"}
+      - {rotulo: 7–12 meses, valor_interno: "7_12M"}
+      - {rotulo: Ainda não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: JANELA_RECURSO_EXTRAORDINARIO
     condicao_exibicao:
       tipo: OU
@@ -348,13 +348,13 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Trabalho extra, valor_interno: null}
-      - {rotulo: Novo vínculo ou atividade, valor_interno: null}
-      - {rotulo: Horas extras/adicional, valor_interno: null}
-      - {rotulo: Aluguel, valor_interno: null}
-      - {rotulo: Negócio, valor_interno: null}
-      - {rotulo: Serviço autônomo, valor_interno: null}
-      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Trabalho extra, valor_interno: TRABALHO_EXTRA}
+      - {rotulo: Novo vínculo ou atividade, valor_interno: NOVO_VINCULO_OU_ATIVIDADE}
+      - {rotulo: Horas extras/adicional, valor_interno: HORAS_EXTRAS_ADICIONAL}
+      - {rotulo: Aluguel, valor_interno: ALUGUEL}
+      - {rotulo: Negócio, valor_interno: NEGOCIO}
+      - {rotulo: Serviço autônomo, valor_interno: SERVICO_AUTONOMO}
+      - {rotulo: Outra, valor_interno: OUTRA}
     VARIAVEL_GRAVADA: ORIGEM_RENDA_EXTRA_POTENCIAL
     condicao_exibicao: {tipo: IGUAL, variavel: RENDA_EXTRA_RECORRENTE_POTENCIAL_EXISTE, valor: CONCRETA}
     interpolacoes: []
@@ -388,16 +388,16 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Aluguel, valor_interno: null}
-      - {rotulo: Condomínio, valor_interno: null}
-      - {rotulo: Água, valor_interno: null}
-      - {rotulo: Energia, valor_interno: null}
-      - {rotulo: Gás, valor_interno: null}
-      - {rotulo: Internet, valor_interno: null}
-      - {rotulo: Telefone, valor_interno: null}
-      - {rotulo: Empregado/serviço doméstico, valor_interno: null}
-      - {rotulo: Manutenção recorrente, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Aluguel, valor_interno: ALUGUEL}
+      - {rotulo: Condomínio, valor_interno: CONDOMINIO}
+      - {rotulo: Água, valor_interno: AGUA}
+      - {rotulo: Energia, valor_interno: ENERGIA}
+      - {rotulo: Gás, valor_interno: GAS}
+      - {rotulo: Internet, valor_interno: INTERNET}
+      - {rotulo: Telefone, valor_interno: TELEFONE}
+      - {rotulo: Empregado/serviço doméstico, valor_interno: EMPREGADO_SERVICO_DOMESTICO}
+      - {rotulo: Manutenção recorrente, valor_interno: MANUTENCAO_RECORRENTE}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: ITENS_DESPESA_MORADIA
     condicao_exibicao: null
     interpolacoes: []
@@ -414,13 +414,13 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Supermercado, valor_interno: null}
-      - {rotulo: Feira/açougue, valor_interno: null}
-      - {rotulo: Alimentação no trabalho, valor_interno: null}
-      - {rotulo: Delivery, valor_interno: null}
-      - {rotulo: Restaurantes, valor_interno: null}
-      - {rotulo: Lanches/cafés, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Supermercado, valor_interno: SUPERMERCADO}
+      - {rotulo: Feira/açougue, valor_interno: FEIRA_ACOUGUE}
+      - {rotulo: Alimentação no trabalho, valor_interno: ALIMENTACAO_NO_TRABALHO}
+      - {rotulo: Delivery, valor_interno: DELIVERY}
+      - {rotulo: Restaurantes, valor_interno: RESTAURANTES}
+      - {rotulo: Lanches/cafés, valor_interno: LANCHES_CAFES}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: ITENS_DESPESA_ALIMENTACAO
     condicao_exibicao: null
     interpolacoes: []
@@ -437,14 +437,14 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Combustível, valor_interno: null}
-      - {rotulo: Transporte público, valor_interno: null}
-      - {rotulo: Aplicativos/táxi, valor_interno: null}
-      - {rotulo: Estacionamento, valor_interno: null}
-      - {rotulo: Pedágio, valor_interno: null}
-      - {rotulo: Seguro do veículo, valor_interno: null}
-      - {rotulo: Manutenção média, valor_interno: null}
-      - {rotulo: Outros custos recorrentes, valor_interno: null}
+      - {rotulo: Combustível, valor_interno: COMBUSTIVEL}
+      - {rotulo: Transporte público, valor_interno: TRANSPORTE_PUBLICO}
+      - {rotulo: Aplicativos/táxi, valor_interno: APLICATIVOS_TAXI}
+      - {rotulo: Estacionamento, valor_interno: ESTACIONAMENTO}
+      - {rotulo: Pedágio, valor_interno: PEDAGIO}
+      - {rotulo: Seguro do veículo, valor_interno: SEGURO_DO_VEICULO}
+      - {rotulo: Manutenção média, valor_interno: MANUTENCAO_MEDIA}
+      - {rotulo: Outros custos recorrentes, valor_interno: OUTROS_CUSTOS_RECORRENTES}
     VARIAVEL_GRAVADA: ITENS_DESPESA_TRANSPORTE
     condicao_exibicao: null
     interpolacoes: []
@@ -461,13 +461,13 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Plano de saúde, valor_interno: null}
-      - {rotulo: Medicamentos contínuos, valor_interno: null}
-      - {rotulo: Terapias, valor_interno: null}
-      - {rotulo: Consultas/exames recorrentes, valor_interno: null}
-      - {rotulo: Tratamentos, valor_interno: null}
-      - {rotulo: Odontologia, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Plano de saúde, valor_interno: PLANO_DE_SAUDE}
+      - {rotulo: Medicamentos contínuos, valor_interno: MEDICAMENTOS_CONTINUOS}
+      - {rotulo: Terapias, valor_interno: TERAPIAS}
+      - {rotulo: Consultas/exames recorrentes, valor_interno: CONSULTAS_EXAMES_RECORRENTES}
+      - {rotulo: Tratamentos, valor_interno: TRATAMENTOS}
+      - {rotulo: Odontologia, valor_interno: ODONTOLOGIA}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: ITENS_DESPESA_SAÚDE
     condicao_exibicao: null
     interpolacoes: []
@@ -484,13 +484,13 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Escola/faculdade, valor_interno: null}
-      - {rotulo: Cursos, valor_interno: null}
-      - {rotulo: Material, valor_interno: null}
-      - {rotulo: Transporte escolar, valor_interno: null}
-      - {rotulo: Atividades extracurriculares, valor_interno: null}
-      - {rotulo: Reforço/aulas, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Escola/faculdade, valor_interno: ESCOLA_FACULDADE}
+      - {rotulo: Cursos, valor_interno: CURSOS}
+      - {rotulo: Material, valor_interno: MATERIAL}
+      - {rotulo: Transporte escolar, valor_interno: TRANSPORTE_ESCOLAR}
+      - {rotulo: Atividades extracurriculares, valor_interno: ATIVIDADES_EXTRACURRICULARES}
+      - {rotulo: Reforço/aulas, valor_interno: REFORCO_AULAS}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: ITENS_DESPESA_EDUCACAO
     condicao_exibicao: null
     interpolacoes: []
@@ -509,12 +509,12 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Pensão paga, valor_interno: null}
-      - {rotulo: Mesada, valor_interno: null}
-      - {rotulo: Cuidador/babá, valor_interno: null}
-      - {rotulo: Vestuário recorrente, valor_interno: null}
-      - {rotulo: Apoio financeiro, valor_interno: null}
-      - {rotulo: Outras despesas, valor_interno: null}
+      - {rotulo: Pensão paga, valor_interno: PENSAO_PAGA}
+      - {rotulo: Mesada, valor_interno: MESADA}
+      - {rotulo: Cuidador/babá, valor_interno: CUIDADOR_BABA}
+      - {rotulo: Vestuário recorrente, valor_interno: VESTUARIO_RECORRENTE}
+      - {rotulo: Apoio financeiro, valor_interno: APOIO_FINANCEIRO}
+      - {rotulo: Outras despesas, valor_interno: OUTRAS_DESPESAS}
     VARIAVEL_GRAVADA: ITENS_DESPESA_FILHOS
     condicao_exibicao: null
     interpolacoes: []
@@ -532,10 +532,10 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Seguro de vida, valor_interno: null}
-      - {rotulo: Seguro residencial, valor_interno: null}
-      - {rotulo: Seguro de equipamentos, valor_interno: null}
-      - {rotulo: Outros seguros, valor_interno: null}
+      - {rotulo: Seguro de vida, valor_interno: SEGURO_DE_VIDA}
+      - {rotulo: Seguro residencial, valor_interno: SEGURO_RESIDENCIAL}
+      - {rotulo: Seguro de equipamentos, valor_interno: SEGURO_DE_EQUIPAMENTOS}
+      - {rotulo: Outros seguros, valor_interno: OUTROS_SEGUROS}
     VARIAVEL_GRAVADA: ITENS_DESPESA_SEGUROS
     condicao_exibicao: null
     interpolacoes: []
@@ -552,13 +552,13 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Restaurantes/lazer ainda não lançados, valor_interno: null}
-      - {rotulo: Streaming, valor_interno: null}
-      - {rotulo: Clubes, valor_interno: null}
-      - {rotulo: Viagens recorrentes, valor_interno: null}
-      - {rotulo: Eventos, valor_interno: null}
-      - {rotulo: Hobbies, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Restaurantes/lazer ainda não lançados, valor_interno: RESTAURANTES_LAZER_AINDA_NAO_LANCADOS}
+      - {rotulo: Streaming, valor_interno: STREAMING}
+      - {rotulo: Clubes, valor_interno: CLUBES}
+      - {rotulo: Viagens recorrentes, valor_interno: VIAGENS_RECORRENTES}
+      - {rotulo: Eventos, valor_interno: EVENTOS}
+      - {rotulo: Hobbies, valor_interno: HOBBIES}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: ITENS_DESPESA_LAZER
     condicao_exibicao: null
     interpolacoes: []
@@ -576,12 +576,12 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Roupas, valor_interno: null}
-      - {rotulo: Cosméticos, valor_interno: null}
-      - {rotulo: Eletrônicos, valor_interno: null}
-      - {rotulo: Compras online, valor_interno: null}
-      - {rotulo: Presentes, valor_interno: null}
-      - {rotulo: Outros, valor_interno: null}
+      - {rotulo: Roupas, valor_interno: ROUPAS}
+      - {rotulo: Cosméticos, valor_interno: COSMETICOS}
+      - {rotulo: Eletrônicos, valor_interno: ELETRONICOS}
+      - {rotulo: Compras online, valor_interno: COMPRAS_ONLINE}
+      - {rotulo: Presentes, valor_interno: PRESENTES}
+      - {rotulo: Outros, valor_interno: OUTROS}
     VARIAVEL_GRAVADA: ITENS_DESPESA_COMPRAS
     condicao_exibicao: null
     interpolacoes: []
@@ -599,11 +599,11 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Academia, valor_interno: null}
-      - {rotulo: Salão/barbearia, valor_interno: null}
-      - {rotulo: Estética, valor_interno: null}
-      - {rotulo: Serviços pessoais, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Academia, valor_interno: ACADEMIA}
+      - {rotulo: Salão/barbearia, valor_interno: SALAO_BARBEARIA}
+      - {rotulo: Estética, valor_interno: ESTETICA}
+      - {rotulo: Serviços pessoais, valor_interno: SERVICOS_PESSOAIS}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: ITENS_DESPESA_CUIDADOS
     condicao_exibicao: null
     interpolacoes: []
@@ -620,8 +620,8 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: DESPESA_EXTRA_EXISTE
     condicao_exibicao: null
     interpolacoes: []
@@ -734,15 +734,15 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DESPESA_NAO_MENSAL_ID
     opcoes:
-      - {rotulo: IPTU, valor_interno: null}
-      - {rotulo: IPVA/licenciamento, valor_interno: null}
-      - {rotulo: Matrícula, valor_interno: null}
-      - {rotulo: Material escolar, valor_interno: null}
-      - {rotulo: Seguro anual, valor_interno: null}
-      - {rotulo: Manutenção programada, valor_interno: null}
-      - {rotulo: Imposto/taxa, valor_interno: null}
-      - {rotulo: Assinatura anual, valor_interno: null}
-      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: IPTU, valor_interno: IPTU}
+      - {rotulo: IPVA/licenciamento, valor_interno: IPVA_LICENCIAMENTO}
+      - {rotulo: Matrícula, valor_interno: MATRICULA}
+      - {rotulo: Material escolar, valor_interno: MATERIAL_ESCOLAR}
+      - {rotulo: Seguro anual, valor_interno: SEGURO_ANUAL}
+      - {rotulo: Manutenção programada, valor_interno: MANUTENCAO_PROGRAMADA}
+      - {rotulo: Imposto/taxa, valor_interno: IMPOSTO_TAXA}
+      - {rotulo: Assinatura anual, valor_interno: ASSINATURA_ANUAL}
+      - {rotulo: Outra, valor_interno: OUTRA}
     VARIAVEL_GRAVADA: TIPO_DESPESA_NAO_MENSAL
     condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
     interpolacoes: []
@@ -796,9 +796,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: DESPESA_NAO_MENSAL_ID
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: DESPESA_NAO_MENSAL_JA_CONTABILIZADA
     condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
     interpolacoes: []
@@ -1118,9 +1118,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: MARGEM_A_LIBERAR_EXISTE
     condicao_exibicao:
       tipo: NAO
@@ -1156,10 +1156,10 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: 1–3 meses, valor_interno: null}
-      - {rotulo: 4–6 meses, valor_interno: null}
-      - {rotulo: 7–12 meses, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: 1–3 meses, valor_interno: "1_3M"}
+      - {rotulo: 4–6 meses, valor_interno: "4_6M"}
+      - {rotulo: 7–12 meses, valor_interno: "7_12M"}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: JANELA_LIBERACAO_MARGEM
     condicao_exibicao: {tipo: IGUAL, variavel: MARGEM_A_LIBERAR_EXISTE, valor: SIM}
     interpolacoes: []
@@ -1177,9 +1177,9 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: DESCONTO_CONTRACHEQUE_NAO_RECONHECIDO
     condicao_exibicao:
       tipo: NAO

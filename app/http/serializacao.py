@@ -68,11 +68,13 @@ def serializar_valor(valor: ValorResposta | None) -> Any:
 
 def serializar_opcao(opcao: OpcaoRegistro) -> dict[str, Any]:
     """`rotulo` e `valor_interno` vão como estão — traduzir qualquer um dos
-    dois é proibido (`collection/registro.py::OpcaoRegistro`)."""
+    dois é proibido (`collection/registro.py::OpcaoRegistro`). `abre_campo`
+    diz ao cliente que a opção pede um valor digitado (`T-213`)."""
     return {
         "rotulo": opcao.rotulo,
         "valor_interno": opcao.valor_interno,
         "admite_nao_sei": opcao.admite_nao_sei,
+        "abre_campo": opcao.abre_campo.value if opcao.abre_campo else None,
     }
 
 

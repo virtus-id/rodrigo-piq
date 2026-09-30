@@ -5,7 +5,7 @@
  * aluno não cadastra nem uma dívida, e o Bloco 5 — o núcleo do PIQ — fica
  * inalcançável.
  *
- * `completa` vem do servidor (`pendencias_obrigatorias`), nunca é recontado
+ * `completa` vem do servidor (`itens_em_aberto`, `T-201`), nunca é recontado
  * aqui: obrigatoriedade é regra, e regra mora num lugar só.
  */
 import { useCallback, useEffect, useState } from 'react'
@@ -13,8 +13,32 @@ import { useCallback, useEffect, useState } from 'react'
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
-import { criarFicha, listarFichas, removerFicha } from '../services/api'
+import {
+  criarFicha,
+  listarFichas,
+  nomearFicha,
+  obterProximaPergunta,
+  removerFicha,
+} from '../services/api'
 import type { Ficha } from '../tipos'
+
+/**
+ * Os nomes de cada escopo que tem tela — `T-212`, títulos da §11. É o ÚNICO
+ * lugar do frontend que os lista. Um escopo fora daqui não tem tela:
+ * `ACAO_ID` é do acompanhamento (Bloco 11), não da coleta inicial.
+ * `ITEM_DESPESA` (`T-217`): as fichas nascem do checklist; a lista serve
+ * para dar nome a "Outro" e adicionar despesa não listada.
+ */
+export const TITULOS_POR_ESCOPO: Readonly<
+  Record<string, { titulo: string; tituloPlural: string; possessivo?: string }>
+> = {
+  DIVIDA_ID: { titulo: 'Dívida', tituloPlural: 'Dívidas' },
+  RENDA_ADICIONAL_ID: { titulo: 'Renda adicional', tituloPlural: 'Rendas adicionais' },
+  DESPESA_NAO_MENSAL_ID: { titulo: 'Despesa não mensal', tituloPlural: 'Despesas não mensais' },
+  VINCULO_ID: { titulo: 'Vínculo', tituloPlural: 'Vínculos', possessivo: 'Seus' },
+  MARGEM_ID: { titulo: 'Margem', tituloPlural: 'Margens' },
+  ITEM_DESPESA: { titulo: 'Despesa', tituloPlural: 'Despesas' },
+}
 
 interface TelaFichasProps {
   casoId: string
@@ -29,8 +53,19 @@ interface TelaFichasProps {
    * esta tela.
    */
   tituloPlural: string
+  /** "Suas dívidas", mas "Seus vínculos". */
+  possessivo?: string
   voltar?: () => void
-  onAbrirFicha: (itemId: string) => void
+  /**
+   * `idPergunta` é a pergunta em que a ficha abre — a próxima em branco
+   * daquele item, decidida pelo servidor (`RF-45`, `T-203`).
+   */
+  onAbrirFicha: (itemId: string, idPergunta: string) => void
+  /**
+   * Segue a coleta — `T-212`. Não exige ficha: se criar ao menos uma é
+   * obrigatório ainda é questão aberta para o especialista.
+   */
+  onContinuar?: () => void
 }
 
 export default function TelaFichas({
@@ -38,8 +73,10 @@ export default function TelaFichas({
   escopo,
   titulo,
   tituloPlural,
+  possessivo = 'Suas',
   voltar,
   onAbrirFicha,
+  onContinuar,
 }: TelaFichasProps) {
   const [fichas, setFichas] = useState<Ficha[]>([])
   const [carregando, setCarregando] = useState(true)
@@ -71,6 +108,25 @@ export default function TelaFichas({
     }
   }
 
+  async function aoAbrir(itemId: string) {
+    try {
+      const dados = await obterProximaPergunta(casoId, itemId)
+      if (!dados.pergunta) throw new Error('ficha sem pergunta')
+      onAbrirFicha(itemId, dados.pergunta.ID)
+    } catch {
+      setErro('Não foi possível abrir a ficha.')
+    }
+  }
+
+  async function aoNomear(itemId: string, nome: string) {
+    try {
+      await nomearFicha(casoId, escopo, itemId, nome)
+      await carregar()
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Não foi possível salvar o nome.')
+    }
+  }
+
   async function aoRemover(itemId: string) {
     try {
       await removerFicha(casoId, escopo, itemId)
@@ -82,13 +138,16 @@ export default function TelaFichas({
 
   return (
     <Tela
-      titulo={`Suas ${tituloPlural.toLowerCase()}`}
+      titulo={`${possessivo} ${tituloPlural.toLowerCase()}`}
       voltar={voltar}
       onde={fichas.length > 0 ? `${fichas.length} cadastrada${fichas.length === 1 ? '' : 's'}` : undefined}
       acoes={
-        <Botao variante="secundario" onClick={() => void aoAdicionar()}>
-          + Adicionar {titulo.toLowerCase()}
-        </Botao>
+        <>
+          {onContinuar && <Botao onClick={onContinuar}>Continuar</Botao>}
+          <Botao variante="secundario" onClick={() => void aoAdicionar()}>
+            + Adicionar {titulo.toLowerCase()}
+          </Botao>
+        </>
       }
     >
       <p className="lead">Uma ficha para cada item. Toque em uma para completar.</p>
@@ -120,13 +179,20 @@ export default function TelaFichas({
               <button
                 type="button"
                 className="text-left font-bold text-accent"
-                onClick={() => onAbrirFicha(ficha.item_id)}
+                onClick={() => void aoAbrir(ficha.item_id)}
               >
-                {titulo} {ficha.item_id}
+                {ficha.rotulo ?? `${titulo} ${ficha.item_id}`}
               </button>
               <small className="block text-muted">
                 {ficha.campos.length} campo{ficha.campos.length === 1 ? '' : 's'}
               </small>
+              {ficha.pede_nome && (
+                <NomeDaFicha
+                  itemId={ficha.item_id}
+                  nomeAtual={ficha.rotulo}
+                  onSalvar={(nome) => void aoNomear(ficha.item_id, nome)}
+                />
+              )}
             </div>
             <span
               className={`chip ${ficha.completa ? 'bg-accent-soft text-accent' : 'bg-warn-soft text-warn'}`}
@@ -135,7 +201,7 @@ export default function TelaFichas({
             </span>
             <button
               type="button"
-              aria-label={`Remover ${titulo} ${ficha.item_id}`}
+              aria-label={`Remover ${ficha.rotulo ?? `${titulo} ${ficha.item_id}`}`}
               className="min-h-toque px-3 text-muted"
               onClick={() => void aoRemover(ficha.item_id)}
             >
@@ -145,5 +211,45 @@ export default function TelaFichas({
         ))}
       </ul>
     </Tela>
+  )
+}
+
+/**
+ * O nome curto de "Outro" e da despesa não listada (`T-217`, §11: "texto
+ * curto"). O servidor valida; aqui só o limite do campo, o mesmo dele.
+ */
+function NomeDaFicha({
+  itemId,
+  nomeAtual,
+  onSalvar,
+}: {
+  itemId: string
+  nomeAtual: string | null
+  onSalvar: (nome: string) => void
+}) {
+  const [nome, setNome] = useState(nomeAtual ?? '')
+  const id = `nome-${itemId}`
+  return (
+    <form
+      className="mt-2 flex flex-wrap items-end gap-2"
+      onSubmit={(evento) => {
+        evento.preventDefault()
+        if (nome.trim()) onSalvar(nome.trim())
+      }}
+    >
+      <div className="min-w-0 flex-1">
+        <label htmlFor={id}>Nome da despesa</label>
+        <input
+          id={id}
+          className="campo-texto"
+          maxLength={60}
+          value={nome}
+          onChange={(evento) => setNome(evento.target.value)}
+        />
+      </div>
+      <Botao variante="secundario" type="submit">
+        Salvar nome
+      </Botao>
+    </form>
   )
 }

@@ -10,8 +10,9 @@
  * testa a acessibilidade de graça: se o rótulo não estiver associado ao
  * campo, a query falha.
  */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
 import CampoPergunta from '../../../src/componentes/CampoPergunta'
@@ -181,5 +182,224 @@ describe('aviso de materialidade', () => {
       'aria-describedby',
       aviso.id,
     )
+  })
+})
+
+describe('T-194: estado por opção, nunca `valor_interno ?? ""`', () => {
+  // Checklist como o registro ainda o traz (D1 em aberto): duas opções sem
+  // `valor_interno`. Antes, as duas viravam `''` e marcar uma marcava todas.
+  const checklist = fabricar('SELECAO_MULTIPLA', {
+    opcoes: [
+      { rotulo: 'Aluguel', valor_interno: null, admite_nao_sei: false },
+      { rotulo: 'Condomínio', valor_interno: null, admite_nao_sei: false },
+      { rotulo: 'Energia', valor_interno: 'ENERGIA', admite_nao_sei: false },
+    ],
+  })
+
+  it('SELECAO_MULTIPLA: com valor vazio, nenhuma opção de valor nulo aparece marcada', () => {
+    render(
+      <CampoPergunta
+        pergunta={checklist}
+        valor={['']}
+        naoSei={false}
+        onValor={vi.fn()}
+        onNaoSei={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('checkbox', { name: 'Aluguel' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: 'Condomínio' })).not.toBeChecked()
+  })
+
+  it('SELECAO_MULTIPLA: marcar uma opção envia só ela, e nunca `""`', async () => {
+    const aoValor = vi.fn()
+    const usuario = userEvent.setup()
+    render(
+      <CampoPergunta
+        pergunta={checklist}
+        valor={[]}
+        naoSei={false}
+        onValor={aoValor}
+        onNaoSei={vi.fn()}
+      />,
+    )
+
+    await usuario.click(screen.getByRole('checkbox', { name: 'Energia' }))
+    await usuario.click(screen.getByRole('checkbox', { name: 'Aluguel' }))
+
+    expect(aoValor).toHaveBeenCalledTimes(1)
+    expect(aoValor).toHaveBeenCalledWith(['ENERGIA'])
+  })
+
+  it('SELECAO_UNICA: a opção escolhida aparece marcada, e só ela', () => {
+    render(
+      <CampoPergunta
+        pergunta={fabricar('SELECAO_UNICA', {
+          opcoes: [
+            { rotulo: 'Sim', valor_interno: 'SIM', admite_nao_sei: false },
+            { rotulo: 'Não', valor_interno: 'NAO', admite_nao_sei: false },
+            { rotulo: 'Talvez', valor_interno: null, admite_nao_sei: false },
+          ],
+        })}
+        valor="SIM"
+        naoSei={false}
+        onValor={vi.fn()}
+        onNaoSei={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('radio', { name: 'Sim' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('radio', { name: 'Não' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('radio', { name: 'Talvez' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('SIM_NAO_TALVEZ: opção de valor nulo não envia `""`', async () => {
+    const aoValor = vi.fn()
+    const usuario = userEvent.setup()
+    render(
+      <CampoPergunta
+        pergunta={fabricar('SIM_NAO_TALVEZ', {
+          opcoes: [
+            { rotulo: 'Sim', valor_interno: null, admite_nao_sei: false },
+            { rotulo: 'Não', valor_interno: null, admite_nao_sei: false },
+          ],
+        })}
+        valor=""
+        naoSei={false}
+        onValor={aoValor}
+        onNaoSei={vi.fn()}
+      />,
+    )
+
+    await usuario.click(screen.getByRole('radio', { name: 'Sim' }))
+
+    expect(aoValor).not.toHaveBeenCalled()
+    expect(screen.getByRole('radio', { name: 'Sim' })).toBeDisabled()
+  })
+})
+
+describe('T-207: um só "Não sei"', () => {
+  const comOpcaoNaoSei = fabricar('SELECAO_UNICA', {
+    admite_nao_sei: true,
+    opcoes: [
+      { rotulo: 'Sim', valor_interno: 'SIM', admite_nao_sei: false },
+      { rotulo: 'Não sei', valor_interno: 'NAO_SEI', admite_nao_sei: true },
+    ],
+  })
+
+  it('pergunta com opção "Não sei" não desenha o checkbox genérico', () => {
+    render(
+      <CampoPergunta
+        pergunta={comOpcaoNaoSei}
+        valor=""
+        naoSei={false}
+        onValor={vi.fn()}
+        onNaoSei={vi.fn()}
+      />,
+    )
+
+    expect(screen.getAllByText('Não sei')).toHaveLength(1)
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+  })
+
+  it('"não sei" gravado antes não trava as opções, e escolher uma o desfaz', async () => {
+    const aoValor = vi.fn()
+    const aoNaoSei = vi.fn()
+    const usuario = userEvent.setup()
+    render(
+      <CampoPergunta
+        pergunta={comOpcaoNaoSei}
+        valor=""
+        naoSei={true}
+        onValor={aoValor}
+        onNaoSei={aoNaoSei}
+      />,
+    )
+
+    await usuario.click(screen.getByRole('radio', { name: 'Sim' }))
+
+    expect(aoValor).toHaveBeenCalledWith('SIM')
+    expect(aoNaoSei).toHaveBeenCalledWith(false)
+  })
+
+  it('MOEDA mantém o checkbox, no estilo das opções', () => {
+    render(
+      <CampoPergunta
+        pergunta={fabricar('MOEDA', { admite_nao_sei: true })}
+        valor=""
+        naoSei={false}
+        onValor={vi.fn()}
+        onNaoSei={vi.fn()}
+      />,
+    )
+
+    const caixa = screen.getByRole('checkbox', { name: 'Não sei' })
+    // Exceção deliberada à regra de não consultar classe: o critério de aceite
+    // É o estilo `.opt`.
+    expect(caixa.closest('label')).toHaveClass('opt')
+  })
+})
+
+describe('T-213: opção que abre campo de data', () => {
+  // Como `B5.B05B`: "Data" sem `valor_interno`, marcada por `abre_campo`.
+  const comData = fabricar('SELECAO_UNICA', {
+    opcoes: [
+      { rotulo: 'Data', valor_interno: null, admite_nao_sei: false, abre_campo: 'DATA' },
+      {
+        rotulo: 'Validade não informada.',
+        valor_interno: 'VALIDADE_DESCONHECIDA',
+        admite_nao_sei: false,
+      },
+    ],
+  })
+
+  function ComEstado({ inicial = '' }: { inicial?: string }) {
+    const [valor, setValor] = useState<string | string[]>(inicial)
+    return (
+      <>
+        <CampoPergunta
+          pergunta={comData}
+          valor={valor}
+          naoSei={false}
+          onValor={setValor}
+          onNaoSei={vi.fn()}
+        />
+        <output data-testid="valor">{String(valor)}</output>
+      </>
+    )
+  }
+
+  it('escolher "Data" mostra o campo de data; o rádio sozinho não envia nada', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado />)
+    expect(screen.queryByLabelText('Data')).not.toBeInTheDocument()
+
+    await usuario.click(screen.getByRole('radio', { name: 'Data' }))
+
+    const campo = screen.getByLabelText('Data')
+    expect(campo).toHaveAttribute('type', 'date')
+    expect(screen.getByRole('radio', { name: 'Data' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByTestId('valor')).toHaveTextContent(/^$/)
+
+    fireEvent.change(campo, { target: { value: '2026-12-31' } })
+    expect(screen.getByTestId('valor')).toHaveTextContent('2026-12-31')
+  })
+
+  it('AC-102: a data gravada reaparece preenchida ao reabrir', () => {
+    render(<ComEstado inicial="2026-12-31" />)
+
+    expect(screen.getByRole('radio', { name: 'Data' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByLabelText('Data')).toHaveValue('2026-12-31')
+  })
+
+  it('outra opção grava o valor_interno e fecha o campo', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado inicial="2026-12-31" />)
+
+    await usuario.click(screen.getByRole('radio', { name: 'Validade não informada.' }))
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('VALIDADE_DESCONHECIDA')
+    expect(screen.queryByLabelText('Data')).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Data' })).toHaveAttribute('aria-checked', 'false')
   })
 })

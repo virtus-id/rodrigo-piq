@@ -347,3 +347,26 @@ def test_isolamento_sem_sessao_responde_401(monkeypatch: pytest.MonkeyPatch) -> 
     cliente = _montar_cliente(monkeypatch, conta_da_sessao=None)
 
     assert cliente.get(f"/caso/{_CASO}/respostas").status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# `T-198` (achado C7) — resposta cuja condição fechou depois de uma correção.
+# ---------------------------------------------------------------------------
+
+
+def test_t198_resposta_cuja_condicao_fechou_nao_quebra_nem_e_listada(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`B1.02=SIM` abre `B1.03`; corrigir para `NAO` fecha. A resposta de
+    `B1.03` continua gravada, mas a revisão respondia `500` em toda carga —
+    e o "‹ Pergunta anterior", que usa a mesma rota, sumia.
+
+    A linha some da revisão (mesma disciplina das fichas); a parte fica."""
+    b103 = _resposta("B1.03", "CONSUMO")
+    respostas = (_resposta("B1.02", "NAO"), b103)
+    cliente = _montar_cliente(monkeypatch, respostas=respostas)
+
+    parte = next(p for p in _partes(cliente) if p["bloco"] == 1)
+
+    assert [r["ID"] for r in parte["respondidas"]] == ["B1.02"]
+    assert b103 in _RepositorioRespostasDublê(respostas).listar_do_caso(_CASO)

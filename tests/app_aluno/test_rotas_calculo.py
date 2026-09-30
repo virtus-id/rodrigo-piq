@@ -24,6 +24,7 @@ REGRAS: `RF-16`, `AC-12`
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, date, datetime
 
 import pytest
@@ -31,6 +32,7 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.casos.maquina import ESTADO_CASO, Caso
+from app.http import rotas_calculo
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import obter_repositorio_casos
 from app.http.rotas_calculo import (
@@ -44,7 +46,15 @@ from app.http.rotas_calculo import (
     obter_repositorio_snapshots,
 )
 from app.http.sessao import iniciar_sessao_conta
-from collection.carga import ColecaoDeRegistros
+from app.montagem.conversao import ErroConversaoInvalida
+from app.montagem.estado import (
+    ErroCampoAgregadoDesconhecido,
+    ErroDinheiroDisponivelIndeterminado,
+    ErroRespostaAusente,
+    ErroSinalComportamentalAusente,
+)
+from collection.carga import ColecaoDeRegistros, carregar_registros
+from collection.interpolacao import Marcador
 from collection.opcoes_do_motor import OrigemOpcoes
 from collection.registro import (
     EscopoRepeticao,
@@ -528,3 +538,287 @@ def test_transicionar_estado_se_recusa_segunda_chamada_quando_estado_ja_mudou() 
     assert primeira is not None
     assert primeira.estado == ESTADO_CASO.CALCULANDO
     assert segunda is None
+
+
+# ---------------------------------------------------------------------------
+# T-197 (`RF-16`, `AC-12`, `EC-03`, `EC-25`) — falha de montagem vira `422`
+# legível ANTES da transição, nunca `500`; o caso fica em `COLETA_INICIAL`.
+# ---------------------------------------------------------------------------
+
+
+def _erros_de_montagem() -> list[Exception]:
+    return [
+        ValueError("valor inesperado ''"),
+        ErroSinalComportamentalAusente("VARIAVEL_TESTE_T197"),
+        ErroCampoAgregadoDesconhecido("VARIAVEL_TESTE_T197", "motivo"),
+        ErroDinheiroDisponivelIndeterminado("VARIAVEL_TESTE_T197", "motivo"),
+        ErroConversaoInvalida("abc", "motivo"),
+        ErroRespostaAusente("DIV-1", "B5.99", "VARIAVEL_TESTE_T197"),
+        # `B5.D05A` com `MENSAL`/`TOTAL` cai no `assert` de `estado.py:502`.
+        AssertionError(),
+    ]
+
+
+class _ParametrosExternosQueFalham(ParametrosExternosDoBloco6):
+    def __init__(self, erro: Exception) -> None:
+        self._erro = erro
+
+    def obter(self, caso: Caso, respostas: RespostasCaso) -> dict[str, object]:
+        raise self._erro
+
+
+def _assert_recusa_legivel(cliente: TestClient, repositorio_casos: _RepositorioCasosDublê) -> None:
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+    assert resposta.status_code == 422
+    assert resposta.json()["mensagem"]
+    assert "Erro" not in resposta.text
+    assert "VARIAVEL_TESTE_T197" not in resposta.text
+    assert repositorio_casos.chamadas_transicionar_estado_se == []
+    caso_apos = repositorio_casos.buscar("CASO-CALCULO-1")
+    assert caso_apos is not None
+    assert caso_apos.estado == ESTADO_CASO.COLETA_INICIAL
+
+
+@pytest.mark.parametrize("erro", _erros_de_montagem(), ids=lambda e: type(e).__name__)
+def test_t197_erro_na_montagem_vira_422_legivel_e_caso_fica_em_coleta(
+    monkeypatch: pytest.MonkeyPatch, erro: Exception
+) -> None:
+    def _montagem_que_falha(*_args: object) -> object:
+        raise erro
+
+    monkeypatch.setattr(rotas_calculo, "_montar_estado_financeiro_do_caso", _montagem_que_falha)
+    repositorio_casos = _RepositorioCasosDublê(_caso_fabricado(), conta_id_da_sessao="CONTA-1")
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        colecao=ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=()),
+    )
+
+    _assert_recusa_legivel(cliente, repositorio_casos)
+
+
+@pytest.mark.parametrize("erro", _erros_de_montagem(), ids=lambda e: type(e).__name__)
+def test_t197_erro_em_parametros_externos_vira_422_legivel_e_caso_fica_em_coleta(
+    monkeypatch: pytest.MonkeyPatch, erro: Exception
+) -> None:
+    repositorio_casos = _RepositorioCasosDublê(_caso_fabricado(), conta_id_da_sessao="CONTA-1")
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        colecao=ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=()),
+        parametros_externos=_ParametrosExternosQueFalham(erro),
+    )
+
+    _assert_recusa_legivel(cliente, repositorio_casos)
+
+
+# ---------------------------------------------------------------------------
+# T-210 (`RF-16`, `RF-68`, `AC-12`, `AC-100`) — cada pendência do `400` e do
+# `422` é `{ID, item_id, enunciado}`: o aluno lê a pergunta, nunca só o `ID`.
+# ---------------------------------------------------------------------------
+
+
+def test_t210_pendencia_obr_traz_enunciado_e_item_id_nulo(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    registro = _registro_obrigatorio_sintetico("T56.OBR01", "VARIAVEL_OBRIGATORIA_TESTE")
+    colecao = ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=(registro,))
+    repositorio_casos = _RepositorioCasosDublê(
+        _caso_fabricado(ESTADO_CASO.COLETA_INICIAL), conta_id_da_sessao="CONTA-1"
+    )
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch, repositorio_casos=repositorio_casos, colecao=colecao
+    )
+
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+
+    assert resposta.status_code == 400
+    assert resposta.json()["pendencias"] == [
+        {"ID": "T56.OBR01", "item_id": None, "enunciado": registro.enunciado}
+    ]
+
+
+def _registro_rep_com_marcador(ID: str) -> RegistroPergunta:
+    return replace(
+        _registro_obrigatorio_sintetico(ID, "VARIAVEL_TESTE_T210"),
+        enunciado="Sobre a dívida [Dxxx], responda.",
+        obrigatoriedade=frozenset({Obrigatoriedade.OPT, Obrigatoriedade.REP}),
+        escopo_repeticao=EscopoRepeticao.DIVIDA_ID,
+        interpolacoes=(Marcador(marcador="[Dxxx]", origem="ID_DO_ITEM", referencia=""),),
+    )
+
+
+def test_t210_montagem_recusada_traz_enunciado_interpolado_do_item(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _montagem_que_falha(*_args: object) -> object:
+        raise ErroRespostaAusente("D001", "T210.REP01", "VARIAVEL_TESTE_T210")
+
+    monkeypatch.setattr(rotas_calculo, "_montar_estado_financeiro_do_caso", _montagem_que_falha)
+    registro = _registro_rep_com_marcador("T210.REP01")
+    repositorio_casos = _RepositorioCasosDublê(_caso_fabricado(), conta_id_da_sessao="CONTA-1")
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        # Só a montagem falha: o registro é `OPT`, a guarda de `OBR` não o
+        # aponta.
+        colecao=ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=(registro,)),
+    )
+
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+
+    assert resposta.status_code == 422
+    assert resposta.json()["pendencias"] == [
+        {"ID": "T210.REP01", "item_id": "D001", "enunciado": "Sobre a dívida D001, responda."}
+    ]
+    assert "VARIAVEL_TESTE_T210" not in resposta.text
+
+
+def test_t210_enunciado_que_nao_monta_cai_no_id_sem_quebrar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Sem item, `[Dxxx]` não tem valor (`ErroInterpolacao`); pergunta fora
+    da coleção não tem registro. Nos dois casos a pendência sai com o `ID`."""
+
+    def _montagem_que_falha(*_args: object) -> object:
+        raise ErroRespostaAusente("", "T210.REP01", "VARIAVEL_TESTE_T210")
+
+    monkeypatch.setattr(rotas_calculo, "_montar_estado_financeiro_do_caso", _montagem_que_falha)
+    repositorio_casos = _RepositorioCasosDublê(_caso_fabricado(), conta_id_da_sessao="CONTA-1")
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        colecao=ColecaoDeRegistros(
+            QUESTIONARIO_VERSION="1.0.0", registros=(_registro_rep_com_marcador("T210.REP01"),)
+        ),
+    )
+
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+
+    assert resposta.status_code == 422
+    assert resposta.json()["pendencias"] == [
+        {"ID": "T210.REP01", "item_id": None, "enunciado": "T210.REP01"}
+    ]
+
+
+def test_t210_erro_sem_pergunta_conhecida_devolve_lista_vazia(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _montagem_que_falha(*_args: object) -> object:
+        raise ValueError("valor inesperado ''")
+
+    monkeypatch.setattr(rotas_calculo, "_montar_estado_financeiro_do_caso", _montagem_que_falha)
+    repositorio_casos = _RepositorioCasosDublê(_caso_fabricado(), conta_id_da_sessao="CONTA-1")
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        colecao=ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=()),
+    )
+
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+
+    assert resposta.status_code == 422
+    assert resposta.json()["pendencias"] == []
+
+
+# ---------------------------------------------------------------------------
+# T-217 item 6 (`RF-05`, `RF-52`) — resposta cuja condição fechou continua
+# gravada, mas não chega à montagem.
+# ---------------------------------------------------------------------------
+
+
+def _resposta_t217(ID_PERGUNTA: str, valor: str, item_id: str | None = None) -> Resposta:
+    return Resposta(
+        CASO_ID="CASO-CALCULO-1",
+        ID_PERGUNTA=ID_PERGUNTA,
+        item_id=item_id,
+        valor=valor,
+        QUESTIONARIO_VERSION="1.0.0",
+        respondida_em=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+
+
+def _respostas_vistas_pela_montagem(
+    monkeypatch: pytest.MonkeyPatch,
+    IDs: tuple[str, ...],
+    respostas: tuple[Resposta, ...],
+    itens: tuple[ItemRepetido, ...] = (),
+) -> tuple[Resposta, ...]:
+    """Dispara a rota com os registros REAIS `IDs` e devolve as respostas que
+    `_montar_estado_financeiro_do_caso` recebeu."""
+    vistas: list[RespostasCaso] = []
+
+    def _montagem_que_espia(_caso: object, respostas: RespostasCaso, *_args: object) -> object:
+        vistas.append(respostas)
+        raise ValueError("parada do teste")
+
+    monkeypatch.setattr(rotas_calculo, "_montar_estado_financeiro_do_caso", _montagem_que_espia)
+    registros = tuple(r for r in carregar_registros().registros if r.ID in IDs)
+    repositorio_casos = _RepositorioCasosDublê(_caso_fabricado(), conta_id_da_sessao="CONTA-1")
+    cliente, _ = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        colecao=ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=registros),
+        respostas=respostas,
+        itens=itens,
+    )
+
+    assert cliente.post("/caso/CASO-CALCULO-1/calculo").status_code == 422
+    return vistas[0].respostas
+
+
+def test_t217_resposta_de_pergunta_fechada_nao_chega_a_montagem(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """B1.02=SIM → B1.03 respondida → corrige B1.02=NAO: B1.03 segue no
+    repositório, mas a montagem não a vê."""
+    respostas = (
+        _resposta_t217("NOVA_DIVIDA_PREVISTA", "NAO"),
+        _resposta_t217("FINALIDADE_NOVA_DIVIDA", "CONSUMO"),
+    )
+
+    vistas = _respostas_vistas_pela_montagem(monkeypatch, ("B1.02", "B1.03"), respostas)
+
+    assert [r.ID_PERGUNTA for r in vistas] == ["NOVA_DIVIDA_PREVISTA"]
+
+
+def test_t217_pergunta_aberta_continua_no_calculo(monkeypatch: pytest.MonkeyPatch) -> None:
+    respostas = (
+        _resposta_t217("NOVA_DIVIDA_PREVISTA", "SIM"),
+        _resposta_t217("FINALIDADE_NOVA_DIVIDA", "CONSUMO"),
+    )
+
+    vistas = _respostas_vistas_pela_montagem(monkeypatch, ("B1.02", "B1.03"), respostas)
+
+    assert vistas == respostas
+
+
+def test_t217_ficha_de_divida_filtra_por_item_e_em_cadeia(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`D002` deixou de ser cartão: `B5.C07` fecha no item e `B5.C07A`, que
+    dependia dela, cai junto (ponto fixo). `D001` segue cartão, intacta."""
+    itens = tuple(
+        ItemRepetido(
+            item_id=item_id,
+            CASO_ID="CASO-CALCULO-1",
+            escopo=EscopoRepeticao.DIVIDA_ID,
+            removido_em=None,
+            criado_em=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        for item_id in ("D001", "D002")
+    )
+    respostas = (
+        _resposta_t217("TIPO_DIVIDA", "CARTAO_ROTATIVO", "D001"),
+        _resposta_t217("LINHA_CONTINUA_SENDO_UTILIZADA", "SIM", "D001"),
+        _resposta_t217("NOVO_USO", "SIM", "D001"),
+        _resposta_t217("TIPO_DIVIDA", "CONSIGNADO", "D002"),
+        _resposta_t217("LINHA_CONTINUA_SENDO_UTILIZADA", "SIM", "D002"),
+        _resposta_t217("NOVO_USO", "SIM", "D002"),
+    )
+
+    vistas = _respostas_vistas_pela_montagem(
+        monkeypatch, ("B5.A02", "B5.C07", "B5.C07A"), respostas, itens
+    )
+
+    assert vistas == respostas[:4]

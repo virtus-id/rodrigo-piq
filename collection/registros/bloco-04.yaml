@@ -91,16 +91,16 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Conta corrente, valor_interno: null}
-      - {rotulo: Conta remunerada, valor_interno: null}
-      - {rotulo: Poupança, valor_interno: null}
-      - {rotulo: CDB/RDB, valor_interno: null}
-      - {rotulo: Tesouro Direto, valor_interno: null}
-      - {rotulo: Fundo de renda fixa, valor_interno: null}
-      - {rotulo: Outro investimento, valor_interno: null}
-      - {rotulo: Dinheiro em espécie, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
-      - {rotulo: Não sei dizer, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Conta corrente, valor_interno: CONTA_CORRENTE}
+      - {rotulo: Conta remunerada, valor_interno: CONTA_REMUNERADA}
+      - {rotulo: Poupança, valor_interno: POUPANCA}
+      - {rotulo: CDB/RDB, valor_interno: CDB_RDB}
+      - {rotulo: Tesouro Direto, valor_interno: TESOURO_DIRETO}
+      - {rotulo: Fundo de renda fixa, valor_interno: FUNDO_DE_RENDA_FIXA}
+      - {rotulo: Outro investimento, valor_interno: OUTRO_INVESTIMENTO}
+      - {rotulo: Dinheiro em espécie, valor_interno: DINHEIRO_EM_ESPECIE}
+      - {rotulo: Outro, valor_interno: OUTRO}
+      - {rotulo: Não sei dizer, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: LOCAL_RESERVA
     condicao_exibicao:
       tipo: NAO
@@ -190,18 +190,18 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Poupança, valor_interno: null}
-      - {rotulo: CDB/RDB, valor_interno: null}
-      - {rotulo: Tesouro Direto, valor_interno: null}
-      - {rotulo: LCI/LCA, valor_interno: null}
-      - {rotulo: Fundo de renda fixa, valor_interno: null}
-      - {rotulo: Previdência privada, valor_interno: null}
-      - {rotulo: Fundo de investimento, valor_interno: null}
-      - {rotulo: Ações, valor_interno: null}
-      - {rotulo: ETF, valor_interno: null}
-      - {rotulo: Fundo imobiliário, valor_interno: null}
-      - {rotulo: Criptoativo, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Poupança, valor_interno: POUPANCA}
+      - {rotulo: CDB/RDB, valor_interno: CDB_RDB}
+      - {rotulo: Tesouro Direto, valor_interno: TESOURO_DIRETO}
+      - {rotulo: LCI/LCA, valor_interno: LCI_LCA}
+      - {rotulo: Fundo de renda fixa, valor_interno: FUNDO_DE_RENDA_FIXA}
+      - {rotulo: Previdência privada, valor_interno: PREVIDENCIA_PRIVADA}
+      - {rotulo: Fundo de investimento, valor_interno: FUNDO_DE_INVESTIMENTO}
+      - {rotulo: Ações, valor_interno: ACOES}
+      - {rotulo: ETF, valor_interno: ETF}
+      - {rotulo: Fundo imobiliário, valor_interno: FUNDO_IMOBILIARIO}
+      - {rotulo: Criptoativo, valor_interno: CRIPTOATIVO}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: TIPO_INVESTIMENTO
     condicao_exibicao: {tipo: IGUAL, variavel: INVESTIMENTOS_EXISTE, valor: SIM}
     interpolacoes: []
@@ -319,8 +319,8 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: IMOVEL_EXISTE
     condicao_exibicao: null
     interpolacoes: []
@@ -336,13 +336,13 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Casa/apartamento onde moro, valor_interno: null}
-      - {rotulo: Outro imóvel residencial, valor_interno: null}
-      - {rotulo: Imóvel alugado, valor_interno: null}
-      - {rotulo: Terreno, valor_interno: null}
-      - {rotulo: Imóvel comercial, valor_interno: null}
-      - {rotulo: Imóvel de lazer, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Casa/apartamento onde moro, valor_interno: CASA_APARTAMENTO_ONDE_MORO}
+      - {rotulo: Outro imóvel residencial, valor_interno: OUTRO_IMOVEL_RESIDENCIAL}
+      - {rotulo: Imóvel alugado, valor_interno: IMOVEL_ALUGADO}
+      - {rotulo: Terreno, valor_interno: TERRENO}
+      - {rotulo: Imóvel comercial, valor_interno: IMOVEL_COMERCIAL}
+      - {rotulo: Imóvel de lazer, valor_interno: IMOVEL_DE_LAZER}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: TIPO_IMOVEL
     condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
     interpolacoes: []
@@ -377,9 +377,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: IMOVEL_POSSUI_PASSIVO
     condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
     interpolacoes: []
@@ -414,8 +414,8 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: IMOVEL_GERA_RENDA
     condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
     interpolacoes: []
@@ -529,8 +529,8 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: VEICULO_EXISTE
     condicao_exibicao: null
     interpolacoes: []
@@ -546,10 +546,10 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Carro, valor_interno: null}
-      - {rotulo: Moto, valor_interno: null}
-      - {rotulo: Utilitário, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Carro, valor_interno: CARRO}
+      - {rotulo: Moto, valor_interno: MOTO}
+      - {rotulo: Utilitário, valor_interno: UTILITARIO}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: TIPO_VEICULO
     condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
     interpolacoes: []
@@ -582,9 +582,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: VEICULO_POSSUI_PASSIVO
     condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}
     interpolacoes: []
@@ -788,8 +788,8 @@ perguntas:
     obrigatoriedade: [OBR]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: OUTRO_ATIVO_EXISTE
     condicao_exibicao: null
     interpolacoes: []
@@ -807,12 +807,12 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Equipamento profissional, valor_interno: null}
-      - {rotulo: Joias/objetos de valor, valor_interno: null}
-      - {rotulo: Participação societária, valor_interno: null}
-      - {rotulo: Embarcação, valor_interno: null}
-      - {rotulo: Bem de coleção, valor_interno: null}
-      - {rotulo: Outro, valor_interno: null}
+      - {rotulo: Equipamento profissional, valor_interno: EQUIPAMENTO_PROFISSIONAL}
+      - {rotulo: Joias/objetos de valor, valor_interno: JOIAS_OBJETOS_DE_VALOR}
+      - {rotulo: Participação societária, valor_interno: PARTICIPACAO_SOCIETARIA}
+      - {rotulo: Embarcação, valor_interno: EMBARCACAO}
+      - {rotulo: Bem de coleção, valor_interno: BEM_DE_COLECAO}
+      - {rotulo: Outro, valor_interno: OUTRO}
     VARIAVEL_GRAVADA: TIPO_OUTRO_ATIVO
     condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
     interpolacoes: []
@@ -845,9 +845,9 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Sim, valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Sim, valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: OUTRO_ATIVO_POSSUI_PASSIVO
     condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
     interpolacoes: []
@@ -880,8 +880,8 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: "Sim → se Sim: R$ ______ por mês", valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: "Sim → se Sim: R$ ______ por mês", valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: RENDA_OUTRO_ATIVO
     condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
     interpolacoes: []
@@ -897,8 +897,8 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: "Sim → se Sim: R$ ______ por mês", valor_interno: null}
-      - {rotulo: Não, valor_interno: null}
+      - {rotulo: "Sim → se Sim: R$ ______ por mês", valor_interno: SIM}
+      - {rotulo: Não, valor_interno: NAO}
     VARIAVEL_GRAVADA: CUSTO_OUTRO_ATIVO
     condicao_exibicao: {tipo: IGUAL, variavel: OUTRO_ATIVO_EXISTE, valor: SIM}
     interpolacoes: []

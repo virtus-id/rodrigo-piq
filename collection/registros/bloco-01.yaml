@@ -183,15 +183,15 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Imposto ou obrigação anual, valor_interno: null}
-      - {rotulo: Educação, valor_interno: null}
-      - {rotulo: Saúde, valor_interno: null}
-      - {rotulo: Moradia, valor_interno: null}
-      - {rotulo: Veículo, valor_interno: null}
-      - {rotulo: Despesa familiar, valor_interno: null}
-      - {rotulo: Mudança, valor_interno: null}
-      - {rotulo: Viagem necessária, valor_interno: null}
-      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Imposto ou obrigação anual, valor_interno: IMPOSTO_OU_OBRIGACAO_ANUAL}
+      - {rotulo: Educação, valor_interno: EDUCACAO}
+      - {rotulo: Saúde, valor_interno: SAUDE}
+      - {rotulo: Moradia, valor_interno: MORADIA}
+      - {rotulo: Veículo, valor_interno: VEICULO}
+      - {rotulo: Despesa familiar, valor_interno: DESPESA_FAMILIAR}
+      - {rotulo: Mudança, valor_interno: MUDANCA}
+      - {rotulo: Viagem necessária, valor_interno: VIAGEM_NECESSARIA}
+      - {rotulo: Outra, valor_interno: OUTRA}
     VARIAVEL_GRAVADA: TIPO_OBRIGACAO_FUTURA
     condicao_exibicao:
       tipo: IGUAL
@@ -230,11 +230,11 @@ perguntas:
     obrigatoriedade: [COND, REP]
     escopo_repeticao: NENHUM
     opcoes:
-      - {rotulo: Próximos 30 dias, valor_interno: null}
-      - {rotulo: 1–3 meses, valor_interno: null}
-      - {rotulo: 4–6 meses, valor_interno: null}
-      - {rotulo: 7–12 meses, valor_interno: null}
-      - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}
+      - {rotulo: Próximos 30 dias, valor_interno: ATE_30D}
+      - {rotulo: 1–3 meses, valor_interno: "1_3M"}
+      - {rotulo: 4–6 meses, valor_interno: "4_6M"}
+      - {rotulo: 7–12 meses, valor_interno: "7_12M"}
+      - {rotulo: Não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: JANELA_OBRIGACAO_FUTURA
     condicao_exibicao:
       tipo: IGUAL

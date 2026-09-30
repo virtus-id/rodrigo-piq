@@ -42,6 +42,7 @@ REGRAS: `RF-18`, `AC-22`, `AC-23`, `AC-24`
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from typing import Annotated, Final
 
@@ -73,6 +74,8 @@ from persistencia.supabase.repositorio_snapshots import (
     ErroSnapshotNaoEncontrado,
     RepositorioSnapshotsSupabase,
 )
+
+_LOGGER: Final[logging.Logger] = logging.getLogger("app.http.rotas_bloco10")
 
 REGRAS: Final[tuple[str, ...]] = ("RF-18", "AC-22", "AC-23", "AC-24")
 
@@ -313,8 +316,9 @@ def responder_bloco_10(
     try:
         valor = _resolver_valor(registro, dados)
     except ErroConversaoInvalida as erro:
-        mensagem = f"{registro.VARIAVEL_GRAVADA}: {erro.motivo}"
-        return _resposta_de_erro(mensagem, 400)
+        # Mesma correção de `T-205`: a variável vai para o log, nunca ao aluno.
+        _LOGGER.info("resposta recusada: %s — %s", registro.VARIAVEL_GRAVADA, erro.motivo)
+        return _resposta_de_erro(f"Resposta não aceita: {erro.motivo}.", 400)
 
     # Passo 5: validação cruzada (AC-23) — o limite superior de B10.C01A vem
     # do snapshot, via RespostasDoBloco10, nunca de um literal aqui.
@@ -327,8 +331,15 @@ def responder_bloco_10(
     try:
         _exigir_validacao_cruzada(registro, item_id, respostas_do_bloco_10)
     except ErroValidacaoCruzadaFalhou as erro:
-        mensagem = f"{erro.variavel_esquerda}/{erro.variavel_direita}: {erro.mensagem}"
-        return _resposta_de_erro(mensagem, 400)
+        # `T-209`: o aluno lê só a `mensagem` do registro; as variáveis vão
+        # para o log.
+        _LOGGER.info(
+            "validação cruzada recusada: %s/%s — %s",
+            erro.variavel_esquerda,
+            erro.variavel_direita,
+            erro.mensagem,
+        )
+        return _resposta_de_erro(erro.mensagem, 400)
 
     # Passo 6: gravação com transação confirmada. EC-05: falha nunca reporta
     # sucesso — devolve erro explícito e NÃO avança.

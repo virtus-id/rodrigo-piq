@@ -25,6 +25,9 @@ REGRAS: `RF-29`, `AC-05`, `AC-30`, `AC-31`
 
 from __future__ import annotations
 
+import dataclasses
+import logging
+import re
 from datetime import UTC, date, datetime
 from pathlib import Path
 
@@ -42,7 +45,9 @@ from app.http.isolamento import obter_repositorio_casos
 from app.http.rotas_bloco11 import obter_colecao_de_registros, obter_repositorio_respostas
 from app.http.rotas_bloco11 import roteador as roteador_bloco11
 from app.http.sessao import iniciar_sessao_conta
-from collection.carga import carregar_registros
+from collection.carga import ColecaoDeRegistros, carregar_registros
+from collection.registro import EscopoRepeticao
+from collection.validacao import ValidacaoCruzada
 from engine.tipos import EVENTO_RECALCULO
 from persistencia.app_aluno.arquivo import RepositorioRespostasArquivo
 
@@ -89,6 +94,7 @@ def _montar_cliente(
     tmp_path: Path,
     *,
     caso: Caso,
+    colecao: ColecaoDeRegistros | None = None,
 ) -> TestClient:
     monkeypatch.setenv("CHAVE_ASSINATURA_SESSAO", _CHAVE_TESTE)
 
@@ -97,7 +103,9 @@ def _montar_cliente(
     aplicacao.dependency_overrides[obter_repositorio_casos] = lambda: _RepositorioCasosDublê(
         caso, _CONTA_ID
     )
-    aplicacao.dependency_overrides[obter_colecao_de_registros] = carregar_registros
+    aplicacao.dependency_overrides[obter_colecao_de_registros] = (
+        carregar_registros if colecao is None else lambda: colecao
+    )
     aplicacao.dependency_overrides[obter_repositorio_respostas] = (
         lambda: RepositorioRespostasArquivo(caminho_arquivo=tmp_path / "respostas.jsonl")
     )
@@ -295,3 +303,49 @@ def test_isolamento_recusa_sessao_de_outra_conta(
     )
 
     assert resposta.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# T-209 — recusa de validação cruzada sem nome de variável.
+# ---------------------------------------------------------------------------
+
+
+def test_t209_validacao_cruzada_devolve_so_a_mensagem_do_registro(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Nenhuma pergunta real do Bloco 11 declara validação cruzada: `B11.Q01`
+    ganha uma que sempre falha (`X < X`), só para exercitar a recusa."""
+    sempre_falha = ValidacaoCruzada(
+        variavel_esquerda="STATUS_QUITACAO_REAL",
+        operador="<",
+        variavel_direita="STATUS_QUITACAO_REAL",
+        escopo=EscopoRepeticao.ACAO_ID,
+        mensagem="Mensagem do registro.",
+    )
+    real = carregar_registros()
+    colecao = dataclasses.replace(
+        real,
+        registros=tuple(
+            dataclasses.replace(r, validacoes_cruzadas=(sempre_falha,))
+            if r.ID == "B11.Q01"
+            else r
+            for r in real.registros
+        ),
+    )
+    caso = _caso_em_acompanhamento()
+    cliente = _montar_cliente(monkeypatch, tmp_path, caso=caso, colecao=colecao)
+
+    with caplog.at_level(logging.INFO, logger="app.http.rotas_bloco11"):
+        resposta = cliente.post(
+            f"/caso/{caso.CASO_ID}/bloco-11/resposta",
+            data={"ID_PERGUNTA": "B11.Q01", "item_id": _DIVIDA_ID_D003, "valor": "NAO"},
+        )
+
+    assert resposta.status_code == 400
+    erro = resposta.json()["erro"]
+    assert erro == "Mensagem do registro."
+    assert not re.search(r"[A-Z]{2,}_[A-Z_]+", erro), erro
+    assert "STATUS_QUITACAO_REAL" in caplog.text
+    assert RepositorioRespostasArquivo(
+        caminho_arquivo=tmp_path / "respostas.jsonl"
+    ).listar_do_caso(caso.CASO_ID) == ()

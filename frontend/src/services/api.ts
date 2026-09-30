@@ -11,6 +11,7 @@
  */
 import type {
   ConfirmacaoDeResposta,
+  EscoposDoCaso,
   Etapas,
   Ficha,
   Inicio,
@@ -23,18 +24,29 @@ import type {
   RespostasDoCaso,
 } from '../tipos'
 
+/** Uma pergunta que falta para calcular (`T-210`): o texto para o aluno ler
+ *  e o endereço para abri-la. `item_id` é `null` fora de ficha. */
+export interface PendenciaDoCalculo {
+  ID: string
+  item_id: string | null
+  enunciado: string
+}
+
 export class ErroHttp extends Error {
   // Campos declarados e atribuídos no corpo: `erasableSyntaxOnly` do
   // `tsconfig.app.json` proíbe parâmetro-propriedade (`readonly` no
   // construtor), porque aquilo emite código em vez de ser só tipo.
   readonly status: number
   readonly detalhe: string
+  /** O que falta, quando o servidor nomeia (`POST .../calculo`, T-197). */
+  readonly pendencias: readonly PendenciaDoCalculo[]
 
-  constructor(status: number, detalhe: string) {
+  constructor(status: number, detalhe: string, pendencias: readonly PendenciaDoCalculo[] = []) {
     super(detalhe)
     this.name = 'ErroHttp'
     this.status = status
     this.detalhe = detalhe
+    this.pendencias = pendencias
   }
 }
 
@@ -50,16 +62,23 @@ async function pedir<T>(url: string, init: RequestInit = {}): Promise<T> {
   })
 
   if (!resposta.ok) {
-    // O servidor nomeia o motivo (`{"erro": ...}`); quando não houver corpo
-    // legível, o status já é a informação — nunca inventamos uma mensagem.
+    // O servidor nomeia o motivo (`{"erro": ...}`, ou `{"mensagem",
+    // "pendencias"}` nas rotas do cálculo); quando não houver corpo legível,
+    // o status já é a informação — nunca inventamos uma mensagem.
     let detalhe = `HTTP ${resposta.status}`
+    let pendencias: readonly PendenciaDoCalculo[] = []
     try {
-      const corpo = (await resposta.json()) as { erro?: string }
-      if (corpo?.erro) detalhe = corpo.erro
+      const corpo = (await resposta.json()) as {
+        erro?: string
+        mensagem?: string
+        pendencias?: PendenciaDoCalculo[]
+      }
+      detalhe = corpo?.erro ?? corpo?.mensagem ?? detalhe
+      pendencias = corpo?.pendencias ?? []
     } catch {
       /* corpo não-JSON: fica o status */
     }
-    throw new ErroHttp(resposta.status, detalhe)
+    throw new ErroHttp(resposta.status, detalhe, pendencias)
   }
 
   return (await resposta.json()) as T
@@ -70,9 +89,16 @@ async function pedir<T>(url: string, init: RequestInit = {}): Promise<T> {
  *
  * Quem decide qual é, e se alguma condicional a fecha, é o servidor
  * (`RF-52`). O cliente só desenha o que recebe.
+ *
+ * Com `itemId`, a próxima DAQUELE item — é assim que uma ficha abre pela
+ * lista (`T-203`). Ficha já completa abre na primeira pergunta dela.
  */
-export function obterProximaPergunta(casoId: string): Promise<RespostaPergunta> {
-  return pedir<RespostaPergunta>(`/caso/${casoId}/pergunta`)
+export function obterProximaPergunta(
+  casoId: string,
+  itemId?: string,
+): Promise<RespostaPergunta> {
+  const busca = itemId ? `?item_id=${encodeURIComponent(itemId)}` : ''
+  return pedir<RespostaPergunta>(`/caso/${casoId}/pergunta${busca}`)
 }
 
 export function obterPergunta(
@@ -135,6 +161,10 @@ export function obterRespostasDoCaso(casoId: string): Promise<RespostasDoCaso> {
   return pedir<RespostasDoCaso>(`/caso/${casoId}/respostas`)
 }
 
+export function listarEscopos(casoId: string): Promise<EscoposDoCaso> {
+  return pedir<EscoposDoCaso>(`/caso/${casoId}/escopos`)
+}
+
 export function listarFichas(casoId: string, escopo: string): Promise<ListaDeFichas> {
   return pedir<ListaDeFichas>(`/caso/${casoId}/fichas/${escopo}`)
 }
@@ -144,6 +174,20 @@ export function criarFicha(
   escopo: string,
 ): Promise<{ CASO_ID: string; escopo: string; ficha: Ficha }> {
   return pedir(`/caso/${casoId}/fichas/${escopo}`, { method: 'POST' })
+}
+
+/** O nome curto de "Outro" e da despesa não listada — `T-217`. */
+export function nomearFicha(
+  casoId: string,
+  escopo: string,
+  itemId: string,
+  nome: string,
+): Promise<{ rotulo: string }> {
+  return pedir(`/caso/${casoId}/fichas/${escopo}/${itemId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ nome }).toString(),
+  })
 }
 
 export function removerFicha(
@@ -375,6 +419,17 @@ export function registrarConsentimento(casoId: string, aceite: boolean): Promise
     if (!r.ok) throw new ErroHttp(r.status, `HTTP ${r.status}`)
     return r
   })
+}
+
+/**
+ * Dispara o Bloco 6 (`RF-16`, T-196). Recusa (`400` pendência, `422`
+ * montagem, `503` configuração) chega como `ErroHttp` com `pendencias`;
+ * `409` é o caso já fora de `COLETA_INICIAL` — quem chama decide.
+ */
+export function dispararCalculo(
+  casoId: string,
+): Promise<{ CASO_ID: string; calculando: boolean }> {
+  return pedir(`/caso/${casoId}/calculo`, { method: 'POST' })
 }
 
 export function obterProgressoDoCalculo(

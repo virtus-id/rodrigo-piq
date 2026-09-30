@@ -375,3 +375,60 @@ def test_arquivo_yaml_malformado_falha_nomeando_o_arquivo(tmp_path: Path) -> Non
         carregar_registros(diretorio, _ESQUEMA_PADRAO)
 
     assert str(caminho_malformado) in str(excecao.value)
+
+
+# ---------------------------------------------------------------------------
+# T-213 — opção que abre campo (`abre_campo`), declarada no YAML.
+# ---------------------------------------------------------------------------
+
+
+def test_t213_opcao_com_abre_campo_data_e_convertida(tmp_path: Path) -> None:
+    diretorio = tmp_path / "registros"
+    diretorio.mkdir()
+    pergunta = _pergunta_minima(
+        "B1.01",
+        opcoes=[
+            {"rotulo": "Data", "valor_interno": None, "abre_campo": "DATA"},
+            {"rotulo": "Outra", "valor_interno": "OUTRA"},
+        ],
+    )
+    _escrever_arquivo(diretorio / "bloco-01.yaml", QUESTIONARIO_VERSION="1", perguntas=[pergunta])
+
+    registro = carregar_registros(diretorio, _ESQUEMA_PADRAO).registros[0]
+
+    assert registro.opcoes[0].abre_campo is TipoResposta.DATA
+    assert registro.opcoes[1].abre_campo is None
+
+
+def test_t213_abre_campo_desconhecido_e_recusado_na_carga(tmp_path: Path) -> None:
+    diretorio = tmp_path / "registros"
+    diretorio.mkdir()
+    pergunta = _pergunta_minima(
+        "B1.01", opcoes=[{"rotulo": "R$", "valor_interno": None, "abre_campo": "MOEDA"}]
+    )
+    _escrever_arquivo(diretorio / "bloco-01.yaml", QUESTIONARIO_VERSION="1", perguntas=[pergunta])
+
+    with pytest.raises(ErroDeCarga) as excecao:
+        carregar_registros(diretorio, _ESQUEMA_PADRAO)
+
+    assert "B1.01" in str(excecao.value)
+
+
+_IDS_COM_OPCAO_DE_DATA = ("B5.B04", "B5.B05B", "B7.15", "B8.14")
+# Questão do especialista (T-213, Open Questions): valor e base/unidade numa
+# só variável — nenhum campo até ser decidida.
+_IDS_SEM_CAMPO_ATE_DECISAO = ("B5.D05A", "B7.13A", "B8.12A")
+
+
+def test_t213_registro_real_marca_so_as_quatro_opcoes_de_data() -> None:
+    registros = {r.ID: r for r in carregar_registros().registros}
+
+    marcadas = {
+        r.ID: [o.abre_campo for o in r.opcoes if o.abre_campo is not None]
+        for r in registros.values()
+        if any(o.abre_campo is not None for o in r.opcoes)
+    }
+
+    assert marcadas == {ID: [TipoResposta.DATA] for ID in _IDS_COM_OPCAO_DE_DATA}
+    for ID in _IDS_SEM_CAMPO_ATE_DECISAO:
+        assert all(o.abre_campo is None for o in registros[ID].opcoes), ID

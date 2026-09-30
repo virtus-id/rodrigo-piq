@@ -20,7 +20,9 @@ import pytest
 from app.casos.progresso import (
     PendenciaObrigatoria,
     coleta_pode_avancar,
+    contar_coleta,
     pendencias_obrigatorias,
+    proxima_pergunta_nao_respondida,
 )
 from collection.carga import carregar_registros
 from collection.condicoes import CondicaoIgual
@@ -311,3 +313,118 @@ def test_pendencias_sobre_toda_a_colecao_real_nao_levanta_erro(
     assert isinstance(pendencias, tuple)
     if not com_resposta_do_pacto:
         assert any(p.ID == "B1.01" for p in pendencias)
+
+
+# ---------------------------------------------------------------------------
+# T-199 / T-200 / T-202 — achados C4, C5 e C6 do QA (2026-09-29).
+# ---------------------------------------------------------------------------
+
+
+def _reais_por_id(*ids: str) -> tuple[RegistroPergunta, ...]:
+    por_id = {registro.ID: registro for registro in _colecao_real()}
+    return tuple(por_id[id_] for id_ in ids)
+
+
+def _percurso(
+    registros: tuple[RegistroPergunta, ...],
+    itens: dict[EscopoRepeticao, tuple[str, ...]],
+    valor: object = "QUALQUER",
+) -> list[tuple[str, str | None]]:
+    """A sequência que a retomada oferece, respondendo cada pergunta com
+    `valor` até não sobrar nenhuma aberta em branco."""
+    respostas: list[Resposta] = []
+    vistos: list[tuple[str, str | None]] = []
+    por_id = {registro.ID: registro for registro in registros}
+    for _ in range(2000):
+        pendencia = proxima_pergunta_nao_respondida(
+            registros, RespostasCaso(respostas=tuple(respostas)), itens
+        )
+        if pendencia is None:
+            return vistos
+        vistos.append((pendencia.ID, pendencia.item_id))
+        variavel = por_id[pendencia.ID].VARIAVEL_GRAVADA
+        assert variavel is not None
+        respostas.append(_resposta(variavel, valor, pendencia.item_id))
+    raise AssertionError("a retomada não terminou")
+
+
+def test_t199_condicao_de_ficha_abre_so_no_item_que_a_satisfaz() -> None:
+    """Reproduz C4: `POSSUI_PARCELA_DEFINIDA=SIM` em `D001` abre `B5.C02` para
+    `D001` — e só para ele. Antes, a condição lia a chave do caso e a pergunta
+    nunca abria em item nenhum."""
+    from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
+
+    registros = _reais_por_id("B5.C01", "B5.C02")
+    itens = {EscopoRepeticao.DIVIDA_ID: ("D001", "D002")}
+    respostas = RespostasCaso(
+        respostas=(
+            _resposta("POSSUI_PARCELA_DEFINIDA", "SIM", "D001"),
+            _resposta("POSSUI_PARCELA_DEFINIDA", "NAO", "D002"),
+        )
+    )
+
+    assert proxima_pergunta_nao_respondida(registros, respostas, itens) == PendenciaObrigatoria(
+        ID="B5.C02", item_id="D001"
+    )
+    # Exibição e retomada usam a mesma avaliação por item.
+    montar_contexto_pergunta(registros[1], respostas, item_id="D001")
+    with pytest.raises(ErroPerguntaNaoExibivel):
+        montar_contexto_pergunta(registros[1], respostas, item_id="D002")
+
+    parcela = _resposta(registros[1].VARIAVEL_GRAVADA or "", "1", "D001")
+    respondida = RespostasCaso(respostas=(*respostas.respostas, parcela))
+    assert proxima_pergunta_nao_respondida(registros, respondida, itens) is None
+
+
+def test_t199_nao_sobre_variavel_de_ficha_fecha_no_item() -> None:
+    """`B5.C05` é `NAO(POSSUI_PARCELA_DEFINIDA == SIM)`: era sempre aberta."""
+    registros = _reais_por_id("B5.C05")
+    itens = {EscopoRepeticao.DIVIDA_ID: ("D001",)}
+    respostas = RespostasCaso(respostas=(_resposta("POSSUI_PARCELA_DEFINIDA", "SIM", "D001"),))
+
+    assert proxima_pergunta_nao_respondida(registros, respostas, itens) is None
+
+
+def test_t200_coleta_inicial_com_uma_divida_nunca_oferece_bloco_7() -> None:
+    """Reproduz C4/C5: `B7.08`/`B7.09` (`NAO(PROPOSTA_PARCELA == A_VISTA)`)
+    apareciam na coleta inicial. Os Blocos 7, 8, 10 e 11 são pós-plano."""
+    percurso = _percurso(_colecao_real(), {EscopoRepeticao.DIVIDA_ID: ("D001",)})
+
+    blocos = {id_.split(".")[0] for id_, _ in percurso}
+    assert blocos.isdisjoint({"B7", "B8", "B10", "B11"})
+    assert "B5" in blocos
+
+
+def test_t200_contar_coleta_nao_conta_blocos_pos_plano() -> None:
+    pos_plano = tuple(r for r in _colecao_real() if r.bloco in {7, 8, 10, 11})
+    contagem = contar_coleta(
+        pos_plano, RespostasCaso(respostas=()), {EscopoRepeticao.DIVIDA_ID: ("D001",)}
+    )
+
+    assert contagem.total == 0
+
+
+def test_t202_ficha_percorrida_item_a_item_e_o_resto_na_ordem_do_registro() -> None:
+    """Reproduz C6: a ordem era `A01/D001, A01/D002, A02/D001…`."""
+    registros = _reais_por_id("B5.00", "B5.00A", "B5.A01", "B5.A02", "B5.FIM02")
+
+    percurso = _percurso(registros, {EscopoRepeticao.DIVIDA_ID: ("D001", "D002")})
+
+    assert percurso == [
+        ("B5.00", None),
+        ("B5.00A", None),
+        ("B5.A01", "D001"),
+        ("B5.A02", "D001"),
+        ("B5.A01", "D002"),
+        ("B5.A02", "D002"),
+        ("B5.FIM02", None),
+    ]
+
+
+def test_t202_contagem_segue_fechando_no_meio_da_ficha() -> None:
+    registros = _reais_por_id("B5.A01", "B5.A02")
+    respostas = RespostasCaso(respostas=(_resposta("CREDOR", "Banco", "D001"),))
+
+    contagem = contar_coleta(registros, respostas, {EscopoRepeticao.DIVIDA_ID: ("D001", "D002")})
+
+    assert (contagem.respondidas, contagem.faltam, contagem.total) == (1, 3, 4)

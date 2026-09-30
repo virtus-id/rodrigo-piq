@@ -94,6 +94,16 @@ REGRAS: Final[tuple[str, ...]] = (
 
 _SCHEMA: Final[str] = "app_aluno"
 
+# `T-217` — exclui as respostas de item removido. A chave persistida do item é
+# `"<CASO_ID>:<item_id legível>"` (`persistencia/app_aluno/itens.py`).
+_SEM_ITEM_REMOVIDO: Final[str] = """
+    AND NOT EXISTS (
+        SELECT 1 FROM app_aluno.itens_repetidos i
+        WHERE i.item_id = r."CASO_ID" || ':' || r.item_id
+          AND i.removido_em IS NOT NULL
+    )
+"""
+
 # Prefixo de serialização textual por tipo concreto de `ValorResposta`, para
 # que a leitura saiba desserializar sem ambiguidade (ex.: distinguir uma
 # `str` literal "2024-01-01" de uma `date`). Cada prefixo é curto o
@@ -324,14 +334,17 @@ class RepositorioRespostasSupabase:
             ) from erro
 
     def listar_do_caso(self, caso_id: str) -> tuple[Resposta, ...]:
+        """`T-217`: as respostas de item REMOVIDO não são listadas — remover a
+        ficha remove, logicamente, o que foi respondido nela. As linhas
+        continuam gravadas (auditoria); só deixam de ser lidas."""
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
-                """
+                f"""
                 SELECT "CASO_ID", "ID_PERGUNTA", item_id,
                        valor_texto, valor_numerico, valor_nao_sei,
                        "QUESTIONARIO_VERSION", respondida_em
-                FROM app_aluno.respostas
-                WHERE "CASO_ID" = %s
+                FROM app_aluno.respostas r
+                WHERE "CASO_ID" = %s {_SEM_ITEM_REMOVIDO}
                 """,
                 (caso_id,),
             )
@@ -355,12 +368,12 @@ class RepositorioRespostasSupabase:
             return {}
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
-                """
+                f"""
                 SELECT "CASO_ID", "ID_PERGUNTA", item_id,
                        valor_texto, valor_numerico, valor_nao_sei,
                        "QUESTIONARIO_VERSION", respondida_em
-                FROM app_aluno.respostas
-                WHERE "CASO_ID" = ANY(%s)
+                FROM app_aluno.respostas r
+                WHERE "CASO_ID" = ANY(%s) {_SEM_ITEM_REMOVIDO}
                 """,
                 (list(caso_ids),),
             )

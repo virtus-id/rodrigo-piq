@@ -132,6 +132,11 @@ class ItemRepetido:
     escopo: EscopoRepeticao
     removido_em: datetime | None
     criado_em: datetime
+    # `T-217` (migração `006`): de onde o item nasceu — `"B3.D01:ALUGUEL"`,
+    # `"B3.D11"` — e o nome curto que o aluno deu a ele. `None` nas fichas
+    # criadas pela lista, como sempre foi.
+    origem: str | None = None
+    nome: str | None = None
 
 
 def _chave_persistida(caso_id: str, identificador_legivel: str) -> str:
@@ -175,13 +180,15 @@ def _como_utc(instante: datetime) -> datetime:
 
 
 def _linha_para_item(linha: tuple[Any, ...]) -> ItemRepetido:
-    chave_persistida, caso_id, escopo, removido_em, criado_em = linha
+    chave_persistida, caso_id, escopo, removido_em, criado_em, origem, nome = linha
     return ItemRepetido(
         item_id=_identificador_legivel(chave_persistida, caso_id),
         CASO_ID=caso_id,
         escopo=EscopoRepeticao(escopo),
         removido_em=_como_utc(removido_em) if removido_em is not None else None,
         criado_em=_como_utc(criado_em),
+        origem=origem,
+        nome=nome,
     )
 
 
@@ -194,10 +201,16 @@ class RepositorioItens(Protocol):
     subtipagem estrutural) com as operações de leitura/remoção que a
     persistência real precisa."""
 
-    def proximo_identificador(self, CASO_ID: str, escopo: EscopoRepeticao) -> str:
+    def proximo_identificador(
+        self, CASO_ID: str, escopo: EscopoRepeticao, origem: str | None = None
+    ) -> str:
         """Ver `collection.repeticao.GeradorDeIdentificadorDeItem`: devolve
         um novo identificador de item, estável e nunca reaproveitado, para o
-        par `(CASO_ID, escopo)`."""
+        par `(CASO_ID, escopo)`. `origem` (`T-217`) fica gravada no item."""
+        ...
+
+    def nomear(self, caso_id: str, item_id: str, nome: str) -> None:
+        """`T-217` — grava o nome curto que o aluno deu ao item."""
         ...
 
     def remover(self, caso_id: str, item_id: str, agora: datetime | None = None) -> None:
@@ -217,7 +230,9 @@ class RepositorioItens(Protocol):
 class RepositorioItensSupabase:
     """Implementa `RepositorioItens` sobre `app_aluno.itens_repetidos`."""
 
-    def proximo_identificador(self, CASO_ID: str, escopo: EscopoRepeticao) -> str:
+    def proximo_identificador(
+        self, CASO_ID: str, escopo: EscopoRepeticao, origem: str | None = None
+    ) -> str:
         """`GeradorDeIdentificadorDeItem.proximo_identificador` — ver a nota
         do módulo sobre o mecanismo de não-reaproveitamento
         (`COUNT(*) FOR UPDATE` sobre TODAS as linhas do par, removidas
@@ -243,10 +258,11 @@ class RepositorioItensSupabase:
 
                 cursor.execute(
                     """
-                    INSERT INTO app_aluno.itens_repetidos (item_id, "CASO_ID", escopo)
-                    VALUES (%s, %s, %s)
+                    INSERT INTO app_aluno.itens_repetidos
+                        (item_id, "CASO_ID", escopo, origem)
+                    VALUES (%s, %s, %s, %s)
                     """,
-                    (chave_persistida, CASO_ID, escopo.value),
+                    (chave_persistida, CASO_ID, escopo.value, origem),
                 )
         except ErroConexaoAusente:
             raise
@@ -281,6 +297,19 @@ class RepositorioItensSupabase:
         except psycopg.Error as erro:
             raise ErroGravacaoItem(f"falha ao remover item_id={item_id!r}: {erro}") from erro
 
+    def nomear(self, caso_id: str, item_id: str, nome: str) -> None:
+        """`T-217` — `UPDATE` do nome; a linha do item continua a mesma."""
+        try:
+            with _conectar() as conexao, conexao.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE app_aluno.itens_repetidos SET nome = %s WHERE item_id = %s",
+                    (nome, _chave_persistida(caso_id, item_id)),
+                )
+        except ErroConexaoAusente:
+            raise
+        except psycopg.Error as erro:
+            raise ErroGravacaoItem(f"falha ao nomear item_id={item_id!r}: {erro}") from erro
+
     def listar_do_caso(
         self, caso_id: str, *, incluir_removidos: bool = True
     ) -> tuple[ItemRepetido, ...]:
@@ -291,7 +320,7 @@ class RepositorioItensSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 f"""
-                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em
+                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em, origem, nome
                 FROM app_aluno.itens_repetidos
                 WHERE "CASO_ID" = %s {filtro_removidos}
                 ORDER BY criado_em
@@ -319,7 +348,7 @@ class RepositorioItensSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 f"""
-                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em
+                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em, origem, nome
                 FROM app_aluno.itens_repetidos
                 WHERE "CASO_ID" = ANY(%s) {filtro_removidos}
                 ORDER BY "CASO_ID", criado_em

@@ -67,6 +67,10 @@ class ContextoItem:
     item_id: str | None
     respostas: Respostas
     snapshot: SnapshotOrdem | None
+    # `T-217`: o nome do item para o aluno ("Aluguel"), quando ele tem um. A
+    # origem `ID_DO_ITEM` o prefere ao identificador — `[despesa]` em
+    # `B3.DF01` é o item, não `DESP001`. Item sem rótulo segue no `item_id`.
+    rotulo_do_item: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,7 +111,7 @@ def _resolver_id_do_item(marcador: Marcador, ctx: ContextoItem) -> str:
             "(origem ID_DO_ITEM):",
             "nenhum item corrente no contexto.",
         )
-    return ctx.item_id
+    return ctx.rotulo_do_item or ctx.item_id
 
 
 def _resolver_variavel_coletada(marcador: Marcador, ctx: ContextoItem) -> str:
