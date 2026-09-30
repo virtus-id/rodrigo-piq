@@ -35,8 +35,8 @@ from tests.app_aluno.fixtures.caso_completo import caso_completo
 DOMINIO_SIM_NAO: Final[frozenset[str]] = frozenset({"SIM", "NAO", "TALVEZ", "NAO_SEI"})
 
 # `T-208`: opção nula ainda permitida só aqui — decisão pendente. `B5.I02`
-# fica por "Outra", sem classificação até a decisão do especialista (`T-218`).
-EXCECOES_VALOR_NULO: Final[frozenset[str]] = frozenset({"B5.I02", "B7.16"})
+# saiu em `T-261`: "Outra" ganhou `OUTRA` com o nível de `DE-06`.
+EXCECOES_VALOR_NULO: Final[frozenset[str]] = frozenset({"B7.16"})
 
 _TIPOS_DE_ESCOLHA: Final[frozenset[TipoResposta]] = frozenset(
     {TipoResposta.SELECAO_UNICA, TipoResposta.SELECAO_MULTIPLA, TipoResposta.SIM_NAO_TALVEZ}

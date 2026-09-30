@@ -149,8 +149,9 @@ O-03, R-02, R-03, AC-13, AC-14, AC-15, AC-32, EC-01, EC-02, EC-13, EC-18
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import localcontext
+from types import MappingProxyType
 from typing import Final
 
 from engine.diagnostico import Diagnostico
@@ -164,6 +165,7 @@ REGRAS: Final[tuple[str, ...]] = (
     "RF-02",
     "RF-03",
     "RF-04",
+    "RF-70",
     "M-01",
     "M-02",
     "M-03",
@@ -711,6 +713,9 @@ class Cenario:
     MESES_ATE_ALERTA_HORIZONTE: Meses | None  # P_HORIZONTE_ALERTA — None se nunca alcançado
 
 
+_SEM_APORTES: Final[Mapping[Meses, Dinheiro]] = MappingProxyType({})  # EC-55
+
+
 def _horizonte_em_meses(p: Parametros, nome: str) -> int:
     """`P_HORIZONTE_MAXIMO_SIMULACAO`/`P_HORIZONTE_ALERTA` estão em ANOS na
     fonte de parâmetros — converte para meses (×12). Mesmo padrão de
@@ -728,6 +733,7 @@ def simular_cenario(
     dividas: Mapping[str, Divida],
     sel: SelecionarAlvo,
     p: Parametros,
+    aportes: Mapping[Meses, Dinheiro] = _SEM_APORTES,
 ) -> Cenario:
     """`M-10`..`M-12` · `RF-01`, `RF-02` · `AC-13` · `EC-13` — encadeia
     `executar_mes` mês a mês até quitar todas as dívidas ou estourar
@@ -756,6 +762,16 @@ def simular_cenario(
     completo (mesma preocupação de `GAB-02`); a triagem definitiva (`Gate 1`,
     `INFORMACAO_PENDENTE`) é de `engine/gates.py` (`T-64`), fora do escopo
     desta tarefa — aqui só a recusa explícita existe, não a triagem.
+
+    **`aportes` — recursos extraordinários projetados (`RF-70`, `T-157`,
+    plano `R9M.1`).** Mapa mês → valor, já somado por mês por
+    `engine/extraordinarios.py::aportes_por_mes`. Na abertura do mês `m`, o
+    aporte é somado a `CAPACIDADE_ATAQUE_M`; na virada `m→m+1`, é subtraído
+    antes de somar o `VALOR_FLUXO_LIBERADO` — vale só naquele mês.
+    `executar_mes` não muda: o invariante de conservação vale por construção
+    e o excedente segue resíduo/`ATAQUE_NAO_UTILIZADO` (`EC-53`). Mês que a
+    simulação não alcança não recebe aporte (horizonte, `OQ-46`/`EC-56`).
+    Sem `aportes` (padrão vazio, imutável), o caminho é o de antes (`EC-55`).
 
     Devolve sempre um `Cenario` — nunca levanta exceção por estouro de
     horizonte (`EC-13`, o motor "continua e devolve os cenários... marcados
@@ -801,6 +817,15 @@ def simular_cenario(
             estourou_horizonte = True
             break
 
+        # RF-70 (T-157): aporte do mês que vai abrir, somado à capacidade
+        # deste mês só.
+        aporte_do_mes = aportes.get(estado.mes + 1)
+        if aporte_do_mes is not None:
+            with localcontext(CONTEXTO_MOTOR):
+                estado = replace(
+                    estado, CAPACIDADE_ATAQUE_M=estado.CAPACIDADE_ATAQUE_M + aporte_do_mes
+                )
+
         resultado_mes = executar_mes(estado, dividas, sel, p)
         meses.append(resultado_mes)
 
@@ -822,10 +847,11 @@ def simular_cenario(
         # para tudo que não é capacidade; a soma abaixo é a ÚNICA alteração
         # que este laço faz sobre o estado devolvido por `executar_mes`).
         with localcontext(CONTEXTO_MOTOR):
-            capacidade_proximo_mes = (
-                resultado_mes.estado_final.CAPACIDADE_ATAQUE_M
-                + resultado_mes.VALOR_FLUXO_LIBERADO
-            )
+            capacidade_base = resultado_mes.estado_final.CAPACIDADE_ATAQUE_M
+            if aporte_do_mes is not None:
+                # RF-70 (T-157): o aporte não se repete no mês seguinte.
+                capacidade_base = capacidade_base - aporte_do_mes
+            capacidade_proximo_mes = capacidade_base + resultado_mes.VALOR_FLUXO_LIBERADO
 
         # M-12/R-02/AC-13: `DIVIDA_ALVO_ATUAL` é repassado tal como
         # `executar_mes` o devolveu — nenhuma chamada a `sel()` acontece

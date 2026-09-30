@@ -82,6 +82,10 @@ function rotaDoDestino(inicio: Inicio): Rota {
         idPergunta: ID_PERGUNTA ?? undefined,
         itemId: item_id ?? undefined,
       }
+    case 'inventario':
+      // `T-251`: a correção da declaração, pela rota de `RF-69`. As ações de
+      // cadastrar fichas estão no alerta da casca, logo acima.
+      return { tela: 'respostas', idPergunta: ID_PERGUNTA ?? undefined }
     case 'calculando':
       return { tela: 'calculando' }
     case 'aguardando':
@@ -129,6 +133,10 @@ const TEXTO_DA_ETAPA: Readonly<
   pergunta: {
     rotulo: 'Continuar de onde você parou',
     detalhe: 'Tudo o que você já respondeu está guardado.',
+  },
+  inventario: {
+    rotulo: 'Completar o inventário',
+    detalhe: 'Antes do plano, as fichas precisam fechar com o que você declarou.',
   },
   calculando: {
     rotulo: 'Montar o seu plano',

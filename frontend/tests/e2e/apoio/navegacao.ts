@@ -68,6 +68,11 @@ interface OpcoesDaBase {
    * lado seguro de `App.tsx`.
    */
   eRevisor?: boolean
+  /**
+   * As pendências de `GET /caso/{id}/inventario` (`T-252`, `RF-86`). Padrão:
+   * nenhuma — o alerta da casca não aparece e nenhum teste antigo muda.
+   */
+  inventario?: unknown[]
 }
 
 /**
@@ -124,6 +129,12 @@ export async function interceptarBase(
   // segundos por caso e enche o log de `afterConnectMultiple`. É exatamente a
   // armadilha que `plans/app-aluno.plan.md` §R5.6 manda antecipar: toda rota
   // que a carga da tela dispara entra aqui, verificada pelo teste ou não.
+  // `T-251`: a casca de toda tela do aluno consulta o inventário a cada
+  // navegação — mesma regra de §R5.6: interceptada sempre.
+  await page.route(`**/caso/${caso}/inventario`, async (rota) => {
+    await rota.fulfill({ json: { pendencias: opcoes.inventario ?? [] } })
+  })
+
   await page.route('**/api/conta/eu', async (rota) => {
     await rota.fulfill({
       json: {

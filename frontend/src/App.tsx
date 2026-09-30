@@ -23,6 +23,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 
+import { ContextoDoAlerta } from './componentes/AlertaInventario'
 import Esqueleto from './componentes/Esqueleto'
 import Tela from './componentes/Tela'
 import { eTelaDaEquipe, type Rota, substituirRota, useRota } from './navegacao'
@@ -424,6 +425,9 @@ export default function App() {
     return <RedirecionarAFila irPara={irPara} aoSair={aoSair} />
   }
 
+  // `T-251` (RF-86): a casca de toda tela do aluno consulta o inventário a
+  // cada navegação — o contexto só lhe diz de que caso e como navegar.
+  const tela = (() => {
   switch (rota.tela) {
     case 'entrada':
       return (
@@ -536,6 +540,9 @@ export default function App() {
             // `AC-103`: gravada a correção, a revisão reabre — com o valor
             // novo, porque ela relê o servidor a cada visita.
             aoCorrigir={voltarARevisao}
+            abrirCorrecao={(id, item) =>
+              irPara({ tela: 'respostas', idPergunta: id, itemId: item })
+            }
           />
         )
       }
@@ -572,6 +579,9 @@ export default function App() {
           onAbrirFichas={([escopo, ...seguintes]) =>
             irPara({ tela: 'fichas', escopo, seguintes })
           }
+          // `T-228` (RF-80): "corrigir" uma linha da fotografia do mês é a
+          // correção de `RF-69` — a mesma rota da revisão.
+          abrirCorrecao={(id, item) => irPara({ tela: 'respostas', idPergunta: id, itemId: item })}
         />
       )
 
@@ -645,4 +655,11 @@ export default function App() {
     case 'equipe-painel':
       return <TelaOperador voltar={() => irPara({ tela: 'equipe-fila' })} />
   }
+  })()
+
+  return (
+    <ContextoDoAlerta.Provider value={{ casoId, irPara, navegacao: rota }}>
+      {tela}
+    </ContextoDoAlerta.Provider>
+  )
 }

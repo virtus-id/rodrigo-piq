@@ -2417,3 +2417,466 @@ estrutural mudou.
 | `RF-76` — resposta ao apontador | R8.1 · `index.css` · `AC-113` (movimento reduzido) |
 | `RF-77` — trilha com trilho, ainda informativa | R8.3 · `TrilhaDaJornada.tsx` · `AC-115` |
 | `RF-78` — nada validado é alterado | R8.1 (as três razões) · `AC-107`, `AC-114`, `AC-116` |
+
+---
+
+# Rodada 9 — decisões do especialista (2026-09-30)
+
+> **Rastreia:** `RF-79` a `RF-98` · `AC-117` a `AC-156` · `EC-28` a `EC-41` ·
+> `US-26` a `US-33` · `OQ-52` a `OQ-67` (resolvidas) · canônica v1.0.3
+> (`E-09` a `E-15`) · `docs/decisoes-especialista/README.md` (`DE-01` a
+> `DE-08`). A parte de motor de `DE-02` está em `plans/motor-calculo.plan.md`,
+> seção "Rodada 9" (`R9M.*`, `RF-70`–`RF-76` daquele slug).
+>
+> **Três leis que esta rodada não afrouxa.** (1) Sobra da `B3.C00`, valor de
+> referência do desconto, rateio mensal e conferência de renda líquida são
+> **agregação de entrada** feita em `app/montagem/` — um lugar só, como
+> `OQ-16` —, nunca cálculo do motor refeito (`OQ-53`, `OQ-55`). (2) Nenhum
+> enunciado, opção, mensagem ou `ID` de pergunta vai para `.py`/`.tsx`
+> (`AC-37`): tudo o que é novo nasce em `collection/registros/*.yaml` ou em
+> arquivo de textos. (3) `engine/` não é tocado por este slug; a projeção de
+> extraordinários é consumida do snapshot.
+
+## R9.1. Architecture Overview
+
+Nenhuma camada nova. A rodada se distribui pelas costuras que já existem:
+
+```text
+collection/registros/*.yaml (v1.0.3) ──► collection/ (esquema: +4 campos opcionais, +1 escopo, +1 origem de opções)
+        │
+        ▼
+app/http/rotas_coleta · rotas_fichas ──► app_aluno.respostas / itens_repetidos (+item_pai_id, migração 007)
+        │
+        ├──► app/montagem/ ── agregações de entrada: fotografia, desconto, rateio, renda dos vínculos,
+        │                      recursos extraordinários item a item
+        ├──► app/casos/inventario.py (NOVO) ── pendências de inventário (DE-04) ── guarda do Bloco 6
+        ├──► app/revisao/comprovacao.py (NOVO) ── nível por ficha + pendências de homologação (DE-06/DE-08)
+        │                                         └──► app/revisao/fila.py::liberar (recusa)
+        └──► engine.calcular_plano (inalterado aqui) ──► SnapshotOrdem.projecao_extraordinarios ──► report/ · TelaPlano
+```
+
+**O ponto de estrangulamento de cada regra é único**, e é ali que ela mora:
+
+| Regra | Único lugar | Por quê ali |
+| --- | --- | --- |
+| Bloqueio do cálculo por inventário (`RF-86`–`RF-88`) | `app/casos/inventario.py::pendencias_de_inventario`, chamada pelas **duas** portas que montam estado para o executor: `rotas_calculo._preparar_calculo` e o disparo de recálculo em `app/casos/acompanhamento.py` | Os dois caminhos já passam por "montar → transicionar"; a guarda entra antes da transição, como a de `OBR` pendente (`T-44`) — o caso nunca fica preso em `CALCULANDO` |
+| Recusa de liberação (`RF-93`, `RF-97`) | `app/revisao/fila.py::liberar` recebe `pendencias_homologacao` como argumento **obrigatório** e recusa se não vazio | Toda rota de liberação passa por `liberar`; o argumento obrigatório faz o `mypy --strict` apontar qualquer chamador que esqueça de calculá-lo (`AC-142`: "recusada por qualquer rota") |
+| Nível de comprovação (`RF-91`) | Atributo da **opção** no YAML (`nivel_comprovacao`) | Mapear `valor_interno → nível` em código seria conteúdo de questionário em `.py` |
+| Dado indispensável (`RF-93`, `OQ-62`) | Atributo do **registro** no YAML (`indispensavel: true`) | Mesma razão; a lista é revisável sem código |
+
+## R9.2. Tech Stack
+
+Nenhuma dependência nova, nem no Python nem no `frontend/`.
+
+| Escolha | Justificativa (ancorada em `RF-NN`) |
+| --- | --- |
+| Estender o esquema do registro com campos **opcionais** (`painel`, `indispensavel`, `faixa`, `OpcaoRegistro.nivel_comprovacao[_se]`) em vez de lógica por `ID` | `RF-79`, `RF-84`, `RF-91`, `RF-93` · `sdd.config.md` §6 ("questionário é gerado, não codificado"). Opcional com padrão neutro: os 245 registros atuais carregam sem edição |
+| `EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID` (prefixo `EXT`) | `RF-98`: `B3.05A`–`D` declaram `[COND, REP]` mas estão com `escopo_repeticao: NENHUM` (`bloco-03.yaml:235-307`) — hoje o aluno só consegue cadastrar **um** recurso. Mesmo caminho de `OQ-19`/`T-105` |
+| `OrigemOpcoes.fonte = "ITENS_DO_ESCOPO"` | `RF-90`: a dívida consignada escolhe **um vínculo do próprio caso**. As opções são dados do caso, não do registro nem do snapshot; é a terceira origem, pelo mesmo interpretador de `opcoes_efetivas` |
+| `itens_repetidos.item_pai_id` (migração `007`) | `RF-90`/`AC-137`: "margem cadastrada **dentro** de exatamente um vínculo". Pertença estrutural, gravada na criação, recusável na borda (`422`). Uma pergunta "a que vínculo pertence esta margem?" deixaria existir margem sem vínculo até ela ser respondida — o que `AC-137` proíbe |
+| Ler recursos extraordinários com `valor_no_item`, item a item | `RF-98` sem depender de `OQ-24`: `valores_do_escopo` não filtra por escopo, e o `VALOR_RECURSO_EXTRAORDINARIO` só existe num escopo — mas ler por item dispensa a função inteira, como `_despesas_nao_mensais_normalizadas` já faz |
+
+## R9.3. Project Structure
+
+| Caminho | Mudança | Novo? |
+| --- | --- | --- |
+| `collection/registro.py` | `EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID`; `NIVEL_COMPROVACAO` (enum de 3); `OpcaoRegistro.nivel_comprovacao`, `.nivel_comprovacao_se`; `RegistroPergunta.painel`, `.indispensavel`, `.faixa` | não |
+| `collection/carga.py` | lê os campos opcionais novos | não |
+| `collection/repeticao.py` | prefixo `EXT` | não |
+| `collection/opcoes_do_motor.py` | `fonte="ITENS_DO_ESCOPO"` + `escopo`; opções = itens ativos, rótulo = `nome` do item ou resposta de `ORGAO_FONTE_PAGADORA` | não |
+| `collection/registros/bloco-03.yaml` | `B3.05A`–`D` → escopo `RECURSO_EXTRAORDINARIO_ID`; `B3.05BF` (valor em Férias/abono); `B3.C00 painel: FOTOGRAFIA_DO_MES`; `B3.S04L`, `B3.S05C`; `B3.01 indispensavel` | não |
+| `collection/registros/bloco-05.yaml` | `B5.D05S`, `B5.D05V`, `B5.D05P`, `B5.D05R`; `B5.A02V`; `B5.I02` "Outra" com `valor_interno: OUTRA` + níveis; `indispensavel` em `B5.B03`, `B5.C02`, `B5.D01A` | não |
+| `collection/registros/bloco-07.yaml` | transcreve `B7.04`; `B7.04A` (tipo da proposta); `B7.07V`; `B7.13B`–`B7.13E`; condições por tipo; `B7.16` com `valor_interno` e níveis | não |
+| `collection/registros/bloco-08.yaml` | `B8.12V`, `B8.12P`; níveis em `B8.15` | não |
+| `app/montagem/entrada.py` | agregações de entrada: `fotografia_do_mes`, `conferir_desconto`, `rateio_mensal`, `conferir_renda_dos_vinculos` | sim |
+| `app/montagem/estado.py` | `_recursos_extraordinarios` item a item; `CUSTO_SEGURO` pela situação (`RF-81`); agregados do Bloco 3 reaproveitados por `entrada.py` | não |
+| `app/casos/inventario.py` | `pendencias_de_inventario` (`RF-86`–`RF-88`) | sim |
+| `app/casos/textos/inventario.yaml` | mensagens de `RF-87`/`RF-88` (texto é dado) | sim |
+| `app/revisao/comprovacao.py` | `nivel_por_ficha`, `pendencias_de_homologacao` | sim |
+| `app/revisao/fila.py` | `liberar(..., pendencias_homologacao)` + `ErroHomologacaoBloqueada` | não |
+| `app/http/rotas_calculo.py`, `app/casos/acompanhamento.py` | chamam a guarda de inventário | não |
+| `app/http/rotas_fichas.py` | `POST` de `MARGEM_ID` exige `item_pai_id`; `GET` de vínculo lista dependentes (`EC-35`) | não |
+| `app/http/rotas_inventario.py` | `GET /caso/{CASO_ID}/inventario` (alerta permanente) | sim |
+| `app/http/rotas_coleta.py`, `serializacao.py` | `avisos` na resposta de gravação; `painel` na pergunta | não |
+| `app/http/rotas_revisao.py`, `serializacao_plano.py`, `report/plano.py` | fonte de comprovação, pendências de homologação, divergências, cenário adicional | não |
+| `report/templates/plano/textos-canonicos.yaml` | rótulos dos três níveis, "não informado", rótulo do cenário adicional, orientação do seguro (`OQ-67`, redação proposta — aprovação do produto) | não |
+| `persistencia/supabase/migracoes/007_item_pai.sql` | `item_pai_id` | sim |
+| `persistencia/supabase/migracoes/008_extraordinarios_por_item.sql` | move respostas legadas de `B3.05A`–`D` (`item_id=''`) para um item `EXT001` por caso | sim |
+| `persistencia/app_aluno/itens.py`, `arquivo.py` | `item_pai_id` no `ItemRepetido` e no `proximo_identificador` | não |
+| `frontend/src/componentes/PainelFotografia.tsx`, `AlertaInventario.tsx` | `RF-79`/`RF-80`, `RF-86` | sim |
+| `frontend/src/telas/TelaFichas.tsx`, `TelaPergunta.tsx`, `TelaRevisao.tsx`, `TelaPlano.tsx`, `componentes/Tela.tsx`, `tipos.ts`, `services/api.ts` | ver R9.6 | não |
+| `tests/app_aluno/estatica/test_fronteira_import_engine.py` | allowlist: `RecursoExtraordinario`, `JANELA_…`, `CERTEZA_…`, tipos de leitura de `engine.extraordinarios` (precedente `RF-40`) | não |
+
+## R9.4. Mudanças de registro (YAML) por pergunta
+
+Toda edição abaixo está registrada na canônica v1.0.3 (`OQ-52`). `ID` novo
+nunca reaproveita um existente; `VARIAVEL_GRAVADA` existente **não é
+renomeada** (respostas já gravadas continuam legíveis). Nomes técnicos
+novos são decisão do plano (`OQ-59`, `E-14`).
+
+| Pergunta | Mudança | Requisito |
+| --- | --- | --- |
+| `B3.C00` | `painel: FOTOGRAFIA_DO_MES` (a serialização anexa os três totais e as decomposições) | `RF-79`, `RF-80` |
+| `B3.05A`–`B3.05D` | `escopo_repeticao: RECURSO_EXTRAORDINARIO_ID` | `RF-98` |
+| `B3.05B` | condição ganha `TIPO_RECURSO_EXTRAORDINARIO ≠ FERIAS_ABONO` | `RF-98`, `AC-151` |
+| `B3.05BF` (novo) | mesmo `VARIAVEL_GRAVADA` de `B3.05B`; enunciado explícito "só o acréscimo (1/3)"; condição `= FERIAS_ABONO`. Redação proposta, aprovação do produto (`OQ-67`). Dois registros por variável já são suportados (`_respostas_do_calculo`) | `RF-98`, `AC-151` |
+| `B3.S04L` (novo) | `RENDA_LIQUIDA_VINCULO`, `MOEDA`, escopo `VINCULO_ID`, admite não sei | `RF-89` |
+| `B3.S05C` (novo) | `CONSIGNACAO_EXISTE_VINCULO`, `SIM/NAO/NAO_SEI`, escopo `VINCULO_ID` | `RF-89` |
+| `B3.01` | `indispensavel: true` | `RF-93` |
+| `B5.D05A` | mantida: grava a base `MENSAL`/`TOTAL`/`NAO_SEI` (é o que já grava) | `RF-82`, `RF-85` |
+| `B5.D05S` (novo) | `SITUACAO_SEGURO`: `PREMIO_UNICO_FINANCIADO` · `COBRADO_MENSAL_A_PARTE` · `CANCELADO_COM_RESTITUICAO` · `NAO_SEI`; condição `SEGURO_PRESTAMISTA = SIM` | `RF-81` |
+| `B5.D05V` (novo) | `CUSTO_SEGURO_VALOR`, `MOEDA`; condição `B5.D05A ∈ {MENSAL, TOTAL}` | `RF-82`, `RF-85` |
+| `B5.D05P` (novo) | `CUSTO_SEGURO_MESES`, `NUMERO` — período de cobertura (total) ou meses restantes (mensal); admite não sei | `RF-82`, `RF-85` |
+| `B5.D05R` (novo) | `RESTITUICAO_SEGURO_CONFIRMADA`, `MOEDA` + "ainda não confirmada"; condição `SITUACAO_SEGURO = CANCELADO_COM_RESTITUICAO`. Valor confirmado cria uma ficha `RECURSO_EXTRAORDINARIO_ID` com `origem = "B5.D05R:<DIVIDA_ID>"` (mecanismo de `origem` de `T-217`) | `RF-81`, `AC-123` |
+| `B5.A02V` (novo) | `VINCULO_DA_DIVIDA`, `origem_opcoes: {fonte: ITENS_DO_ESCOPO, escopo: VINCULO_ID}`; condição: ver R9.10 risco R9-4 | `RF-90`, `AC-139` |
+| `B5.I02` | opção "Outra": `valor_interno: OUTRA` (hoje `null`); `nivel_comprovacao` em cada opção conforme `AC-140`; "Outra" → `INFORMADO` com `nivel_comprovacao_se` = documento em `B5.I01` (`CONTEM` de qualquer opção ≠ `NAO_TENHO_NENHUM_DOCUMENTO_AGORA`) → `COMPROVADO` | `RF-91` |
+| `B5.B03`, `B5.C02`, `B5.D01A` | `indispensavel: true` | `RF-93` |
+| `B7.04` (transcrito) | `EXISTE_PROPOSTA_RENEGOCIACAO`: `VIGENTE` · `VALIDADE_DESCONHECIDA` · `EXPIRADA` · `NAO`. **Hoje nenhum registro grava essa variável**, e todas as condições de `B7.05`+ a leem | `RF-94`, `AC-143` |
+| `B7.04A` (novo) | `TIPO_PROPOSTA`: `A_VISTA` · `PARCELADA` · `AMBAS`; condição `B7.04 ≠ NAO` | `RF-94` |
+| `B7.07`, `B7.08`, `B7.09` | condição `TIPO_PROPOSTA ∈ {PARCELADA, AMBAS}`; sai a opção `A_VISTA` de `B7.07` (revogada por `E-15`) | `RF-94`, `RF-95`, `AC-144`–`AC-146` |
+| `B7.07V` (novo) | `VALOR_QUITACAO_A_VISTA_PROPOSTA`; condição `TIPO_PROPOSTA ∈ {A_VISTA, AMBAS}` — ver R9.10 risco R9-3 | `RF-94` |
+| `B7.05`, `B7.06`, `B7.10`–`B7.14` | condição `TIPO_PROPOSTA ∈ {PARCELADA, AMBAS}` (literal de `AC-144`) | `RF-94` |
+| `B7.13A` | mantida (grava o tipo); opções `VALOR` · `PERCENTUAL` · `VALOR_E_PERCENTUAL` · `SEM_DETALHE` · `NAO_SEI` | `RF-83`, `RF-84` |
+| `B7.13B` (novo) | `VALOR_QUITACAO_ANTES_DESCONTO`, `MOEDA`, admite não sei — rótulo nunca "saldo devedor" | `RF-83` |
+| `B7.13C` (novo) | `PROPOSTA_DESCONTO_VALOR`, `MOEDA`; `validacoes_cruzadas: PROPOSTA_DESCONTO_VALOR <= VALOR_QUITACAO_ANTES_DESCONTO` | `RF-84`, `AC-128` |
+| `B7.13D` (novo) | `PROPOSTA_DESCONTO_PERCENTUAL`, `TAXA`, `faixa: {minimo: 0, maximo: 100}` | `RF-84`, `AC-128` |
+| `B7.13E` (novo) | `PROPOSTA_VALOR_FINAL_QUITACAO`, `MOEDA`, admite não sei | `RF-83`, `AC-127` |
+| `B7.15` | condição `B7.04 ≠ NAO` (qualquer tipo) | `RF-94` |
+| `B7.16` | `valor_interno` nas cinco opções (hoje todas `null` — indistinguíveis): `DOCUMENTO_CONTRATO`, `APLICATIVO`, `MENSAGEM_EMAIL`, `ATENDIMENTO`, `SEM_REGISTRO`; níveis de `AC-140`; condição `B7.04 ≠ NAO` | `RF-91` |
+| `B8.12A` | mantida (base) | `RF-85` |
+| `B8.12V`, `B8.12P` (novos) | `NOVO_SEGURO_VALOR` (`MOEDA`), `NOVO_SEGURO_MESES` (`NUMERO`) | `RF-85`, `AC-130`, `AC-131` |
+| `B8.15` | níveis: `DOCUMENTO_FORMAL`/`APLICATIVO_INTERNET_BANKING`/`SIMULACAO_…` → `COMPROVADO`; `ATENDIMENTO`/`CORRESPONDENTE` → `PENDENTE`; `OUTRA_FONTE` → `INFORMADO` (`EC-36`) | `RF-91` |
+
+`QUESTIONARIO_VERSION` dos quatro YAML vai a `1.0.3` (`RF-03`, `AC-38`).
+
+**Efeito colateral declarado.** `app/casos/reabertura.py` trata "toda
+pergunta de `bloco == 7`" como a faixa `B7.05`–`B7.16` (docstring, linhas
+15-33). Com `B7.04`/`B7.04A` no arquivo, reabrir a renegociação passa a
+reabrir também "existe proposta?" e "que tipo?" — o que é o comportamento
+correto (sem eles, nada do bloco abre). A docstring é atualizada e o teste
+de reabertura passa a esperar as duas perguntas a mais.
+
+## R9.5. Data Model e migrações
+
+```python
+# collection/registro.py — RF-91, RF-93, RF-79, RF-84, RF-98
+class EscopoRepeticao(Enum): ...; RECURSO_EXTRAORDINARIO_ID = "RECURSO_EXTRAORDINARIO_ID"
+
+class NIVEL_COMPROVACAO(Enum):          # nomes técnicos a critério do plano (E-14)
+    COMPROVADO = "COMPROVADO"                      # nível 1
+    INFORMADO = "INFORMADO"                        # nível 2
+    PENDENTE_DE_CONFIRMACAO = "PENDENTE_DE_CONFIRMACAO"  # nível 3 — só informação verbal
+
+@dataclass(frozen=True, slots=True)
+class NivelCondicional:
+    condicao: Condicao                  # avaliada no item da ficha
+    nivel: NIVEL_COMPROVACAO
+
+class OpcaoRegistro:  # + campos, padrão neutro
+    nivel_comprovacao: NIVEL_COMPROVACAO | None = None
+    nivel_comprovacao_se: NivelCondicional | None = None
+
+class RegistroPergunta:  # + campos, padrão neutro
+    painel: Literal["FOTOGRAFIA_DO_MES"] | None = None
+    indispensavel: bool = False
+    faixa: tuple[Decimal, Decimal] | None = None   # fechada; fora dela → EC-01, nada gravado
+
+# collection/opcoes_do_motor.py — RF-90
+class OrigemOpcoes:
+    fonte: Literal["REGISTRO", "SNAPSHOT", "ITENS_DO_ESCOPO"]
+    campo_do_snapshot: str | None
+    escopo: EscopoRepeticao | None = None   # só com ITENS_DO_ESCOPO
+
+# app/montagem/entrada.py — agregação de entrada (OQ-53, OQ-55), pura, Decimal só via conversao.py
+@dataclass(frozen=True, slots=True)
+class LinhaDecomposicao:
+    item_id: str; rotulo: str; valor_mensal: DinheiroTalvez
+@dataclass(frozen=True, slots=True)
+class FotografiaDoMes:                       # RF-79, RF-80
+    RENDA_TOTAL: DinheiroTalvez              # = RENDA_TOTAL_RECORRENTE (OQ-16)
+    DESPESAS_TOTAIS: DinheiroTalvez          # = DESPESAS_OPERACIONAIS_ATUAIS + DESPESAS_NAO_MENSAIS_NORMALIZADAS
+    SOBRA_ANTES_DAS_DIVIDAS: DinheiroTalvez  # DESCONHECIDO se qualquer total for (EC-28)
+    despesas_por_item: tuple[LinhaDecomposicao, ...]
+    nao_mensais_por_item: tuple[LinhaDecomposicao, ...]   # valor/12; JA_CONTABILIZADA=SIM fora
+def fotografia_do_mes(respostas: RespostasCaso) -> FotografiaDoMes: ...
+#   Reusa _renda_total_recorrente/_despesas_* de estado.py (mesmas funções que alimentam o motor);
+#   nunca lê fichas de dívida (AC-118).
+
+@dataclass(frozen=True, slots=True)
+class ConferenciaDesconto:                   # RF-83, RF-84
+    VALOR_REFERENCIA: DinheiroTalvez         # valor final do credor, se houver; senão o calculado; senão DESCONHECIDO (EC-30/31)
+    VALOR_CALCULADO: DinheiroTalvez          # só conferência (AC-127)
+    divergencia_rs_pct: bool                 # |R$ − quantizar_exibicao(bruto × %)| > 0,01 (AC-129)
+def conferir_desconto(respostas: RespostasCaso, DIVIDA_ID: str) -> ConferenciaDesconto: ...
+
+def rateio_mensal(valor_total: DinheiroTalvez, meses: int | Desconhecido | None) -> Dinheiro | None: ...
+#   None sem prazo informado (AC-124, AC-130); nunca entra em estado, despesa ou desembolso.
+
+@dataclass(frozen=True, slots=True)
+class ConferenciaRendaVinculos:              # RF-89, AC-156, EC-41
+    SOMA_LIQUIDAS: Dinheiro; RENDA_BLOCO_3: Dinheiro; divergente: bool
+def conferir_renda_dos_vinculos(respostas: RespostasCaso) -> ConferenciaRendaVinculos | None: ...
+#   None com < 1 vínculo com renda líquida informada. Nunca chega ao EstadoFinanceiro.
+
+# app/montagem/estado.py — RF-81, RF-98
+#   CUSTO_SEGURO: valor de B5.D05V só quando SITUACAO_SEGURO = COBRADO_MENSAL_A_PARTE e base = MENSAL;
+#   em qualquer outra situação (prêmio único, cancelado, NAO_SEI, sem seguro) → DESCONHECIDO.
+#   (Corrige também um defeito atual: B5.D05A grava "MENSAL"/"TOTAL" e _dinheiro_estrutural_ou_desconhecido
+#    faz `assert isinstance(..., Decimal)` sobre essa string — AssertionError, fora de _ERROS_DE_MONTAGEM.)
+def _recursos_extraordinarios(respostas: RespostasCaso) -> tuple[RecursoExtraordinario, ...]: ...
+#   Um RecursoExtraordinario por item EXTnnn respondido; VALOR NAO_SEI → DESCONHECIDO (requer motor 5A);
+#   janela pelo valor do enum (JANELA_RECURSO_EXTRAORDINARIO("1_3M")); tipo não é entregue (motor RF-72).
+#   Ficha incompleta (tipo/janela/certeza/valor sem resposta) → ErroRespostaAusente nomeando a pergunta.
+
+# app/casos/inventario.py — RF-86..RF-88 (puro)
+class TIPO_PENDENCIA_INVENTARIO(Enum):
+    DIVIDAS_FALTANDO = "DIVIDAS_FALTANDO"; DIVIDAS_ACIMA = "DIVIDAS_ACIMA"
+    DIVIDAS_SEM_CONFIRMACAO = "DIVIDAS_SEM_CONFIRMACAO"            # B5.00 desconhecido, sem B5.FIM01 = última (AC-153)
+    RENDA_EXTRA_SEM_ITEM = "RENDA_EXTRA_SEM_ITEM"; VINCULO_SEM_ITEM = "VINCULO_SEM_ITEM"
+    NAO_MENSAL_SEM_ITEM = "NAO_MENSAL_SEM_ITEM"
+@dataclass(frozen=True, slots=True)
+class PendenciaInventario:
+    tipo: TIPO_PENDENCIA_INVENTARIO
+    declaradas: int | None; cadastradas: int | None
+    ID_PARA_CORRIGIR: str                     # pergunta a abrir (B5.00, B3.03, ...), resolvida pela VARIAVEL no registro
+def pendencias_de_inventario(
+    registros: tuple[RegistroPergunta, ...], respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> tuple[PendenciaInventario, ...]: ...
+#   "Cadastrado" = item ativo com ao menos uma resposta. "Sim" em B3.03/B3.S01/B3.NM01 só; NAO_SEI não
+#   exige item (EC-34). Mensagem montada a partir de app/casos/textos/inventario.yaml.
+
+# app/revisao/comprovacao.py — RF-91..RF-93, RF-97 (puro)
+@dataclass(frozen=True, slots=True)
+class NivelDaFicha:
+    item_id: str; origem_fonte: str          # ID da pergunta de fonte (B5.I02/B7.16/B8.15)
+    nivel: NIVEL_COMPROVACAO | None          # None = não respondida
+@dataclass(frozen=True, slots=True)
+class PendenciaHomologacao:
+    item_id: str | None; ID_PERGUNTA: str
+    motivo: Literal["AUSENTE", "PENDENTE_DE_CONFIRMACAO"]
+def niveis_por_ficha(registros, respostas, itens_por_escopo) -> tuple[NivelDaFicha, ...]: ...
+def pendencias_de_homologacao(registros, respostas, itens_por_escopo) -> tuple[PendenciaHomologacao, ...]: ...
+#   Para cada registro indispensavel ABERTO no item: AUSENTE se em branco ou NAO_SEI;
+#   PENDENTE_DE_CONFIRMACAO se a fonte da ficha (B5.I02) está no nível 3.
+#   Pergunta fechada pela condição (ex.: parcela de rotativo, GAB-03) nunca é pendência.
+
+# app/revisao/fila.py — RF-93, RF-97, AC-142, EC-40
+class ErroHomologacaoBloqueada(Exception): pendencias: tuple[PendenciaHomologacao, ...]
+def liberar(*, ..., pendencias_homologacao: tuple[PendenciaHomologacao, ...]) -> Caso: ...
+#   Não vazio → levanta ANTES de gravar RegistroRevisao; snapshot e caso intactos.
+```
+
+**Migrações.**
+
+```sql
+-- 007_item_pai.sql — RF-90, AC-137, EC-35. Só DDL (disciplina de 002–006).
+ALTER TABLE app_aluno.itens_repetidos ADD COLUMN IF NOT EXISTS item_pai_id text;
+-- identificador LEGÍVEL do pai (ex.: V001), mesmo caso; validado em app (rotas_fichas),
+-- como toda regra — nenhuma FK, porque a PK é a chave persistida "CASO_ID:V001".
+
+-- 008_extraordinarios_por_item.sql — RF-98. DML, idempotente, exceção declarada à disciplina
+-- "só DDL": não há regra de negócio, só mudança de chave. Para cada CASO_ID com resposta em
+-- TIPO_RECURSO_EXTRAORDINARIO/VALOR_…/JANELA_…/CERTEZA_… e item_id = '': cria EXT001 em
+-- itens_repetidos (se não existir) e move as quatro respostas para item_id = 'EXT001'.
+```
+
+Motor (`R9M`): sem migração — a projeção vai em `dados_completos jsonb`.
+
+## R9.6. Data Flow, contratos de rota e frontend
+
+**Fotografia (`RF-79`, `RF-80`).** `GET /caso/{id}/pergunta` de `B3.C00`
+devolve, além do contrato atual, `painel: {tipo: "FOTOGRAFIA_DO_MES",
+renda_total, despesas_totais, sobra_antes_das_dividas, despesas_por_item[],
+nao_mensais_por_item[]}` — valores como string decimal, `null` = não
+informado. `PainelFotografia.tsx` mostra os três números (`tabular-nums`,
+`RF-73`) e, num `<details>`, as decomposições com link "corrigir" para a
+pergunta de origem pela rota de correção de `RF-69`. A soma exibida das
+decomposições é a mesma função que produz o total (`AC-119`).
+
+**Gravação com aviso (`RF-84`, `RF-89`).** `POST /caso/{id}/resposta` ganha
+`avisos: [{codigo, mensagem, ID_PERGUNTA}]` na resposta `200`. Divergência de
+desconto e de renda líquida são **avisos, não recusas** — a resposta é gravada
+(`AC-129`: "os dois valores ficam gravados"). As travas de `AC-128` (% fora de
+0–100, R$ > bruto) são `400` pelo caminho `EC-01`/`EC-02` que já existe. O
+cliente anuncia `avisos` num `role="status"` vinculado ao campo (NFR de
+acessibilidade da Rodada 9).
+
+**Inventário (`RF-86`–`RF-88`).**
+
+```text
+GET  /caso/{id}/inventario          → 200 {pendencias: [{tipo, mensagem, ID_PARA_CORRIGIR}]}
+POST /caso/{id}/calculo  (existente) → 400 {mensagem, pendencias: [... tipo: "INVENTARIO" ...]}
+                                        checada logo após pendencias_obrigatorias, antes da
+                                        transição; o caso fica em COLETA_INICIAL (AC-134)
+```
+
+`AlertaInventario.tsx` vive em `Tela.tsx` (a casca) e consulta
+`/inventario` a cada navegação — por isso "em toda tela do aluno" (`AC-133`).
+Cada pendência traz o botão da ação direta (abrir `B5.00`, `B3.03`, …;
+`AC-154`). `/inicio` troca "Calcular meu plano" pela pendência quando houver.
+Mensagens: `"Você declarou {declaradas} dívidas e cadastrou {cadastradas}.
+Faltam {faltam} fichas."` (literal de `RF-87`) e as de `RF-88`; singular e o
+texto de "acima do declarado" são **redação proposta** para aprovação do
+produto (`OQ-57`/`OQ-67`).
+
+**Vínculos (`RF-89`, `RF-90`).** `POST /caso/{id}/fichas/MARGEM_ID` exige
+`{item_pai_id}` de um `VINCULO_ID` ativo do caso — senão `422` (`AC-137`).
+`GET /caso/{id}/fichas/VINCULO_ID` devolve cada vínculo com `margens[]` e
+`dependentes: {margens, dividas}` — o `TelaFichas.tsx` mostra as margens
+**dentro** do vínculo (nunca um total, `AC-138`) e, ao remover, lista os
+dependentes antes da confirmação (`EC-35`). Margem cujo pai foi removido e
+dívida cujo `VINCULO_DA_DIVIDA` aponta item removido voltam a ficar em aberto
+(`itens_em_aberto` passa a tratar referência a item removido como em branco).
+
+**Revisor (`RF-91`–`RF-93`, `RF-97`).** O contexto de
+`GET /revisao/caso/{id}/decisao` ganha `fontes: [{item_id, origem, nivel,
+rotulo}]`, `seguros_nao_informados: [DIVIDA_ID]` (`AC-155`),
+`divergencias: [...]` e `pendencias_homologacao: [{item_id, pergunta,
+motivo}]`. `POST .../decisao` com `LIBERADO` e pendências → `409 {mensagem,
+pendencias_homologacao}`; nada gravado (`EC-40`). `TelaRevisao.tsx` lista as
+pendências e desabilita "Liberar" — a desabilitação é conveniência; a recusa
+é do servidor.
+
+**Plano (`RF-92`, `RF-98`).** `GET /api/caso/{id}/plano` ganha
+`cenario_adicional: {prazo_total, custo_futuro_total, ordem[], itens[]} |
+null` e `nao_projetados[]`, lidos de `snapshot.projecao_extraordinarios`
+(nenhuma aritmética, `AC-42`), mais `fonte` por dívida. `TelaPlano.tsx`
+mostra o cenário adicional em seção própria, abaixo do plano, com o rótulo de
+`textos-canonicos.yaml` — os campos do plano principal continuam lidos só do
+cenário recomendado (`AC-152`).
+
+## R9.7. State Management
+
+Nada novo em sessão ou cliente. Três fatos novos persistem: respostas das
+perguntas novas (`app_aluno.respostas`, sem mudança de esquema — a chave já é
+`(caso, variável, item)`), `item_pai_id` e o `CenarioAdicional` dentro do
+snapshot (motor). Pendências de inventário, níveis de comprovação,
+conferências e pendências de homologação são **derivados a cada leitura** das
+respostas — nunca gravados, para que não haja segunda fonte que envelheça.
+Consequência aceita: a lista do revisor reflete as respostas **atuais**; se o
+aluno corrigir um dado, o novo cálculo (caminho existente, `EC-40`) produz o
+snapshot que será liberado.
+
+## R9.8. Error Handling Strategy
+
+| Situação | Detecção | Resposta ao usuário | Recuperação |
+| --- | --- | --- | --- |
+| Inventário incompleto | `pendencias_de_inventario` | alerta permanente + `400` no cálculo com a mensagem exata | cadastrar/remover ficha ou corrigir `B5.00`/`B3.03`/`B3.S01`/`B3.NM01` |
+| Margem sem vínculo | `rotas_fichas` | `422`, nada criado | criar pela ficha do vínculo |
+| Desconto fora da faixa / R$ > bruto | `faixa` / `validacoes_cruzadas` | `400`, nada gravado (`AC-128`) | corrigir |
+| R$ e % divergentes | `conferir_desconto` | aviso ao aluno e ao revisor; ambos gravados | — |
+| Renda dos vínculos ≠ Bloco 3 | `conferir_renda_dos_vinculos` | aviso; não bloqueia (`EC-41`) | — |
+| Total da fotografia desconhecido | `FotografiaDoMes` com `DESCONHECIDO` | "não informado"; sobra não exibida (`EC-28`) | — |
+| Liberação com pendência | `liberar` | `409` com a lista | confirmar/corrigir → novo cálculo |
+| Ficha de recurso incompleta | `ErroRespostaAusente` | `422` nomeando a pergunta (caminho `T-197`) | responder |
+| `loading` | — | `Esqueleto` (`RF-75`) nos componentes novos | — |
+
+## R9.9. Testing Strategy
+
+- **Unitários (pytest, sem banco):** `app/montagem/entrada.py` (`AC-117`–`AC-119`,
+  `AC-124`–`AC-127`, `AC-129`–`AC-131`, `AC-156`, `EC-28`, `EC-30`, `EC-31`);
+  `app/casos/inventario.py` (`AC-133`, `AC-135`, `AC-153`, `AC-154`, `EC-32`–`EC-34`);
+  `app/revisao/comprovacao.py` (`AC-140`, `AC-141`, `EC-36`, `EC-39`);
+  montagem de seguro e de recursos (`AC-121`–`AC-123`, `AC-132`, `AC-150`, `AC-155`, `EC-38`);
+  carga dos YAML com os campos novos e visibilidade do Bloco 7 por tipo
+  (`AC-143`–`AC-146`, `EC-37`) sobre os registros reais.
+- **Integração (rotas com repositórios de arquivo, `T-24`):** cálculo recusado
+  e caso em `COLETA_INICIAL` (`AC-134`); `422` de margem sem pai (`AC-137`);
+  `409` de liberação e snapshot intacto (`AC-142`, `AC-149`, `EC-40`); aviso de
+  desconto no `POST` (`AC-129`); `B3.C00` `NAO_SEI` segue sem pendência nem
+  ação (`AC-120`); plano com `cenario_adicional` separado (`AC-152`).
+- **Estáticos:** `AC-37` sobre os módulos novos; `AC-138` — nenhuma soma de
+  `VALOR_LIVRE_MARGEM`/`VALOR_TOTAL_MARGEM` entre itens em `app/`, `report/`,
+  `frontend/src/`, e `EstadoFinanceiro` sem campo de margem;
+  `AC-156` — `RENDA_LIQUIDA_VINCULO` nunca lida por `montar_estado_financeiro`;
+  `AC-42` — `serializacao_plano` só lê `projecao_extraordinarios`.
+- **Homologação (`RF-96`, `RF-97`):** `tests/homologacao/registro.py` (helper
+  de teste, só leitura do snapshot) produz `RegistroHomologacao` com a
+  correspondência fixada abaixo, emitido por `record_property` do pytest
+  (vai para o relatório JUnit; nenhum arquivo escrito). `GAB-A/B/C`
+  comparam os cinco itens ao gabarito (`AC-147`); um caso não-gabarito só
+  assere invariantes (`AC-148`); um caso com dado indispensável ausente
+  registra `homologavel=False` e as pendências (`AC-149`).
+
+  | Item de `DE-08` | Campo do `SnapshotOrdem` (leitura) |
+  | --- | --- |
+  | Ordem final de ataque | `ORDEM_QUITACAO` (posições publicadas) |
+  | Mês de quitação de cada dívida | `cenarios[METODO_RECOMENDADO_PIQ].meses[i].quitacoes` com `.estado_final.mes` |
+  | Valor mensal destinado | `diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA` (a que alimenta o cronograma) |
+  | Custo total de juros | derivado (`R9-6`, `T-268`): `CUSTO_FUTURO_TOTAL − Σ SALDO_DEVEDOR_ATUAL + Σ saldos finais` do cenário recomendado; "não disponível" se estourou o horizonte ou há saldo desconhecido |
+  | Uso da reserva | "não disponível" (`R9-6`, `T-268`): `RESERVA_RECOMENDADA` não é gravada no snapshot; `RESERVA_MOBILIZAVEL` é o limite aceito, não o uso |
+
+- **E2E (Playwright existente):** alerta em Início, Pergunta e Fichas
+  (`AC-133`); margens dentro do vínculo; painel da `B3.C00`. A suíte atual
+  roda sem edição (`RF-78`).
+- **Fora de teste automatizado:** redação dos textos de `OQ-67` (aprovação do
+  produto).
+
+## R9.10. Risks & Trade-offs
+
+| # | Risco / lacuna | Impacto | Proposta (não decidida aqui quando é regra) |
+| --- | --- | --- | --- |
+| R9-1 | **`AC-122` e a 1ª metade de `AC-131` exigem que um custo mensal da dívida (seguro cobrado à parte; custo de `B8.12A` por N meses) componha o desembolso — o motor não tem esse campo.** `CUSTO_SEGURO` é "nunca somado" (`engine/estado.py:547`, `diagnostico.py:201`). Somar na montagem a `PARCELA_CONTRATUAL` faria o motor amortizar saldo com dinheiro de seguro | alto — número errado no cronograma | **Não somar na montagem.** Esta rodada coleta, guarda e mostra; a incidência no fluxo depende de um `RF` novo em `motor-calculo` (ex.: custo mensal não amortizante por dívida, com meses). `AC-122`/`AC-131`(a) ficam **pendentes** até lá; registrar no backlog |
+| R9-2 | `EC-28` ("alguma despesa não sei → total não informado") × `OQ-16`/montagem atual (item `NAO_SEI` não contribui e o total segue) | médio — a `B3.C00` pode mostrar "não informado" enquanto o motor recebe um número | Exibir conforme `EC-28` (mais prudente); registrar a divergência com a composição de `OQ-16` para o produto |
+| R9-3 | `AC-144` ("à vista → **apenas** valor à vista e `B7.15`") × `RF-83` (desconto é típico do à vista) e `RF-91` (`B7.16` é a fonte da proposta) | médio — ou o à vista perde desconto e fonte, ou `AC-144` não vale literalmente | Plano segue o literal de `AC-144`; **proposta** ao produto: à vista = `B7.07V` + bloco de desconto (`B7.13*`) + `B7.15` + `B7.16`. Decidir antes da fatia 9.1b |
+| R9-4 | `RF-90`/`AC-139` pedem que "cartão consignado/benefício" aponte vínculo, mas `TIPO_DIVIDA` (`B5.A02`) não tem esses tipos — não há como saber qual dívida de cartão é descontada em folha | médio | `B5.A02V` exibida para `CONSIGNADO` (obrigatória) e para `CARTAO_ROTATIVO`/`CARTAO_PARCELADO` com opção extra "não é descontada em folha". Confirmar com o produto antes da fatia 9.3 |
+| R9-5 | "Renda informada no Bloco 3" (`RF-89`) não é nomeada; `RENDA_TOTAL_RECORRENTE` inclui aluguel, pensão etc. | baixo — falso positivo de divergência (não bloqueia) | Comparar com `RENDA_TOTAL_RECORRENTE` (a "Renda total" da `B3.C00`), igualdade ao centavo |
+| R9-6 | `RF-96` exige ler os cinco itens de campos existentes; **não existe campo de juros** (`CUSTO_FUTURO_TOTAL` é desembolso total) nem de "reserva usada" (`RESERVA_RECOMENDADA` não é campo de `Diagnostico`) | médio — `AC-147` parcialmente verificável | Registrar `CUSTO_FUTURO_TOTAL` rotulado como tal e `RESERVA_MOBILIZAVEL`; pedir ao `motor-calculo` os dois campos se o especialista quiser juros e reserva usada literalmente. Não derivar em teste |
+| R9-7 | Nenhum `RF` define **como o aluno informa que um extraordinário foi recebido** (motor `RF-71`/`AC-125` presumem o evento) | médio | Até haver requisito: corrigir a ficha (janela `ATE_30D`, certeza `CONFIRMADO`) pela rota de `RF-69`; o motor garante origem única (`R9M.10` #6). Não construir fluxo novo |
+| R9-8 | `RF-93` lista "parcela/prazo"; o motor não consome prazo (não há campo em `Divida`) | baixo | Marcar `indispensavel` só no que o motor lê (`B5.B03`, `B5.C02`, `B5.D01A`, `B3.01`); a marca é YAML — o produto acrescenta `B5.C03` sem código |
+| R9-9 | `B5.D01A` com periodicidade anual chega ao motor como taxa `DESCONHECIDO` (a montagem não converte, Lei nº 3) — mas o aluno **respondeu** | baixo | Pendência de homologação é por **resposta** (em branco/`NAO_SEI`), não por `DESCONHECIDO` no estado — taxa anual respondida não bloqueia |
+| R9-10 | Restituição de seguro confirmada cria ficha de recurso com valor e certeza preenchidos pelo servidor | baixo | É o que o aluno acabou de declarar (`AC-123`); a janela fica para ele responder — nunca presumida |
+| R9-11 | Migração `008` é DML | baixo | Idempotente, sem regra; piloto de 1–3 casos (`OQ-06`) |
+| R9-12 | Liberação avaliada sobre respostas **atuais**, não as do snapshot | baixo | Ver R9.7; a correção sempre gera novo cálculo |
+
+**Achados de código que esta rodada corrige de passagem** (todos dentro do
+escopo dos `RF` acima, nenhum extra): `B5.D05A` quebra a montagem quando
+respondida (R9.5); `B7.04` nunca foi transcrito e fecha o Bloco 7 inteiro
+(R9.4); `B7.16` e `B5.I02` "Outra" têm `valor_interno: null` (R9.4); `B3.05A`–`D`
+não são repetíveis (R9.2).
+
+## R9.11. Fatias (ordem por dependência e risco)
+
+| Fatia | Conteúdo | RF | Migração | Depende de |
+| --- | --- | --- | --- | --- |
+| **9.1a** Registro + esquema | campos opcionais no esquema/carga; `QUESTIONARIO_VERSION` 1.0.3; fotografia (`painel`, `entrada.fotografia_do_mes`, `PainelFotografia`) | `RF-79`, `RF-80` | — | — |
+| **9.1b** Seguro, desconto, custo, proposta | YAML de `B5.D05*`, `B7.04`–`B7.16`, `B8.12*`; `faixa`; `avisos`; `conferir_desconto`, `rateio_mensal`; montagem de `CUSTO_SEGURO` | `RF-81`–`RF-85`, `RF-94`, `RF-95` | — | 9.1a · R9-3 decidido |
+| **9.2** Bloqueios / fichas | `inventario.py`, guarda nas duas portas, `/inventario`, `AlertaInventario` | `RF-86`, `RF-87`, `RF-88` | — | 9.1a |
+| **9.3** Vínculos | `B3.S04L`/`S05C`/`B5.A02V`, `ITENS_DO_ESCOPO`, `item_pai_id`, dependentes, conferência de renda | `RF-89`, `RF-90` | `007` | 9.1a · R9-4 decidido |
+| **9.4** Comprovação + revisor + homologação | níveis no YAML, `comprovacao.py`, `liberar` bloqueante, `TelaRevisao`, `tests/homologacao/` | `RF-91`, `RF-92`, `RF-93`, `RF-96`, `RF-97` | — | 9.1b (valores de `B7.16`) |
+| **9.5** Extraordinários | escopo `RECURSO_EXTRAORDINARIO_ID`, `B3.05BF`, `_recursos_extraordinarios`, allowlist, cenário adicional no plano | `RF-98` | `008` | motor 5A (entrega) e 5C (exibição) |
+
+Maior risco primeiro onde não há dependência: 9.2 (bloqueio que pode
+prender aluno) e 9.4 (bloqueio que pode prender revisor) têm teste de
+integração de "caso não fica preso" antes de qualquer tela.
+
+## R9.12. Traceability
+
+| Requisito | Coberto por |
+| --- | --- |
+| `RF-79` — três números, sobra antes das dívidas | R9.4 (`B3.C00 painel`) · R9.5 (`FotografiaDoMes`) · R9.6 · R9.10 R9-2 · `AC-117`, `AC-118`, `EC-28`, `EC-29` |
+| `RF-80` — decomposições consultáveis/editáveis; `NAO_SEI` sem ação | R9.5 (`despesas_por_item`, `nao_mensais_por_item`) · R9.6 (rota de `RF-69`) · `AC-119`, `AC-120` |
+| `RF-81` — situação do seguro, quatro casos | R9.4 (`B5.D05S`, `B5.D05R`) · R9.5 (`CUSTO_SEGURO` por situação) · R9.10 R9-1, R9-10 · `AC-121`–`AC-123`, `AC-155`, `EC-39` |
+| `RF-82` — total nunca mensal; rateio só com período | R9.4 (`B5.D05V`, `B5.D05P`) · R9.5 (`rateio_mensal`) · `AC-124` |
+| `RF-83` — cinco campos do desconto; valor final prevalece | R9.4 (`B7.13A`–`B7.13E`) · R9.5 (`ConferenciaDesconto`) · `AC-125`–`AC-127`, `EC-30`, `EC-31` |
+| `RF-84` — travas e comparação ao centavo | R9.4 (`faixa`, `validacoes_cruzadas`) · R9.6 (`avisos`) · R9.8 · `AC-128`, `AC-129` |
+| `RF-85` — tipo, valor, período, meses; sem mensalização sem prazo | R9.4 (`B5.D05*`, `B8.12V`/`P`) · R9.5 (`rateio_mensal`) · R9.10 R9-1 · `AC-130`–`AC-132` |
+| `RF-86` — continua preenchendo, não conclui; alerta permanente | R9.1 (guarda nas duas portas) · R9.6 (`/inventario`, `AlertaInventario`) · `AC-133`, `AC-134` |
+| `RF-87` — mensagem exata; acima do declarado; `B5.FIM01` | R9.5 (`TIPO_PENDENCIA_INVENTARIO`) · R9.6 (textos, ação direta) · `AC-153`, `AC-154`, `EC-32`, `EC-33` |
+| `RF-88` — renda extra, vínculo, não mensal exigem item | R9.5 · R9.6 · `AC-135`, `EC-34` |
+| `RF-89` — vários vínculos; renda líquida só em conferência | R9.4 (`B3.S04L`, `B3.S05C`) · R9.5 (`conferir_renda_dos_vinculos`) · R9.10 R9-5 · `AC-136`, `AC-156`, `EC-41` |
+| `RF-90` — margem pertence ao vínculo; consignado aponta vínculo; nunca somar | R9.2 (`item_pai_id`, `ITENS_DO_ESCOPO`) · R9.4 (`B5.A02V`) · R9.5 (migração `007`) · R9.6 · R9.10 R9-4 · `AC-137`–`AC-139`, `EC-35` |
+| `RF-91` — "Fonte de comprovação" em três níveis, por dado | R9.4 (níveis em `B5.I02`/`B7.16`/`B8.15`) · R9.5 (`NIVEL_COMPROVACAO`, `niveis_por_ficha`) · `AC-140`, `EC-36` |
+| `RF-92` — níveis 2/3 não bloqueiam; exibidos ao revisor e no plano | R9.6 (revisor, plano) · `AC-141` |
+| `RF-93` — indispensável pendente/ausente bloqueia a liberação | R9.1 · R9.5 (`pendencias_de_homologacao`, `liberar`) · R9.10 R9-8, R9-9 · `AC-142`, `EC-40` |
+| `RF-94` — fluxo condicional da proposta | R9.4 (`B7.04`, `B7.04A`, condições) · R9.10 R9-3 · `AC-143`–`AC-145` |
+| `RF-95` — não aplicável não aparece nem conta | R9.4 (condições; `_respostas_do_calculo` e `contar_coleta` já respeitam) · `AC-146`, `EC-37` |
+| `RF-96` — registro de homologação com cinco itens | R9.9 (tabela de correspondência) · R9.10 R9-6 · `AC-147`, `AC-148` |
+| `RF-97` — sinaliza "não pode ser homologado", nomeando o dado | R9.5 (`PendenciaHomologacao`) · R9.6 (`409`) · R9.9 · `AC-149` |
+| `RF-98` — extraordinários item a item; Férias só acréscimo; cenário adicional lido do snapshot | R9.2 (escopo novo) · R9.4 (`B3.05*`, `B3.05BF`) · R9.5 (`_recursos_extraordinarios`, migração `008`) · R9.6 (plano) · R9.10 R9-7 · motor `R9M` · `AC-150`–`AC-152`, `EC-38` |
+
+**Cobertura:** 20 de 20 (`RF-79`–`RF-98`). **Duas dependências fora deste
+slug** (R9-1 e R9-6: campos de motor que as specs pressupõem e não criam) e
+**três decisões de produto** antes das fatias correspondentes (R9-3, R9-4 e o
+risco 1 de `R9M.10`). Nenhum item deste plano existe sem `RF` que o peça.

@@ -63,7 +63,7 @@
         },
         "escopo_repeticao": {
           "type": "string",
-          "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID"]
+          "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID", "RECURSO_EXTRAORDINARIO_ID"]
         },
         "opcoes": {
           "type": "array",
@@ -83,7 +83,20 @@
         },
         "origem_opcoes": { "$ref": "#/$defs/origemOpcoes" },
         "admite_nao_sei": { "type": "boolean" },
-        "salto_consequencia": { "type": ["string", "null"] }
+        "salto_consequencia": { "type": ["string", "null"] },
+        "painel": { "enum": ["FOTOGRAFIA_DO_MES"] },
+        "escopo_pai": { "type": "string" },
+        "indispensavel": { "type": "boolean" },
+        "faixa": {
+          "type": "object",
+          "required": ["minimo", "maximo"],
+          "additionalProperties": false,
+          "properties": {
+            "minimo": { "type": ["number", "string"] },
+            "maximo": { "type": ["number", "string"] },
+            "mensagem": { "type": "string", "minLength": 1 }
+          }
+        }
       }
     },
     "opcaoRegistro": {
@@ -94,8 +107,21 @@
         "rotulo": { "type": "string", "minLength": 1 },
         "valor_interno": { "type": ["string", "null"] },
         "admite_nao_sei": { "type": "boolean", "default": false },
-        "abre_campo": { "enum": ["DATA"] }
+        "abre_campo": { "enum": ["DATA"] },
+        "nivel_comprovacao": { "$ref": "#/$defs/nivelComprovacao" },
+        "nivel_comprovacao_se": {
+          "type": "object",
+          "required": ["condicao", "nivel"],
+          "additionalProperties": false,
+          "properties": {
+            "condicao": { "$ref": "#/$defs/condicao" },
+            "nivel": { "$ref": "#/$defs/nivelComprovacao" }
+          }
+        }
       }
+    },
+    "nivelComprovacao": {
+      "enum": ["COMPROVADO", "INFORMADO", "PENDENTE_DE_CONFIRMACAO"]
     },
     "condicao": {
       "type": "object",
@@ -124,7 +150,7 @@
             "tipo": { "const": "EXISTE_ITEM" },
             "escopo": {
               "type": "string",
-              "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID"]
+              "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID", "RECURSO_EXTRAORDINARIO_ID"]
             },
             "variavel": { "type": "string", "minLength": 1 },
             "valor_em": {
@@ -194,7 +220,7 @@
         "variavel_direita": { "type": "string", "minLength": 1 },
         "escopo": {
           "type": "string",
-          "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID"]
+          "enum": ["NENHUM", "DIVIDA_ID", "VINCULO_ID", "MARGEM_ID", "ITEM_DESPESA", "ACAO_ID", "RENDA_ADICIONAL_ID", "DESPESA_NAO_MENSAL_ID", "RECURSO_EXTRAORDINARIO_ID"]
         },
         "mensagem": { "type": "string", "minLength": 1 }
       }
@@ -204,8 +230,10 @@
       "required": ["fonte", "campo_do_snapshot"],
       "additionalProperties": false,
       "properties": {
-        "fonte": { "type": "string", "enum": ["REGISTRO", "SNAPSHOT"] },
-        "campo_do_snapshot": { "type": ["string", "null"] }
+        "fonte": { "type": "string", "enum": ["REGISTRO", "SNAPSHOT", "ITENS_DO_ESCOPO"] },
+        "campo_do_snapshot": { "type": ["string", "null"] },
+        "escopo": { "type": "string" },
+        "variavel_rotulo": { "type": "string" }
       }
     }
   }

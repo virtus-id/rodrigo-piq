@@ -26,7 +26,7 @@
 # é o carregador/motor futuro (T-84) quem resolve o valor real de TIPO_ACAO;
 # aqui só se declara o dado.
 
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 
 perguntas:
   - ID: B11.01

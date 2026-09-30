@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:35:07.579Z",
+  "decisao": "d2",
+  "falta": "",
+  "obs": "Sugestão de classificação: (1) Confirmado — valor e recebimento suficientemente previsíveis: pode entrar no plano; (2) Provável — há expectativa concreta, mas ainda existe incerteza relevante: mostrar apenas em cenário alternativo; (3) Incerto — não considerar até confirmação. Exemplos: 13º e adicional de férias tendem a ser previsíveis; venda de bem, precatório sem data definida e outras receitas condicionadas a evento futuro não devem sustentar o plano-base. Considerar sempre o valor líquido efetivamente disponível e evitar dupla contagem com rendas já incluídas no orçamento.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Se forem usados: qual regra define quais recursos entram (tipo, prazo de recebimento, grau de certeza)?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "Prazo e Certeza.  (Rodrigo: Entram no plano-base apenas recursos com alto grau de certeza de recebimento, valor razoavelmente estimável e previsão de entrada dentro do horizonte do plano de quitação. Recursos apenas prováveis ou incertos não entram no cálculo-base: aparecem como cenário adicional de aceleração e só são incorporados quando o recebimento estiver confirmado ou ocorrer efetivamente. O tipo do recurso, isoladamente, não define sua inclusão; prevalecem prazo e grau de certeza.)",
+  "tipo": "texto",
+  "valor": ""
+}

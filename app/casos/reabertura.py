@@ -22,12 +22,15 @@ registro (`registro.bloco == 7` + `escopo_repeticao == DIVIDA_ID`,
 dado (não do código) fecham a equivalência com "B7.05–B7.16":
 
   1. `collection/registros/bloco-07.yaml` (T-18) transcreve, por decisão
-     DAQUELE registro (comentário de cabeçalho do YAML), exclusivamente
-     as perguntas `B7.05` a `B7.16` — `B7.01`–`B7.04` (tentativa
-     anterior) e `B7.S01`/`B7.EX01`–`B7.EX03` (seguro/execução) não
-     fazem parte do arquivo. Logo, "toda pergunta com `bloco == 7`" já É
-     "a faixa B7.05–B7.16", por construção do dado, não por cálculo
-     deste módulo.
+     DAQUELE registro (comentário de cabeçalho do YAML), as perguntas
+     `B7.05` a `B7.16` e — desde a v1.0.3 (`T-242`/`T-243`, `R9.4`) —
+     `B7.04` ("existe proposta?"), `B7.04A` ("que tipo?"), `B7.07V` e
+     `B7.13B`–`B7.13E`; `B7.01`–`B7.03` (tentativa anterior) e
+     `B7.S01`/`B7.EX01`–`B7.EX03` (seguro/execução) não fazem parte do
+     arquivo. Logo, "toda pergunta com `bloco == 7`" é a proposta inteira,
+     por construção do dado: reabrir a renegociação reabre também a
+     existência e o tipo da proposta — sem elas, nenhuma condição do bloco
+     abre (efeito colateral declarado, e correto).
   2. Reaproveitar `perguntas_do_bloco_7` (em vez de duplicar o filtro por
      `bloco == 7`) garante que, se o registro crescer no futuro (T-18
      documenta `B7.01`-`B7.04`/`B7.S01`/`B7.EX01`-`EX03` como

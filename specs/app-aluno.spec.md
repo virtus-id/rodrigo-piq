@@ -5,7 +5,8 @@
 | Slug     | `app-aluno`                                                  |
 | Status   | `rascunho`                                                   |
 | Autor    | virtushold@gmail.com                                         |
-| Data     | 2026-09-14 (Rodada 3 — protótipo validado e máscara · Rodada 2 — fatia 2A em 2026-09-07 · Rodada 1 em 2026-09-03) |
+| Data     | 2026-09-30 (Rodada 9 — decisões do especialista `DE-01` a `DE-08`) · 2026-09-14 (Rodada 3 — protótipo validado e máscara · Rodada 2 — fatia 2A em 2026-09-07 · Rodada 1 em 2026-09-03) |
+| Fonte    | [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) — decisões `DE-01` a `DE-08` de 2026-09-30 (respostas brutas em `docs/decisoes-especialista/respostas/`), fonte da Rodada 9. `DE-02` e `DE-05` alteram a metodologia e entraram como **v1.0.2** da canônica (`piq-app-spec.md`, Registro de alterações) |
 | Fonte    | [`specs/app-aluno.discovery.md`](app-aluno.discovery.md) — discovery desta feature (Rodada 1 e Rodada 2) |
 | Fonte    | [`specs/motor-calculo.spec.md`](motor-calculo.spec.md) **§13** — documento canônico PIQ v1.0.1 (`RESERVA_MOBILIZAVEL`/`ATAQUE_IMEDIATO_RECOMENDADO`), **congelado**, fonte normativa da Rodada 2 |
 | Fonte    | [`specs/piq-app-spec.md`](piq-app-spec.md) — Matriz Canônica v1.0.1 (§7, §11, §14, §15) |
@@ -324,6 +325,45 @@ com a redação canônica obrigatória.
 | `RF-77` | A **trilha da jornada** (`RF-64`) ganha trilho contínuo e marcas de estado por etapa, tornando visível de relance o que passou, o que é agora e o que falta. Ela permanece **informativa e nunca navegável**: nenhum degrau é clicável, e o único botão da tela continua sendo o da próxima etapa — tornar a trilha clicável seria restabelecer a barra de abas que `RF-57`/`AC-83` mataram | `RF-64` · `RF-57` · `AC-83` · `plans/app-aluno.plan.md:2212-2216` | importante |
 | `RF-78` | A repaginação **não altera nenhum sinal validado**: os onze tokens de cor mantêm nome e valor, as duas famílias tipográficas e a base de 19px permanecem, os alvos de toque de 56/60/48px permanecem, as larguras de 560px e 900px permanecem, e os nomes de classe que a suíte usa como seletor (`.top`, `.corpo`, `.acoes`, `.back`, `.linha`, `.cartao-proximo`, `.item`, `.chip`) não são renomeados. Toda adição é **aditiva** | `RF-50` · `AC-87` · `AC-106` · travas de `test_acessibilidade_coleta.py` e `frontend/tests/e2e/` | essencial |
 
+### Rodada 9 (2026-09-30) — decisões do especialista `DE-01` a `DE-08`
+
+> **Origem.** Formulário de decisões respondido pelo especialista (Rodrigo),
+> com contribuições do revisor (Marcelo); onde divergiram, vale Rodrigo.
+> `DE-02` e `DE-06` confirmadas pelo responsável do produto em 30/09/2026.
+> Cada requisito cita o `DE-NN` de origem; o que a decisão não fixava foi
+> aberto em §10 (`OQ-52` a `OQ-67`) e **resolvido em 2026-09-30 por decisão
+> da equipe técnica** (responsável do produto), com base nas decisões e
+> observações do especialista — os requisitos abaixo já refletem as
+> resoluções.
+>
+> **A Lei nº 3 continua valendo.** Sobra da B3.C00, valor líquido do desconto
+> e rateio mensal são **agregação de entrada** feita na montagem (`app/`),
+> do mesmo tipo de `RENDA_TOTAL_RECORRENTE`/`DESPESAS_OPERACIONAIS_ATUAIS`
+> (`OQ-16`) — não regra do motor (`OQ-53`, `OQ-55`).
+
+| ID | Requisito | Regras / seções / IDs de origem | Prioridade |
+| --- | --- | --- | --- |
+| `RF-79` | A tela de confirmação da fotografia do mês (`B3.C00`) mostra **Renda total**, **Despesas totais** e **Sobra do mês** (= Renda total − Despesas totais). Os totais consolidam tudo o que foi informado no Bloco 3 — Renda total é `RENDA_TOTAL_RECORRENTE` e Despesas totais é a parte do Bloco 3 de `DESPESAS_OPERACIONAIS_ATUAIS` + `DESPESAS_NAO_MENSAIS_NORMALIZADAS`, nas composições de `OQ-16` (o seguro cobrado à parte, que a montagem soma às despesas operacionais por `RF-81`, é da dívida e fica fora da fotografia — decisão de 2026-09-30, `T-232`) — e as decomposições (categorias, não mensais) **nunca** são somadas de novo. Parcelas de dívidas continuam cadastradas **só** no Inventário (Bloco 5): a sobra exibida é a do orçamento **antes das dívidas**, e é rotulada assim. Os três valores são agregação de entrada produzida na montagem, não cálculo do motor (`OQ-53`) | `DE-01` (`q1_1`, `q1_2`) · `B3.C00` · `OQ-16` · `OQ-53` (resolvida) | essencial |
+| `RF-80` | As decomposições da fotografia (despesas por categoria, despesas não mensais convertidas para o mês) ficam **acessíveis para consulta e edição** a partir da `B3.C00`, sem aparecer na tela de confirmação, pela mesma rota de correção de `RF-69`. A resposta "Ainda não consigo avaliar" (`NAO_SEI`) **não tem ação especial**: o fluxo segue | `DE-01` · `B3.C00` · `RF-68`, `RF-69` | essencial |
+| `RF-81` | Na ficha de dívida com seguro (`B5.D05 = Sim`), coletar a **situação do seguro prestamista** em três casos, com consequência distinta: **(1) prêmio único financiado** — já compõe saldo/parcela, **não é somado de novo** em nenhum fluxo; **(2) cobrado mensalmente à parte** — despesa mensal **da própria dívida** (custo da operação), enquanto a cobrança existir; a montagem a soma às despesas mensais operacionais entregues ao motor, uma vez por dívida, nunca à parcela, e ela nunca aparece nos totais do Bloco 3 da `B3.C00` (decisão do responsável do produto de 2026-09-30, risco `R9-1`, `T-232`); **(3) cancelado com restituição** — cessa a cobrança futura, e a restituição só é registrada quando **confirmada**, como recurso extraordinário. Situação **"Não sei"** → o seguro não é somado em lugar nenhum e o dado fica registrado como **"não informado"** (não é "Pendente de confirmação", reservado a informação verbal) | `DE-03` (`q3_1`) · `DE-06` · `B5.D05`, `B5.D05A`, `B5.D05B` · `OQ-54` (resolvida) | essencial |
+| `RF-82` | Valor de seguro informado como **total** (`B5.D05A`) é custo total do seguro, **nunca** despesa mensal. Um equivalente mensal só existe para análise, **com período de cobertura informado**, rotulado como **rateio** — nunca como nova despesa. O aluno recebe orientação para verificar apólice/certificado, prêmio total, forma de cobrança, se a contratação é facultativa, e como solicitar cancelamento e eventual restituição proporcional, que **não é garantida** (texto: `OQ-67`) | `DE-03` (`q3_1`) · `B5.D05A` · `OQ-67` | essencial |
+| `RF-83` | Na proposta com desconto (`B7.13A`), coletar e guardar **separadamente**: (1) **valor atual de quitação antes do desconto** — nunca chamado de "saldo devedor"; (2) tipo do desconto, R$ ou %; (3) valor ou percentual informado; (4) **valor final para quitação**; (5) validade da proposta, quando houver (`B7.15`). O valor final informado pelo credor **prevalece** como referência da oferta; o desconto calculado (R$ → bruto − desconto; % → bruto × (1 − %)) serve só para **conferência**. O percentual incide **só** sobre o valor de (1) — nunca sobre valor contratado, saldo histórico ou soma das parcelas, salvo declaração expressa do credor. O valor líquido é agregação de entrada feita na montagem (`OQ-55`) | `DE-03` (`q3_2`) · `B7.13`, `B7.13A`, `B7.15` · `OQ-55` (resolvida) | essencial |
+| `RF-84` | Travas do desconto, na gravação: percentual aceito **apenas entre 0% e 100%**; desconto em R$ **nunca maior** que o valor de quitação antes do desconto. Informados R$ **e** % juntos: compara-se o desconto em R$ com bruto × % **arredondado a R$ 0,01**; diferença **> R$ 0,01** → **sinalizar divergência** (a tolerância de `sdd.config.md` §5 não se aplica). Nunca somar os dois (`OQ-55`) | `DE-03` (`q3_2`) · `B7.13A` · mesmo padrão de validação cruzada de `RF-07`/`EC-02` | essencial |
+| `RF-85` | Custo informado "por mês" ou "total" (`B8.12A`; também `B5.D05A`): guardar **tipo** (mensal/total), **valor**, **período de incidência** e, quando aplicável, **meses restantes**. Mensal é despesa recorrente enquanto durar; total é custo único da operação e **nunca** é somado a cada mês — se parcelado, entra no fluxo mensal só a parcela efetivamente paga. Custo já embutido na parcela ou no saldo (`B5.D05B`/`B8.12B` = Sim) não é somado de novo. **Mensalização só com prazo informado**: sem prazo, nenhum valor mensal é inventado | `DE-03` (`q3_3`) · `B8.12`, `B8.12A`, `B8.12B` · `B5.D05A` | essencial |
+| `RF-86` | Com inventário incompleto, o aluno **pode continuar preenchendo** qualquer etapa, mas **não pode concluir o diagnóstico nem gerar o plano**: o Bloco 6 não executa enquanto houver pendência de `RF-87` ou `RF-88`. Enquanto a pendência existir, um **alerta permanente** de "inventário incompleto" fica visível ao aluno. Este bloqueio **substitui** o "plano provisório" de `RF-15`/`AC-07` sempre que declarado ≠ cadastrado; nos demais casos `RF-15` continua valendo | `DE-04` (`q4_1`, `q4_2`) · `RF-15` · `RF-16` · `OQ-56` (resolvida) | essencial |
+| `RF-87` | Dívidas: com `B5.00` numérico, cadastradas **abaixo** do declarado bloqueiam, com mensagem exata: *"Você declarou 7 dívidas e cadastrou 5. Faltam 2 fichas."* Cadastradas **acima** do declarado: o sistema pede ao aluno que atualize `B5.00` (ação direta, na própria mensagem) e o cálculo final fica **bloqueado até igualar** (`q4_1`). `B5.00` = "Não sei exatamente quantas": a completude passa a ser a confirmação do aluno em `B5.FIM01` ("Não, esta foi a última"). O aluno pode voltar e completar o cadastro a qualquer momento | `DE-04` (`q4_1`) · `B5.00`, `B5.FIM01` · `OQ-56`, `OQ-57` (resolvidas) | essencial |
+| `RF-88` | Renda extra (`B3.03` = Sim, renda recorrente adicional), vínculo consignável (`B3.S01` = Sim) e despesa não mensal (`B3.NM01` = Sim): precisa cadastrar **ao menos um item** antes do cálculo final — ou mudar a resposta para **Não**. Mensagem **específica por caso**, no padrão *"Você informou que possui X, mas ainda não cadastrou nenhum(a)"* (ex.: *"Você informou que possui despesa não mensal, mas ainda não cadastrou nenhuma"*) | `DE-04` (`q4_2`) · `B3.03`, `B3.S01`, `B3.NM01` · `OQ-57` (resolvida) | essencial |
+| `RF-89` | O servidor pode cadastrar **mais de um vínculo**, cada um em ficha própria (`VINCULO_ID`) com órgão/ente pagador, tipo de vínculo, `RENDA_BRUTA_VINCULO` (base da margem), renda líquida (**coletada** e usada numa **conferência**: a soma das rendas líquidas dos vínculos é comparada à renda informada no Bloco 3, e a divergência é sinalizada ao aluno e ao revisor — nunca somada de novo nem entregue ao motor como entrada nova), existência de consignação e margens (total, utilizada e disponível). Nomes técnicos dos campos novos: a critério do plano | `DE-05` (`q5_1`) · canônica v1.0.2 `E-09` · `RF-04` · `OQ-58`, `OQ-59` (resolvidas) | essencial |
+| `RF-90` | A **margem pertence ao vínculo**: cada `MARGEM_ID` é cadastrada dentro de exatamente um `VINCULO_ID`, e **todo** contrato consignado — inclusive cartão consignado e cartão benefício — aponta para o vínculo em que é descontado. **Nunca somar margens** de vínculos diferentes — nem em tela, nem em relatório, nem no estado entregue ao motor | `DE-05` (`q5_1`, `q5_2`) · canônica v1.0.2 `E-09` · `RF-07` · `OQ-59`, `OQ-60` (resolvidas) | essencial |
+| `RF-91` | Renomear para o aluno e o revisor o conceito de fonte do dado (`FONTE_DADO`: `B5.I02`, `B7.16`, `B8.15`) para **"Fonte de comprovação"**, com três níveis: **(1) Comprovado por documento/registro** — contrato, documento, aplicativo/internet banking, mensagem/e-mail, contracheque; **(2) Informado pelo aluno, sem comprovação** — memória, "Não tenho registro", "Uma combinação dessas fontes", "Outra"/"Outra fonte" sem documento associado; **(3) Pendente de confirmação** — informação fornecida verbalmente (ex.: informada em atendimento), sem documento/registro. O nível fica registrado **por dado** e **não** alimenta `CONFIABILIDADE_DADOS` do motor | `DE-06` (`q6_1`) · `B5.I02`, `B7.16`, `B8.15` · `OQ-61`, `OQ-63` (resolvidas) | essencial |
+| `RF-92` | Nível 2 ou 3 **não bloqueia** o plano (exceção: dado indispensável em nível 3, `RF-93`): fica **sinalizado para validação posterior**, exibido por dado ao revisor e no plano | `DE-06` · `RF-26` · `OQ-63` (resolvida) | essencial |
+| `RF-93` | Dado **indispensável** — campo que o motor exige para calcular aquela dívida/estado (saldo, taxa, parcela/prazo, renda), os mesmos cuja ausência já gera pendência — em "Pendente de confirmação" ou ausente: o cálculo roda, mas a **liberação pelo revisor fica bloqueada** enquanto houver pendência; a tela do revisor **lista** cada pendência (caso, dívida, dado) e a liberação só fica disponível depois que o dado for confirmado ou corrigido. Homologar é essa liberação (`RF-23`), fiel a `q8_1` ("não pode ser homologado") | `DE-06` · `DE-08` · `RF-23` · `OQ-62`, `OQ-64` (resolvidas) | essencial |
+| `RF-94` | O Bloco 7 segue fluxo condicional: *existe proposta?* (`B7.04`) → **Não**: todo o bloco da proposta é saltado; **Sim**: a proposta é **à vista, parcelada ou ambas**. Parcelada → número de parcelas, valor da parcela e demais dados do parcelamento; à vista → o valor para quitação à vista, a validade, o desconto e a fonte da proposta (decisão do responsável do produto de 2026-09-30, risco `R9-3`, `T-242`); ambas → os dois conjuntos são coletados. **Validade** da proposta (`B7.15`) pode ser perguntada em qualquer tipo; **prazo do parcelamento** (`B7.09`) só na parcelada | `DE-07` (`q7_1`) · `B7.04`, `B7.07`, `B7.08`, `B7.09`, `B7.15` · `OQ-65` (resolvida) | essencial |
+| `RF-95` | Campo não aplicável ao tipo de proposta **não aparece nem conta como ausente**: não entra na contagem de progresso (`RF-62`), não gera pendência e não chega ao motor como `DESCONHECIDO`/`INFORMACAO_PENDENTE` | `DE-07` · `RF-12` · `RF-62` | essencial |
+| `RF-96` | Homologação: nenhum resultado é pré-fixado — o motor apura caso a caso. A referência de aprovação são os gabaritos `GAB-A`, `GAB-B`, `GAB-C` e os invariantes. **Todo teste de homologação registra**: ordem final de ataque, mês de quitação de cada dívida, valor mensal destinado ao plano, custo total de juros e uso da reserva — cada item lido ou derivado de forma exata de campos existentes do `SnapshotOrdem` (cronograma incluído), com a correspondência fixada no plano; o que não for derivável de forma exata é registrado "não disponível", nunca estimado (decisão do produto `R9-6`, 2026-09-30; `T-268`) | `DE-08` (`q8_1`, `q8_2`) · `sdd.config.md` §5 · `OQ-66` (resolvida) | essencial |
+| `RF-97` | Se faltar dado indispensável (`RF-93`), o sistema sinaliza, nomeando o dado, que o resultado **não pode ser homologado** — a liberação na fila fica bloqueada até o dado ser confirmado ou corrigido (`RF-93`) — e nunca presume valor | `DE-08` (`q8_1`) · `RF-12` · `GAB-03` · `OQ-62`, `OQ-64` (resolvidas) | essencial |
+| `RF-98` | Recursos extraordinários (`B3.05A–D`): o aluno cadastra **vários**, cada um com tipo, valor, janela e certeza, e a montagem os entrega ao motor **item a item**, nunca somados como se tivessem a mesma certeza. Em Férias/abono, o valor coletado é **só o acréscimo (1/3)**. O plano apresenta o **cenário adicional** (segunda projeção com os `PROVAVEL` e os `POSSIVEL`; nenhum deles entra na projeção-base até ser recebido), separado e rotulado, lido do snapshot. A regra de projeção é do motor (`motor-calculo` `RF-70`–`RF-76`) — esta camada lê e entrega. Textos ao aluno: proposta do plano, aprovação do responsável do produto (`OQ-67`) | `DE-02` (`q2_1`–`q2_3`) · canônica v1.0.2 `E-10` · `RF-39` (fatia 2B) · `OQ-22`(b) (resolvida, `T-208`) · `OQ-24` (tarefa técnica) · `OQ-67` (resolvida) | essencial |
+
 ## 3. User Stories
 
 ### `US-01` — Responder em várias sessões sem perder nada
@@ -528,6 +568,72 @@ Atende: `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76`, `RF-77`, `RF-78`
 
 Atende: `RF-59`
 
+### Rodada 9 (2026-09-30) — decisões do especialista
+
+### `US-26` — Conferir meu mês em três números (`DE-01`)
+
+> Como **aluno**, quero **ver minha renda total, minhas despesas totais e o
+> que sobra antes das dívidas**, para **validar a fotografia do meu mês sem
+> ler uma tabela de categorias**.
+
+Atende: `RF-79`, `RF-80`
+
+### `US-27` — Seguro, desconto e custos sem contar duas vezes (`DE-03`)
+
+> Como **aluno**, quero **informar seguro, desconto e custos como o credor me
+> passou — por mês, no total, em R$ ou em %**, para **que o plano não conte o
+> mesmo dinheiro duas vezes nem invente um valor mensal que ninguém me cobra**.
+
+Atende: `RF-81`, `RF-82`, `RF-83`, `RF-84`, `RF-85`
+
+### `US-28` — Saber o que falta antes do plano (`DE-04`)
+
+> Como **aluno**, quero **continuar preenchendo e saber exatamente quantas
+> fichas faltam**, para **não receber um plano calculado sobre um inventário
+> que eu mesmo sei que está incompleto**.
+
+Atende: `RF-86`, `RF-87`, `RF-88`
+
+### `US-29` — Cadastrar cada vínculo com sua margem (`DE-05`)
+
+> Como **servidor com mais de um vínculo**, quero **cadastrar cada vínculo com
+> a sua margem e ligar cada consignado ao vínculo onde é descontado**, para
+> **que o plano não trate duas folhas como uma margem só**.
+
+Atende: `RF-89`, `RF-90`
+
+### `US-30` — Ver o que está comprovado (`DE-06`)
+
+> Como **revisor**, quero **ver, por dado, se ele tem comprovação, foi só
+> informado ou está pendente de confirmação**, para **saber em que confiar
+> antes de liberar o plano**.
+
+Atende: `RF-91`, `RF-92`, `RF-93`
+
+### `US-31` — Responder só o que a minha proposta tem (`DE-07`)
+
+> Como **aluno**, quero **responder apenas as perguntas que fazem sentido para
+> a proposta que recebi**, para **não ser cobrado por parcelas de uma
+> quitação à vista**.
+
+Atende: `RF-94`, `RF-95`
+
+### `US-32` — Homologar com evidência comparável (`DE-08`)
+
+> Como **especialista**, quero **que todo teste de homologação registre ordem,
+> meses de quitação, valor mensal, juros e uso da reserva**, para **comparar
+> objetivamente o esperado com o calculado**.
+
+Atende: `RF-96`, `RF-97`
+
+### `US-33` — Contar com o 13º sem apostar no precatório (`DE-02`)
+
+> Como **aluno**, quero **informar cada valor extraordinário com o quanto ele
+> é certo**, para **que o plano use o que é confirmado e me mostre o resto só
+> como possibilidade**.
+
+Atende: `RF-98`
+
 ## 4. Acceptance Criteria
 
 > Todo critério abaixo é verificável sem reinterpretação: descreve entrada e
@@ -704,6 +810,61 @@ Atende: `RF-59`
 | `AC-115` | `US-25` | Dada a trilha da jornada, quando auditada, então **nenhum** dos cinco degraus é elemento interativo (`<button>`, `<a>`, `role="button"`, `onClick`): ela continua informativa, e o único botão da tela é o da próxima etapa |
 | `AC-116` | `US-25` | Dado o código do frontend, quando auditado após esta rodada, então as classes `.top`, `.corpo`, `.acoes`, `.back`, `.linha`, `.cartao-proximo`, `.item` e `.chip` continuam existindo com os mesmos nomes — a suíte E2E as usa como seletor, e renomear qualquer uma quebraria dezenas de testes |
 
+### Rodada 9 (2026-09-30) — decisões do especialista
+
+> **Rastreabilidade `RF` → `AC`.** `RF-79` → `AC-117`, `AC-118`, `AC-119` ·
+> `RF-80` → `AC-119`, `AC-120` · `RF-81` → `AC-121`, `AC-122`, `AC-123`, `AC-155` ·
+> `RF-82` → `AC-124` · `RF-83` → `AC-125`, `AC-126`, `AC-127` · `RF-84` →
+> `AC-128`, `AC-129` · `RF-85` → `AC-130`, `AC-131`, `AC-132` · `RF-86` →
+> `AC-133`, `AC-134` · `RF-87` → `AC-133`, `AC-153`, `AC-154` · `RF-88` → `AC-135` · `RF-89` →
+> `AC-136`, `AC-156` · `RF-90` → `AC-137`, `AC-138`, `AC-139` · `RF-91` → `AC-140` ·
+> `RF-92` → `AC-141` · `RF-93` → `AC-142` · `RF-94` → `AC-143`, `AC-144`,
+> `AC-145` · `RF-95` → `AC-146` · `RF-96` → `AC-147`, `AC-148` · `RF-97` →
+> `AC-149` · `RF-98` → `AC-150`, `AC-151`, `AC-152`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-117` | `US-26` | Dado um caso com `RENDA_TOTAL_RECORRENTE = 8000`, fichas de `B3.D01`–`B3.D11` somando `5000` e `DESPESAS_NAO_MENSAIS_NORMALIZADAS = 500`, quando `B3.C00` for exibida, então a tela mostra exatamente três valores — Renda total `R$ 8.000,00`, Despesas totais `R$ 5.500,00` e Sobra do mês `R$ 2.500,00` —, e o rótulo da sobra contém "antes das dívidas" (`DE-01`) |
+| `AC-118` | `US-26` | Dado o mesmo caso com duas fichas de dívida já cadastradas no Bloco 5 (parcelas de `R$ 300` e `R$ 700`), quando `B3.C00` for exibida de novo, então Despesas totais continua `R$ 5.500,00` e a Sobra continua `R$ 2.500,00` — nenhuma parcela de dívida compõe a fotografia (`DE-01`) |
+| `AC-119` | `US-26` | Dada a `B3.C00` exibida, quando o aluno abrir a consulta das decomposições, então vê as despesas por categoria e as não mensais convertidas para o mês, cuja soma é igual a Despesas totais (nunca Despesas totais mais as decomposições); e quando corrigir uma ficha por ali, a gravação usa a rota de `RF-69` e a `B3.C00` reexibida reflete o novo total (`DE-01`) |
+| `AC-120` | `US-26` | Dado `B3.C00` respondida "Ainda não consigo avaliar" (`NAO_SEI`), quando a resposta for gravada, então a próxima pergunta exibida é a seguinte exibível do fluxo (`B3.C01`), nenhuma ação de Bloco 11 é criada e nenhuma pendência que bloqueie o cálculo é registrada (`DE-01`) |
+| `AC-121` | `US-27` | Dada uma dívida com seguro na situação "prêmio único financiado" e custo total `R$ 1.200`, quando o estado for montado, então nenhum valor de seguro é acrescentado ao saldo, à parcela nem às despesas mensais entregues ao motor, e o `R$ 1.200` fica registrado como custo total do seguro da dívida (`DE-03`) |
+| `AC-122` | `US-27` | Dada uma dívida com seguro "cobrado mensalmente à parte" de `R$ 40` por mês, quando o estado for montado, então `R$ 40` compõe as **despesas mensais operacionais entregues ao motor** exatamente uma vez — nunca a parcela; nem zero, nem duplicado com `B5.D05B` — e não aparece na `B3.C00` (texto ajustado pela decisão do responsável do produto de 2026-09-30, risco `R9-1`, `T-232`: o motor não tem custo mensal não amortizante por dívida, e somar à parcela amortizaria saldo com dinheiro de seguro) (`DE-03`, `OQ-54`) |
+| `AC-123` | `US-27` | Dada uma dívida com seguro "cancelado com restituição", quando a restituição não estiver confirmada, então nenhuma cobrança futura de seguro e nenhum recurso extraordinário existem para ela; e quando o aluno confirmar a restituição de `R$ 300`, então passa a existir um item de recurso extraordinário de `R$ 300` ligado àquela origem (`DE-03`) |
+| `AC-124` | `US-27` | Dado seguro informado como `R$ 1.200` "no total" com período de cobertura de 24 meses, quando a análise for exibida, então o equivalente mensal `R$ 50,00` aparece rotulado como rateio e não compõe nenhuma despesa nem desembolso; e dado o mesmo seguro **sem** período de cobertura, então nenhum equivalente mensal é exibido (`DE-03`) |
+| `AC-125` | `US-27` | Dado valor atual de quitação antes do desconto `R$ 10.000` e desconto de `R$ 2.000`, sem valor final informado, quando gravado, então bruto, tipo `R$`, valor `2.000` e valor de referência `R$ 8.000` estão registrados em campos separados (`DE-03`) |
+| `AC-126` | `US-27` | Dado bruto `R$ 10.000` e desconto de `15%`, sem valor final informado, quando gravado, então o valor de referência é `R$ 8.500`; e nenhum cálculo usa saldo devedor, valor contratado ou soma de parcelas como base (`DE-03`) |
+| `AC-127` | `US-27` | Dado bruto `R$ 10.000`, desconto de `20%` e valor final informado pelo credor `R$ 7.900`, quando gravado, então o valor de referência da oferta é `R$ 7.900`, e `R$ 8.000` aparece apenas como conferência (`DE-03`) |
+| `AC-128` | `US-27` | Dado um desconto de `120%` ou de `-5%`, ou de `R$ 12.000` sobre bruto de `R$ 10.000`, quando o aluno enviar, então a resposta é recusada com mensagem e nada é gravado (`DE-03`) |
+| `AC-129` | `US-27` | Dado bruto `R$ 10.000` com `R$ 2.000` **e** `20%` informados juntos, quando gravado, então não há divergência e o desconto é aplicado uma vez (`R$ 8.000`, nunca `R$ 6.000`); dado bruto `R$ 10.000,20` com `R$ 1.500,03` e `15%` (bruto × 15% = `R$ 1.500,03`; diferença `R$ 0,00`), então não há divergência; dado `R$ 1.500,05` com o mesmo `15%` (diferença `R$ 0,02`), então divergência; e dado `R$ 2.000` com `15%` (diferença `R$ 500`), então uma divergência é sinalizada ao aluno e ao revisor e os dois valores ficam gravados, nenhum descartado nem somado (`DE-03`, `OQ-55`) |
+| `AC-130` | `US-27` | Dado `B8.12A` = `R$ 1.200` "total" sem prazo informado, quando o estado ou a análise forem produzidos, então nenhum valor mensal derivado desse custo existe — nem `R$ 1.200` por mês, nem rateio por prazo presumido (`DE-03`) |
+| `AC-131` | `US-27` | Dado `B8.12A` = `R$ 30` "por mês" com 10 meses restantes, quando o fluxo for montado **depois de a troca ser contratada** (recálculo pós-plano), então o custo compõe as despesas mensais operacionais — nunca a parcela — enquanto houver meses restantes na data de referência, e o término é reavaliado a cada recálculo (o motor não modela duração de despesa); **antes da contratação, nada é somado** (decisão do responsável do produto de 2026-09-30, riscos `R9-1` e `T-236`); e dado `R$ 1.200` "total" com prazo de 12 meses, então o equivalente mensal `R$ 100` aparece só como rateio analítico (`DE-03`) |
+| `AC-132` | `US-27` | Dado `B8.12B = Sim` ou `B5.D05B = Sim` (custo já incluído na parcela), quando o estado for montado, então o custo do seguro não é somado em nenhum fluxo além da parcela já informada (`DE-03`) |
+| `AC-133` | `US-28` | Dado `B5.00 = 7` e 5 fichas de dívida cadastradas, quando o aluno navegar por qualquer tela, então ele consegue responder qualquer outra pergunta pendente, e a mensagem exibida é exatamente "Você declarou 7 dívidas e cadastrou 5. Faltam 2 fichas." em um alerta presente em toda tela do aluno enquanto a diferença persistir (`DE-04`) |
+| `AC-134` | `US-28` | Dado o mesmo caso, quando qualquer rota tentar concluir o diagnóstico ou executar o Bloco 6, então `calcular_plano` não é invocado, nenhum snapshot é criado e o caso permanece em coleta; e quando a 7ª ficha for cadastrada, então o alerta desaparece e o Bloco 6 fica alcançável (`DE-04`) |
+| `AC-135` | `US-28` | Dado `B3.NM01 = Sim` e nenhuma ficha de despesa não mensal, quando o aluno tentar gerar o plano, então o cálculo é bloqueado e a mensagem é "Você informou que possui despesa não mensal, mas ainda não cadastrou nenhuma"; e quando ele mudar `B3.NM01` para Não, então a pendência e o bloqueio desaparecem — e o mesmo vale, com mensagem própria, para `B3.03 = Sim` sem ficha de renda adicional e `B3.S01 = Sim` sem ficha de vínculo (`DE-04`; textos em `OQ-57`) |
+| `AC-136` | `US-29` | Dado um aluno que cadastra dois vínculos, quando as fichas forem gravadas, então existem duas fichas independentes com `VINCULO_ID` estável, cada uma com órgão/ente, tipo, renda e margens próprios, e responder a ficha 2 não altera nenhum campo da ficha 1 (`DE-05`) |
+| `AC-137` | `US-29` | Dada uma tentativa de gravar margem sem vínculo associado, quando enviada, então ela é recusada; e toda `MARGEM_ID` gravada referencia exatamente um `VINCULO_ID` existente do mesmo caso (`DE-05`) |
+| `AC-138` | `US-29` | Dados o vínculo A com margem disponível `R$ 500` e o vínculo B com `R$ 300`, quando qualquer tela, relatório ou estado entregue ao motor for produzido, então nenhum deles contém `R$ 800` como margem disponível — cada margem aparece sob o seu vínculo (`DE-05`) |
+| `AC-139` | `US-29` | Dada uma dívida consignada — `TIPO_DIVIDA = CONSIGNADO`, ou contrato de cartão consignado/cartão benefício — num caso com dois vínculos, quando a ficha for concluída, então ela referencia um `VINCULO_ID` existente do caso; sem essa referência a ficha permanece com pendência (`DE-05`) |
+| `AC-140` | `US-30` | Dada `B7.16` respondida "Sim, documento/contrato", "Sim, aplicativo ou internet banking" ou "Sim, mensagem/e-mail", quando exibida ao revisor, então a Fonte de comprovação é "Comprovado por documento/registro"; "Não tenho registro" → "Informado pelo aluno, sem comprovação"; "Foi apenas informada em atendimento" → "Pendente de confirmação". Em `B5.I02`: "Documento/contrato", "Aplicativo ou internet banking" e "Contracheque" → nível 1; "Minha memória" e "Uma combinação dessas fontes" → nível 2; "Outra" → nível 2, ou nível 1 se houver documento associado; "Atendimento do credor" → nível 3. Em `B8.15`: "Documento formal", "Aplicativo/internet banking" e "Simulação fornecida pela instituição" → nível 1; "Atendimento" e "Correspondente" → nível 3; "Outra fonte" → como "Outra" (`DE-06`, `OQ-61`, `EC-36`) |
+| `AC-141` | `US-30` | Dado um caso em que todas as fontes são de nível 2 ou 3 e nenhum dado indispensável está pendente, quando a coleta terminar, então o Bloco 6 executa e o snapshot entra na fila normalmente, com o nível de cada fonte visível ao revisor por dado (`DE-06`) |
+| `AC-142` | `US-30` | Dado um dado indispensável (`OQ-62`) com fonte "Pendente de confirmação", quando o revisor abrir o caso na fila, então a pendência aparece listada, nomeando dívida e dado, e a ação de liberar é **recusada** por qualquer rota; quando o dado for confirmado (nível 1 ou 2) ou corrigido, então a liberação fica disponível (`DE-06`, `DE-08`, `OQ-62`, `OQ-64`) |
+| `AC-143` | `US-31` | Dado `B7.04 = NAO`, quando o Bloco 7 da dívida for percorrido, então nenhuma pergunta de conteúdo da proposta (o tipo da proposta e `B7.05`–`B7.16`) é exibida (`DE-07`) |
+| `AC-144` | `US-31` | Dada proposta só à vista, quando o Bloco 7 for percorrido, então são exibidos o valor para quitação à vista (`B7.07V`), o desconto (`B7.13`–`B7.13E`), `B7.15` (validade) e `B7.16` (fonte); `B7.07`, `B7.08` e `B7.09` não são exibidas (`DE-07`, `OQ-65`; texto ajustado pela decisão do responsável do produto de 2026-09-30, risco `R9-3`, `T-242`) |
+| `AC-145` | `US-31` | Dada proposta parcelada, quando o Bloco 7 for percorrido, então `B7.07`, `B7.08`, `B7.09` e `B7.15` são exibidas; e dada proposta com as duas opções, então são coletados os dois conjuntos — valor à vista e dados do parcelamento — e `B7.15` (`DE-07`, `OQ-65`) |
+| `AC-146` | `US-31` | Dada proposta só à vista, quando o progresso e o estado forem produzidos, então `B7.07`–`B7.09` não entram no total de `RF-62`, não geram pendência, e nenhum campo correspondente chega ao motor como `DESCONHECIDO` ou `INFORMACAO_PENDENTE` (`DE-07`) |
+| `AC-147` | `US-32` | Dada a suíte de homologação executada, quando `GAB-A`, `GAB-B` e `GAB-C` rodarem, então cada um produz um registro com ordem final de ataque, mês de quitação de cada dívida, valor mensal destinado, custo total de juros e uso da reserva, cada item lido ou derivado do snapshot — ou "não disponível", nunca comparado a estimativa —, comparado ao gabarito quando o gabarito traz o valor (`DE-08`, `R9-6`) |
+| `AC-148` | `US-32` | Dado um caso de homologação que não é gabarito, quando executado, então os cinco itens de `AC-147` são registrados como apurados pelo motor, e nenhum valor esperado de ordem, prazo ou uso da reserva está escrito no teste — só os invariantes são asseridos (`DE-08`) |
+| `AC-149` | `US-32` | Dado um caso com dado indispensável ausente, quando o resultado for produzido, então o cálculo roda, o registro de homologação e a tela do revisor sinalizam que ele não pode ser homologado, nomeando o dado, a liberação é recusada até o dado ser informado, e nenhum valor presumido o substitui (`DE-08`, `OQ-64`) |
+| `AC-150` | `US-33` | Dados três recursos extraordinários — 13º `CONFIRMADO`, restituição `PROVAVEL`, venda `POSSIVEL` —, quando o estado for montado, então `recursos_extraordinarios` contém três itens distintos, cada um com seu tipo, valor, janela e certeza, e nenhum total agregado é entregue (`DE-02`) |
+| `AC-151` | `US-33` | Dado `B3.05A = Férias/abono`, quando `B3.05B` for exibida, então a pergunta deixa explícito que o valor é só o acréscimo; e o valor gravado é o informado — a aplicação não calcula o 1/3 (`DE-02`; texto em `OQ-67`) |
+| `AC-152` | `US-33` | Dado um snapshot com recurso `PROVAVEL`, quando o plano for exibido, então o cenário adicional aparece separado e rotulado, e ordem, prazo e custo do plano principal são os campos da projeção-base do snapshot, sem nenhum valor do cenário adicional misturado; e um recurso `POSSIVEL` aparece também só no cenário adicional (`DE-02`, `motor-calculo:OQ-49`) |
+| `AC-153` | `US-28` | Dado `B5.00` = "Não sei exatamente quantas", quando o aluno responder `B5.FIM01` = "Não, esta foi a última", então não há pendência de inventário por contagem e o Bloco 6 fica alcançável; e antes dessa confirmação, o cálculo final permanece bloqueado (`DE-04`, `OQ-56`) |
+| `AC-154` | `US-28` | Dado `B5.00 = 5` e 6 fichas cadastradas, quando o aluno navegar, então o sistema exibe o pedido de atualizar `B5.00` com ação direta para fazê-lo, e `calcular_plano` não é invocado; e quando `B5.00` for atualizado para 6 (ou uma ficha for removida), então o bloqueio cessa (`DE-04`, `q4_1`, `OQ-56`) |
+| `AC-155` | `US-27` | Dada uma dívida com seguro de situação "Não sei", quando o estado for montado, então nenhum valor de seguro é somado a saldo, parcela, despesa ou desembolso, e o dado aparece ao revisor como "não informado" — nunca como "Pendente de confirmação" (`DE-03`, `OQ-54`) |
+| `AC-156` | `US-29` | Dados dois vínculos com renda líquida `R$ 4.000` e `R$ 2.500` e renda do Bloco 3 `R$ 6.500`, quando a conferência rodar, então nenhuma divergência é sinalizada; com renda do Bloco 3 `R$ 6.000`, então a divergência é sinalizada ao aluno e ao revisor; e em ambos os casos a renda entregue ao motor é a do Bloco 3, sem a soma das líquidas acrescentada, e nenhum campo novo de renda líquida chega ao motor (`DE-05`, `OQ-58`) |
+
 ## 5. Non-Functional Requirements
 
 - **Performance:** cada transição de pergunta responde em p95 < 500 ms. A
@@ -757,6 +918,20 @@ Atende: `RF-59`
   aproximação. `± R$ 0,05` só se aplica a valores monetários acumulados, e
   nenhum valor desta fatia é acumulado — todos são leitura direta de resposta.
 
+### Rodada 9 (2026-09-30) — decisões do especialista
+
+- **Acessibilidade.** O alerta de inventário incompleto (`RF-86`) e a
+  divergência de desconto (`RF-84`) são anunciados a leitor de tela e
+  vinculados ao campo ou à ficha que os originou — mesma exigência da Rodada 1
+  para mensagens de validação.
+- **Tolerância.** Zero para bloqueio do cálculo (`RF-86`–`RF-88`), nível da
+  Fonte de comprovação (`RF-91`) e exibição/ocultação de perguntas do Bloco 7
+  (`RF-94`). Valores da `B3.C00` e do desconto são exibidos ao centavo, sem
+  arredondamento intermediário (`G-01`).
+- **Observabilidade.** Bloqueio por inventário incompleto aparece na trilha do
+  caso (`RF-31`) e no painel do operador (`RF-35`) como motivo nomeado — sem log
+  de valor monetário.
+
 ## 6. Edge Cases
 
 | ID | Situação | Comportamento esperado |
@@ -803,6 +978,25 @@ Atende: `RF-59`
 | `EC-25` | O caso está num estado sem etapa óbvia para o aluno — `CALCULANDO`, `ERRO_DE_CALCULO` ou `ENCERRADO` | A tela Início mostra **o estado e o que esperar**, nunca uma tela vazia nem uma etapa inventada. `CALCULANDO` e `ERRO_DE_CALCULO` são ambos fase `revisao` — *é com a gente, você não faz nada* —, e o erro técnico **jamais** é exposto ao aluno: `mensagem_do_estado_do_caso` já diz *"Seu plano está em nova análise"*. `ENCERRADO` mostra o cartão de acompanhamento com lista de ações vazia e a mensagem de encerramento — **não** é uma sexta fase |
 | `EC-26` | O aluno chega por um hash desconhecido, antigo ou digitado errado (`#nao-existe`) | A aplicação exibe a tela **Início** — a raiz do fluxo, que sabe ler a fase e decidir o próximo passo. Nunca uma tela em branco, e nunca um erro que sugira que o caso está perdido |
 | `EC-27` | O aluno usa o botão "voltar" do navegador no meio do fluxo | A tela anterior é exibida, com foco no `<h1>` e título atualizado como em qualquer outra navegação. Navegar por dentro do app e navegar pelo histórico do navegador produzem o mesmo resultado |
+
+### Rodada 9 (2026-09-30) — decisões do especialista
+
+| ID | Situação | Comportamento esperado |
+| --- | --- | --- |
+| `EC-28` | Renda principal ou alguma despesa do Bloco 3 respondida "não sei" quando `B3.C00` é exibida (`DE-01`) | Renda principal "não sei" (ou sem resposta): a Renda total aparece como **não informado**, nunca como `R$ 0,00`. Item de renda adicional ou de despesa "não sei": o total mostra o valor dos itens informados, marcado **"parcial (há itens sem valor)"** — o motor segue somando os informados (`OQ-16`); decisão do responsável do produto de 2026-09-30 (risco `R9-2`, `T-225`). A Sobra do mês não é exibida como número enquanto a Renda total for desconhecida (`RF-12`); com um dos totais parcial, a sobra recebe o **mesmo tratamento dos totais** — valor com os informados, marcado "parcial (há itens sem valor)" (decisão do produto de 2026-09-30). A coleta segue |
+| `EC-29` | O aluno volta à `B3.C00` depois de cadastrar dívidas (`DE-01`) | A sobra continua sendo a de antes das dívidas, com o mesmo rótulo — parcelas nunca entram na fotografia (`AC-118`) |
+| `EC-30` | `B7.13A` = "O credor informou apenas que existe desconto, sem detalhar", sem valor final informado (`DE-03`) | Nenhum desconto é presumido: o valor líquido fica desconhecido, sinalizado, e o valor de quitação antes do desconto continua registrado separado |
+| `EC-31` | Percentual de desconto informado, mas valor atual de quitação antes do desconto respondido "não sei" (`DE-03`) | O líquido não é calculado. O percentual **nunca** é aplicado sobre saldo devedor, valor contratado ou soma das parcelas como substituto |
+| `EC-32` | `B5.00` = "Não sei exatamente quantas" (`DE-04`) | Não há contagem para comparar e nenhuma mensagem de "faltam N fichas" é exibida; a completude passa a ser a confirmação do aluno em `B5.FIM01` ("Não, esta foi a última") (`OQ-56`, `AC-153`) |
+| `EC-33` | Fichas cadastradas **acima** do número declarado em `B5.00` (`DE-04`) | O sistema pede ao aluno que atualize `B5.00` (ação direta) e bloqueia o cálculo final até cadastradas = declaradas (`q4_1`, `OQ-56`, `AC-154`) |
+| `EC-34` | `B3.S01 = Não sei` (vínculo consignável incerto) sem nenhuma ficha de vínculo (`DE-04`, `DE-05`) | Não há pendência de `RF-88`: a exigência de ao menos um item vale só para resposta **Sim** |
+| `EC-35` | O aluno remove um vínculo ao qual margens ou dívidas consignadas estão ligadas (`DE-05`) | A remoção não deixa margem nem consignado apontando para vínculo inexistente: o aluno vê os itens dependentes antes de confirmar, e os que perderem o vínculo voltam a ficar com pendência (`AC-137`, `AC-139`) |
+| `EC-36` | `B8.15` "Simulação fornecida pela instituição" e "Correspondente" (`DE-06`) | "Simulação fornecida pela instituição" é registro da instituição → nível 1 "Comprovado por documento/registro"; "Correspondente", como "Atendimento", é informação verbal → nível 3 "Pendente de confirmação" (decisão da equipe técnica, 2026-09-30) |
+| `EC-39` | Seguro com situação "Não sei" (`DE-03`) | Não soma em lugar nenhum; o dado fica registrado como "não informado" — não é "Pendente de confirmação", que é só para informação verbal (`OQ-54`, `AC-155`) |
+| `EC-40` | Revisor tenta liberar um caso com dado indispensável em "Pendente de confirmação" ou ausente (`DE-06`, `DE-08`) | A liberação é recusada por qualquer rota; a tela lista as pendências; o snapshot permanece intacto e na fila. Confirmado ou corrigido o dado (o que gera novo cálculo pelos caminhos já existentes), a liberação volta a estar disponível (`OQ-64`, `AC-142`) |
+| `EC-41` | Soma das rendas líquidas dos vínculos diverge da renda informada no Bloco 3 (`DE-05`) | Divergência sinalizada ao aluno e ao revisor; nenhum valor é somado de novo nem substitui a renda do Bloco 3; não bloqueia (`OQ-58`, `AC-156`) |
+| `EC-37` | O aluno troca o tipo de proposta de parcelada para à vista depois de responder `B7.07`–`B7.09` (`DE-07`) | As respostas do parcelamento deixam de ser exibidas, de contar no progresso e de chegar ao motor; nenhuma delas vira `DESCONHECIDO` por ter ficado inaplicável |
+| `EC-38` | Recurso extraordinário `CONFIRMADO` com valor "Não sei" ou janela "Ainda não sei" (`DE-02`) | Não entra na projeção (não há valor estimável nem mês previsto); o item continua cadastrado e visível ao revisor — nunca vira `0` nem ganha janela presumida |
 
 ## 7. Assumptions
 
@@ -914,6 +1108,34 @@ Atende: `RF-59`
   `_CAMPOS_DE_GATE_FORA_DE_ESCOPO` e em `CONFIABILIDADE_DADOS` como parâmetro
   externo.
 
+### Rodada 9 (2026-09-30) — decisões do especialista
+
+- **As decisões de `docs/decisoes-especialista/README.md` são a fonte.** Onde
+  Rodrigo e Marcelo divergiram, vale Rodrigo (`q4_1`, `q4_2`, `q6_1`). O
+  `obs` de cada resposta foi lido e só entrou aqui o que o README consolidou ou
+  o que o próprio `obs` fixa como regra (travas de `q3_2`, `q3_3`).
+- **`DE-05` não é mudança de motor.** `engine/` não consome vínculo nem margem
+  hoje (nenhuma ocorrência de `MARGEM`/`VINCULO` em `engine/`). A mudança é de
+  canônica (v1.0.2, `E-09`), de registro e de coleta. O registro
+  `collection/registros/bloco-03.yaml` já trata `B3.S02`–`B3.S05` como
+  `VINCULO_ID`; o que falta é a pertença `MARGEM_ID` → `VINCULO_ID` e o
+  vínculo da dívida consignada.
+- **`DE-02` é mudança de motor** (`motor-calculo` `RF-70`–`RF-76`) e, deste
+  lado, depende da **fatia 2B** (leitura item a item dos extraordinários).
+  `OQ-22`(b) já está resolvida (`T-208`); resta `OQ-24`, agora **tarefa
+  técnica** (filtro real por escopo em `valores_do_escopo`). Até ela,
+  `recursos_extraordinarios` continua tupla vazia declarada (`RF-39`).
+- **`DE-04` endurece `RF-15`.** Declarado ≠ cadastrado passa a **bloquear**
+  o cálculo final em vez de gerar plano provisório; nos demais casos
+  `RF-15`/`AC-07` seguem valendo (`OQ-56`).
+- **`DE-03`, `DE-06` e `DE-07` mudam registros da §11**, e por isso entraram
+  como **v1.0.3** da canônica (`piq-app-spec.md`, Registro de alterações,
+  `E-11` a `E-15`) antes de qualquer edição de YAML (`OQ-52`).
+- **As 16 questões desta rodada foram resolvidas pela equipe técnica**
+  (responsável do produto, 2026-09-30), sem retorno ao especialista, com base
+  nos princípios escritos por ele nas observações: prudência, sem dupla
+  contagem, não bloquear, o revisor homologa.
+
 ## 8. Risks
 
 | Risco | Impacto | Mitigação |
@@ -943,6 +1165,15 @@ Atende: `RF-59`
 | Classificar os itens como `NAO_MOBILIZAR` "porque é neutro", para destravar 2C sem esperar `motor-calculo:OQ-26` | **alto** — não é neutro: é uma afirmação sobre o patrimônio do aluno que ninguém calculou, e produziria o mesmo número final da coleção vazia **com a aparência de que houve classificação**. Derivar em `app/` passaria no lint (que só varre `engine/`) e ainda assim violaria a Lei nº 3 e `sdd.config.md` §6 | `RF-39` fixa a tupla vazia com motivo em docstring; `AC-61` audita a ausência de qualquer derivação ou literal de classificação em `app/`, fechando por decisão o ponto cego que o lint de `engine/` deixa aberto |
 | Regravar `hashes_congelados.json` a partir de uma lista transcrita de um enunciado, em vez da saída do teste | **médio** — a lista envelhece entre a redação e a execução; um arquivo a mais ou a menos deixa `AC-44` verde por transcrição e vermelho na realidade seguinte. `engine/ataque_imediato.py` já é um caso concreto: existe no disco e **não** consta do JSON hoje | `RF-41` fixa o procedimento como "rodar o teste, regravar exatamente o que ele apontar", nunca uma lista fixa; `AC-65` verifica os quatro testes de `AC-44`, a presença de `engine/ataque_imediato.py` e a exclusão deliberada de `002_app_aluno.sql` |
 | A tela exibe `RESERVA_MOBILIZAVEL` desconhecida como `R$ 0,00` por ser o caminho mais curto de formatação | **médio** — converteria em zero, na apresentação, exatamente o que a §13.1 proíbe converter em zero no cálculo. O aluno leria "sua reserva mobilizável é zero" onde a verdade é "você ainda não decidiu" | `RF-43` e `AC-70` tratam o desconhecido como estado de exibição de primeira classe. A **redação** ao aluno é `OQ-21`, aberta — o comportamento está fixado, o texto não se inventa aqui |
+
+### Rodada 9 (2026-09-30) — decisões do especialista
+
+| Risco | Impacto | Mitigação |
+| --- | --- | --- |
+| Bloqueio de `DE-04` deixa o aluno parado sem saber o que falta | **alto** — o caso não chega ao plano e o abandono vira silencioso | Mensagem exata com números (`RF-87`), mensagem por caso (`RF-88`), alerta permanente (`RF-86`) e motivo visível no painel do operador (NFR de observabilidade) |
+| A sobra da `B3.C00` ou o líquido do desconto ser calculado "só para exibir" na aplicação | **alto** — dissolve a Lei nº 3; a mesma conta passa a existir em dois lugares | `OQ-53` e `OQ-55` (resolvidas) fixam que são agregação de entrada, feita **só** na montagem — um lugar, como `OQ-16`; `AC-42` continua exigindo rastrear a origem de cada número exibido |
+| Somar margens de vínculos diferentes por conveniência de exibição | **médio** — o aluno leria uma margem disponível que nenhuma folha tem | `RF-90` e `AC-138` proíbem o total em tela, relatório e estado |
+| Mudar registros da §11 (`DE-03`/`DE-06`/`DE-07`) sem nova versão da canônica | **médio** — registro e canônica divergem, e a próxima leitura da canônica "desfaz" a decisão | Canônica v1.0.3 (`OQ-52`, resolvida) registra as edições antes dos YAML |
 
 ## 9. Out of Scope
 
@@ -1085,9 +1316,9 @@ Atende: `RF-59`
 | --- | --- | --- | --- |
 | `OQ-20` | Ampliar a allowlist de `AC-41` com `engine.estado.RESERVA_EXISTE` e `engine.estado.DISPOSICAO_USO_RESERVA`? Os dois são enums que **tipam campos de `EstadoFinanceiro`** (`engine/estado.py:511`, `:513`) e caem no mesmo Critério A já aplicado quatro vezes (`TIPO_DIVIDA`/T-49, os 8 do Bloco 2/T-50, `TIPO_RENDA`/T-51, `Divida`) — *"sem liberá-lo é impossível montar um `EstadoFinanceiro` tipado fora de `engine/`"*. Sub-decisão já encaminhada por `RF-40`: liberar **só os dois** desta fatia, não os sete do levantamento | Sem a decisão, a fatia 2A não é implementável: preencher os campos com valores neutros já foi tentado e **reprovou** em `test_fronteira_import_engine.py`, com a edição revertida integralmente. Ampliar allowlist é mudar critério de aceite desta spec — `sdd.config.md` §6 não deixa isso a critério de quem implementa | `aberta` — **bloqueia a fatia 2A.** O levantamento com critério explicitado e precedente citado está em `RF-40` e no discovery §1.2; a decisão é do plano |
 | `OQ-21` | Qual é o **texto** que o aluno lê quando `RESERVA_MOBILIZAVEL` é desconhecida? O comportamento está fixado (`RF-43`, `AC-70`: estado explícito de pendência, nunca `R$ 0,00`, nunca omissão), mas a redação não existe: `Q-02`/`Q-03` fixam texto canônico apenas para a ordem projetada, e a §13.1 só diz o que **não** fazer (*"não é convertido silenciosamente em zero"*) | O caminho é **novo e alcançável** a partir desta fatia — hoje o campo é sempre `0` e nenhuma tela de `app/` o trata. Texto ao aluno é conteúdo metodológico: inventá-lo aqui seria decidir redação sem nova versão da spec (`sdd.config.md` §6). Interage com `OQ-08` (respondida: avisar na hora), que já estabelece que o aluno é informado no momento, não só no relatório | `aberta` — **bloqueia a parte de apresentação de `RF-43`**, não a leitura (`RF-36` a `RF-39`). Insumo do especialista |
-| `OQ-22` | Como o **registro** expressa os estados sem `valor_interno`? Dois casos, mesma natureza: **(a)** `B4.03A` tem três opções e a do meio — "Prefiro decidir somente depois de ver a análise." (`bloco-04.yaml:154`) — não tem `valor_interno` **nem** `admite_nao_sei`, um terceiro estado sem representação; **(b)** `B3.05C` (`JANELA_RECURSO_EXTRAORDINARIO`) tem `valor_interno: null` nas **cinco** opções (`bloco-03.yaml:284-289`) enquanto o enum tem cinco membros (`ATE_30D`/`1_3M`/`4_6M`/`7_12M`/`NAO_SEI`). Preencher o `valor_interno` no YAML, no padrão de `B3.05D` (que já tem)? | É a mesma classe de lacuna de registro que `OQ-19` resolveu para `escopo_repeticao`, agora em `valor_interno`. A alternativa — traduzir rótulo em português dentro do código de `app/` — é proibida por `AC-37`, e `sdd.config.md` §6 exige que nova versão do questionário seja **edição de registro, não reescrita de código**. Interage com `motor-calculo:OQ-25` (aberta), que perguntou se "decidir depois" e "não sei" colapsam. Errar (b) não gera erro de tipo: `ATE_30D` é o único membro que a §13.3 qualifica como "momento atual" — produziria um número silenciosamente errado | `aberta` — o item **(a) bloqueia a fatia 2A**; o item **(b) bloqueia 2B**. Aritmeticamente a Regra 3 da §13.1 já obriga os dois estados de `B4.03A` a colapsarem em `DESCONHECIDO` (`EC-15`); o que falta decidir é se o registro passa a **distinguir** os dois para a devolutiva |
+| `OQ-22` | Como o **registro** expressa os estados sem `valor_interno`? Dois casos, mesma natureza: **(a)** `B4.03A` tem três opções e a do meio — "Prefiro decidir somente depois de ver a análise." (`bloco-04.yaml:154`) — não tem `valor_interno` **nem** `admite_nao_sei`, um terceiro estado sem representação; **(b)** `B3.05C` (`JANELA_RECURSO_EXTRAORDINARIO`) tem `valor_interno: null` nas **cinco** opções (`bloco-03.yaml:284-289`) enquanto o enum tem cinco membros (`ATE_30D`/`1_3M`/`4_6M`/`7_12M`/`NAO_SEI`). Preencher o `valor_interno` no YAML, no padrão de `B3.05D` (que já tem)? | É a mesma classe de lacuna de registro que `OQ-19` resolveu para `escopo_repeticao`, agora em `valor_interno`. A alternativa — traduzir rótulo em português dentro do código de `app/` — é proibida por `AC-37`, e `sdd.config.md` §6 exige que nova versão do questionário seja **edição de registro, não reescrita de código**. Interage com `motor-calculo:OQ-25` (aberta), que perguntou se "decidir depois" e "não sei" colapsam. Errar (b) não gera erro de tipo: `ATE_30D` é o único membro que a §13.3 qualifica como "momento atual" — produziria um número silenciosamente errado | Item **(b) `resolvido` (2026-09-30)** — `T-208` preencheu o `valor_interno` de `B3.05C` com `ATE_30D`/`1_3M`/`4_6M`/`7_12M`/`NAO_SEI`. Item (a): `aberta` — o item **(a) bloqueia a fatia 2A**; o item (b) bloqueava 2B. Aritmeticamente a Regra 3 da §13.1 já obriga os dois estados de `B4.03A` a colapsarem em `DESCONHECIDO` (`EC-15`); o que falta decidir é se o registro passa a **distinguir** os dois para a devolutiva |
 | `OQ-23` | Qual erro nomeado cobre "`B4.01` sem resposta" e como a coleta se recupera dele? `DINHEIRO_DISPONIVEL` é `Dinheiro` **puro** (`engine/estado.py:517`), sem união com desconhecido — não há `DESCONHECIDO` a entregar. `B4.01` é `[OBR]` e condiciona `B4.01A`, então `NAO` em `B4.01` é o caso legítimo de zero (`AC-58`); mas `B4.01 = "Não sei ao certo"` (`valor_interno: NAO_SEI`, `bloco-04.yaml:18`) e a ausência das duas respostas não têm destino definido | Sem a decisão, o caminho de `EC-20` fica sem comportamento especificado, e a tentação é o zero silencioso — exatamente o que `sdd.config.md` §4 proíbe. O precedente existe e é próximo (`_renda_principal`, `app/montagem/estado.py:1021`: campo obrigatório `Dinheiro` cuja ausência levanta erro em vez de virar zero), mas reusar precedente é decisão, não dedução | `aberta` — **bloqueia a fatia 2A** na parte de `RF-38`/`EC-20`. Inclui decidir se o registro deveria impedir o par "`B4.01 = NAO_SEI` + `B4.01A` não exibida" na coleta, em vez de deixar o erro para a montagem |
-| `OQ-24` | **`valores_do_escopo` não filtra por escopo.** `collection/respostas.py:114-128`: o corpo é `if nome_variavel == variavel and item_id != ""`, e a docstring admite que o parâmetro `escopo` *"não é usado para filtrar aqui"*. A separação entre escopos é feita hoje pelo **nome da variável**, não pelo escopo. Corrigir por filtro real de escopo, por nomes de variável distintos por família, ou por `item_id` prefixado (`PREFIXO_POR_ESCOPO`, `collection/repeticao.py:59-67`)? | Funcionou até hoje porque cada escopo usa nomes distintos. **`VALOR_ESTIMADO_ATIVO` é gravado em quatro lugares** de `bloco-04.yaml` (`:222`, `:363`, `:570`, `:833`), `SALDO_PASSIVO_VINCULADO` em três, `CUSTOS_ESTIMADOS_DESMOBILIZACAO` em três — ler item sem corrigir isso produz **dupla contagem**, que a §13.8 veda por escrito (*"origem econômica única"*). Não é detalhe de implementação: é a diferença entre somar o patrimônio certo e somá-lo três vezes. A correção é em `collection/` e afeta os cinco escopos já em uso — exige não-regressão em renda adicional e despesa não-mensal | `aberta` — **não bloqueia a fatia 2A** (que não lê item nenhum; `AC-71` verifica isso). **Bloqueia 2B e 2C**, e precisa estar decidida **antes de qualquer linha de leitura de item** |
+| `OQ-24` | **`valores_do_escopo` não filtra por escopo.** `collection/respostas.py:114-128`: o corpo é `if nome_variavel == variavel and item_id != ""`, e a docstring admite que o parâmetro `escopo` *"não é usado para filtrar aqui"*. A separação entre escopos é feita hoje pelo **nome da variável**, não pelo escopo. Corrigir por filtro real de escopo, por nomes de variável distintos por família, ou por `item_id` prefixado (`PREFIXO_POR_ESCOPO`, `collection/repeticao.py:59-67`)? | Funcionou até hoje porque cada escopo usa nomes distintos. **`VALOR_ESTIMADO_ATIVO` é gravado em quatro lugares** de `bloco-04.yaml` (`:222`, `:363`, `:570`, `:833`), `SALDO_PASSIVO_VINCULADO` em três, `CUSTOS_ESTIMADOS_DESMOBILIZACAO` em três — ler item sem corrigir isso produz **dupla contagem**, que a §13.8 veda por escrito (*"origem econômica única"*). Não é detalhe de implementação: é a diferença entre somar o patrimônio certo e somá-lo três vezes. A correção é em `collection/` e afeta os cinco escopos já em uso — exige não-regressão em renda adicional e despesa não-mensal | **Tarefa técnica (2026-09-30)** — não precisa de especialista: filtro real por escopo em `valores_do_escopo`. Continua pré-requisito de 2B e 2C (e, por 2B, de `RF-98`) e precisa estar feita **antes de qualquer linha de leitura de item**; **não bloqueia a fatia 2A** (`AC-71`) |
 | `OQ-25` | Uma coleção `ativos` é alimentada por **três famílias de ficha** — imóvel (`B4.I*`), veículo (`B4.V*`) e outro ativo (`B4.O*`, `bloco-04.yaml:315-960`) —, cada uma com perguntas e nomes próprios. Um escopo de repetição por família (três, mais um para investimento) ou um só para "ativo"? Todo o Bloco 4 está hoje com `escopo_repeticao: NENHUM`, e nenhum dos oito membros de `EscopoRepeticao` cobre essas famílias | Decide `PREFIXO_POR_ESCOPO` e a forma da leitura. Nenhuma leitura existente deste slug lida com "três famílias de ficha alimentando uma coleção só". A escala é maior que a de `OQ-19`, que precisou de dois membros para duas famílias | `aberta` — **não bloqueia 2A nem 2B.** Bloqueia 2C, que já está bloqueada por `motor-calculo:OQ-26`/`OQ-27`; não urge. Encaminhamento provável: um membro por família, seguindo o precedente de `OQ-19` |
 
 ### Rodada 3 (2026-09-14) — protótipo validado e máscara de entrada
@@ -1119,3 +1350,39 @@ passaram a bloquear trabalho concreto.
 | `motor-calculo:OQ-27` | Qual é a fórmula de `VALOR_LIQUIDO_REALIZAVEL` / `VALOR_LIQUIDO_REALIZAVEL_ATIVO_DISPONIVEL`? | Idem, e **independente de `motor-calculo:OQ-26`**: mesmo que aquela fosse respondida amanhã, os itens seguiriam inconstruíveis. **As duas precisam estar respondidas — responder só uma não destrava** | `aberta` — **bloqueia 2C** |
 | `motor-calculo:OQ-29` | Qual é a fórmula de `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL`? | `ATAQUE_IMEDIATO_RECOMENDADO` segue `dinheiro(0)` como placeholder explícito (`engine/diagnostico.py:845-850`), logo `T-77`/`T-78`/`T-79` (Bloco 10) continuam pendentes — agora por esta questão, não mais por `OQ-17` deste slug | `aberta` — **não bloqueia 2A** (que não promete Bloco 10); bloqueia `T-77`/`T-78`/`T-79` |
 | `motor-calculo:OQ-25` | "Prefiro decidir depois" e "não sei" colapsam num único estado? | Interage com `OQ-22(a)` deste slug. Aritmeticamente a §13.1 Regra 3 já os colapsa em `DESCONHECIDA`; o que a resposta muda é se a **devolutiva** precisa distingui-los | `aberta` — **não bloqueia 2A**: `EC-15` fixa o colapso no campo entregue ao motor, que é o que a §13.1 exige |
+
+### Rodada 9 (2026-09-30) — o que as decisões `DE-01` a `DE-08` não fixam
+
+> **Numeração.** Começa em `OQ-52` porque `OQ-46` a `OQ-51` já existem no
+> discovery deste slug (coleta agrupada por categoria). As questões de motor
+> de `DE-02` estão em `specs/motor-calculo.spec.md` (`OQ-46` a `OQ-50`
+> daquele slug).
+>
+> **Todas resolvidas em 2026-09-30.** O responsável do produto decidiu que
+> nenhuma volta ao especialista: cada resolução deriva dos princípios que o
+> próprio especialista escreveu nas observações (prudência, sem dupla
+> contagem, não bloquear, o revisor homologa) e não altera metodologia além de
+> `DE-01` a `DE-08`. As propostas originais ficam registradas abaixo para
+> rastreio. Na mesma data: **`OQ-22`(b) está resolvida** (`T-208` preencheu o
+> `valor_interno` de `B3.05C` com `ATE_30D`/`1_3M`/`4_6M`/`7_12M`/`NAO_SEI`) e
+> **`OQ-24` passa a ser tarefa técnica** (filtro real por escopo em
+> `valores_do_escopo`), sem especialista.
+
+| ID | Pergunta | O que bloqueia | Status |
+| --- | --- | --- | --- |
+| `OQ-52` | `DE-03`, `DE-06` e `DE-07` alteram registros da §11 (pergunta de situação do seguro em `B5.D05A`; campos de bruto/tipo/valor final em `B7.13A`; domínio de três níveis de `FONTE_DADO`; pergunta de tipo de proposta e condições de `B7.07`–`B7.09`). Entram na canônica como nova versão (v1.0.3) antes de editar os YAML, ou basta o registro desta Rodada 9? | Edição de `collection/registros/*.yaml` para `RF-81`–`RF-85`, `RF-91`, `RF-94` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-03`/`DE-06`/`DE-07` e `sdd.config.md` §6: **sim, v1.0.3 da canônica**, erratas `E-11` a `E-15` no Registro de alterações de `piq-app-spec.md` |
+| `OQ-53` | Onde se calcula a Sobra do mês da `B3.C00` (`DE-01`)? A tela ocorre **antes** do Bloco 6 — não há snapshot —, e `RF-34` proíbe cálculo na aplicação | `RF-79`, `AC-117`–`AC-119` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-01`/obs de `q1_2`: a sobra é **agregação de entrada** (renda − despesas informadas), do mesmo tipo que a montagem já faz (`OQ-16`) — não é cálculo do motor, e `RF-34` não se aplica. Exibida rotulada "antes das dívidas" (`RF-79`) |
+| `OQ-54` | Seguro (`DE-03`): (a) situação respondida "Não sei" — o que acontece? (b) na situação "cobrado mensalmente à parte", o valor entra como desembolso da própria dívida ou como despesa do orçamento do Bloco 3? | `RF-81`, `AC-122` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-03`/`DE-06`/obs de `q3_1`: (a) "Não sei" não soma em lugar nenhum e o dado fica registrado como "não informado" (revisto no mesmo dia: não é "Pendente de confirmação", que em `DE-06` é informação verbal); (b) cobrado à parte é despesa mensal **da dívida** (custo da operação), não do Bloco 3 (`RF-81`, `AC-122`, `AC-155`). **Nota (2026-09-30, decisão do responsável do produto sobre o risco `R9-1` do plano):** sem campo de motor para custo mensal por dívida, a montagem entrega esse valor somado às despesas mensais operacionais (uma vez por dívida, nunca à parcela, fora da `B3.C00`) — `T-232` |
+| `OQ-55` | Desconto (`DE-03`): (a) onde se calcula o valor líquido — pela Lei nº 3, é motor, o que faz disto uma mudança de `motor-calculo` não especificada aqui; (b) qual tolerância define "R$ e % compatíveis"? | `RF-83`, `RF-84`, `AC-125`–`AC-129` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-03`/obs de `q3_2`: (a) valor líquido é agregação de entrada, na montagem; (b) revisto no mesmo dia: comparação **ao centavo** — desconto em R$ contra bruto × % arredondado a R$ 0,01; diferença > R$ 0,01 é divergência (não usa a tolerância de `sdd.config.md` §5) (`RF-84`, `AC-129`) |
+| `OQ-56` | Inventário (`DE-04`): (a) `B5.00` = "Não sei exatamente quantas" — há bloqueio? (b) fichas **acima** do declarado bloqueiam? Com que mensagem? (c) `B5.FIM02` = "Ainda falta pelo menos uma dívida" com contagem igual — bloqueia (como `DE-04`) ou gera plano provisório (como `AC-07`)? | `RF-86`, `RF-87`, `EC-32`, `EC-33`; compatibilidade com `RF-15`/`AC-07` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-04`/obs de `q4_1`: (a) `B5.00` desconhecido → completude é a confirmação em `B5.FIM01` ("Não, esta foi a última"); (b) revisto no mesmo dia, fiel a `q4_1` (igualdade): fichas acima do declarado → o sistema pede para atualizar `B5.00` (ação direta) e bloqueia o cálculo final até igualar; (c) o bloqueio de `DE-04` substitui o provisório de `RF-15` sempre que declarado ≠ cadastrado — nos demais casos `RF-15`/`AC-07` seguem (`RF-86`, `RF-87`, `AC-153`, `AC-154`) |
+| `OQ-57` | Textos de `DE-04` além dos dois exemplos dados: singular ("Falta 1 ficha."), renda extra e vínculo consignável. E "renda extra" é `B3.03` (renda adicional recorrente) ou inclui `B3.05` (extraordinários)? | `RF-87`, `RF-88`, `AC-135` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-04`/obs de `q4_2`: textos no padrão "Você informou que possui X, mas ainda não cadastrou nenhum(a)"; "renda extra" = Sim em `B3.03` (renda recorrente adicional) (`RF-88`) |
+| `OQ-58` | `DE-05` pede por vínculo a "renda líquida relevante para o cálculo"; a canônica coleta `RENDA_BRUTA_VINCULO` (`B3.S04`). Substitui, soma-se, ou é outro campo? | `RF-89`; forma do registro `B3.S04` | `resolvida` (2026-09-30, revista no mesmo dia) — decisão da equipe técnica com base em `DE-05`/obs de `q5_1`: mantém `RENDA_BRUTA_VINCULO` (base da margem); renda líquida por vínculo é **coletada** e usada em conferência — soma das líquidas × renda do Bloco 3, divergência sinalizada, sem dupla contagem e sem virar entrada do motor (`RF-89`, `AC-156`, `EC-41`) |
+| `OQ-59` | Identificadores dos campos novos de `DE-05`: "existência de consignação" por vínculo e o campo da dívida consignada que aponta o `VINCULO_ID` | `RF-89`, `RF-90`, `AC-139` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-05`: nomes técnicos a critério do plano |
+| `OQ-60` | Cartão consignado e cartão benefício são margens (`TIPO_MARGEM`), mas `TIPO_DIVIDA` não tem esses tipos — dívida de cartão descontada em folha também aponta para vínculo? | `RF-90` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-05`/obs de `q5_2`: **todo** contrato consignado, inclusive cartão consignado/benefício, aponta para o vínculo em que é descontado (`RF-90`, `AC-139`) |
+| `OQ-61` | Nível de comprovação das opções não cobertas por `DE-06`: `B5.I02` "Uma combinação dessas fontes" e "Outra" (como saber se há documento associado?); `B8.15` "Simulação fornecida pela instituição", "Atendimento", "Correspondente", "Outra fonte" | `RF-91`, `AC-140`, `EC-36` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-06`/obs de `q6_1`: contracheque = Comprovado; "Uma combinação dessas fontes" = Informado pelo aluno (prudência); "Outra" = Informado pelo aluno, salvo documento associado. `B8.15` (complemento do mesmo dia): "Simulação fornecida pela instituição" = Comprovado; "Correspondente" e "Atendimento" = Pendente de confirmação (verbal) (`RF-91`, `AC-140`, `EC-36`) |
+| `OQ-62` | Quais dados são **indispensáveis** (`DE-06`, `DE-08`)? | `RF-93`, `RF-97`, `AC-142`, `AC-149` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-06`/`DE-08`: indispensável = campo que o motor exige para calcular aquela dívida/estado (saldo, taxa, parcela/prazo, renda) — os mesmos cuja ausência já gera pendência hoje (`RF-93`) |
+| `OQ-63` | "Reduz o grau de confiança" (`DE-06`) alimenta `CONFIABILIDADE_DADOS` do motor, ou é só sinalização por dado? | `RF-92`; se alimentar, é mudança de motor e de `piq-definicoes-engine.md` §5 (congelada) | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-06`: **não** alimenta `CONFIABILIDADE_DADOS` (seria mudança de motor não decidida); o nível fica registrado por dado e é exibido ao revisor e no plano (`RF-91`, `RF-92`) |
+| `OQ-64` | Pendência em dado indispensável (`DE-06`) e falta de dado indispensável (`DE-08`): **impedem** o revisor de liberar o plano, ou só são apontadas? E "homologar" em `DE-08` é a liberação do revisor ou o teste de homologação? | `RF-93`, `RF-97`, `AC-142`, `AC-149` | `resolvida` (2026-09-30, revista no mesmo dia) — decisão da equipe técnica fiel a `q8_1` ("não pode ser homologado"): "homologar" = liberação pelo revisor na fila existente. O cálculo roda, mas a **liberação fica bloqueada** enquanto houver dado indispensável (`OQ-62`) em "Pendente de confirmação" ou ausente; o revisor vê a lista e só libera depois de confirmado/corrigido. Substitui a primeira resolução ("não bloqueia automaticamente") (`RF-93`, `RF-97`, `AC-142`, `AC-149`, `EC-40`) |
+| `OQ-65` | Proposta (`DE-07`): (a) quais perguntas do Bloco 7 são "dados da quitação à vista"? (b) com "ambas", como registrar duas ofertas (hoje cada `PROPOSTA_*` é um campo só) e qual o motor compara? | `RF-94`, `AC-144`, `AC-145` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-07`/obs de `q7_1`: à vista = valor para quitação à vista + validade; "ambas" = coleta os dois conjuntos (`RF-94`, `AC-144`, `AC-145`). **Nota (2026-09-30, decisão do responsável do produto sobre o risco `R9-3` do plano):** à vista também mostra o desconto (`B7.13`–`B7.13E`) e a fonte (`B7.16`) — `T-242` |
+| `OQ-66` | Os cinco itens de `DE-08` existem como campo do snapshot? "Custo total de juros" e "valor mensal destinado" não têm nome fixado nesta spec | `RF-96`, `AC-147` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-08`: correspondência a critério do plano, usando campos existentes do `SnapshotOrdem` (`RF-96`) |
+| `OQ-67` | Textos ao aluno que as decisões pedem e não redigem: orientação sobre seguro prestamista (apólice, cancelamento, restituição não garantida — `DE-03`), aviso de que em Férias/abono só o acréscimo conta (`DE-02`) e rótulo do cenário adicional (`DE-02`) | `RF-82`, `RF-98`, `AC-151`, `AC-152` (só a redação; o comportamento está fixado) | `resolvida` (2026-09-30) — decisão da equipe técnica: textos ao aluno são **decisão de produto** (responsável do produto), não do especialista; o plano propõe e o produto aprova (`RF-82`, `RF-98`) |

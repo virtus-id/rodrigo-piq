@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import dataclasses
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime
 
 import pytest
@@ -27,9 +28,11 @@ from app.http.rotas_calculo import (
 )
 from app.montagem.conversao import converter_para_dinheiro, converter_para_taxa
 from app.montagem.estado import montar_divida, montar_estado_financeiro
+from app.revisao.comprovacao import pendencias_de_homologacao
 from collection.carga import carregar_registros
 from collection.registro import EscopoRepeticao
 from collection.respostas import RespostasCaso
+from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.itens import ItemRepetido
 from tests.app_aluno.fixtures.caso_completo import (
     CASO_ID,
@@ -46,6 +49,7 @@ from tests.app_aluno.test_rotas_calculo import (
     _montar_aplicacao_de_teste,
     _RepositorioCasosDublê,
 )
+from tests.homologacao.registro import NAO_DISPONIVEL, emitir, registrar_homologacao
 
 # Chave de B5.C02 no registro real — o `VARIAVEL_GRAVADA` composto.
 _PARCELA_CONTRATUAL = "PARCELA_CONTRATUAL (= PAGAMENTO_MENSAL_DEVIDO_VIGENTE)"
@@ -175,9 +179,9 @@ def _esperar_sair_de_calculando(repositorio: _RepositorioCasosDublê) -> ESTADO_
 def _disparar_e_esperar(
     monkeypatch: pytest.MonkeyPatch,
     parametros_externos: ParametrosExternosDoBloco6 | None = None,
-) -> tuple[int, str, ESTADO_CASO, int]:
+) -> tuple[int, str, ESTADO_CASO, list[SnapshotOrdem]]:
     """POST /calculo com a coleção real e o perfil T02; devolve status, corpo,
-    estado final do caso e quantos snapshots foram anexados."""
+    estado final do caso e os snapshots anexados."""
     repositorio_casos = _RepositorioCasosDublê(
         _caso_fabricado(ESTADO_CASO.COLETA_INICIAL, caso_id=CASO_ID),
         conta_id_da_sessao="CONTA-1",
@@ -197,7 +201,7 @@ def _disparar_e_esperar(
             if resposta.status_code == 200
             else ESTADO_CASO.COLETA_INICIAL
         )
-    return resposta.status_code, resposta.text, estado_final, len(snapshots.snapshots)
+    return resposta.status_code, resposta.text, estado_final, snapshots.snapshots
 
 
 def test_post_calculo_com_registro_real_grava_um_snapshot_e_caso_avanca(
@@ -211,7 +215,7 @@ def test_post_calculo_com_registro_real_grava_um_snapshot_e_caso_avanca(
 
     assert status == 200, corpo
     assert estado_final is ESTADO_CASO.AGUARDANDO_REVISAO
-    assert n_snapshots == 1
+    assert len(n_snapshots) == 1
 
 
 def test_post_calculo_com_parametros_externos_de_producao_gera_plano(
@@ -228,4 +232,37 @@ def test_post_calculo_com_parametros_externos_de_producao_gera_plano(
 
     assert status == 200, corpo
     assert estado_final is ESTADO_CASO.AGUARDANDO_REVISAO
-    assert n_snapshots == 1
+    assert len(n_snapshots) == 1
+
+
+def test_t281_t02_ponta_a_ponta_registra_os_cinco_itens_de_de08(
+    monkeypatch: pytest.MonkeyPatch, record_property: Callable[[str, object], None]
+) -> None:
+    """`RF-96`, `AC-148`, `DE-08` (`T-281`) — o snapshot do `POST /calculo`
+    do T02 produz o `RegistroHomologacao`. Caso não gabarito: só
+    invariantes, nenhum valor esperado de ordem, prazo ou reserva."""
+    status, corpo, _, snapshots = _disparar_e_esperar(monkeypatch)
+    assert status == 200, corpo
+    (snapshot,) = snapshots
+    itens = _itens(("D001", "D002"))
+    pendencias = pendencias_de_homologacao(
+        carregar_registros().registros, _respostas_t02(), _itens_por_escopo(itens)
+    )
+
+    registro = registrar_homologacao(snapshot, pendencias)
+    emitir(record_property, registro)
+
+    for nome in (
+        "ordem_final_de_ataque",
+        "mes_de_quitacao_por_divida",
+        "valor_mensal_destinado",
+        "custo_total_de_juros",
+        "uso_da_reserva",
+    ):
+        item = getattr(registro, nome)
+        assert item.origem if item.disponivel else (item.valor == NAO_DISPONIVEL and item.motivo)
+    ordem = registro.ordem_final_de_ataque.valor
+    meses = registro.mes_de_quitacao_por_divida.valor
+    assert isinstance(ordem, tuple) and isinstance(meses, dict)
+    assert set(ordem) <= {"D001", "D002"} and set(meses) <= {"D001", "D002"}
+    assert registro.homologavel is (pendencias == ())

@@ -165,6 +165,7 @@ from persistencia.app_aluno.contas import Conta, ErroEmailDuplicado
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from persistencia.arquivo.repositorio_snapshots import RepositorioSnapshotsArquivo
 from tests.app_aluno.fixtures.caso_completo import (
+    DESPESA_NAO_MENSAL_ID_UNICA,
     PARAMETROS_EXTERNOS_PADRAO,
     caso_completo,
 )
@@ -603,6 +604,18 @@ def test_ciclo_completo_us01_us04_cadastro_a_plano_liberado_ac14_ac15_ac16_ac17_
         for variavel, resposta in respostas_da_divida.items():
             _responder(variavel, resposta, item_id=divida_id, cliente_http=segunda_sessao)
 
+        # `T-249` (RF-88): o caso declara despesa não mensal (`B3.NM01 =
+        # SIM`) — sem a ficha, o cálculo é recusado por inventário. A ficha
+        # da fixture entra pela mesma rota, num `DESPESA_NAO_MENSAL_ID` real.
+        nao_mensal_id = ambiente.repositorio_itens.proximo_identificador(
+            caso_id, EscopoRepeticao.DESPESA_NAO_MENSAL_ID
+        )
+        for r in caso_fixture.respostas.respostas:
+            if r.item_id == DESPESA_NAO_MENSAL_ID_UNICA:
+                _responder(
+                    r.ID_PERGUNTA, r, item_id=nao_mensal_id, cliente_http=segunda_sessao
+                )
+
     # A coleta está completa: nenhuma pendência sobre a coleção filtrada.
     respostas_gravadas = RespostasCaso(
         respostas=ambiente.repositorio_respostas.listar_do_caso(caso_id)
@@ -665,6 +678,7 @@ def test_ciclo_completo_us01_us04_cadastro_a_plano_liberado_ac14_ac15_ac16_ac17_
     # 6. Liberação real (app/revisao/fila.py::liberar) — RF-23, RF-24.
     # -----------------------------------------------------------------
     caso_liberado = liberar(
+        pendencias_homologacao=(),
         revisao_id=f"REVISAO_T95_{uuid.uuid4().hex}",
         caso_id=caso_id,
         snapshot=snapshot,

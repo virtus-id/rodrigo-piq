@@ -517,8 +517,9 @@ def _responder(
 _GATILHOS_QUE_ABREM: Final = [
     ("B3.03", "SIM", ["RENDA_ADICIONAL_ID"]),
     ("B3.NM01", "SIM", ["DESPESA_NAO_MENSAL_ID"]),
-    ("B3.S01", "SIM", ["VINCULO_ID", "MARGEM_ID"]),
-    ("B3.S01", "NAO_SEI", ["VINCULO_ID", "MARGEM_ID"]),
+    # `T-254` (`AC-137`): a margem nasce dentro do vínculo, não sozinha.
+    ("B3.S01", "SIM", ["VINCULO_ID"]),
+    ("B3.S01", "NAO_SEI", ["VINCULO_ID"]),
 ]
 
 
@@ -609,7 +610,10 @@ def test_t212_validacao_cruzada_na_ficha_de_margem_criada_pela_tela(
     (1000) é recusado, e nada é gravado."""
     cliente = _cliente_real(monkeypatch, tmp_path)
     _responder(cliente, "B3.S01", "SIM")
-    item_id = cliente.post(f"/caso/{_CASO_ID}/fichas/MARGEM_ID").json()["ficha"]["item_id"]
+    vinculo = cliente.post(f"/caso/{_CASO_ID}/fichas/VINCULO_ID").json()["ficha"]["item_id"]
+    item_id = cliente.post(
+        f"/caso/{_CASO_ID}/fichas/MARGEM_ID", data={"item_pai_id": vinculo}
+    ).json()["ficha"]["item_id"]
 
     assert _responder(cliente, "B3.S06B", "1000", item_id).status_code == 200
     recusa = _responder(cliente, "B3.S06C", "1200", item_id)
@@ -639,3 +643,174 @@ def test_t212_fichas_de_um_escopo_nao_alteram_as_de_outro(
     assert cliente.get(f"/caso/{_CASO_ID}/fichas/DESPESA_NAO_MENSAL_ID").json() == antes
     assert antes["fichas"][0]["item_id"] == despesa["item_id"]
     assert cliente.get(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID").json()["fichas"] == []
+
+
+# ---------------------------------------------------------------------------
+# T-254/T-256/T-257 — margem dentro do vínculo; consignado aponta vínculo
+# (RF-90, AC-137, AC-139, EC-35, DE-05).
+# ---------------------------------------------------------------------------
+
+
+def _criar_em(cliente: TestClient, escopo: str, **dados: str) -> Any:
+    return cliente.post(f"/caso/{_CASO_ID}/fichas/{escopo}", data=dados)
+
+
+def _fichas(cliente: TestClient, escopo: str) -> list[dict[str, Any]]:
+    corpo: dict[str, Any] = cliente.get(f"/caso/{_CASO_ID}/fichas/{escopo}").json()
+    fichas: list[dict[str, Any]] = corpo["fichas"]
+    return fichas
+
+
+def test_t254_margem_sem_pai_valido_e_recusada_e_nada_e_criado(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`AC-137`: sem `item_pai_id`, com pai inexistente, removido ou de outro
+    escopo → `422`; nenhuma margem nasce."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    _responder(cliente, "B3.S01", "SIM")
+    removido = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    cliente.delete(f"/caso/{_CASO_ID}/fichas/VINCULO_ID/{removido}")
+    divida = _criar_em(cliente, "DIVIDA_ID").json()["ficha"]["item_id"]
+
+    for dados in ({}, {"item_pai_id": "V999"}, {"item_pai_id": removido}, {"item_pai_id": divida}):
+        assert _criar_em(cliente, "MARGEM_ID", **dados).status_code == 422
+
+    assert _fichas(cliente, "MARGEM_ID") == []
+
+
+def test_t254_margem_de_outro_caso_nao_serve_de_pai(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`AC-137`: o vínculo `V001` de outro caso não é pai de margem neste."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    RepositorioItensArquivo(tmp_path / "itens.jsonl").proximo_identificador(
+        "OUTRO-CASO", EscopoRepeticao.VINCULO_ID
+    )
+
+    assert _criar_em(cliente, "MARGEM_ID", item_pai_id="V001").status_code == 422
+
+
+def test_t254_vinculo_lista_as_suas_margens_e_os_dependentes(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`AC-137`/`AC-138`/`EC-35`: cada margem sob o seu vínculo, nunca
+    somada; a dívida consignada que aponta o vínculo é dependente dele."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    _responder(cliente, "B3.S01", "SIM")
+    v1 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    v2 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    m1 = _criar_em(cliente, "MARGEM_ID", item_pai_id=v1).json()["ficha"]["item_id"]
+    m2 = _criar_em(cliente, "MARGEM_ID", item_pai_id=v2).json()["ficha"]["item_id"]
+    assert _responder(cliente, "B3.S06D", "500", m1).status_code == 200
+    assert _responder(cliente, "B3.S06D", "300", m2).status_code == 200
+    divida = _criar_em(cliente, "DIVIDA_ID").json()["ficha"]["item_id"]
+    _responder(cliente, "B5.A02", "CONSIGNADO", divida)
+    assert _responder(cliente, "B5.A02V", v2, divida).status_code == 200
+
+    corpo = cliente.get(f"/caso/{_CASO_ID}/fichas/VINCULO_ID").json()
+    por_id = {ficha["item_id"]: ficha for ficha in corpo["fichas"]}
+
+    assert [m["item_id"] for m in por_id[v1]["margens"]] == [m1]
+    assert [m["item_id"] for m in por_id[v2]["margens"]] == [m2]
+    assert por_id[v1]["dependentes"] == {"margens": [m1], "dividas": []}
+    assert por_id[v2]["dependentes"] == {"margens": [m2], "dividas": [divida]}
+    assert "800" not in str(corpo)
+    assert corpo["escopo_pai"] is None
+    margens = cliente.get(f"/caso/{_CASO_ID}/fichas/MARGEM_ID").json()
+    assert margens["escopo_pai"] == "VINCULO_ID"
+    assert {m["item_id"]: m["item_pai_id"] for m in margens["fichas"]} == {m1: v1, m2: v2}
+
+
+def test_t256_vinculo_da_divida_so_para_consignado_com_os_vinculos_do_caso(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`AC-139` (parte `CONSIGNADO`, `R9-4`): `B5.A02V` só aparece para
+    `CONSIGNADO`; as opções são os vínculos ATIVOS deste caso, rotulados
+    pelo órgão pagador."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    RepositorioItensArquivo(tmp_path / "itens.jsonl").proximo_identificador(
+        "OUTRO-CASO", EscopoRepeticao.VINCULO_ID
+    )
+    _responder(cliente, "B3.S01", "SIM")
+    v1 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    v2 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    v3 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    cliente.delete(f"/caso/{_CASO_ID}/fichas/VINCULO_ID/{v3}")
+    _responder(cliente, "B3.S03", "Prefeitura", v1)
+    divida = _criar_em(cliente, "DIVIDA_ID").json()["ficha"]["item_id"]
+
+    def campo_vinculo() -> dict[str, Any] | None:
+        (ficha,) = _fichas(cliente, "DIVIDA_ID")
+        return next((c for c in ficha["campos"] if c["ID"] == "B5.A02V"), None)
+
+    _responder(cliente, "B5.A02", "PESSOAL", divida)
+    assert campo_vinculo() is None
+
+    _responder(cliente, "B5.A02", "CONSIGNADO", divida)
+    campo = campo_vinculo()
+    assert campo is not None
+    assert [(o["valor_interno"], o["rotulo"]) for o in campo["opcoes"]] == [
+        (v1, "Prefeitura"),
+        (v2, v2),
+    ]
+
+
+def test_t257_referencia_a_vinculo_removido_volta_a_ficar_em_aberto(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EC-35`: removido o vínculo, a margem dele e a dívida que o apontava
+    ficam em aberto; as respostas continuam gravadas (auditoria). `T-282`:
+    resta outro vínculo — sem nenhum, a dívida não trava (pendência de
+    inventário, `test_vinculos.py`)."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    _responder(cliente, "B3.S01", "SIM")
+    vinculo = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    _criar_em(cliente, "VINCULO_ID")
+    margem = _criar_em(cliente, "MARGEM_ID", item_pai_id=vinculo).json()["ficha"]["item_id"]
+    for ID, valor in (
+        ("B3.S06A", "EMPRESTIMO"),
+        ("B3.S06B", "1000"),
+        ("B3.S06C", "400"),
+        ("B3.S06D", "600"),
+        ("B3.S06E", "2026-03-01"),
+    ):
+        assert _responder(cliente, ID, valor, margem).status_code == 200, ID
+    divida = _criar_em(cliente, "DIVIDA_ID").json()["ficha"]["item_id"]
+    _responder(cliente, "B5.A01", "Banco", divida)
+    _responder(cliente, "B5.A02", "CONSIGNADO", divida)
+    _responder(cliente, "B5.A02V", vinculo, divida)
+
+    def completas() -> dict[str, bool]:
+        return {
+            f["item_id"]: f["completa"]
+            for escopo in ("MARGEM_ID", "DIVIDA_ID")
+            for f in _fichas(cliente, escopo)
+        }
+
+    def proxima_da_divida() -> str:
+        corpo = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": divida}).json()
+        ID: str = corpo["pergunta"]["ID"]
+        return ID
+
+    antes = completas()
+    assert proxima_da_divida() != "B5.A02V"
+    cliente.delete(f"/caso/{_CASO_ID}/fichas/VINCULO_ID/{vinculo}")
+    depois = completas()
+
+    assert antes[margem] is True
+    assert depois[margem] is False
+    assert proxima_da_divida() == "B5.A02V"
+    gravadas = RepositorioRespostasArquivo(tmp_path / "respostas.jsonl").listar_do_caso(_CASO_ID)
+    assert any(
+        r.ID_PERGUNTA == "VINCULO_DA_DIVIDA" and r.valor == vinculo for r in gravadas
+    )
+
+
+def test_t256_condicao_de_b5a02v_nao_menciona_cartao() -> None:
+    """`R9-4` (decisão do produto, 2026-09-30): cartão consignado/benefício
+    fica fora desta rodada (`T-279`)."""
+    from collection.carga import carregar_registros
+
+    (registro,) = [r for r in carregar_registros().registros if r.ID == "B5.A02V"]
+    assert registro.condicao_exibicao is not None
+    assert "CARTAO" not in repr(registro.condicao_exibicao)

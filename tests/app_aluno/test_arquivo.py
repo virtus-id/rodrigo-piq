@@ -286,3 +286,21 @@ def test_identificadores_de_item_sao_isolados_por_caso(tmp_path: Path) -> None:
     itens_b = repositorio.listar_do_caso("CASO-B")
     assert [item.CASO_ID for item in itens_a] == ["CASO-A"]
     assert [item.CASO_ID for item in itens_b] == ["CASO-B"]
+
+
+def test_t253_item_pai_id_gravado_e_lido(tmp_path: Path) -> None:
+    """`AC-137` (`T-253`): a margem guarda o vínculo a que pertence; o
+    item sem pai lê `None`. Sobrevive a `remover` e `nomear`, que anexam o
+    último estado do item."""
+    repositorio = RepositorioItensArquivo(tmp_path / "itens.jsonl")
+    vinculo = repositorio.proximo_identificador("CASO-7", EscopoRepeticao.VINCULO_ID)
+    margem = repositorio.proximo_identificador(
+        "CASO-7", EscopoRepeticao.MARGEM_ID, item_pai_id=vinculo
+    )
+
+    pais = {item.item_id: item.item_pai_id for item in repositorio.listar_do_caso("CASO-7")}
+    assert pais == {"V001": None, "M001": "V001"}
+
+    repositorio.remover("CASO-7", margem)
+    (removida,) = [i for i in repositorio.listar_do_caso("CASO-7") if i.item_id == margem]
+    assert removida.item_pai_id == "V001"

@@ -1,0 +1,22 @@
+# Mensagens do inventário incompleto — RF-86, RF-87, RF-88 (T-246).
+#
+# ÚNICO arquivo onde esta redação vive. `app/casos/inventario.py` lê daqui
+# e nunca embute o texto como literal (`AC-37`): texto ao aluno é DADO.
+#
+# `DIVIDAS_FALTANDO` é o literal de `RF-87`/`AC-133` e o final de
+# `NAO_MENSAL_SEM_ITEM` é o literal de `AC-135`. As demais são REDAÇÃO
+# PROPOSTA (singular, "acima do declarado", sem confirmação, renda extra,
+# vínculo e consignado sem vínculo — `T-282`), para aprovação do produto
+# (`OQ-57`, `OQ-67`).
+#
+# Interpolações: `{declaradas}`, `{cadastradas}` e `{faltam}`. Nenhuma outra.
+
+DIVIDAS_FALTANDO: "Você declarou {declaradas} dívidas e cadastrou {cadastradas}. Faltam {faltam} fichas."
+DIVIDAS_FALTANDO_UMA: "Você declarou {declaradas} dívidas e cadastrou {cadastradas}. Falta 1 ficha."
+DIVIDAS_FALTANDO_UMA_DE_UMA: "Você declarou 1 dívida e ainda não cadastrou a ficha dela."
+DIVIDAS_ACIMA: "Você declarou {declaradas} dívidas, mas cadastrou {cadastradas} fichas. Atualize a quantidade de dívidas declarada."
+DIVIDAS_SEM_CONFIRMACAO: "Confirme, na ficha da última dívida, que não há outra dívida para cadastrar."
+RENDA_EXTRA_SEM_ITEM: "Você informou que possui renda extra, mas ainda não cadastrou nenhuma"
+VINCULO_SEM_ITEM: "Você informou que possui vínculo consignável, mas ainda não cadastrou nenhum"
+NAO_MENSAL_SEM_ITEM: "Você informou que possui despesa não mensal, mas ainda não cadastrou nenhuma"
+CONSIGNADO_SEM_VINCULO: "Você cadastrou dívida consignada, mas ainda não cadastrou o vínculo em que ela é descontada"

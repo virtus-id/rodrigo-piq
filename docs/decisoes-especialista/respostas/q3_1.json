@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:37:01.564Z",
+  "decisao": "d3",
+  "falta": "",
+  "obs": "Quando houver seguro prestamista embutido no contrato, o sistema deve destacá-lo separadamente e orientar o aluno a verificar a apólice/certificado, o prêmio total, a forma de cobrança e se a contratação é facultativa. Se o seguro não for mais desejado e houver possibilidade contratual de cancelamento, orientar o aluno a solicitar a interrupção das cobranças futuras e a verificar eventual restituição proporcional do prêmio referente ao período de cobertura não utilizado, quando cabível. O ressarcimento não deve ser tratado como garantido: depende da forma de contratação, do período já coberto e das condições da apólice. Se houver restituição efetiva, esse valor pode ser tratado como recurso extraordinário para o plano de quitação.\nEu acrescentaria ainda uma regra de implementação importante: o sistema deveria distinguir pelo menos três situações:\n1. Prêmio único financiado: já entrou no contrato e provavelmente compõe o saldo/parcela → não somar novamente.\n2. Seguro cobrado mensalmente à parte: entra como despesa mensal enquanto a cobrança existir.\n3. Seguro cancelado com restituição: parar a cobrança futura e registrar eventual restituição somente quando confirmada.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Seguro embutido na dívida: quando o aluno informa o valor total, como o cálculo deve considerá-lo?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "Se o aluno informar o valor TOTAL do seguro, o sistema deve tratá-lo como custo total do seguro, e não como despesa mensal. Se esse prêmio já foi financiado e está embutido no saldo devedor ou nas parcelas do empréstimo, ele não deve ser somado novamente ao custo mensal ou à dívida, para evitar dupla contagem. Havendo necessidade de comparação mensal, o sistema pode calcular apenas um valor mensal equivalente para fins analíticos, com base no período de cobertura, deixando claro que se trata de rateio e não de nova despesa.",
+  "tipo": "texto",
+  "valor": ""
+}

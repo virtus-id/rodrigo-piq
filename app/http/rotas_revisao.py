@@ -179,23 +179,34 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from app.casos.maquina import Caso
+from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import (
     exigir_papel_revisor,
     obter_repositorio_contas_para_papel,
 )
+from app.http.rotas_coleta import _itens_por_escopo
+from app.http.serializacao_plano import rotulo_do_nivel
+from app.montagem.entrada import conferir_desconto, conferir_renda_dos_vinculos, rateio_mensal
 from app.notificacao.email import (
     EnviadorDeEmail,
     obter_enviador,
 )
 from app.notificacao.mensagens import plano_liberado
+from app.revisao.comprovacao import (
+    PendenciaHomologacao,
+    niveis_por_ficha,
+    pendencias_de_homologacao,
+)
 from app.revisao.fila import (
     CLASSIFICACAO_ERRO,
+    ErroHomologacaoBloqueada,
     ErroRevisaoJaDecidida,
     ItemFila,
     RepositorioCasosDaDecisao,
@@ -203,16 +214,23 @@ from app.revisao.fila import (
     liberar,
     reprovar,
 )
+from collection.carga import ColecaoDeRegistros, carregar_registros
+from collection.registro import EscopoRepeticao
+from collection.respostas import NAO_SEI, RespostasCaso
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
+from engine.tipos import DESCONHECIDO
 from persistencia.app_aluno.casos import RepositorioCasos, RepositorioCasosSupabase
 from persistencia.app_aluno.contas import RepositorioContas
 from persistencia.app_aluno.eventos import (
     RepositorioEventosCaso,
     RepositorioEventosCasoSupabase,
 )
+from persistencia.app_aluno.itens import RepositorioItens, RepositorioItensSupabase
+from persistencia.app_aluno.respostas import RepositorioRespostas, RepositorioRespostasSupabase
 from persistencia.app_aluno.revisoes import RepositorioRevisoesSupabase
 from persistencia.supabase.repositorio_snapshots import RepositorioSnapshotsSupabase
+from report.plano import carregar_textos_canonicos, formatar_dinheiro_br
 
 REGRAS: Final[tuple[str, ...]] = (
     "RF-23",
@@ -231,6 +249,8 @@ REGRAS: Final[tuple[str, ...]] = (
 _MENSAGEM_CASO_SEM_SNAPSHOT: Final[str] = "Caso sem snapshot para comparar."
 _MENSAGEM_DECISAO_INVALIDA: Final[str] = "Decisão inválida: LIBERAR/REPROVAR."
 _MENSAGEM_CLASSIFICACAO_INVALIDA: Final[str] = "Classificação de erro inválida."
+# `T-264` (RF-97) — redação proposta, aprovação do produto (`OQ-67`).
+_MENSAGEM_HOMOLOGACAO_BLOQUEADA: Final[str] = "Não pode ser homologado ainda."
 
 roteador = APIRouter(prefix="/revisao", tags=["revisao"])
 
@@ -288,6 +308,156 @@ def obter_repositorio_revisoes_da_decisao() -> RepositorioRevisoesDaDecisao:
 def obter_repositorio_eventos_da_decisao() -> RepositorioEventosCaso:
     """Ponto único de injeção da trilha de eventos (`T-91`, `RF-31`)."""
     return RepositorioEventosCasoSupabase()
+
+
+def obter_colecao_de_registros_da_revisao() -> ColecaoDeRegistros:
+    """Ponto único de injeção da coleção de registros (`T-264`)."""
+    return carregar_registros()
+
+
+def obter_repositorio_respostas_da_revisao() -> RepositorioRespostas:
+    """Ponto único de injeção do repositório de respostas (`T-264`)."""
+    return RepositorioRespostasSupabase()
+
+
+def obter_repositorio_itens_da_revisao() -> RepositorioItens:
+    """Ponto único de injeção do repositório de itens (`T-264`)."""
+    return RepositorioItensSupabase()
+
+
+type ItensPorEscopo = dict[EscopoRepeticao, tuple[str, ...]]
+
+
+def respostas_e_itens_da_revisao(
+    CASO_ID_REVISAO: str,
+    repositorio_respostas: Annotated[
+        RepositorioRespostas, Depends(obter_repositorio_respostas_da_revisao)
+    ],
+    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens_da_revisao)],
+) -> tuple[RespostasCaso, ItensPorEscopo]:
+    """As respostas ATUAIS e os itens ativos do caso (`R9.7`, `R9-12`) —
+    lidos uma vez por requisição (o FastAPI reaproveita a dependência)."""
+    respostas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio_respostas.listar_do_caso(CASO_ID_REVISAO),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID_REVISAO),
+    )
+    return RespostasCaso(respostas=respostas), itens_por_escopo
+
+
+def pendencias_homologacao_do_caso(
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros_da_revisao)],
+    dados: Annotated[
+        tuple[RespostasCaso, ItensPorEscopo], Depends(respostas_e_itens_da_revisao)
+    ],
+) -> tuple[PendenciaHomologacao, ...]:
+    """`RF-93`/`RF-97` (`T-264`) — as pendências de homologação do caso.
+    Dependência própria para que a tela (`GET`) e a decisão (`POST`) leiam
+    a MESMA lista."""
+    respostas, itens_por_escopo = dados
+    return pendencias_de_homologacao(colecao.registros, respostas, itens_por_escopo)
+
+
+# Variáveis lidas para o contexto do revisor (`T-266`) — nomes de
+# `VARIAVEL_GRAVADA`, como em `app/montagem/entrada.py`; nenhum `ID`.
+_SEGURO_PRESTAMISTA: Final[str] = "SEGURO_PRESTAMISTA"
+_SITUACAO_SEGURO: Final[str] = "SITUACAO_SEGURO"
+_TOTAL: Final[str] = "TOTAL"
+# (base, valor, meses) de cada custo informado "no total" (`RF-82`, `RF-85`).
+_CUSTOS_COM_RATEIO: Final[tuple[tuple[str, str, str], ...]] = (
+    ("CUSTO_SEGURO (+ base MENSAL/TOTAL)", "CUSTO_SEGURO_VALOR", "CUSTO_SEGURO_MESES"),
+    ("NOVO_SEGURO", "NOVO_SEGURO_VALOR", "NOVO_SEGURO_MESES"),
+)
+
+
+def _contexto_de_conferencia(
+    colecao: ColecaoDeRegistros,
+    respostas: RespostasCaso,
+    itens_por_escopo: ItensPorEscopo,
+    pendencias: tuple[PendenciaHomologacao, ...],
+) -> dict[str, object]:
+    """`T-266` — o que o revisor confere antes de decidir: a fonte de cada
+    ficha (`RF-92`), os seguros "não informado" (`AC-155`, `EC-39` — nunca
+    nível 3), as divergências de desconto (`AC-129`) e de renda dos vínculos
+    (`AC-156`), os rateios analíticos (`AC-124`) e as pendências de
+    homologação (`AC-142`). Só leitura e agregação de entrada — nada chega
+    ao motor."""
+    textos = carregar_textos_canonicos()
+    dividas = itens_por_escopo.get(EscopoRepeticao.DIVIDA_ID, ())
+
+    def no_item(item_id: str, variavel: str) -> object:
+        return respostas.valor_no_item(item_id, variavel)
+
+    divergencias: list[dict[str, str | None]] = [
+        {"tipo": "DESCONTO", "item_id": item_id}
+        for item_id in dividas
+        if conferir_desconto(respostas, item_id).divergencia_rs_pct
+    ]
+    renda = conferir_renda_dos_vinculos(respostas)
+    if renda is not None and renda.divergente:
+        divergencias.append(
+            {
+                "tipo": "RENDA_VINCULOS",
+                "item_id": None,
+                "soma_liquidas": formatar_dinheiro_br(renda.SOMA_LIQUIDAS),
+                "renda_bloco_3": formatar_dinheiro_br(renda.RENDA_BLOCO_3),
+            }
+        )
+
+    rateios: list[dict[str, str]] = []
+    for item_id in dividas:
+        for base, variavel_valor, variavel_meses in _CUSTOS_COM_RATEIO:
+            if no_item(item_id, base) != _TOTAL:
+                continue
+            valor = no_item(item_id, variavel_valor)
+            meses = no_item(item_id, variavel_meses)
+            mensal = rateio_mensal(
+                valor if isinstance(valor, Decimal) else DESCONHECIDO,
+                meses if isinstance(meses, int) else None,
+            )
+            if mensal is not None:
+                rateios.append(
+                    {
+                        "item_id": item_id,
+                        "variavel": variavel_valor,
+                        "valor_mensal": formatar_dinheiro_br(mensal),
+                    }
+                )
+
+    return {
+        "fontes": [
+            {
+                "item_id": nivel.item_id,
+                "origem": nivel.origem_fonte,
+                "nivel": nivel.nivel.value if nivel.nivel is not None else None,
+                "rotulo": rotulo_do_nivel(nivel, textos),
+            }
+            for nivel in niveis_por_ficha(colecao.registros, respostas, itens_por_escopo)
+        ],
+        "seguros_nao_informados": [
+            item_id
+            for item_id in dividas
+            if no_item(item_id, _SEGURO_PRESTAMISTA) == "SIM"
+            and no_item(item_id, _SITUACAO_SEGURO) in (NAO_SEI, NAO_SEI.value)
+        ],
+        "rotulo_nao_informado": textos.rotulos_de_comprovacao.get("NAO_INFORMADO"),
+        "divergencias": divergencias,
+        "rateios": rateios,
+        "pendencias_homologacao": [formatar_pendencia_homologacao(colecao, p) for p in pendencias],
+    }
+
+
+def formatar_pendencia_homologacao(
+    colecao: ColecaoDeRegistros, pendencia: PendenciaHomologacao
+) -> dict[str, str | None]:
+    """Nomeia dívida e dado (`AC-142`): o `item_id` e o enunciado do
+    registro — nenhum texto aqui (`AC-37`)."""
+    registro = next((r for r in colecao.registros if r.ID == pendencia.ID_PERGUNTA), None)
+    return {
+        "item_id": pendencia.item_id,
+        "ID_PERGUNTA": pendencia.ID_PERGUNTA,
+        "enunciado": registro.enunciado if registro is not None else pendencia.ID_PERGUNTA,
+        "motivo": pendencia.motivo,
+    }
 
 
 async def _ler_formulario_de_decisao(request: Request) -> dict[str, str]:
@@ -374,6 +544,13 @@ def formulario_de_decisao(
         RepositorioSnapshots, Depends(obter_repositorio_snapshots_da_fila)
     ],
     conta_id_revisor: Annotated[str, Depends(exigir_papel_revisor)],
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros_da_revisao)],
+    dados: Annotated[
+        tuple[RespostasCaso, ItensPorEscopo], Depends(respostas_e_itens_da_revisao)
+    ],
+    pendencias_homologacao: Annotated[
+        tuple[PendenciaHomologacao, ...], Depends(pendencias_homologacao_do_caso)
+    ],
 ) -> JSONResponse:
     """O que a tela de decisão precisa saber ANTES de decidir (`RF-24`,
     `RF-26`, `AC-27`).
@@ -402,6 +579,8 @@ def formulario_de_decisao(
             "versao": snapshot.versao,
             "decisoes": ["LIBERAR", "REPROVAR"],
             "classificacoes_erro": [c.value for c in CLASSIFICACAO_ERRO],
+            # `T-266`: fontes, avisos e pendências (`RF-92`, `RF-93`).
+            **_contexto_de_conferencia(colecao, *dados, pendencias_homologacao),
         }
     )
 
@@ -431,6 +610,10 @@ def processar_decisao(
         RepositorioContas, Depends(obter_repositorio_contas_para_papel)
     ],
     enviador: Annotated[EnviadorDeEmail, Depends(obter_enviador)],
+    pendencias_homologacao: Annotated[
+        tuple[PendenciaHomologacao, ...], Depends(pendencias_homologacao_do_caso)
+    ],
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros_da_revisao)],
 ) -> JSONResponse:
     """`RF-24`/`AC-27`/`EC-12` — processa a decisão do revisor (liberar ou
     reprovar) sobre o snapshot mais recente do caso, delegando TODA a
@@ -477,7 +660,19 @@ def processar_decisao(
                 repositorio_revisoes=repositorio_revisoes,
                 repositorio_casos=repositorio_casos,
                 repositorio_eventos=repositorio_eventos,
+                pendencias_homologacao=pendencias_homologacao,
                 observacao=observacao,
+            )
+        except ErroHomologacaoBloqueada as erro:
+            # `T-264` (AC-142, EC-40): nada gravado; a lista nomeia o dado.
+            return JSONResponse(
+                {
+                    "mensagem": _MENSAGEM_HOMOLOGACAO_BLOQUEADA,
+                    "pendencias_homologacao": [
+                        formatar_pendencia_homologacao(colecao, p) for p in erro.pendencias
+                    ],
+                },
+                status_code=409,
             )
         except ErroRevisaoJaDecidida as erro:
             raise HTTPException(status_code=409, detail=str(erro)) from erro

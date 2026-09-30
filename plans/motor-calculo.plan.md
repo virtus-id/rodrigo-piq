@@ -4418,3 +4418,284 @@ resolução condicional original de R3.10.1.
 
 > Requisito sem cobertura é buraco no plano. Item de plano sem requisito é
 > over-engineering.
+
+---
+
+# Rodada 9 — decisões do especialista (2026-09-30)
+
+> **Neste slug é a Rodada 5 da spec** (`specs/motor-calculo.spec.md` §2
+> "Rodada 5", §15). **Rastreia:** `RF-70` a `RF-76` · `AC-118` a `AC-131` ·
+> `EC-51` a `EC-56` · `US-27` · `OQ-46` a `OQ-50` (resolvidas) · canônica
+> v1.0.2 `E-10` (precisões v1.0.3). Fonte da decisão: `DE-02`
+> (`docs/decisoes-especialista/README.md`).
+>
+> **É mudança de motor** — a primeira desde a Rodada 1 que altera metodologia,
+> e não só transcreve definição. As seções usam o prefixo `R9M.` para não
+> colidir com as `R5.x` do plano `app-aluno`. O consumo do lado da aplicação
+> (montagem item a item, exibição do cenário adicional) está no plano
+> `app-aluno`, seção "Rodada 9", fatia 9.5.
+
+## R9M.1. Architecture Overview
+
+O ataque de hoje (§13.3) **não muda**. O que muda é o cronograma: um item
+`CONFIRMADO` com valor e mês conhecidos vira um **aporte pontual** somado à
+capacidade de ataque **de um único mês** da simulação. Os `PROVAVEL`/`POSSIVEL`
+nunca tocam a projeção publicada — produzem uma segunda simulação, só do
+método recomendado, gravada à parte no snapshot.
+
+```text
+EstadoFinanceiro.recursos_extraordinarios (item a item)
+        │
+        ├──► §13.3 calcular_EXTRAORDINARIOS_RECOMENDADOS   (INALTERADO: CONFIRMADO ∧ ATE_30D)
+        │
+        └──► engine/extraordinarios.py::selecionar_aportes   (NOVO, puro)
+                 │  partição por item: ATAQUE_DE_HOJE | APORTE(mês m) | NÃO_PROJETADO(motivo)
+                 │
+                 ├── base  (certezas={CONFIRMADO}) ──► simular_cenario(..., aportes) × 3 métodos
+                 │                                          │
+                 │                                          ▼
+                 │                               comparação → método → ORDEM_QUITACAO   (publicados)
+                 │
+                 └── adicional (certezas={CONFIRMADO, PROVAVEL, POSSIVEL})
+                           └──► simular_cenario(sel do método RECOMENDADO, aportes) → CenarioAdicional
+                                                                                 (nunca publicado)
+        calcular_diagnostico ── NÃO lê recursos_extraordinarios (RF-76: capacidade,
+                                STATUS_FINANCEIRO e MODO_ESTABILIZACAO sem eles)
+```
+
+**Por que o aporte entra em `simular_cenario` e não em `executar_mes`.**
+`executar_mes` é a unidade com o invariante de conservação
+(`ataque aplicado + ATAQUE_NAO_UTILIZADO == CAPACIDADE_ATAQUE_M`) e os
+gabaritos numéricos. Somar o aporte ao `CAPACIDADE_ATAQUE_M` do estado **de
+abertura** do mês `m` e subtraí-lo na virada para `m+1` mantém `executar_mes`
+intocado: o invariante continua valendo por construção (a capacidade daquele
+mês já inclui o aporte), e o excedente cai no resíduo e em
+`ATAQUE_NAO_UTILIZADO` pela regra existente (`EC-53`) — nenhuma regra nova de
+sobra.
+
+**Horizonte (`OQ-46`) sem simulação preliminar.** "Horizonte = cronograma até
+a última quitação projetada" é satisfeito pelo próprio laço de
+`simular_cenario`: ele para quando todas as dívidas quitam. Aporte cujo mês
+não chega a ser simulado não é aplicado, e aparece no snapshot como
+`FORA_DO_HORIZONTE`. Isso dispensa rodar o cronograma duas vezes e dá
+`AC-119`/`AC-129`/`EC-56` por construção.
+
+## R9M.2. Tech Stack
+
+Nenhuma dependência nova. Tudo em `Decimal` sob `CONTEXTO_MOTOR`, como o resto
+do motor.
+
+| Escolha | Justificativa (ancorada em `RF-NN`) |
+| --- | --- |
+| Módulo novo `engine/extraordinarios.py` (funções puras) | `RF-70`/`RF-72`/`RF-73`: a regra de inclusão é uma partição por item, testável sozinha contra `AC-121`/`AC-124`/`AC-130`. Enfiá-la em `ataque_imediato.py` misturaria o §13.3 (inalterado, `AC-123`) com a projeção nova. |
+| Mapa janela → mês como **constante normativa** em `engine/extraordinarios.py`, não parâmetro | `OQ-47` fixou `1_3M→3`, `4_6M→6`, `7_12M→12` como regra, não como calibração. Não é `P_*`: a contagem de 45 parâmetros da §8 não muda (`AC-126`). |
+| Parâmetro opcional `aportes` em `simular_cenario` (padrão vazio) | `AC-128`/`EC-55`: sem aporte, o caminho de código é o de hoje — gabaritos idênticos por construção. |
+| Retipar `RecursoExtraordinario.VALOR_RECURSO_EXTRAORDINARIO` para `DinheiroTalvez` | `AC-122`/`EC-52`: "`CONFIRMADO` com valor `DESCONHECIDO` não entra na projeção nem é tratado como `0`" só é testável se o motor puder receber o desconhecido. Hoje o tipo é `Dinheiro` puro. |
+| `ENGINE_VERSION` 1.0.2 via `parameters/parametros-1.0.2.json` (mesmos valores de 1.0.1) | `V-03`/convenção "carimbo de versão": a mesma entrada passa a produzir outro cronograma; um snapshot 1.0.1 e um 1.0.2 precisam ser distinguíveis. `ENGINE_VERSION` só existe no arquivo de parâmetros (`engine/parametros.py:42`). Carga pelo `scripts/semear_parametros.py` existente. |
+
+## R9M.3. Project Structure
+
+| Caminho | Mudança | Novo? |
+| --- | --- | --- |
+| `engine/extraordinarios.py` | `selecionar_aportes`, tipos `AporteProjetado`, `ItemNaoProjetado`, `CenarioAdicional`, `ProjecaoExtraordinarios` | sim |
+| `engine/estado.py` | `RecursoExtraordinario.VALOR_RECURSO_EXTRAORDINARIO: DinheiroTalvez` | não |
+| `engine/ataque_imediato.py` | §13.2/§13.3: item com valor `DESCONHECIDO` é pulado (ver R9M.10, risco 2) — nenhuma outra linha muda | não |
+| `engine/ciclo_mensal.py` | `simular_cenario(..., aportes: Mapping[Meses, Dinheiro] = {})` | não |
+| `engine/motor.py` | passo 7 recebe os aportes-base; passo 10b novo (cenário adicional); snapshot recebe `projecao_extraordinarios` | não |
+| `engine/snapshot.py` | campo `projecao_extraordinarios: ProjecaoExtraordinarios` | não |
+| `persistencia/arquivo/repositorio_snapshots.py`, `persistencia/supabase/repositorio_snapshots.py` | serializa/desserializa a chave nova em `dados_completos`; snapshot antigo sem a chave → projeção vazia | não |
+| `parameters/parametros-1.0.2.json` | cópia de 1.0.1 com `ENGINE_VERSION`/`PARAMETROS_VERSION` `1.0.2` | sim |
+| `tests/regras/test_extraordinarios.py` | `AC-118`–`AC-131` | sim |
+| `tests/app_aluno/estatica/hashes_congelados.json` | regravado pelo procedimento de `app-aluno` `RF-41` (rodar o teste, regravar o que ele apontar) — todos os arquivos acima estão no conjunto congelado | não |
+
+**Sem migração de banco.** A projeção vai dentro de `dados_completos jsonb`
+(`001_inicial.sql`); nenhuma coluna decisiva nova é necessária — `PRAZO_TOTAL`
+e `CUSTO_FUTURO_TOTAL` continuam sendo os do cenário recomendado, que já
+incorpora os aportes-base.
+
+## R9M.4. Data Model
+
+```python
+# engine/estado.py — RF-75 · AC-122 · EC-52
+@dataclass(frozen=True, slots=True)
+class RecursoExtraordinario:
+    ITEM_ID: str
+    VALOR_RECURSO_EXTRAORDINARIO: DinheiroTalvez      # era Dinheiro; valor líquido, já apurado na coleta
+    JANELA_RECURSO_EXTRAORDINARIO: JANELA_RECURSO_EXTRAORDINARIO
+    CERTEZA_RECURSO_EXTRAORDINARIO: CERTEZA_RECURSO_EXTRAORDINARIO
+    # Sem TIPO_RECURSO_EXTRAORDINARIO: RF-72 — o tipo nunca decide; AC-121 vale por construção.
+
+# engine/extraordinarios.py — RF-70..RF-76 · §15 · NOVO
+MES_PREVISTO_POR_JANELA: Final[Mapping[JANELA_RECURSO_EXTRAORDINARIO, Meses]]
+#   {UM_A_TRES_MESES: 3, QUATRO_A_SEIS_MESES: 6, SETE_A_DOZE_MESES: 12}  — OQ-47, regra (não P_*)
+
+class MOTIVO_NAO_PROJETADO(Enum):
+    ATAQUE_DE_HOJE = "ATAQUE_DE_HOJE"               # CONFIRMADO ∧ ATE_30D → §13.3 (RF-73, AC-130)
+    CERTEZA_FORA_DO_CONJUNTO = "CERTEZA_FORA_DO_CONJUNTO"  # PROVAVEL/POSSIVEL na base (RF-71)
+    VALOR_DESCONHECIDO = "VALOR_DESCONHECIDO"       # EC-52
+    JANELA_NAO_SEI = "JANELA_NAO_SEI"               # EC-51
+    TRAVA_DEFICIT_ESTRUTURAL = "TRAVA_DEFICIT_ESTRUTURAL"  # RF-74/RF-76 (ver R9M.10, risco 1)
+    FORA_DO_HORIZONTE = "FORA_DO_HORIZONTE"         # OQ-46, EC-56 — preenchido após a simulação
+
+@dataclass(frozen=True, slots=True)
+class AporteProjetado:
+    ITEM_ID: str
+    mes: Meses                       # 3 | 6 | 12
+    VALOR_DESTINADO: Dinheiro        # ≤ VALOR_RECURSO_EXTRAORDINARIO (AC-126)
+
+@dataclass(frozen=True, slots=True)
+class ItemNaoProjetado:
+    ITEM_ID: str
+    motivo: MOTIVO_NAO_PROJETADO
+
+def selecionar_aportes(
+    recursos: tuple[RecursoExtraordinario, ...],
+    *,
+    certezas: frozenset[CERTEZA_RECURSO_EXTRAORDINARIO],
+    RESULTADO_MENSAL_ATUAL: Dinheiro,
+) -> tuple[tuple[AporteProjetado, ...], tuple[ItemNaoProjetado, ...]]: ...
+#   Pura. Cada ITEM_ID cai em EXATAMENTE uma das duas tuplas (origem única, RF-73);
+#   ITEM_ID repetido na entrada → ValueError (bug de montagem, nunca soma silenciosa).
+#   Nunca soma itens entre si (RF-75): dois itens no mesmo mês são dois AporteProjetado.
+
+def aportes_por_mes(aportes: tuple[AporteProjetado, ...]) -> Mapping[Meses, Dinheiro]: ...
+#   A ÚNICA soma: por mês, para alimentar simular_cenario. A rastreabilidade por item
+#   fica nos AporteProjetado, gravados no snapshot.
+
+@dataclass(frozen=True, slots=True)
+class CenarioAdicional:          # RF-71 · OQ-49 — nunca publicado como ordem
+    metodo: METODO               # o recomendado da base
+    ORDEM_QUITACAO: tuple[str, ...]
+    PRAZO_TOTAL: Meses
+    CUSTO_FUTURO_TOTAL: Dinheiro
+    MESES_PRIMEIRA_VITORIA: Meses | None
+    ESTOUROU_HORIZONTE: bool
+    aportes: tuple[AporteProjetado, ...]
+
+@dataclass(frozen=True, slots=True)
+class ProjecaoExtraordinarios:
+    aportes_base: tuple[AporteProjetado, ...]          # os efetivamente aplicados no cenário recomendado
+    nao_projetados: tuple[ItemNaoProjetado, ...]       # inclui FORA_DO_HORIZONTE
+    cenario_adicional: CenarioAdicional | None         # None ⇔ nenhum PROVAVEL/POSSIVEL projetável
+
+# engine/ciclo_mensal.py — RF-70
+def simular_cenario(e, dg, dividas, sel, p, aportes: Mapping[Meses, Dinheiro] = {}) -> Cenario: ...
+#   Abertura do mês m (o mês cujo estado_final.mes == m): CAPACIDADE_ATAQUE_M += aportes[m].
+#   Virada m→m+1: capacidade_proximo = estado_final.CAPACIDADE_ATAQUE_M − aportes[m] + VALOR_FLUXO_LIBERADO.
+
+# engine/snapshot.py
+class SnapshotOrdem:
+    ...
+    projecao_extraordinarios: ProjecaoExtraordinarios   # vazia quando não há recurso (EC-55)
+```
+
+## R9M.5. Data Flow
+
+Dentro de `calcular_plano`, na ordem:
+
+1. `diagnostico_pre = calcular_diagnostico(estado, p)` — **inalterado**: não
+   lê `recursos_extraordinarios` (`RF-76`, `AC-127`).
+2. `aportes_base, nao_proj = selecionar_aportes(estado.recursos_extraordinarios,
+   certezas={CONFIRMADO}, RESULTADO_MENSAL_ATUAL=diagnostico_pre.RESULTADO_MENSAL_ATUAL)`.
+3. Passo 7: os três `simular_cenario(..., aportes=aportes_por_mes(aportes_base))`.
+   Comparação, método, ordem publicada seguem sobre esses cenários — é a
+   "projeção-base" de `RF-70` (`AC-118`: `PRAZO_TOTAL` ≤ o sem recurso).
+4. Aportes com `mes > cenario_recomendado.PRAZO_TOTAL` saem de `aportes_base` e
+   entram em `nao_projetados` como `FORA_DO_HORIZONTE`.
+5. Passo 10b (novo): `aportes_adic, _ = selecionar_aportes(..., certezas={CONFIRMADO,
+   PROVAVEL, POSSIVEL}, ...)`. Se algum `PROVAVEL`/`POSSIVEL` virou aporte,
+   `simular_cenario` com o `sel` do método recomendado → `CenarioAdicional`;
+   senão `None`. Nada deste passo alimenta comparação, ordem, `Diagnostico`
+   nem `ATAQUE_IMEDIATO_RECOMENDADO` (`AC-120`).
+6. Segunda passada do `Diagnostico` (R4C) — **inalterada**; §13.3 continua
+   vendo só `CONFIRMADO ∧ ATE_30D` (`AC-123`, `AC-130`).
+7. `montar_SnapshotOrdem(..., projecao_extraordinarios=...)`.
+
+**Falha.** Nenhum caminho novo levanta exceção de negócio: item não
+projetável vira `ItemNaoProjetado` com motivo. `ErroInvariante` de
+`executar_mes` continua propagando (critério 5 de `T-68`). `ITEM_ID`
+duplicado é `ValueError` — bug de montagem, não situação de negócio.
+
+## R9M.6. External Interfaces
+
+Contrato de entrada (`EstadoFinanceiro`) muda em **um tipo**
+(`VALOR_RECURSO_EXTRAORDINARIO` passa a admitir `DESCONHECIDO`). Contrato de
+saída ganha **um campo** (`SnapshotOrdem.projecao_extraordinarios`). O único
+consumidor é `app-aluno` (montagem e `report/`), que amplia a allowlist de
+`test_fronteira_import_engine.py` para `engine.estado.RecursoExtraordinario`,
+`JANELA_RECURSO_EXTRAORDINARIO`, `CERTEZA_RECURSO_EXTRAORDINARIO` e os tipos de
+leitura de `engine.extraordinarios` — mesmo precedente de `RF-40`.
+
+## R9M.7. State Management
+
+Nenhum estado novo. Tudo nasce e morre dentro de `calcular_plano`; o que
+precisa sobreviver vai para o snapshot imutável (`V-01`). Snapshot antigo
+desserializado sem a chave → `ProjecaoExtraordinarios((), (), None)`, o que é
+verdade para ele (nenhum snapshot anterior teve recurso: a montagem sempre
+entregou tupla vazia, `EC-55`).
+
+## R9M.8. Error Handling Strategy
+
+| Situação | Detecção | Resposta | Recuperação |
+| --- | --- | --- | --- |
+| Valor `DESCONHECIDO` (`EC-52`) | `is DESCONHECIDO` em `selecionar_aportes` | `ItemNaoProjetado(VALOR_DESCONHECIDO)`; nunca `0` | informar o valor e recalcular |
+| Janela `NAO_SEI` (`EC-51`) | enum | `ItemNaoProjetado(JANELA_NAO_SEI)` | idem |
+| Déficit estrutural | `RESULTADO_MENSAL_ATUAL < 0` | `ItemNaoProjetado(TRAVA_DEFICIT_ESTRUTURAL)` | — |
+| Mês além da última quitação (`EC-56`) | pós-simulação | `ItemNaoProjetado(FORA_DO_HORIZONTE)` | — |
+| Aporte > saldo restante (`EC-53`) | já tratado em `executar_mes` | resíduo/cascata/`ATAQUE_NAO_UTILIZADO` existentes | — |
+| `ITEM_ID` duplicado | `selecionar_aportes` | `ValueError` | corrigir montagem |
+
+## R9M.9. Testing Strategy
+
+`tests/regras/test_extraordinarios.py`, entrada = `EstadoFinanceiro` montado
+à mão sobre o fixture de `GAB-B` (capacidade positiva) e de `GAB-A`
+(déficit); asserção sempre sobre a saída de `calcular_plano`.
+
+| Critério | Teste |
+| --- | --- |
+| `AC-118`, `AC-129` | `CONFIRMADO` em `1_3M`/`4_6M`/`7_12M`: aporte só no mês 3/6/12 (`cenario.meses[m-1]`), `PRAZO_TOTAL` ≤ sem recurso |
+| `AC-119`, `EC-56` | mês além da última quitação → projeção idêntica à sem recurso, item `FORA_DO_HORIZONTE` |
+| `AC-120`, `AC-131` | só `PROVAVEL` (e só `POSSIVEL`): ordem, método, `PRAZO_TOTAL`, custo, `ATAQUE_IMEDIATO_RECOMENDADO` idênticos; `cenario_adicional` presente e distinto |
+| `AC-121` | dois estados que diferem só no tipo são indistinguíveis (o campo nem existe no contrato) → snapshots iguais |
+| `AC-122`, `EC-52` | `CONFIRMADO`+`PROVAVEL` iguais: só o primeiro na base; valor `DESCONHECIDO` → `VALOR_DESCONHECIDO`, não `0` |
+| `AC-123`, `AC-128`, `EC-55` | `GAB-A/B/C`, `GAB-01..05`, `GAB-AI-01..08`, `AC-112..117` rodam sem mudança de expectativa (tolerância zero) |
+| `AC-124`, `AC-130`, `EC-54` | `CONFIRMADO ∧ ATE_30D` aparece em §13.3 e em nenhum `AporteProjetado` |
+| `AC-125` | mesmo `ITEM_ID` antes (`4_6M`) e depois do recebimento (`ATE_30D`): no segundo snapshot, só em §13.3 |
+| `AC-126` | estático: `engine/extraordinarios.py` sem literal `P_`; contagem de parâmetros do JSON inalterada; `VALOR_DESTINADO ≤ VALOR` |
+| `AC-127` | estado `GAB-A` + `CONFIRMADO` alto: `MODO_ESTABILIZACAO`, `STATUS_FINANCEIRO`, capacidades idênticos |
+
+`tests/estatica/` (pureza de `engine/`) cobre o módulo novo sem edição.
+
+## R9M.10. Risks & Trade-offs
+
+| # | Decisão | Alternativa descartada | Por quê | Risco assumido |
+| --- | --- | --- | --- | --- |
+| 1 | **`RF-74` lido como a trava do §13.4**: com `RESULTADO_MENSAL_ATUAL < 0` nenhum aporte é destinado; fora dela, `VALOR_DESTINADO = VALOR` (líquido, já coletado assim) | Deduzir "necessidades essenciais / sazonais / proteção mínima" do valor | `OQ-48` manda aplicar as regras de reserva **existentes** e proíbe `P_*` novo; a única regra existente que quantifica algo aplicável a um recurso que não é a reserva é a trava de déficit (`derivar_RESERVA_RECOMENDADA`). Essenciais e sazonais já estão fora da capacidade (`DESPESAS_*`); deduzi-los de novo seria dupla contagem, que a própria `OQ-48` levanta | **Lacuna de spec, não decisão técnica.** Se a leitura for recusada, a mudança é uma linha em `selecionar_aportes`. **Pedir confirmação ao responsável do produto antes da fatia 5B** |
+| 2 | Retipar o valor para `DinheiroTalvez` e **pular** o item desconhecido em §13.2/§13.3 | Manter `Dinheiro` e a montagem omitir o item | `AC-122`/`EC-52` testam o motor recebendo o desconhecido. Pular é o que `calcular_ATIVOS_RECOMENDADOS` já faz com valor desconhecido | §13.3 é "inalterado" (`AC-123`); o comportamento só é novo para uma entrada que hoje não existe. Registrar na docstring |
+| 3 | Horizonte = meses que **a própria projeção** simula | Horizonte fixado por uma simulação sem aportes | Uma passada só; `EC-56` por construção | Com vários itens, um aporte tardio pode ficar fora porque um anterior encurtou o plano — é o que "até a última quitação projetada" diz, mas vale nota ao revisor |
+| 4 | Cenário adicional = base **+** prováveis **+** possíveis, só no método recomendado | Três métodos; ou só os incertos sem os confirmados | `AC-131` pede "uma segunda projeção"; recomputar método no incerto mudaria a recomendação por dinheiro que talvez não venha | — |
+| 5 | Aportes afetam `simular_cenario`, não trajetórias isoladas (`beneficio_marginal`, Híbrido) | Propagar aportes a tudo | `RF-70` fala de projeção; trajetória isolada é métrica de ranqueamento por dívida | Classificação do Híbrido ignora o aporte |
+| 6 | "Recebido" = mesmo `ITEM_ID` reentregue com `ATE_30D` | Tipo de evento novo no motor | Origem única vira propriedade da partição (`AC-125`) | O **fluxo de coleta** para o aluno reportar o recebimento não está especificado em `app-aluno` — ver lá, risco R9-7 |
+
+## R9M.11. Fatias (ordem por dependência e risco)
+
+| Fatia | Conteúdo | RF | Depende de |
+| --- | --- | --- | --- |
+| **5A** | Retipagem do valor; §13.2/§13.3 pulam desconhecido; `AC-123`/`AC-128` verdes | `RF-73`, `RF-75` | — |
+| **5B** | `engine/extraordinarios.py`, `aportes` em `simular_cenario`, passo 7, `ENGINE_VERSION` 1.0.2 | `RF-70`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76` | 5A · confirmação do risco 1 |
+| **5C** | `CenarioAdicional`, campo no snapshot, persistência, regravação de `hashes_congelados.json` | `RF-71` | 5B |
+
+## R9M.12. Traceability
+
+| Requisito | Coberto por |
+| --- | --- |
+| `RF-70` — `CONFIRMADO` no último mês da janela, dentro do horizonte | R9M.1 (horizonte) · R9M.4 (`MES_PREVISTO_POR_JANELA`, `simular_cenario(aportes)`) · R9M.5 passos 2–4 · `AC-118`, `AC-119`, `AC-129` |
+| `RF-71` — `PROVAVEL`/`POSSIVEL` fora da base; cenário adicional à parte | R9M.4 (`CenarioAdicional`) · R9M.5 passo 5 · R9M.10 #4 · `AC-120`, `AC-131` |
+| `RF-72` — só certeza e prazo decidem | R9M.4 (tipo fora do contrato) · `AC-121` |
+| `RF-73` — §13.3 inalterado, origem única, `ATE_30D` no ataque de hoje | R9M.1 · R9M.4 (`ATAQUE_DE_HOJE`, partição) · R9M.10 #6 · `AC-123`, `AC-124`, `AC-125`, `AC-130` |
+| `RF-74` — preservar antes de destinar, sem `P_*` novo | R9M.4 (`VALOR_DESTINADO`) · R9M.10 #1 · `AC-126` |
+| `RF-75` — item a item, valor líquido, nunca somado como mesma certeza | R9M.4 (`AporteProjetado` por item, `ValueError` em duplicata) · `AC-122` |
+| `RF-76` — aceleradores; diagnóstico sem eles | R9M.5 passo 1 · trava em R9M.8 · `AC-127` |
+
+**Cobertura:** 7 de 7 (`RF-70`–`RF-76`). **Uma lacuna registrada** (R9M.10 #1,
+quantificação de `RF-74`), com proposta mínima e reversível.

@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:13:24.586Z",
+  "decisao": "d1",
+  "falta": "",
+  "obs": "Renda total e despesas totais devem, por definição, consolidar todos os valores do mês. As demais informações — categorias, despesas não mensais e parcelas de dívidas — são decomposições desses totais e não devem ser novamente somadas, para evitar dupla contagem. Eu exibiria também a “Sobra do mês”, calculada automaticamente como Renda Total – Despesas Totais, porque ela permite ao aluno compreender imediatamente o resultado da fotografia que está validando. As decomposições podem ficar acessíveis para consulta ou edição, sem necessariamente aparecerem nesta tela de confirmação.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Se o aluno responder “Ainda não consigo avaliar”, o que o sistema deve fazer?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "Não tem como apresentar nada",
+  "tipo": "texto",
+  "valor": ""
+}

@@ -51,9 +51,9 @@ from app.http.rotas_coleta import (
 from app.http.serializacao import serializar_pergunta
 from collection.carga import ColecaoDeRegistros
 from collection.registro import EscopoRepeticao, RegistroPergunta
-from collection.repeticao import perguntas_da_ficha
+from collection.repeticao import escopo_pai, perguntas_da_ficha
 from collection.respostas import RespostasCaso
-from persistencia.app_aluno.itens import RepositorioItens
+from persistencia.app_aluno.itens import ItemRepetido, RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 
 REGRAS: Final[tuple[str, ...]] = ("RF-04", "RF-51", "RF-53", "AC-04")
@@ -65,6 +65,7 @@ _MENSAGEM_ESCOPO_INVALIDO: Final[str] = "Escopo de repetição inválido."
 _MENSAGEM_ITEM_INEXISTENTE: Final[str] = "Item não encontrado no caso."
 _MENSAGEM_NOME_INVALIDO: Final[str] = "Informe um nome de até 60 letras."
 _MENSAGEM_ITEM_SEM_NOME: Final[str] = "Este item já tem nome."
+_MENSAGEM_PAI_INVALIDO: Final[str] = "Ficha sem item pai válido."
 
 # `T-217` — "texto curto" (§11), sem limite na spec; 60 cabem num título.
 _NOME_MAXIMO: Final[int] = 60
@@ -95,6 +96,8 @@ def _campos_da_ficha(
     CASO_ID: str,
     item_id: str,
     rotulo: str | None = None,
+    itens_por_escopo: dict[EscopoRepeticao, tuple[str, ...]] | None = None,
+    rotulos: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     """As perguntas da ficha, já serializadas, para UM item.
 
@@ -114,7 +117,12 @@ def _campos_da_ficha(
     for registro in _perguntas_da_ficha(colecao, escopo):
         try:
             contexto = montar_contexto_pergunta(
-                registro, respostas, item_id=item_id, rotulo_do_item=rotulo
+                registro,
+                respostas,
+                item_id=item_id,
+                rotulo_do_item=rotulo,
+                itens_por_escopo=itens_por_escopo,
+                rotulos=rotulos,
             )
         except ErroPerguntaNaoExibivel:
             continue
@@ -140,7 +148,12 @@ def listar_fichas(
     própria ficha — as mesmas de `campos`.
 
     `T-217`: `rotulo` é o nome do item para o aluno ("Aluguel"), ou `None`;
-    `pede_nome`, se a tela deve pedir um ("Outro", despesa não listada)."""
+    `pede_nome`, se a tela deve pedir um ("Outro", despesa não listada).
+
+    `T-254` (`RF-90`, `EC-35`): cada ficha traz as `margens` criadas dentro
+    dela e os `dependentes` — margens e dívidas que perdem o pai se ela for
+    removida. `escopo_pai`: o escopo dentro do qual este é criado, ou `None`;
+    `escopos_filhos`: os criados dentro deste."""
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
@@ -151,27 +164,67 @@ def listar_fichas(
         lambda: repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
-    em_aberto = itens_em_aberto(_perguntas_da_ficha(colecao, membro), respostas, _agrupar(itens))
+    agrupado = _agrupar(itens)
     rotulos = rotulos_dos_itens(itens, colecao.registros)
+    pais = {item.item_id: item.item_pai_id for item in itens if item.item_pai_id}
+    # `T-254`: os escopos cujas fichas nascem DENTRO de uma deste (a margem
+    # no vínculo) e as perguntas que apontam um item deste (`T-256`) —
+    # ambos lidos do registro, nunca listados aqui.
+    filhos = {e for e in EscopoRepeticao if escopo_pai(colecao.registros, e) is membro}
+    referencias = [
+        registro
+        for registro in colecao.registros
+        if registro.origem_opcoes.fonte == "ITENS_DO_ESCOPO"
+        and registro.origem_opcoes.escopo is membro
+        and registro.VARIAVEL_GRAVADA is not None
+    ]
+    em_aberto = itens_em_aberto(
+        tuple(r for e in (membro, *filhos) for r in _perguntas_da_ficha(colecao, e)),
+        respostas,
+        agrupado,
+        pais,
+    )
 
-    fichas: list[dict[str, Any]] = []
-    for item in itens:
-        if item.escopo is not membro:
-            continue
+    def ficha(item: ItemRepetido) -> dict[str, Any]:
         rotulo = rotulos.get(item.item_id)
-        fichas.append(
-            {
-                "item_id": item.item_id,
-                "rotulo": rotulo,
-                "pede_nome": pede_nome(item.origem),
-                "completa": item.item_id not in em_aberto,
-                "campos": _campos_da_ficha(
-                    colecao, membro, respostas, CASO_ID, item.item_id, rotulo
-                ),
-            }
-        )
+        margens = [
+            filho for filho in itens if filho.escopo in filhos and filho.item_pai_id == item.item_id
+        ]
+        dividas = [
+            item_id
+            for registro in referencias
+            for item_id in agrupado.get(registro.escopo_repeticao, ())
+            if respostas.valor_no_item(item_id, registro.VARIAVEL_GRAVADA or "") == item.item_id
+        ]
+        return {
+            "item_id": item.item_id,
+            "item_pai_id": item.item_pai_id,
+            "rotulo": rotulo,
+            "pede_nome": pede_nome(item.origem),
+            "completa": item.item_id not in em_aberto,
+            "campos": _campos_da_ficha(
+                colecao, item.escopo, respostas, CASO_ID, item.item_id, rotulo, agrupado, rotulos
+            ),
+            # `AC-138`: cada margem sob o seu vínculo — nenhum total entre eles.
+            "margens": [ficha(margem) for margem in margens],
+            # `EC-35`: o que perde o pai se este item for removido.
+            "dependentes": {
+                "margens": [margem.item_id for margem in margens],
+                "dividas": list(dict.fromkeys(dividas)),
+            },
+        }
 
-    return JSONResponse({"CASO_ID": CASO_ID, "escopo": membro.value, "fichas": fichas})
+    fichas = [ficha(item) for item in itens if item.escopo is membro]
+    pai = escopo_pai(colecao.registros, membro)
+    return JSONResponse(
+        {
+            "CASO_ID": CASO_ID,
+            "escopo": membro.value,
+            "escopo_pai": pai.value if pai else None,
+            "escopos_filhos": sorted(filho.value for filho in filhos),
+            "fichas": fichas,
+        }
+    )
 
 
 @roteador.post("/{CASO_ID}/fichas/{escopo}")
@@ -181,6 +234,7 @@ def criar_ficha(
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    dados: Annotated[dict[str, str], Depends(_ler_formulario)],
 ) -> JSONResponse:
     """`AC-04` — cria um item com identificador estável (`D001`, `M002`…).
 
@@ -190,10 +244,26 @@ def criar_ficha(
     nenhuma das existentes: nenhuma resposta é tocada aqui.
 
     `T-217`: a ficha de despesa criada pela lista é uma despesa não listada
-    (`B3.D11`) — as dos checklists nascem da resposta a eles."""
+    (`B3.D11`) — as dos checklists nascem da resposta a eles.
+
+    `T-254` (`AC-137`): ficha de escopo com pai (a margem) exige
+    `item_pai_id` de um item ATIVO do escopo pai neste caso — senão `422` e
+    nada é criado."""
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
+
+    item_pai_id: str | None = None
+    pai = escopo_pai(colecao.registros, membro)
+    if pai is not None:
+        item_pai_id = dados.get("item_pai_id", "")
+        ativos_do_pai = {
+            item.item_id
+            for item in repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
+            if item.escopo is pai
+        }
+        if item_pai_id not in ativos_do_pai:
+            return JSONResponse({"erro": _MENSAGEM_PAI_INVALIDO}, status_code=422)
 
     # Duas consultas de LEITURA independentes em paralelo (`T-191`):
     # `proximo_identificador` só conta linhas existentes, não escreve nada
@@ -201,7 +271,7 @@ def criar_ficha(
     # `item_id` — ver a nota da rota, acima).
     origem = DESPESA_NAO_LISTADA if membro is EscopoRepeticao.ITEM_DESPESA else None
     item_id, respostas_brutas = duas_em_paralelo(
-        lambda: repositorio_itens.proximo_identificador(CASO_ID, membro, origem),
+        lambda: repositorio_itens.proximo_identificador(CASO_ID, membro, origem, item_pai_id),
         lambda: repositorio.listar_do_caso(CASO_ID),
     )
     respostas = RespostasCaso(respostas=respostas_brutas)
@@ -213,10 +283,13 @@ def criar_ficha(
             "escopo": membro.value,
             "ficha": {
                 "item_id": item_id,
+                "item_pai_id": item_pai_id,
                 "rotulo": None,
                 "pede_nome": pede_nome(origem),
                 "completa": False,
                 "campos": campos,
+                "margens": [],
+                "dependentes": {"margens": [], "dividas": []},
             },
         },
         status_code=201,

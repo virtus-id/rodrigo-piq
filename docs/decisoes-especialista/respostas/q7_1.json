@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T18:07:25.194Z",
+  "decisao": "d7",
+  "falta": "",
+  "obs": "O fluxo deve ser condicional: (1) “Existe proposta do credor?” → se NÃO, saltar todas as perguntas da proposta; (2) se SIM, perguntar se a proposta é à vista, parcelada ou se existem ambas as opções; (3) se houver proposta parcelada, perguntar número de parcelas, valor da parcela e demais dados necessários; (4) se houver proposta à vista, perguntar apenas os dados pertinentes à quitação à vista. A data de validade da proposta, quando conhecida, pode ser perguntada tanto para proposta à vista quanto parcelada. Campos não aplicáveis não devem ser exibidos nem considerados como ausentes.\n\nE, se dessa ainda para fazer mais uma distinção importante, seria ótimo: se “prazo da proposta” estiver significando prazo para aceitar/validade da oferta, ele pode aparecer em qualquer proposta. Se estiver significando prazo do parcelamento, só deve aparecer na proposta parcelada.\nA lógica ideal do formulário é: primeiro descobrir se existe proposta; depois qual é o tipo; só então mostrar os campos que fazem sentido para aquele tipo.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Em quais situações o sistema deve perguntar o número de parcelas e o prazo da proposta?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "Marcelo: Essa é uma questão de saltos do formulário. Sempre que que não fizer sentido uma pergunta, ela deve ser saltada.\nRodrigo: O sistema só deve perguntar dados sobre número de parcelas e prazo quando o aluno tiver informado que existe uma proposta do credor e essa proposta for parcelada. Se o aluno informar que não existe proposta, todo o bloco referente à proposta deve ser automaticamente ignorado. Se a proposta for exclusivamente à vista, também não faz sentido perguntar número de parcelas.",
+  "tipo": "texto",
+  "valor": ""
+}

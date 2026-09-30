@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:42:08.054Z",
+  "decisao": "d3",
+  "falta": "",
+  "obs": "O sistema deve sempre guardar separadamente: (1) valor de quitação antes do desconto; (2) tipo do desconto — R$ ou %; (3) valor/percentual informado; (4) valor final para quitação; e, quando houver, (5) data de validade da proposta. Se o credor informar diretamente o valor final de quitação, esse valor deve prevalecer como referência da oferta, e o desconto calculado pode ser usado apenas para conferência. Se forem informados simultaneamente R$ e %, o sistema deve verificar se são compatíveis e sinalizar divergência, sem somar os dois descontos.\nVale a pena, ainda, acrescentar duas travas de sistema:\n- Percentual: aceitar apenas entre 0% e 100%.\n- Valor em R$: nunca permitir desconto superior ao valor bruto de quitação.\nE faria questão de chamar a base de “valor atual de quitação antes do desconto”, e não simplesmente “saldo devedor”, porque nem sempre esses dois valores coincidem. Isso evita bastante ambiguidade.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Desconto oferecido pelo credor: o aluno pode informar em R$ ou em %. Como o cálculo deve tratar cada caso?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "Se o desconto for informado em R$, o sistema deve subtrair esse valor do valor atual de quitação informado pelo credor. Se for informado em %, o percentual deve ser aplicado sobre esse mesmo valor atual de quitação antes do desconto. Assim: desconto em R$ → Valor de quitação líquido = Valor de quitação bruto – desconto; desconto em % → Valor de quitação líquido = Valor de quitação bruto × (1 – percentual de desconto). O percentual nunca deve ser aplicado automaticamente sobre o valor originalmente contratado, saldo histórico ou soma das parcelas, salvo se o credor tiver declarado expressamente que essa é a base da oferta.",
+  "tipo": "texto",
+  "valor": ""
+}

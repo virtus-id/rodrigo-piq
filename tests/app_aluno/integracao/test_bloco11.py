@@ -322,6 +322,7 @@ def test_ciclo_completo_do_bloco_11_reportar_recalcular_encadear_voltar_a_fila(
         valor_interno="QUITADA",
         caso=caso_apos_resposta,
         estado=estado,  # type: ignore[arg-type]
+        pendencias_inventario=(),
         fonte_parametros=fonte_parametros,
         repositorio_snapshots=repositorio_snapshots,
         repositorio_casos=repositorio_casos_arquivo,
@@ -403,6 +404,7 @@ def test_ciclo_completo_alteracao_cadastral_via_http_nao_recalcula_ac31_ac35(
         valor_interno="NAO",
         caso=caso_apos_resposta,
         estado=estado,  # type: ignore[arg-type]
+        pendencias_inventario=(),
         fonte_parametros=fonte_parametros,
         repositorio_snapshots=repositorio_snapshots,
         repositorio_casos=repositorio_casos_arquivo,
@@ -453,6 +455,7 @@ def test_ciclo_completo_recalculo_recusado_fora_de_acompanhamento(
             valor_interno="QUITADA",
             caso=caso_fora_de_acompanhamento,
             estado=estado,  # type: ignore[arg-type]
+            pendencias_inventario=(),
             fonte_parametros=fonte_parametros,
             repositorio_snapshots=repositorio_snapshots,
             repositorio_casos=repositorio_casos_arquivo,
@@ -491,6 +494,7 @@ def test_ciclo_completo_reabertura_apos_recalculo_ac33_conjunto_exato(
         valor_interno="QUITADA",
         caso=caso_apos_resposta,
         estado=estado,  # type: ignore[arg-type]
+        pendencias_inventario=(),
         fonte_parametros=fonte_parametros,
         repositorio_snapshots=repositorio_snapshots,
         repositorio_casos=repositorio_casos_arquivo,

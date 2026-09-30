@@ -418,3 +418,70 @@ def test_fluxo_liberado_incorporado_apenas_na_abertura_do_mes_seguinte() -> None
     mes_2 = cenario.meses[1]
     assertar_exato(mes_2.estado_final.DIVIDA_ALVO_ATUAL, "D-02")
     assertar_exato(mes_2.estado_final.saldos["D-02"], dinheiro("1100"))
+
+
+# ---------------------------------------------------------------------------
+# RF-70 · T-158 — aportes pontuais de recurso extraordinário
+# ---------------------------------------------------------------------------
+def test_aporte_soma_a_capacidade_de_um_unico_mes() -> None:
+    """`RF-70`/`AC-118`/`AC-129`: aporte em `m=3` — capacidade do mês 3 =
+    base + aporte; meses 2 e 4 = base (sem fluxo liberado neste caso)."""
+    d1 = _divida("D-01", saldo=dinheiro("5000"))
+    dividas = {"D-01": d1}
+    dg = _diagnostico(capacidade_conservadora=dinheiro("100"))
+
+    cenario = simular_cenario(
+        _estado_financeiro_neutro(),
+        dg,
+        dividas,
+        _SelPorMenorSaldo(dividas=dividas),
+        _parametros(),
+        {3: dinheiro("1000")},
+    )
+
+    capacidades = [m.estado_final.CAPACIDADE_ATAQUE_M for m in cenario.meses[:4]]
+    assertar_exato(
+        capacidades, [dinheiro("100"), dinheiro("100"), dinheiro("1100"), dinheiro("100")]
+    )
+    # 5000 = 1000 (aporte) + 40 × 100 ⇒ 40 meses (o mês 3 ataca 1100), contra 50.
+    assertar_exato(cenario.PRAZO_TOTAL, 40)
+
+
+def test_aporte_maior_que_o_saldo_vira_ataque_nao_utilizado() -> None:
+    """`EC-53`: o excedente segue a regra de resíduo existente — sem outra
+    dívida, vira `ATAQUE_NAO_UTILIZADO`; o invariante de conservação de
+    `executar_mes` não levanta."""
+    d1 = _divida("D-01", saldo=dinheiro("300"))
+    dividas = {"D-01": d1}
+    dg = _diagnostico(capacidade_conservadora=dinheiro("100"))
+
+    cenario = simular_cenario(
+        _estado_financeiro_neutro(),
+        dg,
+        dividas,
+        _SelPorMenorSaldo(dividas=dividas),
+        _parametros(),
+        {2: dinheiro("10000")},
+    )
+
+    assertar_exato(cenario.PRAZO_TOTAL, 2)
+    assertar_exato(cenario.meses[1].ATAQUE_NAO_UTILIZADO, dinheiro("9900"))
+
+
+def test_sem_aportes_cenario_identico() -> None:
+    """`EC-55`: `aportes={}` → `Cenario` idêntico campo a campo ao da
+    chamada sem o argumento."""
+    d1 = _divida("D-01", saldo=dinheiro("700"), pagamento_mensal_efetivo=dinheiro("700"))
+    d2 = _divida("D-02", saldo=dinheiro("2000"), taxa=dinheiro("0.02"))
+    dividas = {"D-01": d1, "D-02": d2}
+    dg = _diagnostico(capacidade_conservadora=dinheiro("100"))
+    p = _parametros()
+
+    sem_argumento = simular_cenario(
+        _estado_financeiro_neutro(), dg, dividas, _SelPorMenorSaldo(dividas=dividas), p
+    )
+    vazio = simular_cenario(
+        _estado_financeiro_neutro(), dg, dividas, _SelPorMenorSaldo(dividas=dividas), p, {}
+    )
+
+    assertar_exato(vazio, sem_argumento)

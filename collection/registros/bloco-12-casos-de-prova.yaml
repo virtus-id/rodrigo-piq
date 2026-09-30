@@ -22,7 +22,7 @@
 # As outras 16 perguntas do Bloco 12 (B12.01-B12.07, B12.09-B12.14, B12.16A,
 # B12.17) NÃO estão aqui e não são coletadas por esta feature.
 
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 
 perguntas:
   # --------------------------------------------------------------------

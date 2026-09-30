@@ -28,21 +28,27 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 
 import pytest
-from fastapi import Request
+from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import obter_repositorio_casos
+from app.http.rotas_coleta import obter_repositorio_itens, obter_repositorio_respostas
 from app.http.rotas_plano import obter_repositorio_snapshots
 from app.http.sessao import iniciar_sessao_conta
 from app.montagem.estado import montar_divida, montar_estado_financeiro
+from collection.registro import EscopoRepeticao
+from collection.respostas import Resposta
 from engine.motor import calcular_plano
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
+from persistencia.app_aluno.itens import ItemRepetido
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
+from report.plano import carregar_textos_canonicos
 from tests.app_aluno.fixtures.caso_completo import DATA_REFERENCIA, caso_completo
+from tests.app_aluno.fixtures.sem_respostas import sem_respostas_nem_itens
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-nao-usar-em-producao"
 _VERSAO_PARAMETROS_REAL = "1.0.1"
@@ -142,6 +148,7 @@ def _montar_cliente(
     aplicacao = criar_aplicacao()
     aplicacao.dependency_overrides[obter_repositorio_casos] = lambda: repositorio_casos
     aplicacao.dependency_overrides[obter_repositorio_snapshots] = lambda: repositorio_snapshots
+    sem_respostas_nem_itens(aplicacao)  # `T-267`: fonte lida das respostas
 
     @aplicacao.post("/_teste/abrir-sessao/{conta_id}")
     def abrir_sessao(conta_id: str, request: Request) -> dict[str, str]:
@@ -448,3 +455,56 @@ def test_isolamento_por_caso_e_respeitado_na_rota_de_tela(
     resposta = cliente.get("/caso/CASO-DE-OUTRA-CONTA/api/plano")
 
     assert resposta.status_code == 404
+
+
+def test_t267_ac141_fonte_de_comprovacao_por_divida_no_plano(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`RF-92` (`T-267`): cada dívida da ordem traz o rótulo do nível da sua
+    fonte, de `textos-canonicos.yaml`, lido das respostas — sem conta sobre
+    o snapshot."""
+    snapshot = _snapshot_real()
+    caso = _caso_fabricado(snapshot_liberado_id=snapshot.SNAPSHOT_ID)
+    divida_id = caso_completo().DIVIDA_ID
+    fonte = Resposta(
+        CASO_ID=caso.CASO_ID,
+        ID_PERGUNTA="FONTE_DADO",
+        item_id=divida_id,
+        valor="ATENDIMENTO_CREDOR",
+        QUESTIONARIO_VERSION="1.0.3",
+        respondida_em=datetime(2026, 9, 30, tzinfo=UTC),
+    )
+
+    class _Respostas:
+        def listar_do_caso(self, _caso_id: str) -> tuple[Resposta, ...]:
+            return (fonte,)
+
+    class _Itens:
+        def listar_do_caso(
+            self, _caso_id: str, incluir_removidos: bool = False
+        ) -> tuple[ItemRepetido, ...]:
+            return (
+                ItemRepetido(
+                    item_id=divida_id,
+                    CASO_ID=caso.CASO_ID,
+                    escopo=EscopoRepeticao.DIVIDA_ID,
+                    removido_em=None,
+                    criado_em=datetime(2026, 9, 30, tzinfo=UTC),
+                ),
+            )
+
+    cliente = _montar_cliente(
+        monkeypatch,
+        repositorio_casos=_RepositorioCasosDublê(caso, "CONTA-PDF-ROTA-1"),
+        repositorio_snapshots=_RepositorioSnapshotsDublê(snapshot),
+    )
+    aplicacao = cliente.app
+    assert isinstance(aplicacao, FastAPI)
+    aplicacao.dependency_overrides[obter_repositorio_respostas] = _Respostas
+    aplicacao.dependency_overrides[obter_repositorio_itens] = _Itens
+
+    ordem = cliente.get(f"/caso/{caso.CASO_ID}/api/plano").json()["plano"]["ordem"]
+
+    assert [p["fonte"] for p in ordem if p["DIVIDA_ID"] == divida_id] == [
+        carregar_textos_canonicos().rotulos_de_comprovacao["PENDENTE_DE_CONFIRMACAO"]
+    ]

@@ -8,7 +8,7 @@
 
 ## Progresso
 
-`78/78 tarefas concluídas (Rodada 1) · 13/14 tarefas concluídas (Rodada 2, T-79 a T-92 — T-91 bloqueada por OQ-23) · 24/24 tarefas concluídas (Rodada 3, T-93 a T-116 — fatias 3A e 3B completas; 3C fora de escopo, bloqueada por OQ-30) · 15/15 tarefas concluídas (Rodada 4, T-117 a T-131 — fatia 4A completa e verificada) · 9/9 tarefas concluídas (Rodada 4, T-132 a T-140 — fatia 4B completa e verificada) · 3/11 tarefas concluídas (Rodada 4, T-141 a T-151 — fatia 4C, última fatia do documento do especialista; T-141, T-144, T-146 concluídas)`
+`78/78 tarefas concluídas (Rodada 1) · 13/14 tarefas concluídas (Rodada 2, T-79 a T-92 — T-91 bloqueada por OQ-23) · 24/24 tarefas concluídas (Rodada 3, T-93 a T-116 — fatias 3A e 3B completas; 3C fora de escopo, bloqueada por OQ-30) · 15/15 tarefas concluídas (Rodada 4, T-117 a T-131 — fatia 4A completa e verificada) · 9/9 tarefas concluídas (Rodada 4, T-132 a T-140 — fatia 4B completa e verificada) · 3/11 tarefas concluídas (Rodada 4, T-141 a T-151 — fatia 4C, última fatia do documento do especialista; T-141, T-144, T-146 concluídas) · 16/16 tarefas concluídas (Rodada 5 da spec / Rodada 9 do projeto, T-152 a T-167 — recursos extraordinários na projeção, fatias 5A/5B/5C; T-168 nova, pendente)`
 
 > **Regras que valem para toda tarefa deste backlog** (§4 do `sdd.config.md`):
 > nenhum valor `P_*` escrito no código; precisão decimal integral, arredondamento
@@ -6970,3 +6970,519 @@ escopo silencioso: ou está fora do slug, ou depende de decisão humana.
 
 > Requisito sem tarefa não será implementado. Tarefa sem requisito é escopo
 > extra — remova ou volte à spec.
+
+---
+
+## Rodada 5 da spec · Rodada 9 do projeto — recursos extraordinários na projeção (2026-09-30)
+
+> **Fonte:** `plans/motor-calculo.plan.md`, seção "Rodada 9" (`R9M.1`–`R9M.12`)
+> · `specs/motor-calculo.spec.md` `RF-70`–`RF-76`, `AC-118`–`AC-131`,
+> `EC-51`–`EC-56` · `DE-02` (`docs/decisoes-especialista/README.md`).
+> Os `AC-NN` desta seção são **deste slug** (colidem em número com os de
+> `app-aluno`; lá são citados como `motor-calculo:AC-NN`).
+>
+> **Decisão do responsável do produto sobre o risco 1 de `R9M.10`
+> (2026-09-30):** a preservação de `RF-74` **é** a trava de déficit existente
+> do §13.4 — com `RESULTADO_MENSAL_ATUAL < 0` nenhum aporte é destinado; fora
+> dela `VALOR_DESTINADO = VALOR_RECURSO_EXTRAORDINARIO`. Decisão reversível:
+> se for revista, a mudança é uma linha em `selecionar_aportes` (`T-155`).
+> Registrada em `T-155`; a fatia 5B está desbloqueada.
+>
+> **Consumidor:** `app-aluno`, fatia 9.5 (`T-270`–`T-278` daquele backlog).
+> 5A entrega o contrato de entrada; 5C entrega o campo de saída.
+
+### Fatia 5A — contrato de entrada admite valor desconhecido
+
+### `T-152` — Retipar `RecursoExtraordinario.VALOR_RECURSO_EXTRAORDINARIO` para `DinheiroTalvez`
+
+- **Tipo:** `Data`
+- **Dependências:** nenhuma
+- **Rastreia:** `RF-75`, `AC-122`, `EC-52`, `DE-02`
+- **Arquivos:** `engine/estado.py`, construtores de `RecursoExtraordinario`
+  em `tests/` (varredura por `RecursoExtraordinario(`)
+
+**Descrição**
+
+Hoje o campo é `Dinheiro` puro, e `EC-52` ("`CONFIRMADO` com valor
+`DESCONHECIDO` não entra nem vira `0`") não é sequer representável. Só o tipo
+muda; nenhum consumidor novo nasce aqui.
+
+**Critérios de aceite**
+
+- [x] `VALOR_RECURSO_EXTRAORDINARIO: DinheiroTalvez`, docstring citando `EC-52`
+- [x] Todo construtor existente continua compilando (`mypy --strict`) sem
+      mudança de valor
+- [x] Teste que reproduz: construir um `RecursoExtraordinario` com
+      `DESCONHECIDO` passa a ser aceito pelo tipo
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `engine/estado.py` retipado; `persistencia/arquivo/repositorio_snapshots.py::_recurso_extraordinario` passou a ler via `_dinheiro_talvez` (senão `DESCONHECIDO` não sobrevive ao round-trip). Teste: `tests/regras/test_estado.py::test_recurso_extraordinario_aceita_valor_desconhecido` (antes: `mypy` recusava `Desconhecido` → `Decimal`).
+
+---
+
+### `T-153` — §13.2/§13.3 pulam o item de valor desconhecido
+
+- **Tipo:** `Data`
+- **Dependências:** `T-152`
+- **Rastreia:** `RF-73`, `AC-123`, `EC-52`, `DE-02`
+- **Arquivos:** `engine/ataque_imediato.py`
+
+**Descrição**
+
+Com o tipo novo, `calcular_EXTRAORDINARIOS_RECOMENDADOS` (e a soma da §13.2
+que lê o mesmo campo) passa a **pular** item com valor `DESCONHECIDO`, como
+`calcular_ATIVOS_RECOMENDADOS` já faz (`R9M.10` risco 2). Nenhuma outra linha
+da §13.3 muda. A docstring registra que o comportamento só é novo para uma
+entrada que antes não existia.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz: `CONFIRMADO ∧ ATE_30D` com valor `DESCONHECIDO` não
+      compõe `EXTRAORDINARIOS_RECOMENDADOS` e não levanta erro
+- [x] O mesmo item com valor conhecido produz exatamente o resultado de antes
+- [x] Nenhum `dinheiro(0)` substitui o desconhecido
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): §13.2 e §13.3 pulam o item `DESCONHECIDO` (`is not DESCONHECIDO`). Testes que reproduziam (`TypeError: Decimal += Desconhecido` antes): `test_componentes_recomendados.py::test_extraordinario_de_valor_desconhecido_e_pulado_no_recomendado`, `test_ataque_imediato_potencial.py::test_recurso_extraordinario_de_valor_desconhecido_e_pulado_no_potencial`.
+
+---
+
+### `T-154` — Provar que a fatia 5A não muda nenhum gabarito
+
+- **Tipo:** `Test`
+- **Dependências:** `T-153`
+- **Rastreia:** `RF-73`, `AC-123`, `AC-128`, `EC-55`
+- **Arquivos:** nenhum de produção; registro nesta tarefa
+
+**Descrição**
+
+Reexecutar `GAB-A/B/C`, `GAB-01`–`GAB-05`, `GAB-AI-*`, `GAB-NFI-*` e
+`AC-112`–`AC-117` sem nenhuma edição de expectativa. Nenhum desses casos tem
+recurso extraordinário; qualquer diferença é regressão.
+
+**Critérios de aceite**
+
+- [x] Homologação (`pytest -m "gabarito or invariante or gabarito_ataque_imediato or gabarito_classificacao_ativos or gabarito_necessidade_financeira"`)
+      passa com a mesma contagem do fechamento de `T-151`
+- [x] `sha256` de `tests/gabaritos*/`, `tests/invariantes/` e
+      `tests/fixtures/gab_*.json` idêntico ao de antes da fatia (registrado
+      aqui)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): homologação `47 passed` antes e depois da 5A (mesma contagem de `T-151`). `sha256` dos 40 arquivos de `tests/gabaritos*/`, `tests/invariantes/`, `tests/fixtures/gab_*.json` idênticos; digest da lista ordenada `31a35cd8c44296006f54e380ac072ac2fa8800affea3ed7c369628b19d451d2d`.
+
+---
+
+### Fatia 5B — aporte `CONFIRMADO` na projeção-base
+
+### `T-155` — Criar `engine/extraordinarios.py`: partição por item e trava de déficit
+
+- **Tipo:** `Data`
+- **Dependências:** `T-152`
+- **Rastreia:** `RF-70`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `AC-121`,
+  `AC-124`, `AC-126`, `EC-51`, `EC-52`, `EC-54`, `DE-02`
+- **Arquivos:** `engine/extraordinarios.py` (novo)
+
+**Descrição**
+
+Funções puras de `R9M.4`: `MES_PREVISTO_POR_JANELA` (constante normativa
+`1_3M→3`, `4_6M→6`, `7_12M→12`, `OQ-47` — não é `P_*`),
+`MOTIVO_NAO_PROJETADO`, `AporteProjetado`, `ItemNaoProjetado`,
+`selecionar_aportes` e `aportes_por_mes`. Cada `ITEM_ID` cai em exatamente uma
+tupla; `ITEM_ID` repetido → `ValueError`; itens nunca somados entre si
+(só `aportes_por_mes` soma, por mês). `CONFIRMADO ∧ ATE_30D` →
+`ATAQUE_DE_HOJE` (origem única com a §13.3).
+
+**`RF-74` — decisão do responsável do produto (2026-09-30):** a preservação é a
+trava de déficit existente do §13.4: `RESULTADO_MENSAL_ATUAL < 0` →
+`TRAVA_DEFICIT_ESTRUTURAL` para todo item; fora dela `VALOR_DESTINADO = VALOR`.
+Nenhum `P_*` novo, nenhuma dedução de essenciais/sazonais (já fora da
+capacidade — deduzir de novo seria dupla contagem). **Reversível:** a regra
+vive numa única expressão, citada em comentário com esta decisão.
+
+**Critérios de aceite**
+
+- [x] `REGRAS` do módulo cita `RF-70`–`RF-75` e §15
+- [x] Nenhum literal `P_` no módulo (teste estático, `AC-126`)
+- [x] A trava de déficit é uma única expressão, com comentário apontando a
+      decisão de 2026-09-30 e `R9M.10` #1
+- [x] Nenhuma leitura de `TIPO_RECURSO_EXTRAORDINARIO` (o campo nem existe no
+      contrato, `RF-72`)
+- [x] `tests/estatica/` (pureza de `engine/`) passa sem edição
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `engine/extraordinarios.py` criado. Trava de `RF-74` = `trava_deficit_estrutural = RESULTADO_MENSAL_ATUAL < dinheiro(0)` (uma linha, comentário com a decisão de 2026-09-30 e `R9M.10` #1). Ordem dos motivos: certeza → valor `DESCONHECIDO` → `CONFIRMADO ∧ ATE_30D` (`ATAQUE_DE_HOJE`) → `NAO_SEI` → trava. **Correção (2026-09-30, coordenação, conforme `OQ-47`/`OQ-50` da spec):** `MES_PREVISTO_POR_JANELA` inclui `ATE_30D → 1`; só `CONFIRMADO ∧ ATE_30D` fica fora (ataque de hoje, em qualquer conjunto de certezas); `PROVAVEL`/`POSSIVEL` com `ATE_30D` entram no mês 1 do cenário adicional. Testes que reproduziam: `test_incerto_ate_30d_entra_no_mes_1_do_cenario_adicional[PROVAVEL|POSSIVEL]` (falhavam antes), `test_confirmado_ate_30d_fora_tambem_do_cenario_adicional`. Hash de `engine/extraordinarios.py` regravado.
+
+---
+
+### `T-156` — Testar `selecionar_aportes` isoladamente
+
+- **Tipo:** `Test`
+- **Dependências:** `T-155`
+- **Rastreia:** `RF-72`, `RF-73`, `RF-74`, `RF-75`, `AC-121`, `AC-122`,
+  `AC-124`, `AC-126`, `EC-51`, `EC-52`, `EC-54`
+- **Arquivos:** `tests/regras/test_extraordinarios.py` (novo)
+
+**Critérios de aceite**
+
+- [x] Partição: todo `ITEM_ID` de entrada aparece em exatamente uma tupla
+- [x] `ITEM_ID` duplicado → `ValueError`
+- [x] Dois itens no mesmo mês são dois `AporteProjetado`; `aportes_por_mes`
+      soma só por mês
+- [x] `PROVAVEL`/`POSSIVEL` com `certezas={CONFIRMADO}` →
+      `CERTEZA_FORA_DO_CONJUNTO`; valor `DESCONHECIDO` → `VALOR_DESCONHECIDO`
+      (nunca `0`); janela `NAO_SEI` → `JANELA_NAO_SEI`; `ATE_30D` →
+      `ATAQUE_DE_HOJE`
+- [x] `RESULTADO_MENSAL_ATUAL < 0` → todo item `TRAVA_DEFICIT_ESTRUTURAL`;
+      `= 0` e `> 0` → `VALOR_DESTINADO = VALOR` (`AC-126`: `≤` valor)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `tests/regras/test_extraordinarios.py` (bloco `selecionar_aportes`).
+
+---
+
+### `T-157` — `simular_cenario` aceita `aportes` por mês
+
+- **Tipo:** `Data`
+- **Dependências:** `T-155`
+- **Rastreia:** `RF-70`, `EC-53`, `EC-55`
+- **Arquivos:** `engine/ciclo_mensal.py`
+
+**Descrição**
+
+Parâmetro opcional `aportes: Mapping[Meses, Dinheiro] = {}` (imutável como
+padrão). Abertura do mês `m`: `CAPACIDADE_ATAQUE_M += aportes[m]`; virada
+`m→m+1`: subtrai o aporte antes de somar `VALOR_FLUXO_LIBERADO`.
+`executar_mes` não é tocado — o invariante de conservação vale por construção
+e o excedente segue resíduo/`ATAQUE_NAO_UTILIZADO` existentes (`EC-53`).
+
+**Critérios de aceite**
+
+- [x] `git diff` de `executar_mes` vazio
+- [x] Sem `aportes`, o caminho de código é o de hoje
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `simular_cenario(..., aportes=_SEM_APORTES)` (`MappingProxyType({})`); `executar_mes` sem diff.
+
+---
+
+### `T-158` — Testar `simular_cenario` com aportes
+
+- **Tipo:** `Test`
+- **Dependências:** `T-157`
+- **Rastreia:** `RF-70`, `AC-118`, `AC-129`, `EC-53`, `EC-55`
+- **Arquivos:** `tests/regras/test_simular_cenario.py`
+
+**Critérios de aceite**
+
+- [x] Aporte em `m=3`: capacidade do mês 3 = base + aporte; meses 2 e 4 = base
+      (± fluxo liberado)
+- [x] Aporte maior que o saldo restante → excedente em resíduo/
+      `ATAQUE_NAO_UTILIZADO`, invariante de conservação intacto (`EC-53`)
+- [x] `aportes={}` → `Cenario` idêntico campo a campo ao de antes (`EC-55`)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): três testes novos em `tests/regras/test_simular_cenario.py`.
+
+---
+
+### `T-159` — Ligar os aportes-base no passo 7 de `calcular_plano`
+
+- **Tipo:** `Data`
+- **Dependências:** `T-157`
+- **Rastreia:** `RF-70`, `RF-76`, `AC-118`, `AC-119`, `AC-127`, `EC-56`
+- **Arquivos:** `engine/motor.py`
+
+**Descrição**
+
+`R9M.5` passos 1–4: `calcular_diagnostico` continua sem ler
+`recursos_extraordinarios` (`RF-76`); `selecionar_aportes(certezas=
+{CONFIRMADO}, RESULTADO_MENSAL_ATUAL=diagnostico_pre.RESULTADO_MENSAL_ATUAL)`;
+os três `simular_cenario` recebem `aportes_por_mes(aportes_base)`; aporte com
+`mes > PRAZO_TOTAL` do recomendado sai da base como `FORA_DO_HORIZONTE`. O
+resultado (`aportes_base`, `nao_projetados`) fica disponível para `T-162`/
+`T-163` — publicado no snapshot só na 5C.
+
+**Critérios de aceite**
+
+- [x] `calcular_diagnostico` sem diff
+- [x] Comparação, método e `ORDEM_QUITACAO` calculados sobre os cenários com
+      aporte
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `calcular_diagnostico` sem diff; aportes-base nos três `simular_cenario`; `FORA_DO_HORIZONTE` = `mes > PRAZO_TOTAL` do recomendado.
+
+---
+
+### `T-160` — Publicar `parametros-1.0.2.json` com `ENGINE_VERSION` 1.0.2
+
+- **Tipo:** `Infra`
+- **Dependências:** `T-159`
+- **Rastreia:** `RF-70`, `V-03`, `AC-126`
+- **Arquivos:** `parameters/parametros-1.0.2.json` (novo),
+  `scripts/semear_parametros.py` (só se a carga exigir)
+
+**Descrição**
+
+Cópia de 1.0.1 com `ENGINE_VERSION`/`PARAMETROS_VERSION` = `1.0.2`: a mesma
+entrada passa a produzir outro cronograma, e os snapshots precisam ser
+distinguíveis. Mesmos 45 valores.
+
+**Critérios de aceite**
+
+- [x] Diff entre 1.0.1 e 1.0.2 restrito às duas chaves de versão
+- [x] Contagem de `P_*` inalterada (`AC-126`)
+- [x] Snapshot novo carimba `1.0.2`
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `parameters/parametros-1.0.2.json` — diff restrito às duas chaves de versão; 38 linhas `P_*` nos dois. `scripts/semear_parametros.py` NÃO alterado (fora do escopo desta execução): ele fixa `parametros-1.0.1.json`, então semear 1.0.2 no Postgres exige a tarefa `T-168`. O carimbo 1.0.2 só aparece quando o chamador carrega a versão 1.0.2 (`PARAMETROS_VERSION_VIGENTE` na aplicação).
+
+---
+
+### `T-161` — Testar a projeção-base ponta a ponta sobre `calcular_plano`
+
+- **Tipo:** `Test`
+- **Dependências:** `T-159`, `T-160`
+- **Rastreia:** `RF-70`, `RF-72`, `RF-73`, `RF-74`, `RF-76`, `AC-118`,
+  `AC-119`, `AC-121`, `AC-125`, `AC-127`, `AC-129`, `AC-130`, `EC-54`, `EC-56`
+- **Arquivos:** `tests/regras/test_extraordinarios.py`
+
+**Descrição**
+
+Entrada = `EstadoFinanceiro` à mão sobre `gab_b.json` (capacidade positiva)
+e `gab_a.json` (déficit); asserção sempre na saída de `calcular_plano`
+(tabela de `R9M.9`).
+
+**Critérios de aceite**
+
+- [x] `AC-118`/`AC-129`: `CONFIRMADO` em `1_3M`/`4_6M`/`7_12M` → aporte só no
+      mês 3/6/12; `PRAZO_TOTAL` ≤ o sem recurso
+- [x] `AC-119`/`EC-56`: mês além da última quitação → projeção idêntica à sem
+      recurso
+- [x] `AC-121`: dois estados que diferem só no tipo produzem snapshots iguais
+- [x] `AC-125`: mesmo `ITEM_ID` em `4_6M` e depois em `ATE_30D` → no segundo
+      snapshot só em §13.3, nenhum aporte (recebimento = reentrega do item,
+      `R9M.10` #6)
+- [x] `AC-127`: `gab_a` + `CONFIRMADO` alto → `MODO_ESTABILIZACAO`,
+      `STATUS_FINANCEIRO` e capacidades idênticos; nenhum aporte (trava de
+      `RF-74`, decisão de 2026-09-30)
+- [x] `AC-130`/`EC-54`: `ATE_30D` aparece em §13.3 e em nenhum aporte; nenhum
+      aporte depende de `ATAQUE_IMEDIATO_APROVADO`
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `tests/regras/test_extraordinarios.py` (bloco ponta a ponta). `gab_a`/`gab_b` têm saldo `DESCONHECIDO`; o estado `gab_b` recebe dívida com saldo conhecido injetado (`dataclasses.replace`) para haver cronograma.
+
+---
+
+### Fatia 5C — cenário adicional e snapshot
+
+### `T-162` — Calcular o `CenarioAdicional` (passo 10b)
+
+- **Tipo:** `Data`
+- **Dependências:** `T-159`
+- **Rastreia:** `RF-71`, `AC-120`, `AC-131`, `DE-02`
+- **Arquivos:** `engine/extraordinarios.py`, `engine/motor.py`
+
+**Descrição**
+
+`CenarioAdicional` e `ProjecaoExtraordinarios` (`R9M.4`). `selecionar_aportes`
+com as três certezas; se algum `PROVAVEL`/`POSSIVEL` virou aporte,
+`simular_cenario` com o `sel` do método recomendado → `CenarioAdicional`;
+senão `None`. Nada deste passo alimenta comparação, ordem, `Diagnostico` nem
+`ATAQUE_IMEDIATO_RECOMENDADO`.
+
+**Critérios de aceite**
+
+- [x] O passo roda depois da escolha do método e não altera nenhuma variável
+      lida por ela
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `engine/motor.py::_cenario_adicional`, chamado depois de `derivar_METODO_RECOMENDADO_PIQ`/`publicar_ORDEM_QUITACAO`; `CenarioAdicional.aportes` guarda só os aplicados (mês ≤ `PRAZO_TOTAL` dessa projeção).
+
+---
+
+### `T-163` — Campo `SnapshotOrdem.projecao_extraordinarios`
+
+- **Tipo:** `Data`
+- **Dependências:** `T-162`
+- **Rastreia:** `RF-70`, `RF-71`, `EC-51`, `EC-52`, `EC-55`
+- **Arquivos:** `engine/snapshot.py`, `engine/motor.py`
+
+**Critérios de aceite**
+
+- [x] `montar_SnapshotOrdem` recebe e grava `aportes_base`, `nao_projetados`
+      (com `FORA_DO_HORIZONTE`) e `cenario_adicional`
+- [x] Estado sem recurso → `ProjecaoExtraordinarios((), (), None)`
+- [x] Item não projetado continua visível no snapshot com o motivo (`EC-51`,
+      `EC-52`)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): campo com padrão `PROJECAO_VAZIA` em `SnapshotOrdem` e em `montar_SnapshotOrdem` (chamadores existentes, inclusive testes de `app-aluno`, seguem compilando).
+
+---
+
+### `T-164` — Serializar a projeção nos dois repositórios de snapshot
+
+- **Tipo:** `Data`
+- **Dependências:** `T-163`
+- **Rastreia:** `RF-71`, `V-01`, `EC-55`
+- **Arquivos:** `persistencia/arquivo/repositorio_snapshots.py`,
+  `persistencia/supabase/repositorio_snapshots.py`
+
+**Descrição**
+
+A chave nova vai em `dados_completos jsonb`; sem migração. Snapshot antigo
+sem a chave → projeção vazia (verdade para ele, `R9M.7`).
+
+**Critérios de aceite**
+
+- [x] Round-trip arquivo e Postgres preserva a projeção campo a campo
+      (`Decimal` exato)
+- [x] Snapshot gravado antes desta tarefa desserializa com projeção vazia
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): arquivo lê a chave com `bruto.get(...)` (ausente → vazia); Supabase grava em `dados_completos` via `_dados_completos(s)` (extraído para teste sem banco). Round-trip contra Postgres real NÃO executado (sem acesso a banco nesta execução); coberto pelo caminho `_dados_completos` → JSON → `_bruto_para_formato_arquivo`.
+
+---
+
+### `T-165` — Testar o cenário adicional e a persistência
+
+- **Tipo:** `Test`
+- **Dependências:** `T-164`
+- **Rastreia:** `RF-71`, `AC-120`, `AC-122`, `AC-131`
+- **Arquivos:** `tests/regras/test_extraordinarios.py`,
+  `tests/regras/test_repositorio_snapshots.py`
+
+**Critérios de aceite**
+
+- [x] `AC-120`: só `PROVAVEL` (e só `POSSIVEL`) → ordem, método,
+      `PRAZO_TOTAL`, custo e `ATAQUE_IMEDIATO_RECOMENDADO` idênticos ao sem
+      recurso; `cenario_adicional` presente
+- [x] `AC-131`: `PROVAVEL` + `POSSIVEL` → cenário adicional distinto da base e
+      contendo os dois; base sem nenhum
+- [x] `AC-122`: `CONFIRMADO` + `PROVAVEL` iguais → só o primeiro na base
+- [x] Round-trip do snapshot com projeção não vazia
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `test_extraordinarios.py` (AC-120/122/131) e `test_repositorio_snapshots.py::test_T164_*`.
+
+---
+
+### `T-166` — Regravar `hashes_congelados.json` e sinalizar a `app-aluno`
+
+- **Tipo:** `Infra`
+- **Dependências:** `T-165`
+- **Rastreia:** `RF-70`, `RF-71`, `RF-75`
+- **Arquivos:** `tests/app_aluno/estatica/hashes_congelados.json`
+
+**Descrição**
+
+Procedimento de `app-aluno` `RF-41` (rodar o teste de congelamento, regravar
+exatamente o que ele apontar). Todos os arquivos de `engine/` e
+`persistencia/` tocados por `T-152`–`T-164` estão no conjunto congelado. A
+nota desta tarefa sinaliza a `app-aluno`: contrato de entrada (`T-152`) e
+campo de saída (`T-163`) prontos — destrava `T-272`–`T-278` daquele backlog.
+
+**Critérios de aceite**
+
+- [x] `test_engine_congelado.py` passa; o diff do JSON lista só os arquivos
+      tocados por esta rodada
+- [x] Nota de sinalização registrada aqui, sem editar código de `app/`
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `test_engine_congelado.py` apontou exatamente os 7 arquivos tocados + `engine/extraordinarios.py` (novo); só essas 8 entradas regravadas. **Sinalização a `app-aluno`:** contrato de entrada (`RecursoExtraordinario.VALOR_RECURSO_EXTRAORDINARIO: DinheiroTalvez`, `T-152`) e campo de saída (`SnapshotOrdem.projecao_extraordinarios`, `T-163`) prontos — destrava `T-272`–`T-278` daquele backlog. Nenhum código de `app/` editado.
+
+---
+
+### `T-167` — Fechar a Rodada 5: verificação completa e gabaritos inalterados
+
+- **Tipo:** `Docs`
+- **Dependências:** `T-154`, `T-156`, `T-158`, `T-161`, `T-165`, `T-166`
+- **Rastreia:** `RF-70`–`RF-76`, `AC-123`, `AC-128`, `EC-55`
+- **Arquivos:** `tasks/motor-calculo.tasks.md` (esta seção)
+
+**Critérios de aceite**
+
+- [x] `lint`, `build`, `test` e homologação completa rodam; saída real
+      registrada aqui
+- [x] `sha256` de `tests/gabaritos*/`, `tests/invariantes/` e
+      `tests/fixtures/gab_*.json` idêntico ao medido em `T-154`
+      (`AC-128`: tolerância zero, nenhuma expectativa editada)
+- [x] `specs/motor-calculo.spec.md` §10: nota em `OQ-48` registrando a
+      leitura de `RF-74` confirmada pelo produto em 2026-09-30
+- [x] Nenhuma decisão de metodologia tomada além da registrada em `T-155`
+
+**Status:** `[x] concluída`
+
+Nota (2026-09-30): `ruff check engine tests` → `All checks passed!`; `mypy engine persistencia tests` → 2 erros, ambos em `app/http/rotas_respostas.py` (edição paralela de `app-aluno`), nenhum em arquivo desta rodada; `pytest -k "not app_aluno"` → `637 passed, 9 skipped`; homologação → `47 passed`; `sha256` idêntico ao de `T-154`. Suíte completa → `5 failed, 1864 passed, 80 skipped`: `test_acessibilidade_plano` (axe-core, pré-existente) e 4 de `app_aluno` (ciclo completo, conteúdo de questionário, contagem de coleta) que passam ao rodar de novo isolados (`27 passed`) — edição paralela em `collection/`/`app/`. Nota em `OQ-48` (`specs/motor-calculo.spec.md` §10) escrita após autorização da coordenação (2026-09-30).
+
+---
+
+### `T-168` — `scripts/semear_parametros.py` aceitar a versão a semear
+
+- **Tipo:** `Infra`
+- **Dependências:** `T-160`
+- **Rastreia:** `RF-70`, `V-03`
+- **Arquivos:** `scripts/semear_parametros.py`
+
+**Descrição**
+
+Descoberto em `T-160`: o script fixa `parameters/parametros-1.0.1.json`;
+sem mudar isso, `parametros-1.0.2.json` não chega a `motor_calculo.parametros`
+e a aplicação não carimba `1.0.2` em produção.
+
+**Critérios de aceite**
+
+- [x] A versão a semear vem de argumento; o padrão continua 1.0.1
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída`
+
+> Nota de implementação (2026-09-30): `--versao X.Y.Z`; sem ele, a versão vigente do piloto (`PARAMETROS_VERSION_VIGENTE`, a mesma variável que `app/http/rotas_calculo.py` carimba); sem as duas, `1.0.1`. Versão sem `parameters/parametros-<versão>.json` encerra antes de abrir conexão. Testes sem banco em `tests/integracao/test_semear_parametros.py`. **Não aplicado no banco** — semear `1.0.2` é passo operacional (`--versao 1.0.2` ou com a vigente definida).
+
+---
+
+### Cobertura — Rodada 5 (Rodada 9 do projeto)
+
+| Requisito | Tarefas |
+| --- | --- |
+| `RF-70` — `CONFIRMADO` no último mês da janela, dentro do horizonte | `T-155`, `T-157`, `T-158`, `T-159`, `T-160`, `T-161`, `T-163` |
+| `RF-71` — `PROVAVEL`/`POSSIVEL` só no cenário adicional | `T-162`, `T-163`, `T-164`, `T-165` |
+| `RF-72` — só certeza e prazo decidem | `T-155`, `T-156`, `T-161` |
+| `RF-73` — §13.3 inalterado, origem única | `T-153`, `T-154`, `T-155`, `T-156`, `T-161` |
+| `RF-74` — preservação = trava de déficit do §13.4 (decisão do produto) | `T-155`, `T-156`, `T-161`, `T-167` |
+| `RF-75` — item a item, nunca somados | `T-152`, `T-155`, `T-156` |
+| `RF-76` — aceleradores; diagnóstico sem eles | `T-159`, `T-161` |
+
+`AC-118`–`AC-131` e `EC-51`–`EC-56` têm tarefa de teste (`T-154`, `T-156`,
+`T-158`, `T-161`, `T-165`). **Requisitos sem tarefa:** nenhum.

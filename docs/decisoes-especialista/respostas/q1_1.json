@@ -1,0 +1,21 @@
+{
+  "atualizado_em": "2026-09-30T17:13:26.714Z",
+  "decisao": "d1",
+  "falta": "",
+  "obs": "Por definição, Renda total e despesa total tem que ter tudo. Qualquer outra renda ou despesa é uma subdivisão destas duas.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Quais números o aluno deve ver antes de responder? Marque todos que se aplicam.",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "",
+  "tipo": "multipla",
+  "valor": [
+    "Renda total do mês",
+    "Despesas totais do mês",
+    "Despesas por categoria",
+    "Despesas não mensais (convertidas para o mês)",
+    "Parcelas de dívidas",
+    "Sobra do mês"
+  ]
+}

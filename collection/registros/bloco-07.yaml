@@ -1,10 +1,13 @@
 # Bloco 7 — Renegociação (§11 da spec canônica, `specs/piq-app-spec.md`).
 #
-# Escopo desta tarefa (T-18): apenas `B7.05` a `B7.16` — o trecho da proposta
-# de renegociação em si, reaberto integralmente por `RESULTADO_ACAO_RENEGOCIACAO
-# = Sim` (B11.03-REN, RF-27). `B7.01`–`B7.04` (tentativa anterior/proposta
-# concreta) e `B7.S01`/`B7.EX01`–`B7.EX03` (seguro na proposta / execução) NÃO
-# fazem parte do escopo declarado na tarefa e ficam para transcrição futura.
+# Escopo desta tarefa (T-18): `B7.05` a `B7.16` — o trecho da proposta de
+# renegociação em si, reaberto integralmente por `RESULTADO_ACAO_RENEGOCIACAO
+# = Sim` (B11.03-REN, RF-27). v1.0.3 (T-242, `E-15`, `DE-07`): `B7.04`
+# (proposta concreta, que todas as condições abaixo leem) é transcrito, e
+# nascem `B7.04A` (tipo da proposta) e `B7.07V` (valor à vista); as
+# condições passam a depender do tipo (decisão do produto `R9-3`: à vista
+# mostra valor, validade, desconto e fonte). `B7.01`–`B7.03` e
+# `B7.S01`/`B7.EX01`–`B7.EX03` continuam para transcrição futura.
 #
 # Todas as perguntas deste bloco pertencem à ficha de dívida (`DIVIDA_ID`,
 # RF-17): o motor sinaliza em `ORDEM_ACOES` quais dívidas são candidatas a
@@ -14,9 +17,60 @@
 # RENEGOCIACAO` citados literalmente (a variável é seleção única de B7.04,
 # não checklist).
 
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 
 perguntas:
+  - ID: B7.04
+    bloco: 7
+    enunciado: >-
+      Você possui hoje uma proposta concreta do credor para renegociar ou
+      quitar esta dívida?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "Sim, e a proposta ainda está válida.", valor_interno: VIGENTE }
+      - { rotulo: "Sim, mas não sei se ainda está válida.", valor_interno: VALIDADE_DESCONHECIDA }
+      - { rotulo: "Recebi uma proposta, mas ela já expirou.", valor_interno: EXPIRADA }
+      - { rotulo: "Não tenho uma proposta atualmente.", valor_interno: NAO }
+    VARIAVEL_GRAVADA: EXISTE_PROPOSTA_RENEGOCIACAO
+    # "Dívida qualificada para B7": quem qualifica é a coleta dirigida pelo
+    # motor (`app/casos/coleta_dirigida.py`), nunca uma condição aqui.
+    condicao_exibicao: null
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: >-
+      NAO → STATUS_PROCESSO_RENEGOCIACAO = AGUARDANDO_PROPOSTA; gera ação; não
+      pedir condições hipotéticas. VIGENTE/VALIDADE_DESCONHECIDA → B7.04A e
+      B7.05–B7.16. EXPIRADA → idem, como histórico (não determina decisão).
+
+  - ID: B7.04A
+    bloco: 7
+    enunciado: A proposta é para pagar à vista, parcelado ou existem as duas opções?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "À vista.", valor_interno: A_VISTA }
+      - { rotulo: "Parcelada.", valor_interno: PARCELADA }
+      - { rotulo: "Existem as duas opções.", valor_interno: AMBAS }
+    VARIAVEL_GRAVADA: TIPO_PROPOSTA
+    condicao_exibicao: &condicao_proposta_vigente_validade_desconhecida_ou_expirada
+      tipo: OU
+      termos:
+        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: VIGENTE }
+        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: VALIDADE_DESCONHECIDA }
+        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: EXPIRADA }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: >-
+      À vista → B7.07V + desconto + B7.15 + B7.16; parcelada → B7.05–B7.14 +
+      B7.15 + B7.16; ambas → os dois conjuntos (E-15, decisão R9-3).
+
   - ID: B7.05
     bloco: 7
     enunciado: O que essa proposta oferece ou pretende fazer?
@@ -35,12 +89,14 @@ perguntas:
       - { rotulo: "Retirar seguro, tarifa ou outro custo", valor_interno: RETIRAR_SEGURO_TARIFA_OU_OUTRO_CUSTO }
       - { rotulo: "Outra condição", valor_interno: OUTRA_CONDICAO }
     VARIAVEL_GRAVADA: OBJETIVO_RENEGOCIACAO
-    condicao_exibicao: &condicao_proposta_vigente_validade_desconhecida_ou_expirada
-      tipo: OU
+    condicao_exibicao: &condicao_parcelada
+      tipo: E
       termos:
-        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: VIGENTE }
-        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: VALIDADE_DESCONHECIDA }
-        - { tipo: IGUAL, variavel: EXISTE_PROPOSTA_RENEGOCIACAO, valor: EXPIRADA }
+        - *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+        - tipo: OU
+          termos:
+            - { tipo: IGUAL, variavel: TIPO_PROPOSTA, valor: PARCELADA }
+            - { tipo: IGUAL, variavel: TIPO_PROPOSTA, valor: AMBAS }
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -58,7 +114,31 @@ perguntas:
       - { rotulo: "Não", valor_interno: "NAO" }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: PROPOSTA_ENTRADA
-    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    condicao_exibicao: *condicao_parcelada
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  - ID: B7.07V
+    bloco: 7
+    enunciado: Qual é o valor para quitar esta dívida à vista, nessa proposta?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: null, admite_nao_sei: true }
+    VARIAVEL_GRAVADA: VALOR_QUITACAO_A_VISTA_PROPOSTA
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+        - tipo: OU
+          termos:
+            - { tipo: IGUAL, variavel: TIPO_PROPOSTA, valor: A_VISTA }
+            - { tipo: IGUAL, variavel: TIPO_PROPOSTA, valor: AMBAS }
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -73,10 +153,9 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "Não há parcelas; é quitação à vista.", valor_interno: "A_VISTA" }
       - { rotulo: "Não sei.", valor_interno: "DESCONHECIDA" }
     VARIAVEL_GRAVADA: PROPOSTA_PARCELA
-    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -93,9 +172,7 @@ perguntas:
       - { rotulo: "___ parcelas", valor_interno: null }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: PROPOSTA_QTD_PARCELAS
-    condicao_exibicao:
-      tipo: NAO
-      termo: { tipo: IGUAL, variavel: PROPOSTA_PARCELA, valor: A_VISTA }
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -113,9 +190,7 @@ perguntas:
       - { rotulo: "Sim → informar prazo (meses)", valor_interno: "SIM" }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: PROPOSTA_PRAZO
-    condicao_exibicao:
-      tipo: NAO
-      termo: { tipo: IGUAL, variavel: PROPOSTA_PARCELA, valor: A_VISTA }
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -133,7 +208,7 @@ perguntas:
       - { rotulo: "Não", valor_interno: "NAO" }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: "PROPOSTA_TAXA (+ periodicidade)"
-    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -151,7 +226,7 @@ perguntas:
       - { rotulo: "Não", valor_interno: "NAO" }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: "PROPOSTA_CET (+ periodicidade)"
-    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -169,7 +244,7 @@ perguntas:
       - { rotulo: "Não", valor_interno: "NAO" }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: PROPOSTA_CUSTO_TOTAL
-    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -200,21 +275,123 @@ perguntas:
     tipo: SELECAO_UNICA
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
+    # v1.0.3 (`E-12`, T-237): grava só o TIPO do desconto; os valores vão
+    # em campos separados (B7.13B–B7.13E).
     opcoes:
-      - { rotulo: "R$ ______", valor_interno: VALOR }
-      - { rotulo: "____ %", valor_interno: PERCENTUAL }
-      - { rotulo: "O credor informou apenas que existe desconto, sem detalhar.", valor_interno: O_CREDOR_INFORMOU_APENAS_QUE_EXISTE_DESCONTO_SEM_DETALHAR }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Em reais (R$)", valor_interno: VALOR }
+      - { rotulo: "Em percentual (%)", valor_interno: PERCENTUAL }
+      - { rotulo: "Em reais e em percentual", valor_interno: VALOR_E_PERCENTUAL }
+      - { rotulo: "O credor informou apenas que existe desconto, sem detalhar.", valor_interno: SEM_DETALHE }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: PROPOSTA_DESCONTO
-    condicao_exibicao:
-      tipo: IGUAL
-      variavel: PROPOSTA_DESCONTO_EXISTE
-      valor: "SIM"
+    condicao_exibicao: &condicao_existe_desconto
+      tipo: E
+      termos:
+        - *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+        - { tipo: IGUAL, variavel: PROPOSTA_DESCONTO_EXISTE, valor: "SIM" }
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
     admite_nao_sei: true
     salto_consequencia: null
+
+  # v1.0.3 (`E-12`, `DE-03`; T-237): os cinco campos do desconto, guardados
+  # separados. A base é o "valor atual de quitação antes do desconto" —
+  # nunca "saldo devedor". Enunciados: redação proposta (`OQ-67`).
+
+  - ID: B7.13B
+    bloco: 7
+    enunciado: Qual é o valor atual para quitar esta dívida, antes do desconto?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não sei.", valor_interno: null, admite_nao_sei: true }
+    VARIAVEL_GRAVADA: VALOR_QUITACAO_ANTES_DESCONTO
+    condicao_exibicao: *condicao_existe_desconto
+    interpolacoes: []
+    validacoes_cruzadas:
+      - variavel_esquerda: VALOR_QUITACAO_ANTES_DESCONTO
+        operador: ">="
+        variavel_direita: PROPOSTA_DESCONTO_VALOR
+        escopo: DIVIDA_ID
+        mensagem: O desconto em reais não pode ser maior que o valor de quitação antes do desconto.
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Base do desconto; o % nunca incide sobre outro valor (RF-83)."
+
+  - ID: B7.13C
+    bloco: 7
+    enunciado: Qual é o valor do desconto, em reais?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+    VARIAVEL_GRAVADA: PROPOSTA_DESCONTO_VALOR
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - *condicao_existe_desconto
+        - tipo: OU
+          termos:
+            - { tipo: IGUAL, variavel: PROPOSTA_DESCONTO, valor: VALOR }
+            - { tipo: IGUAL, variavel: PROPOSTA_DESCONTO, valor: VALOR_E_PERCENTUAL }
+    interpolacoes: []
+    validacoes_cruzadas:
+      - variavel_esquerda: PROPOSTA_DESCONTO_VALOR
+        operador: "<="
+        variavel_direita: VALOR_QUITACAO_ANTES_DESCONTO
+        escopo: DIVIDA_ID
+        mensagem: O desconto em reais não pode ser maior que o valor de quitação antes do desconto.
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B7.13D
+    bloco: 7
+    enunciado: Qual é o percentual do desconto?
+    tipo: TAXA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "____ %", valor_interno: null }
+    VARIAVEL_GRAVADA: PROPOSTA_DESCONTO_PERCENTUAL
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - *condicao_existe_desconto
+        - tipo: OU
+          termos:
+            - { tipo: IGUAL, variavel: PROPOSTA_DESCONTO, valor: PERCENTUAL }
+            - { tipo: IGUAL, variavel: PROPOSTA_DESCONTO, valor: VALOR_E_PERCENTUAL }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    faixa:
+      minimo: 0
+      maximo: 100
+      mensagem: O percentual de desconto precisa estar entre 0% e 100%.
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  - ID: B7.13E
+    bloco: 7
+    enunciado: O credor informou o valor final para quitar, já com o desconto?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+      - { rotulo: "Não informou / não sei.", valor_interno: null, admite_nao_sei: true }
+    VARIAVEL_GRAVADA: PROPOSTA_VALOR_FINAL_QUITACAO
+    condicao_exibicao: *condicao_existe_desconto
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Valor final do credor prevalece como referência (RF-83)."
 
   - ID: B7.14
     bloco: 7
@@ -227,7 +404,7 @@ perguntas:
       - { rotulo: "Não", valor_interno: "NAO" }
       - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
     VARIAVEL_GRAVADA: PROPOSTA_CUSTOS_ADICIONAIS
-    condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
+    condicao_exibicao: *condicao_parcelada
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
@@ -259,11 +436,12 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Sim, documento/contrato.", valor_interno: null }
-      - { rotulo: "Sim, aplicativo ou internet banking.", valor_interno: null }
-      - { rotulo: "Sim, mensagem/e-mail.", valor_interno: null }
-      - { rotulo: "Foi apenas informada em atendimento.", valor_interno: null }
-      - { rotulo: "Não tenho registro.", valor_interno: null }
+      # RF-91 (`T-261`, `AC-140`): nível de comprovação por opção.
+      - { rotulo: "Sim, documento/contrato.", valor_interno: DOCUMENTO_CONTRATO, nivel_comprovacao: COMPROVADO }
+      - { rotulo: "Sim, aplicativo ou internet banking.", valor_interno: APLICATIVO, nivel_comprovacao: COMPROVADO }
+      - { rotulo: "Sim, mensagem/e-mail.", valor_interno: MENSAGEM_EMAIL, nivel_comprovacao: COMPROVADO }
+      - { rotulo: "Foi apenas informada em atendimento.", valor_interno: ATENDIMENTO, nivel_comprovacao: PENDENTE_DE_CONFIRMACAO }
+      - { rotulo: "Não tenho registro.", valor_interno: SEM_REGISTRO, nivel_comprovacao: INFORMADO }
     VARIAVEL_GRAVADA: "FONTE_DADO (proposta)"
     condicao_exibicao: *condicao_proposta_vigente_validade_desconhecida_ou_expirada
     interpolacoes: []

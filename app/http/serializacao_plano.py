@@ -25,15 +25,38 @@ REGRAS: `RF-50`, `RF-51`, `RF-21`, `AC-14`, `AC-16`
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Final
 
+from app.revisao.comprovacao import NivelDaFicha
 from app.revisao.fila import ItemFila
-from report.plano import ContextoEstadoInputs, ContextoPlano
+from report.plano import ContextoEstadoInputs, ContextoPlano, TextosCanonicosPlano
 
 REGRAS: Final[tuple[str, ...]] = ("RF-50", "RF-51", "RF-21", "AC-14", "AC-16")
 
 
-def serializar_plano(contexto: ContextoPlano) -> dict[str, Any]:
+def rotulo_do_nivel(nivel: NivelDaFicha, textos: TextosCanonicosPlano) -> str:
+    """`RF-91` — o rótulo do nível, de `textos-canonicos.yaml`; fonte sem
+    resposta é "não informado", nunca um nível presumido."""
+    chave = nivel.nivel.value if nivel.nivel is not None else "NAO_INFORMADO"
+    return textos.rotulos_de_comprovacao.get(chave, chave)
+
+
+def fontes_por_divida(
+    niveis: tuple[NivelDaFicha, ...], textos: TextosCanonicosPlano
+) -> dict[str, str]:
+    """`RF-92` (`T-267`) — `item_id` → rótulo da fonte dos DADOS da dívida:
+    a primeira pergunta de fonte da ficha, na ordem dos registros (a do
+    Bloco 5; as de proposta vêm depois)."""
+    fontes: dict[str, str] = {}
+    for nivel in niveis:
+        fontes.setdefault(nivel.item_id, rotulo_do_nivel(nivel, textos))
+    return fontes
+
+
+def serializar_plano(
+    contexto: ContextoPlano, fontes: Mapping[str, str] | None = None
+) -> dict[str, Any]:
     """`ContextoPlano` → JSON, campo a campo.
 
     `titulo` e `corpo` são a redação canônica de `Q-03`, carregada de
@@ -43,7 +66,12 @@ def serializar_plano(contexto: ContextoPlano) -> dict[str, Any]:
     O carimbo de versão (`ENGINE_VERSION`/`PARAMETROS_VERSION`) acompanha a
     saída, como `AC-16` exige — uma tela sem carimbo é uma tela que não diz
     de qual cálculo veio.
+
+    `fontes` (`T-267`, `RF-92`): `DIVIDA_ID` → rótulo da fonte de
+    comprovação, derivado das respostas (não do snapshot); `None` quando a
+    dívida não tem ficha ativa.
     """
+    fontes = fontes or {}
     return {
         "titulo": contexto.titulo,
         "corpo": contexto.corpo,
@@ -59,6 +87,7 @@ def serializar_plano(contexto: ContextoPlano) -> dict[str, Any]:
                 # duas viajam: quem escolhe qual mostrar é cada tela.
                 "JUSTIFICATIVA_POSICAO": posicao.JUSTIFICATIVA_POSICAO,
                 "explicacao": posicao.explicacao,
+                "fonte": fontes.get(posicao.DIVIDA_ID),
                 "valores_de_apoio": [
                     {"rotulo": rotulo, "valor": valor}
                     for rotulo, valor in posicao.valores_de_apoio
@@ -98,6 +127,24 @@ def serializar_plano(contexto: ContextoPlano) -> dict[str, Any]:
             "pendente_de_decisao": contexto.reserva_mobilizavel.pendente_de_decisao,
             "valor": contexto.reserva_mobilizavel.valor,
         },
+        # `T-276` (RF-98, AC-152): seção à parte, lida do snapshot pelo
+        # contexto — nenhum campo acima vem daqui.
+        "cenario_adicional": None
+        if contexto.cenario_adicional is None
+        else {
+            "rotulo": contexto.cenario_adicional.rotulo,
+            "explicacao": contexto.cenario_adicional.explicacao,
+            "PRAZO_TOTAL": contexto.cenario_adicional.PRAZO_TOTAL,
+            "CUSTO_FUTURO_TOTAL": contexto.cenario_adicional.CUSTO_FUTURO_TOTAL,
+            "ordem": list(contexto.cenario_adicional.ordem),
+            "itens": [
+                {"ITEM_ID": item.ITEM_ID, "mes": item.mes, "valor": item.valor}
+                for item in contexto.cenario_adicional.itens
+            ],
+        },
+        "nao_projetados": [
+            {"ITEM_ID": item_id, "motivo": motivo} for item_id, motivo in contexto.nao_projetados
+        ],
     }
 
 

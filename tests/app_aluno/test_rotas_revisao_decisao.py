@@ -50,11 +50,14 @@ from app.http.rotas_revisao import (
     obter_repositorio_eventos_da_decisao,
     obter_repositorio_revisoes_da_decisao,
     obter_repositorio_snapshots_da_fila,
+    pendencias_homologacao_do_caso,
+    respostas_e_itens_da_revisao,
 )
 from app.http.sessao import iniciar_sessao_conta
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.motor.executor import ParametrosDoCalculo, executar_calculo
 from app.revisao.fila import DECISAO_REVISAO, RegistroRevisao
+from collection.respostas import RespostasCaso
 from engine.estado import EstadoFinanceiro
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.arquivo import RepositorioCasosArquivo, RepositorioEventosCasoArquivo
@@ -62,6 +65,7 @@ from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from persistencia.arquivo.repositorio_snapshots import RepositorioSnapshotsArquivo
 from tests.app_aluno.e2e.test_mecanismo_isolamento import _rotas_api_achatadas
 from tests.app_aluno.fixtures.caso_completo import DATA_REFERENCIA, caso_completo
+from tests.app_aluno.fixtures.sem_respostas import sem_respostas_nem_itens
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-nao-usar-em-producao"
 _PARAMETROS_VERSAO = "1.0.1"
@@ -178,6 +182,13 @@ def _montar_aplicacao(
         repositorio_eventos
     )
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: _CONTA_ID_REVISOR
+    # `T-264`: sem pendência de homologação — a recusa tem suíte própria
+    # (`test_liberacao_homologacao.py`).
+    aplicacao.dependency_overrides[pendencias_homologacao_do_caso] = lambda: ()
+    aplicacao.dependency_overrides[respostas_e_itens_da_revisao] = lambda: (
+        RespostasCaso(respostas=()),
+        {},
+    )
     # A rota do aluno (GET /caso/{CASO_ID}/plano, T-64) usa seus PRÓPRIOS
     # pontos de injeção (`app.http.isolamento.obter_repositorio_casos`,
     # `app.http.rotas_plano.obter_repositorio_snapshots`) — distintos dos
@@ -190,6 +201,7 @@ def _montar_aplicacao(
     aplicacao.dependency_overrides[obter_repositorio_snapshots_do_aluno] = lambda: (
         repositorio_snapshots
     )
+    sem_respostas_nem_itens(aplicacao)  # `T-267`: fonte lida das respostas
     return aplicacao
 
 

@@ -286,6 +286,35 @@ def test_recurso_extraordinario_futuro_e_nao_confirmado_compoe_o_potencial() -> 
 
 
 @pytest.mark.regra
+def test_recurso_extraordinario_de_valor_desconhecido_e_pulado_no_potencial() -> None:
+    """`EC-52` · `RF-73` (`T-153`): valor `DESCONHECIDO` não soma na
+    parcela 4 da §13.2 nem levanta erro — pulado, nunca tratado como `0`
+    (mesma disciplina dos ativos de valor desconhecido)."""
+    obtido = calcular_ATAQUE_IMEDIATO_POTENCIAL(
+        DINHEIRO_DISPONIVEL=dinheiro(0),
+        RESERVA_MOBILIZAVEL=dinheiro(0),
+        investimentos=(),
+        recursos_extraordinarios=(
+            RecursoExtraordinario(
+                ITEM_ID="SEM_VALOR",
+                VALOR_RECURSO_EXTRAORDINARIO=DESCONHECIDO,
+                JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO.ATE_30D,
+                CERTEZA_RECURSO_EXTRAORDINARIO=CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO,
+            ),
+            _recurso(
+                "R1",
+                7000,
+                janela=JANELA_RECURSO_EXTRAORDINARIO.SETE_A_DOZE_MESES,
+                certeza=CERTEZA_RECURSO_EXTRAORDINARIO.POSSIVEL,
+            ),
+        ),
+        ativos=(),
+    )
+
+    assertar_exato(obtido, dinheiro(7000))
+
+
+@pytest.mark.regra
 def test_investimento_sem_liquidez_nao_e_liquido_mobilizavel() -> None:
     """§13.2: a parcela é `INVESTIMENTOS_LIQUIDOS_MOBILIZAVEIS` — líquidos E
     mobilizáveis. O investimento recomendável SEM liquidez não é líquido, e

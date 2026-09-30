@@ -32,6 +32,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
+from collection.respostas import NaoSei
+
 if TYPE_CHECKING:
     # Import só de tipo — mesmo motivo de `collection/condicoes.py`: evitar
     # ciclo real na carga do interpretador com `collection/registro.py`.
@@ -129,6 +131,10 @@ def validar_cruzada(
     valor_esquerdo = respostas.valor_no_item(item_id, validacao.variavel_esquerda)
     valor_direito = respostas.valor_no_item(item_id, validacao.variavel_direita)
     if valor_esquerdo is None or valor_direito is None:
+        return ResultadoValidacao(valida=True)
+    # "Não sei" num dos lados também é "nada para comparar" (`T-241`): sem
+    # isto, `Decimal <= NAO_SEI` levantava `TypeError` na gravação.
+    if isinstance(valor_esquerdo, NaoSei) or isinstance(valor_direito, NaoSei):
         return ResultadoValidacao(valida=True)
 
     if aplicar(valor_esquerdo, valor_direito):

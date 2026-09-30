@@ -59,6 +59,35 @@ export interface Pergunta {
   respondida_como_nao_sei: boolean
   valores_marcados: string[]
   aviso: string | null
+  /**
+   * O painel da fotografia do mês (`RF-79`, `RF-80`, T-227) — só na pergunta
+   * cujo registro o declara. Ausente em todas as outras.
+   */
+  painel?: PainelFotografia
+}
+
+/** Uma linha das decomposições da fotografia — valor e destino da correção. */
+export interface LinhaDaFotografia {
+  item_id: string
+  rotulo: string | null
+  /** String decimal; `null` = não informado. */
+  valor_mensal: string | null
+  corrigir: { ID_PERGUNTA: string | null; item_id: string }
+}
+
+/**
+ * `B3.C00` — os três números, todos do servidor (`RF-79`). `null` = não
+ * informado, nunca `0` (`EC-28`); `parcial` marca o total com item "não sei"
+ * (decisão `R9-2`).
+ */
+export interface PainelFotografia {
+  tipo: 'FOTOGRAFIA_DO_MES'
+  renda_total: string | null
+  despesas_totais: string | null
+  sobra_antes_das_dividas: string | null
+  parcial: { renda: boolean; despesas: boolean; sobra: boolean }
+  despesas_por_item: LinhaDaFotografia[]
+  nao_mensais_por_item: LinhaDaFotografia[]
 }
 
 export interface RespostaPergunta {
@@ -77,11 +106,21 @@ export interface Ficha {
   pede_nome: boolean
   completa: boolean
   campos: Pergunta[]
+  /** O item dentro do qual esta ficha foi criada — a margem no vínculo (`T-254`). */
+  item_pai_id?: string | null
+  /** As fichas criadas dentro desta, cada uma sob o seu pai — nunca somadas (`AC-138`). */
+  margens?: Ficha[]
+  /** O que perde o pai se esta ficha for removida (`EC-35`). */
+  dependentes?: { margens: string[]; dividas: string[] }
 }
 
 export interface ListaDeFichas {
   CASO_ID: string
   escopo: string
+  /** O escopo dentro do qual este é criado, ou `null` (`T-254`). */
+  escopo_pai?: string | null
+  /** Os escopos criados dentro de cada ficha deste (`T-254`). */
+  escopos_filhos?: string[]
   fichas: Ficha[]
 }
 
@@ -116,6 +155,18 @@ export interface ConfirmacaoDeResposta {
    * resposta comum. Quem decide é o servidor (`RF-52`).
    */
   abrir_fichas: string[]
+  /**
+   * Avisos da gravação (`RF-84`, T-240) — a resposta JÁ foi gravada; o
+   * aviso só sinaliza algo a conferir (ex.: desconto em R$ e em % que não
+   * batem). Vazio na resposta comum.
+   */
+  avisos?: AvisoDeGravacao[]
+}
+
+export interface AvisoDeGravacao {
+  codigo: string
+  mensagem: string
+  ID_PERGUNTA: string
 }
 
 /** Erro tipado da API — o servidor sempre nomeia o motivo. */
@@ -152,6 +203,12 @@ export interface PosicaoDaOrdem {
    * visível, em vez de não explicar nada.
    */
   explicacao: string
+  /**
+   * Fonte de comprovação dos dados desta dívida — `RF-92`, `T-267`. O
+   * rótulo do nível vem pronto do servidor (`textos-canonicos.yaml`);
+   * `null` quando a dívida não tem ficha ativa.
+   */
+  fonte?: string | null
   valores_de_apoio: ValorDeApoio[]
 }
 
@@ -187,6 +244,25 @@ export interface Plano {
   MODO_ESTABILIZACAO: boolean
   RESULTADO_CAIXA_OBSERVADO: string
   reserva_mobilizavel: ReservaMobilizavel
+  /**
+   * `RF-98`, `AC-152` (`T-276`): a segunda projeção do motor, com os
+   * recursos extraordinários prováveis e possíveis. Seção À PARTE — nenhum
+   * número daqui entra no plano acima. `null` quando o motor não a projetou;
+   * opcional só para os planos montados à mão nos testes de outras telas.
+   */
+  cenario_adicional?: CenarioAdicional | null
+  /** Itens que a projeção-base deixou de fora, com o motivo do motor. */
+  nao_projetados?: { ITEM_ID: string; motivo: string }[]
+}
+
+export interface CenarioAdicional {
+  /** Rótulo e explicação de `textos-canonicos.yaml` — verbatim. */
+  rotulo: string
+  explicacao: string
+  PRAZO_TOTAL: string
+  CUSTO_FUTURO_TOTAL: string
+  ordem: string[]
+  itens: { ITEM_ID: string; mes: number; valor: string }[]
 }
 
 export interface RespostaPlano {
@@ -240,6 +316,7 @@ export type Fase = 'coleta' | 'revisao' | 'reprovado' | 'plano' | 'acompanhament
 export type DestinoDaEtapa =
   | 'consentimento'
   | 'pergunta'
+  | 'inventario'
   | 'calculando'
   | 'aguardando'
   | 'progresso'

@@ -64,6 +64,7 @@ PREFIXO_POR_ESCOPO: Final[dict[EscopoRepeticao, str]] = {
     EscopoRepeticao.ACAO_ID: "A",
     EscopoRepeticao.RENDA_ADICIONAL_ID: "REND",
     EscopoRepeticao.DESPESA_NAO_MENSAL_ID: "NM",
+    EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID: "EXT",
 }
 
 
@@ -76,6 +77,18 @@ def perguntas_da_ficha(
     codificada à mão neste módulo — uma pergunta muda de escopo editando o
     YAML (`collection/registros/`), nunca este código."""
     return tuple(registro for registro in registros if registro.escopo_repeticao == escopo)
+
+
+def escopo_pai(
+    registros: tuple[RegistroPergunta, ...], escopo: EscopoRepeticao
+) -> EscopoRepeticao | None:
+    """`T-254` (RF-90) — o escopo dentro do qual uma ficha de `escopo` é
+    criada (a margem dentro do vínculo), lido de `RegistroPergunta.
+    escopo_pai` no YAML. `None`: ficha de primeiro nível."""
+    return next(
+        (r.escopo_pai for r in perguntas_da_ficha(registros, escopo) if r.escopo_pai),
+        None,
+    )
 
 
 def erro_escopo_sem_item(escopo: EscopoRepeticao) -> ValueError:

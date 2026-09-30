@@ -104,3 +104,29 @@ rotulos_de_pendencia:
   PARCELA_CONTRATUAL: "o valor da parcela do contrato"
   PAGAMENTO_MENSAL_EFETIVO: "quanto você paga por mês"
   CUSTO_SEGURO: "o custo do seguro"
+
+# ---------------------------------------------------------------------------
+# Fonte de comprovação — RF-91, RF-92 (T-267, T-266, DE-06).
+#
+# Os três níveis são a redação de `DE-06` (`q6_1`). "Não informado" é a
+# fonte ainda sem resposta e o seguro "não sei" (`EC-39`) — redação
+# proposta, aprovação do produto (`OQ-67`). As chaves são
+# `collection.registro.NIVEL_COMPROVACAO`.
+rotulos_de_comprovacao:
+  COMPROVADO: "Comprovado por documento/registro"
+  INFORMADO: "Informado pelo aluno, sem comprovação"
+  PENDENTE_DE_CONFIRMACAO: "Pendente de confirmação"
+  NAO_INFORMADO: "Não informado"
+
+# ---------------------------------------------------------------------------
+# Cenário adicional — RF-98, AC-152 (T-276, DE-02).
+#
+# Segunda projeção do motor, com os recursos extraordinários "prováveis" e
+# "possíveis". Aparece em seção própria, abaixo do plano, e nunca altera os
+# números dele. Redação proposta — aprovação do produto (OQ-67).
+cenario_adicional:
+  titulo: "Cenário adicional: se os valores incertos chegarem"
+  explicacao: >-
+    Esta projeção inclui os valores extraordinários que você marcou como
+    prováveis ou possíveis. Eles não fazem parte do seu plano: só passam a
+    contar quando forem efetivamente recebidos.

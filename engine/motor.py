@@ -115,11 +115,20 @@ from engine.ataque_imediato import (
     derivar_RESERVA_RECOMENDADA,
 )
 from engine.beneficio_marginal import BeneficioMarginal, calcular_beneficio_marginal
-from engine.ciclo_mensal import Cenario, simular_cenario
+from engine.ciclo_mensal import Cenario, SelecionarAlvo, simular_cenario
 from engine.comparacao import comparar_cenarios
-from engine.diagnostico import calcular_diagnostico
-from engine.estado import Divida, EstadoFinanceiro
+from engine.diagnostico import Diagnostico, calcular_diagnostico
+from engine.estado import CERTEZA_RECURSO_EXTRAORDINARIO, Divida, EstadoFinanceiro
 from engine.eventos import avaliar_gatilho_recalculo
+from engine.extraordinarios import (
+    MOTIVO_NAO_PROJETADO,
+    AporteProjetado,
+    CenarioAdicional,
+    ItemNaoProjetado,
+    ProjecaoExtraordinarios,
+    aportes_por_mes,
+    selecionar_aportes,
+)
 from engine.gates import (
     NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL,
     AcaoRequerida,
@@ -154,7 +163,11 @@ REGRAS: Final[tuple[str, ...]] = (
     "RF-66",
     "RF-67",
     "RF-68",
+    "RF-70",
+    "RF-71",
+    "RF-76",
     "§14.2.4",
+    "§15",
 )
 
 
@@ -324,6 +337,51 @@ def _compor_ATAQUE_IMEDIATO_RECOMENDADO(
     )
 
 
+def _cenario_adicional(
+    *,
+    estado: EstadoFinanceiro,
+    diagnostico_pre: Diagnostico,
+    dividas: Mapping[str, Divida],
+    metodo: METODO,
+    sel: SelecionarAlvo,
+    parametros: Parametros,
+) -> CenarioAdicional | None:
+    """RF-71 · OQ-49 · plano R9M.5 passo 5 (`T-162`) — segunda projeção,
+    só do método recomendado da base, com `CONFIRMADO`, `PROVAVEL` e
+    `POSSIVEL`. `None` quando nenhum `PROVAVEL`/`POSSIVEL` virou aporte.
+    Roda DEPOIS da escolha do método e nada do que devolve alimenta
+    comparação, ordem, `Diagnostico` nem `ATAQUE_IMEDIATO_RECOMENDADO`
+    (`AC-120`). `aportes` guarda só os aplicados (mês ≤ `PRAZO_TOTAL` desta
+    projeção, mesmo horizonte da base).
+    """
+    aportes, _ = selecionar_aportes(
+        estado.recursos_extraordinarios,
+        certezas=frozenset(CERTEZA_RECURSO_EXTRAORDINARIO),
+        RESULTADO_MENSAL_ATUAL=diagnostico_pre.RESULTADO_MENSAL_ATUAL,
+    )
+    certeza_por_item = {
+        recurso.ITEM_ID: recurso.CERTEZA_RECURSO_EXTRAORDINARIO
+        for recurso in estado.recursos_extraordinarios
+    }
+    if all(
+        certeza_por_item[aporte.ITEM_ID] is CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO
+        for aporte in aportes
+    ):
+        return None
+    cenario = simular_cenario(
+        estado, diagnostico_pre, dividas, sel, parametros, aportes_por_mes(aportes)
+    )
+    return CenarioAdicional(
+        metodo=metodo,
+        ORDEM_QUITACAO=cenario.ORDEM_QUITACAO,
+        PRAZO_TOTAL=cenario.PRAZO_TOTAL,
+        CUSTO_FUTURO_TOTAL=cenario.CUSTO_FUTURO_TOTAL,
+        MESES_PRIMEIRA_VITORIA=cenario.MESES_PRIMEIRA_VITORIA,
+        ESTOUROU_HORIZONTE=cenario.ESTOUROU_HORIZONTE,
+        aportes=tuple(aporte for aporte in aportes if aporte.mes <= cenario.PRAZO_TOTAL),
+    )
+
+
 def calcular_plano(
     estado: EstadoFinanceiro,
     parametros: Parametros,
@@ -369,6 +427,17 @@ def calcular_plano(
 
         dividas = _inventario(estado)
 
+        # RF-70/RF-74/RF-76 (T-159, plano R9M.5 passos 1-2): aportes-base,
+        # só CONFIRMADO. calcular_diagnostico acima NÃO lê recursos_
+        # extraordinarios — capacidade, STATUS_FINANCEIRO e MODO_ESTABILIZACAO
+        # são calculados sem eles (RF-76, AC-127).
+        aportes_base, nao_projetados = selecionar_aportes(
+            estado.recursos_extraordinarios,
+            certezas=frozenset({CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO}),
+            RESULTADO_MENSAL_ATUAL=diagnostico_pre.RESULTADO_MENSAL_ATUAL,
+        )
+        aportes_base_por_mes = aportes_por_mes(aportes_base)
+
         # Passo 6: Gates 1-4 (RF-17) — elegíveis, ORDEM_ACOES, bloqueadas.
         particao = particionar_elegibilidade(estado.dividas)
 
@@ -384,20 +453,25 @@ def calcular_plano(
                 particao, ORDEM_ACOES=(*particao.ORDEM_ACOES, acao_economia)
             )
 
-        # Passo 7: os três cenários. Híbrido pode ser NAO_APLICAVEL (H-08/
-        # EC-03) — nesse caso não entra no mapa de calculáveis (S-02: não
-        # rebaixa STATUS_METODO). ErroInvariante de qualquer executar_mes()
-        # PROPAGA sem ser capturado (critério de aceite 5) — nenhum
-        # try/except envolve estas três chamadas.
+        # Passo 7: os três cenários, com os aportes-base (RF-70, T-159).
+        # Híbrido pode ser NAO_APLICAVEL (H-08/EC-03) — nesse caso não entra
+        # no mapa de calculáveis (S-02: não rebaixa STATUS_METODO).
+        # ErroInvariante de qualquer executar_mes() PROPAGA sem ser
+        # capturado (critério de aceite 5) — nenhum try/except envolve estas
+        # três chamadas.
         sel_avalanche = criar_selecionar_alvo_avalanche(dividas, parametros)
         cenario_avalanche = dataclasses.replace(
-            simular_cenario(estado, diagnostico_pre, dividas, sel_avalanche, parametros),
+            simular_cenario(
+                estado, diagnostico_pre, dividas, sel_avalanche, parametros, aportes_base_por_mes
+            ),
             metodo=METODO.AVALANCHE,
         )
 
         sel_bola_de_neve = criar_selecionar_alvo_bola_de_neve(dividas, parametros)
         cenario_bola_de_neve = dataclasses.replace(
-            simular_cenario(estado, diagnostico_pre, dividas, sel_bola_de_neve, parametros),
+            simular_cenario(
+                estado, diagnostico_pre, dividas, sel_bola_de_neve, parametros, aportes_base_por_mes
+            ),
             metodo=METODO.BOLA_DE_NEVE,
         )
 
@@ -411,7 +485,12 @@ def calcular_plano(
         ):
             cenario_hibrido = dataclasses.replace(
                 simular_cenario(
-                    estado, diagnostico_pre, dividas, resultado_hibrido.selecionar_alvo, parametros
+                    estado,
+                    diagnostico_pre,
+                    dividas,
+                    resultado_hibrido.selecionar_alvo,
+                    parametros,
+                    aportes_base_por_mes,
                 ),
                 metodo=METODO.HIBRIDO,
             )
@@ -450,6 +529,39 @@ def calcular_plano(
         resultado_status_ordem = consolidar_ORDEM_STATUS(
             INVENTARIO_COMPLETO=estado.INVENTARIO_COMPLETO,
             beneficios_marginais=beneficios_marginais,
+        )
+
+        # RF-70/OQ-46/EC-56 (T-159, plano R9M.5 passo 4): aporte cujo mês a
+        # projeção recomendada não alcança sai da base como FORA_DO_HORIZONTE.
+        aportes_aplicados: tuple[AporteProjetado, ...] = tuple(
+            aporte for aporte in aportes_base if aporte.mes <= cenario_recomendado.PRAZO_TOTAL
+        )
+        fora_do_horizonte = tuple(
+            ItemNaoProjetado(ITEM_ID=aporte.ITEM_ID, motivo=MOTIVO_NAO_PROJETADO.FORA_DO_HORIZONTE)
+            for aporte in aportes_base
+            if aporte.mes > cenario_recomendado.PRAZO_TOTAL
+        )
+
+        # Passo 10b (RF-71, T-162): cenário adicional, depois da escolha do
+        # método — não altera nada do que ela leu.
+        sel_por_metodo: dict[METODO, SelecionarAlvo] = {
+            METODO.AVALANCHE: sel_avalanche,
+            METODO.BOLA_DE_NEVE: sel_bola_de_neve,
+        }
+        if resultado_hibrido.selecionar_alvo is not None:
+            sel_por_metodo[METODO.HIBRIDO] = resultado_hibrido.selecionar_alvo
+        metodo_recomendado = resultado_recomendacao.METODO_RECOMENDADO_PIQ
+        projecao_extraordinarios = ProjecaoExtraordinarios(
+            aportes_base=aportes_aplicados,
+            nao_projetados=(*nao_projetados, *fora_do_horizonte),
+            cenario_adicional=_cenario_adicional(
+                estado=estado,
+                diagnostico_pre=diagnostico_pre,
+                dividas=dividas,
+                metodo=metodo_recomendado,
+                sel=sel_por_metodo[metodo_recomendado],
+                parametros=parametros,
+            ),
         )
 
         # Segunda passada de Diagnostico (RF-66/RF-68, OQ-44 decisão (2),
@@ -492,4 +604,5 @@ def calcular_plano(
             evento=evento,
             motivo=motivo_final,
             anterior=anterior,
+            projecao_extraordinarios=projecao_extraordinarios,
         )

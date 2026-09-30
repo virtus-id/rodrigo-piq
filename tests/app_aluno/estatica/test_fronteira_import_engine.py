@@ -111,13 +111,22 @@ PASTAS_VERIFICADAS: Final[tuple[Path, ...]] = (
 #   reexportados por `engine.tipos`. Sem liberá-los é impossível montar um
 #   `EstadoFinanceiro` tipado fora de `engine/` sob `mypy --strict`.
 #   Continuam FORA, pelo mesmo princípio já registrado acima sobre
-#   `Oportunidade` (allowlist não contém nome que ninguém importa), os cinco
-#   nomes das fatias 2B/2C — `ItemInvestimento`, `ItemAtivo`,
-#   `RecursoExtraordinario`, `JANELA_RECURSO_EXTRAORDINARIO` e
-#   `CERTEZA_RECURSO_EXTRAORDINARIO`: entram quando a tarefa que os consumir
-#   existir, não antes. `CLASSIFICACAO_MOBILIZACAO` e `Desconhecido`, usados
-#   na mesma leitura, NÃO precisam de entrada aqui — vivem em `engine.tipos`,
-#   já liberado por inteiro em `MODULOS_LIBERADOS_POR_INTEIRO`.
+#   `Oportunidade` (allowlist não contém nome que ninguém importa), os dois
+#   nomes da fatia 2C — `ItemInvestimento` e `ItemAtivo`: entram quando a
+#   tarefa que os consumir existir, não antes.
+# - `engine.estado.RecursoExtraordinario`, `JANELA_RECURSO_EXTRAORDINARIO`
+#   e `CERTEZA_RECURSO_EXTRAORDINARIO` — `T-272` (`RF-98`), Critério A: tipam
+#   `EstadoFinanceiro.recursos_extraordinarios`, montado item a item por
+#   `app/montagem/estado.py::_recursos_extraordinarios` (`T-273`). E os
+#   tipos de LEITURA de `engine.extraordinarios` (`ProjecaoExtraordinarios`,
+#   `CenarioAdicional`, `AporteProjetado`, `ItemNaoProjetado`,
+#   `MOTIVO_NAO_PROJETADO`) — o campo `SnapshotOrdem.projecao_extraordinarios`
+#   que `report/plano.py` lê (`T-276`), precedente `RF-40`. Nenhuma função
+#   de `engine.extraordinarios` entra (`selecionar_aportes`,
+#   `aportes_por_mes`): seriam a regra de projeção refeita fora do motor.
+#   `CLASSIFICACAO_MOBILIZACAO` e `Desconhecido`, usados na mesma leitura,
+#   NÃO precisam de entrada aqui — vivem em `engine.tipos`, já liberado por
+#   inteiro em `MODULOS_LIBERADOS_POR_INTEIRO`.
 NOMES_PERMITIDOS_DE_ENGINE: Final[frozenset[str]] = frozenset(
     {
         # engine.motor
@@ -146,6 +155,18 @@ NOMES_PERMITIDOS_DE_ENGINE: Final[frozenset[str]] = frozenset(
         # .DISPOSICAO_USO_RESERVA (:513). Critério A, como TIPO_DIVIDA.
         "engine.estado.RESERVA_EXISTE",
         "engine.estado.DISPOSICAO_USO_RESERVA",
+        # engine.estado — recursos extraordinários (T-272, RF-98): tipam
+        # EstadoFinanceiro.recursos_extraordinarios. Critério A.
+        "engine.estado.RecursoExtraordinario",
+        "engine.estado.JANELA_RECURSO_EXTRAORDINARIO",
+        "engine.estado.CERTEZA_RECURSO_EXTRAORDINARIO",
+        # engine.extraordinarios — só tipos de LEITURA do snapshot (T-272,
+        # RF-98), nunca selecionar_aportes/aportes_por_mes.
+        "engine.extraordinarios.ProjecaoExtraordinarios",
+        "engine.extraordinarios.CenarioAdicional",
+        "engine.extraordinarios.AporteProjetado",
+        "engine.extraordinarios.ItemNaoProjetado",
+        "engine.extraordinarios.MOTIVO_NAO_PROJETADO",
         # engine.snapshot — tipo de saída
         "engine.snapshot.SnapshotOrdem",
         # engine.parametros
@@ -372,6 +393,22 @@ def test_detector_pega_from_import_de_ordem_ac_41() -> None:
     violacoes = verificar_arquivo(codigo_com_violacao, "caso_proposital.py")
 
     assert violacoes, "esperava que o detector pegasse import de engine.ordem"
+
+
+def test_detector_libera_so_os_tipos_de_engine_extraordinarios_t272() -> None:
+    """`T-272` (`RF-98`) — os tipos de leitura da projeção entram; a regra
+    (`selecionar_aportes`, `aportes_por_mes`) continua proibida."""
+    permitido = (
+        "from engine.estado import RecursoExtraordinario, JANELA_RECURSO_EXTRAORDINARIO\n"
+        "from engine.estado import CERTEZA_RECURSO_EXTRAORDINARIO\n"
+        "from engine.extraordinarios import ProjecaoExtraordinarios, CenarioAdicional\n"
+        "from engine.extraordinarios import AporteProjetado, ItemNaoProjetado\n"
+        "from engine.extraordinarios import MOTIVO_NAO_PROJETADO\n"
+    )
+    assert not verificar_arquivo(permitido, "caso_permitido.py")
+    for proibido in ("selecionar_aportes", "aportes_por_mes", "MES_PREVISTO_POR_JANELA"):
+        codigo = f"from engine.extraordinarios import {proibido}\n"
+        assert verificar_arquivo(codigo, "caso_proposital.py"), proibido
 
 
 def test_detector_pega_from_engine_import_estrela_ac_41() -> None:

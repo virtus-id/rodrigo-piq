@@ -525,9 +525,9 @@ def test_rf62_contagem_e_retomada_nunca_divergem_sobre_os_registros_reais() -> N
     assert proxima_pergunta_nao_respondida((registro_respondido,), respostas) is None
 
 
-def test_a_colecao_real_tem_244_registros() -> None:
+def test_a_colecao_real_tem_245_registros() -> None:
     """Âncora explícita contra a contagem envelhecida: a coleção de COLETA
-    tem **244** registros.
+    tem **245** registros.
 
     Foram 247 até `T-172`, quando os três casos de prova do gerador
     (`B12.08`, `B12.15`, `B12.16`) saíram da coleção que a aplicação
@@ -539,8 +539,14 @@ def test_a_colecao_real_tem_244_registros() -> None:
 
     Continuam carregáveis com `carregar_registros(incluir_casos_de_prova=
     True)`, que é o que `test_gerador.py` usa para exercitar os três
-    mecanismos que elas existem para provar."""
-    assert len(_registros_reais()) == 244
+    mecanismos que elas existem para provar.
+
+    Rodada 9: `+1` de `B5.A02V` (`T-256`, `VINCULO_DA_DIVIDA`); `+13` da
+    fatia 9.1b — `B5.D05S`/`V`/`P`/`R` (`T-230`), `B8.12V`/`P` (`T-235`),
+    `B7.13B`–`E` (`T-237`), `B7.04`, `B7.04A`, `B7.07V` (`T-242`); `+2` da
+    fatia 9.3 — `B3.S04L`, `B3.S05C` (`T-255`); `+1` da fatia 9.5 —
+    `B3.05BF` (`T-270`)."""
+    assert len(_registros_reais()) == 261
 
 
 def test_os_casos_de_prova_do_gerador_ficam_fora_da_coleta() -> None:

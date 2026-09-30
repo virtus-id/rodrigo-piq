@@ -155,6 +155,13 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
+from app.casos.inventario import (
+    ErroInventarioIncompleto,
+    PendenciaInventario,
+    exigir_inventario_completo,
+    mensagem_da_pendencia,
+    pendencias_de_inventario,
+)
 from app.casos.maquina import ESTADO_CASO, ErroTransicaoNaoDeclarada
 from app.casos.progresso import (
     pendencias_obrigatorias,
@@ -205,6 +212,7 @@ roteador = APIRouter(prefix="/caso", tags=["calculo"])
 # e `app/http/rotas_consentimento.py` (`AC-37`, T-08): ficam sob o limiar de
 # 40 caracteres do teste estático.
 _MENSAGEM_PENDENCIA: Final[str] = "Há perguntas obrigatórias pendentes."
+_MENSAGEM_INVENTARIO: Final[str] = "O inventário está incompleto."
 _MENSAGEM_ESTADO_INVALIDO: Final[str] = "Caso não está pronto para calcular."
 _MENSAGEM_PARAMETROS_PENDENTES: Final[str] = "Cálculo indisponível no momento."
 _MENSAGEM_MONTAGEM_RECUSADA: Final[str] = "Algumas respostas precisam de revisão."
@@ -223,9 +231,9 @@ _ERROS_DE_MONTAGEM: Final[tuple[type[Exception], ...]] = (
     ErroDinheiroDisponivelIndeterminado,
     ErroConversaoInvalida,
     ValueError,
-    # `estado.py:502` confere com `assert` o tipo de um valor monetário; em
-    # `B5.D05A`, `MENSAL`/`TOTAL` caem ali até a decisão do especialista
-    # sobre valor + base numa só variável (`T-213`) — 422, nunca 500.
+    # `estado.py` confere com `assert` o tipo de um valor monetário. O caso
+    # de `B5.D05A` (`MENSAL`/`TOTAL` lidos como dinheiro, `T-213`) foi
+    # corrigido em `T-231`; a captura fica como rede — 422, nunca 500.
     AssertionError,
 )
 
@@ -411,6 +419,23 @@ def _formatar_pendencia(
     return {"ID": ID, "item_id": item_id, "enunciado": enunciado}
 
 
+def formatar_pendencia_inventario(pendencia: PendenciaInventario) -> dict[str, str | None]:
+    """`T-248`/`T-250` — pendência de inventário na MESMA forma das
+    pendências do `400` (`{ID, item_id, enunciado}`, `T-210`), mais `tipo`
+    `INVENTARIO`, o código da pendência e o escopo das fichas a abrir. O
+    `enunciado` é a mensagem de `RF-87`/`RF-88`."""
+    return {
+        "tipo": "INVENTARIO",
+        "codigo": pendencia.tipo.value,
+        "ID": pendencia.ID_PARA_CORRIGIR,
+        "ID_PARA_CORRIGIR": pendencia.ID_PARA_CORRIGIR,
+        "item_id": None,
+        "escopo": pendencia.escopo.value if pendencia.escopo is not None else None,
+        "enunciado": mensagem_da_pendencia(pendencia),
+        "mensagem": mensagem_da_pendencia(pendencia),
+    }
+
+
 def _respostas_do_calculo(
     registros: tuple[RegistroPergunta, ...], respostas: RespostasCaso
 ) -> RespostasCaso:
@@ -593,6 +618,24 @@ def _preparar_calculo(
                 "pendencias": tuple(
                     _formatar_pendencia(colecao, respostas, p.ID, p.item_id) for p in pendencias
                 )}, status_code=400)
+
+    # `T-248` (RF-86, AC-134) — inventário incompleto recusa pela MESMA
+    # guarda da porta de recálculo, antes de qualquer transição: o caso
+    # permanece em COLETA_INICIAL e o motivo fica na trilha.
+    try:
+        exigir_inventario_completo(
+            pendencias_de_inventario(colecao.registros, respostas, itens_por_escopo),
+            caso_id=CASO_ID,
+            repositorio_eventos=repositorio_eventos,
+        )
+    except ErroInventarioIncompleto as erro:
+        return JSONResponse(
+            {
+                "mensagem": _MENSAGEM_INVENTARIO,
+                "pendencias": tuple(formatar_pendencia_inventario(p) for p in erro.pendencias),
+            },
+            status_code=400,
+        )
 
     # `T-106` — ver a nota extensa na docstring do módulo: os parâmetros
     # externos (`CONFIABILIDADE_DADOS` e, se aplicável, `economia_nao_

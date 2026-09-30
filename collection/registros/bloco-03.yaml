@@ -1,7 +1,7 @@
 # Bloco 3 — Fluxo de caixa real. 57 perguntas, transcritas caractere por
 # caractere da §11 da canônica (specs/piq-app-spec.md, linhas 1040-1899). T-17
 # (RF-03, RF-04, RF-09, AC-04, AC-36).
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 perguntas:
   # Parte A — Renda
   - ID: B3.01
@@ -19,6 +19,7 @@ perguntas:
           valor.
         valor_interno: null
     VARIAVEL_GRAVADA: RENDA_PRINCIPAL
+    indispensavel: true  # RF-93 (`T-261`, `R9-8`)
     condicao_exibicao: null
     interpolacoes: []
     validacoes_cruzadas: []
@@ -232,7 +233,7 @@ perguntas:
     enunciado: Que valor extraordinário é esse?
     tipo: SELECAO_UNICA
     obrigatoriedade: [COND, REP]
-    escopo_repeticao: NENHUM
+    escopo_repeticao: RECURSO_EXTRAORDINARIO_ID  # T-270 (RF-98)
     opcoes:
       - {rotulo: 13º salário, valor_interno: "13O_SALARIO"}
       - {rotulo: Férias/abono, valor_interno: FERIAS_ABONO}
@@ -248,6 +249,8 @@ perguntas:
       termos:
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+        # T-286 (DE-03): item criado pela restituição confirmada (T-274).
+        - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -259,16 +262,53 @@ perguntas:
     enunciado: Quanto você espera receber?
     tipo: MOEDA
     obrigatoriedade: [COND, REP]
-    escopo_repeticao: NENHUM
+    escopo_repeticao: RECURSO_EXTRAORDINARIO_ID  # T-270 (RF-98)
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: VALOR_RECURSO_EXTRAORDINARIO
+    # T-270 (AC-151, DE-02): em Férias/abono o valor é o de B3.05BF.
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - tipo: OU
+          termos:
+            - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+            - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+            - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
+        - tipo: NAO
+          termo: {tipo: IGUAL, variavel: TIPO_RECURSO_EXTRAORDINARIO, valor: FERIAS_ABONO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
+  # T-270 (RF-98, AC-151, DE-02): em Férias/abono só o acréscimo (1/3) é
+  # extraordinário — a remuneração normal já é renda mensal. Mesma
+  # VARIAVEL_GRAVADA de B3.05B: a aplicação grava o valor informado, nunca
+  # calcula o 1/3. Enunciado: redação proposta, aprovação do produto (OQ-67).
+  - ID: B3.05BF
+    bloco: 3
+    enunciado: >-
+      Quanto você espera receber só do acréscimo de férias (o 1/3)? Não
+      inclua a remuneração normal do mês, que já faz parte da sua renda.
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: RECURSO_EXTRAORDINARIO_ID
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
     VARIAVEL_GRAVADA: VALOR_RECURSO_EXTRAORDINARIO
     condicao_exibicao:
-      tipo: OU
+      tipo: E
       termos:
-        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
-        - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+        - tipo: OU
+          termos:
+            - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+            - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+            - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
+        - {tipo: IGUAL, variavel: TIPO_RECURSO_EXTRAORDINARIO, valor: FERIAS_ABONO}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -280,7 +320,7 @@ perguntas:
     enunciado: Quando você espera receber?
     tipo: SELECAO_UNICA
     obrigatoriedade: [COND, REP]
-    escopo_repeticao: NENHUM
+    escopo_repeticao: RECURSO_EXTRAORDINARIO_ID  # T-270 (RF-98)
     opcoes:
       - {rotulo: Próximos 30 dias, valor_interno: ATE_30D}
       - {rotulo: 1–3 meses, valor_interno: "1_3M"}
@@ -293,6 +333,8 @@ perguntas:
       termos:
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+        # T-286 (DE-03): item criado pela restituição confirmada (T-274).
+        - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -304,7 +346,7 @@ perguntas:
     enunciado: "Esse recebimento é:"
     tipo: SELECAO_UNICA
     obrigatoriedade: [COND, REP]
-    escopo_repeticao: NENHUM
+    escopo_repeticao: RECURSO_EXTRAORDINARIO_ID  # T-270 (RF-98)
     opcoes:
       - {rotulo: Confirmado., valor_interno: CONFIRMADO}
       - {rotulo: "Provável, mas ainda não garantido.", valor_interno: PROVAVEL}
@@ -315,6 +357,8 @@ perguntas:
       termos:
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+        # T-286 (DE-03): item criado pela restituição confirmada (T-274).
+        - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -831,6 +875,9 @@ perguntas:
     salto_consequencia: >-
       FALTA_DESPESA → retorna a B3.D11; VALOR_ERRADO → permite editar
       fichas.
+    # RF-79/RF-80 (T-224, canônica v1.0.3): a serialização anexa os três
+    # totais da fotografia e as decomposições (`app/montagem/entrada.py`).
+    painel: FOTOGRAFIA_DO_MES
 
   - ID: B3.C01
     bloco: 3
@@ -988,6 +1035,31 @@ perguntas:
     admite_nao_sei: true
     salto_consequencia: "Não calcular margem por percentual legal; usar o valor declarado."
 
+  # RF-89 (T-255, DE-05/q5_1, OQ-58): renda líquida por vínculo — só
+  # conferência contra a renda do Bloco 3 (`conferir_renda_dos_vinculos`),
+  # nunca entrada do motor. Nome técnico a critério do plano (OQ-59);
+  # enunciado: redação proposta, aprovação do produto (OQ-67).
+  - ID: B3.S04L
+    bloco: 3
+    enunciado: Qual é a sua renda líquida nesse vínculo?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: VINCULO_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RENDA_LIQUIDA_VINCULO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Conferência: soma das líquidas × renda do Bloco 3; divergência só
+      sinalizada, nunca somada.
+
   - ID: B3.S05
     bloco: 3
     enunciado: Você consegue consultar atualmente suas margens consignáveis?
@@ -1010,12 +1082,36 @@ perguntas:
       NAO → gera ação de obtenção (Bloco 11); ficha B3.S06 fica com valores
       DESCONHECIDOS.
 
+  # RF-89 (T-255, DE-05/q5_1): existência de consignação por vínculo.
+  # Nome técnico a critério do plano (OQ-59); enunciado: redação proposta
+  # (OQ-67).
+  - ID: B3.S05C
+    bloco: 3
+    enunciado: Há algum desconto consignado neste vínculo?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND]
+    escopo_repeticao: VINCULO_ID
+    opcoes:
+      - {rotulo: "Sim.", valor_interno: SIM}
+      - {rotulo: "Não.", valor_interno: NAO}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CONSIGNACAO_EXISTE_VINCULO
+    condicao_exibicao:
+      tipo: NAO
+      termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: null
+
   - ID: B3.S06A
     bloco: 3
     enunciado: Qual é o tipo desta margem?
     tipo: SELECAO_UNICA
     obrigatoriedade: [COND, REP]
     escopo_repeticao: MARGEM_ID
+    escopo_pai: VINCULO_ID
     opcoes:
       - {rotulo: Empréstimo consignado, valor_interno: EMPRESTIMO}
       - {rotulo: Cartão consignado, valor_interno: CARTAO_CONSIGNADO}
@@ -1037,6 +1133,7 @@ perguntas:
     tipo: MOEDA
     obrigatoriedade: [COND, REP]
     escopo_repeticao: MARGEM_ID
+    escopo_pai: VINCULO_ID
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
@@ -1059,6 +1156,7 @@ perguntas:
     tipo: MOEDA
     obrigatoriedade: [COND, REP]
     escopo_repeticao: MARGEM_ID
+    escopo_pai: VINCULO_ID
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
@@ -1081,6 +1179,7 @@ perguntas:
     tipo: MOEDA
     obrigatoriedade: [COND, REP]
     escopo_repeticao: MARGEM_ID
+    escopo_pai: VINCULO_ID
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
@@ -1098,6 +1197,7 @@ perguntas:
     tipo: DATA
     obrigatoriedade: [COND, REP]
     escopo_repeticao: MARGEM_ID
+    escopo_pai: VINCULO_ID
     opcoes:
       - {rotulo: Data, valor_interno: null}
       - {rotulo: Não sei, valor_interno: null, admite_nao_sei: true}

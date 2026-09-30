@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:54:42.689Z",
+  "decisao": "d4",
+  "falta": "",
+  "obs": "A mensagem deve ser específica: “Você informou que possui despesa não mensal, mas ainda não cadastrou nenhuma”, por exemplo. A ausência desses dados pode distorcer o cálculo: despesas não mensais podem superestimar a sobra; renda extra pode subestimar a capacidade financeira; e vínculos consignáveis podem afetar a análise das operações de crédito. Portanto, a pendência não precisa bloquear o preenchimento das demais etapas, mas deve impedir a consolidação do cálculo enquanto permanecer inconsistente.",
+  "outra": "Não deve travar, apenas informar que a questão não foi respondida. Rodrigo: Pode continuar preenchendo o formulário, mas, se respondeu que possui renda extra, vínculo consignável ou despesa não mensal, deve cadastrar pelo menos um item correspondente antes de finalizar o diagnóstico e gerar o plano. Enquanto isso não ocorrer, o sistema deve sinalizar a pendência e permitir que o aluno complete o cadastro ou altere a resposta anterior para “não”.",
+  "pendente": false,
+  "pergunta": "Se o aluno disse ter renda extra, vínculo consignável ou despesa não mensal, ele deve cadastrar ao menos um item para seguir?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "",
+  "tipo": "unica",
+  "valor": "Outra resposta"
+}

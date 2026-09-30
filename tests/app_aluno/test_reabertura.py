@@ -114,10 +114,11 @@ def test_ac34_reabrir_renegociacao_torna_pendentes_exatamente_b7_05_a_b7_16() ->
 
 
 def test_ac34_nenhuma_pergunta_anterior_a_b7_05_e_reexibida() -> None:
-    """`AC-34`, primeiro critério (negativo): nenhum `ID` fora da faixa
-    `B7.05`–`B7.16` (em particular `B7.01`–`B7.04`, tentativa anterior —
-    fora do escopo transcrito, `collection/registros/bloco-07.yaml`)
-    aparece na lista de pendências de reabertura."""
+    """`AC-34`, primeiro critério (negativo): nenhum `ID` fora do Bloco 7
+    transcrito (`B7.01`–`B7.03`, tentativa anterior, e `B7.S01`) aparece na
+    lista de pendências de reabertura. `T-243` (`R9.4`): com `B7.04`/`B7.04A`
+    no arquivo, reabrir a renegociação passa a reabrir também "existe
+    proposta?" e "que tipo?" — sem elas nada do bloco abre."""
     snapshot = _montar_snapshot(renegociacao_em=_DIVIDA_ID_D002)
     colecao = carregar_registros()
     respostas = RespostasCaso(respostas=())
@@ -127,8 +128,9 @@ def test_ac34_nenhuma_pergunta_anterior_a_b7_05_e_reexibida() -> None:
     )
 
     ids = {p.ID for p in pendencias}
-    fora_da_faixa = {"B7.01", "B7.02", "B7.03", "B7.04", "B7.S01"}
+    fora_da_faixa = {"B7.01", "B7.02", "B7.03", "B7.S01"}
     assert ids.isdisjoint(fora_da_faixa)
+    assert {"B7.04", "B7.04A"} <= ids
 
 
 def test_valor_anterior_permanece_gravado_e_visivel_apos_reabertura() -> None:

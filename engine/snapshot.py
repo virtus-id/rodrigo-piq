@@ -90,13 +90,23 @@ from engine.ciclo_mensal import Cenario
 from engine.comparacao import ComparacaoCenarios
 from engine.diagnostico import Diagnostico
 from engine.estado import EstadoFinanceiro
+from engine.extraordinarios import PROJECAO_VAZIA, ProjecaoExtraordinarios
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem, ResultadoOrdemPublicada
 from engine.parametros import Parametros
 from engine.status_metodo import ResultadoMetodoRecomendado
 from engine.tipos import EVENTO_RECALCULO, METODO, ORDEM_STATUS, STATUS_METODO
 
-REGRAS: Final[tuple[str, ...]] = ("RF-10", "V-01", "V-02", "V-03", "AC-16", "AC-18")
+REGRAS: Final[tuple[str, ...]] = (
+    "RF-10",
+    "RF-70",
+    "RF-71",
+    "V-01",
+    "V-02",
+    "V-03",
+    "AC-16",
+    "AC-18",
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,6 +141,10 @@ class SnapshotOrdem:
     ORDEM_ACOES: tuple[AcaoRequerida, ...]
     ENGINE_VERSION: str  # V-03 · AC-16
     PARAMETROS_VERSION: str  # V-03 · AC-16
+    # RF-70/RF-71 (T-163): aportes-base aplicados, itens não projetados com o
+    # motivo (EC-51/EC-52/EC-56) e o cenário adicional. Vazia sem recurso
+    # (EC-55) — e para snapshot gravado antes da Rodada 5 (plano R9M.7).
+    projecao_extraordinarios: ProjecaoExtraordinarios = PROJECAO_VAZIA
 
 
 def _serializar_canonico(valor: object) -> object:
@@ -234,6 +248,7 @@ def montar_SnapshotOrdem(
     evento: EVENTO_RECALCULO | None,
     motivo: str,
     anterior: SnapshotOrdem | None = None,
+    projecao_extraordinarios: ProjecaoExtraordinarios = PROJECAO_VAZIA,
 ) -> SnapshotOrdem:
     """`RF-10` · `V-01..V-03` · `AC-16` · `AC-18` — monta e carimba o
     `SnapshotOrdem` final a partir dos resultados JÁ CALCULADOS pelos
@@ -295,4 +310,5 @@ def montar_SnapshotOrdem(
         ORDEM_ACOES=ordem_publicada.ORDEM_ACOES,
         ENGINE_VERSION=parametros.ENGINE_VERSION,
         PARAMETROS_VERSION=parametros.PARAMETROS_VERSION,
+        projecao_extraordinarios=projecao_extraordinarios,
     )

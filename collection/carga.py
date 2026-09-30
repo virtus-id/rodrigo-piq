@@ -27,12 +27,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Final
 
 import jsonschema
 import yaml
 
+from app.montagem.conversao import ErroConversaoInvalida, converter_para_dinheiro
 from collection.condicoes import (
     Condicao,
     CondicaoContem,
@@ -45,7 +47,9 @@ from collection.condicoes import (
 from collection.interpolacao import Marcador
 from collection.opcoes_do_motor import OrigemOpcoes
 from collection.registro import (
+    NIVEL_COMPROVACAO,
     EscopoRepeticao,
+    NivelCondicional,
     Obrigatoriedade,
     OpcaoRegistro,
     RegistroPergunta,
@@ -233,6 +237,13 @@ def _converter_registro(caminho: Path, pergunta: dict[str, Any]) -> RegistroPerg
             origem_opcoes=_converter_origem_opcoes(pergunta["origem_opcoes"]),
             admite_nao_sei=pergunta["admite_nao_sei"],
             salto_consequencia=pergunta["salto_consequencia"],
+            painel=pergunta.get("painel"),
+            indispensavel=pergunta.get("indispensavel", False),
+            faixa=_converter_faixa(pergunta.get("faixa")),
+            mensagem_faixa=(pergunta.get("faixa") or {}).get("mensagem"),
+            escopo_pai=(
+                EscopoRepeticao(pergunta["escopo_pai"]) if "escopo_pai" in pergunta else None
+            ),
         )
     except KeyError as erro:
         raise ErroDeCarga(f"Registro {identificador}: campo ausente {erro}") from erro
@@ -246,7 +257,35 @@ def _converter_opcao(bruta: dict[str, Any]) -> OpcaoRegistro:
         valor_interno=bruta["valor_interno"],
         admite_nao_sei=bruta.get("admite_nao_sei", False),
         abre_campo=TipoResposta(bruta["abre_campo"]) if "abre_campo" in bruta else None,
+        nivel_comprovacao=(
+            NIVEL_COMPROVACAO(bruta["nivel_comprovacao"]) if "nivel_comprovacao" in bruta else None
+        ),
+        nivel_comprovacao_se=_converter_nivel_condicional(bruta.get("nivel_comprovacao_se")),
     )
+
+
+def _converter_nivel_condicional(bruta: dict[str, Any] | None) -> NivelCondicional | None:
+    if bruta is None:
+        return None
+    condicao = _converter_condicao(bruta["condicao"])
+    assert condicao is not None
+    return NivelCondicional(condicao=condicao, nivel=NIVEL_COMPROVACAO(bruta["nivel"]))
+
+
+def _converter_faixa(bruta: dict[str, Any] | None) -> tuple[Decimal, Decimal] | None:
+    """RF-84 (`T-222`) — `faixa` fechada `[minimo, maximo]`. O `Decimal` nasce
+    pela fronteira única (`RF-13`, `app/montagem/conversao.py`), nunca aqui.
+    Mínimo acima do máximo é faixa vazia — recusada, nunca invertida."""
+    if bruta is None:
+        return None
+    try:
+        minimo = converter_para_dinheiro(str(bruta["minimo"]))
+        maximo = converter_para_dinheiro(str(bruta["maximo"]))
+    except ErroConversaoInvalida as erro:
+        raise ValueError(f"faixa inválida: {erro}") from erro
+    if minimo > maximo:
+        raise ValueError(f"faixa com minimo {minimo} > maximo {maximo}")
+    return (minimo, maximo)
 
 
 def _converter_condicao(bruta: dict[str, Any] | None) -> Condicao | None:
@@ -300,6 +339,8 @@ def _converter_origem_opcoes(bruta: dict[str, Any]) -> OrigemOpcoes:
     return OrigemOpcoes(
         fonte=bruta["fonte"],
         campo_do_snapshot=bruta["campo_do_snapshot"],
+        escopo=EscopoRepeticao(bruta["escopo"]) if "escopo" in bruta else None,
+        variavel_rotulo=bruta.get("variavel_rotulo"),
     )
 
 

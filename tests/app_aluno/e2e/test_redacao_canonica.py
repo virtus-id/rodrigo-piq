@@ -91,6 +91,7 @@ from tests.app_aluno.fixtures.caso_completo import (
     caso_completo,
     montar_respostas_caso,
 )
+from tests.app_aluno.fixtures.sem_respostas import sem_respostas_nem_itens
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-nao-usar-em-producao"
 _VERSAO_PARAMETROS_REAL = "1.0.1"
@@ -233,6 +234,7 @@ def _montar_cliente_autenticado(
     aplicacao = criar_aplicacao()
     aplicacao.dependency_overrides[obter_repositorio_casos] = lambda: repositorio_casos
     aplicacao.dependency_overrides[obter_repositorio_snapshots] = lambda: repositorio_snapshots
+    sem_respostas_nem_itens(aplicacao)  # `T-267`: fonte lida das respostas
 
     @aplicacao.post("/_teste/abrir-sessao/{conta_id}")
     def abrir_sessao(conta_id: str, request: Request) -> dict[str, str]:

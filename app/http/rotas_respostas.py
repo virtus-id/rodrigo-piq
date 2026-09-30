@@ -26,6 +26,7 @@ REGRAS: `RF-68`, `RF-10`, `AC-100`, `AC-101`
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends
@@ -84,6 +85,8 @@ def _serializar_resposta_dada(
     respostas: RespostasCaso,
     item_id: str | None,
     rotulo_do_item: str | None = None,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None = None,
+    rotulos_dos_itens: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """Uma linha da revisão: a pergunta **e o que o aluno respondeu**.
 
@@ -98,7 +101,12 @@ def _serializar_resposta_dada(
     disciplina de `_campos_da_ficha`."""
     try:
         contexto = montar_contexto_pergunta(
-            registro, respostas, item_id=item_id, rotulo_do_item=rotulo_do_item
+            registro,
+            respostas,
+            item_id=item_id,
+            rotulo_do_item=rotulo_do_item,
+            itens_por_escopo=itens_por_escopo,
+            rotulos=rotulos_dos_itens,
         )
     except ErroPerguntaNaoExibivel:
         return None
@@ -162,7 +170,12 @@ def respostas_do_caso(
                 for item_id in itens_por_escopo.get(registro.escopo_repeticao, ()):
                     if _respondida(registro, respostas, item_id) and (
                         linha := _serializar_resposta_dada(
-                            registro, respostas, item_id, rotulos.get(item_id)
+                            registro,
+                            respostas,
+                            item_id,
+                            rotulos.get(item_id),
+                            itens_por_escopo,
+                            rotulos,
                         )
                     ):
                         linhas.append(linha)

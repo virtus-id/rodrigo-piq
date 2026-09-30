@@ -1,0 +1,10 @@
+# Avisos da gravação — `POST /caso/{id}/resposta` → `avisos` (T-240).
+#
+# ÚNICO arquivo onde esta redação vive (`AC-37`: texto ao aluno é dado).
+# Um aviso NÃO recusa: a resposta já foi gravada; ele só sinaliza, ao aluno
+# e ao revisor, algo a conferir. Chave = `codigo` do aviso. REDAÇÃO
+# PROPOSTA, para aprovação do produto (`OQ-67`). `T-258`: o aviso da renda
+# dos vínculos, pelo mesmo canal.
+
+DIVERGENCIA_DESCONTO: "O desconto em reais não bate com o percentual informado. Os dois valores foram guardados; confira com o credor qual está certo."
+DIVERGENCIA_RENDA_VINCULOS: "A soma das rendas líquidas dos seus vínculos não bate com a renda total informada. Nada foi somado de novo: o plano usa a renda total; confira qual valor está certo."

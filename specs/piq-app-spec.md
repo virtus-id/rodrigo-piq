@@ -1,6 +1,6 @@
-# PIQ v1.0.1 — Especificação Canônica Consolidada
+# PIQ v1.0.3 — Especificação Canônica Consolidada
 
-**Plano Inteligente de Quitação · Servidor Sem Dívidas**
+**Plano Inteligente de Quitação · Servidor Sem Dívidas** · **Registro de alteração — v1.0.2 · 2026-09-30 · fonte: decisão do especialista — [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) `DE-02`/`DE-05`.** Muda: `DE-02` — recursos extraordinários `CONFIRMADO` entram na projeção no mês previsto (B3.05, B3.05B, B3.05D; errata `E-10`); `DE-05` — vínculo passa a repetível e a margem pertence ao vínculo (B3.S02–B3.S06A, B5.A02, §12; errata `E-09`). **v1.0.3 · 2026-09-30 · fonte: decisão do especialista `DE-03`/`DE-06`/`DE-07` e decisão da equipe técnica sobre os pontos que elas não fixavam (`specs/app-aluno.spec.md` §10, `OQ-52`–`OQ-67`).** Muda registros da §11: seguro (B5.D05A, `E-11`), desconto (B7.13A, `E-12`), custo mensal × total (B8.12A, `E-13`), Fonte de comprovação (B5.I02, B7.16, B8.15, §12, `E-14`), proposta do credor (B7.04–B7.09, `E-15`). Detalhe no [Registro de alterações](#sec-rev), ao final. Tudo o que não está listado ali permanece com a redação da v1.0.1 — inclusive as referências a "v1.0.1" no corpo.
 
 > Fonte direta para desenvolvimento. Substitui, nos temas aqui tratados, todas as redações anteriores da Matriz Canônica, do Questionário Canônico e das devolutivas intermediárias. Os PDFs permanecem como documentação metodológica e histórica.
 
@@ -1212,7 +1212,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Variável gravada | `RECURSOS_EXTRAORDINARIOS_EXISTE` |
 | Valor interno / mapeamento | SIM · TALVEZ · NAO |
 | Salto / consequência | Sim/Talvez → ficha REP B3.05A–D. |
-| Uso pelo motor | ATAQUE_IMEDIATO_POTENCIAL (nunca renda recorrente) |
+| Uso pelo motor | ATAQUE_IMEDIATO_POTENCIAL (nunca renda recorrente). **v1.0.2 (`DE-02`, `E-10`):** acelerador da quitação, nunca condição para o plano mensal fechar; ataque de hoje inalterado (só o já disponível); item `CONFIRMADO` com valor estimável e recebimento dentro do horizonte do plano entra na projeção no mês previsto. |
 
 #### `B3.05A` — Recurso extraordinário — ficha REP
 
@@ -1239,7 +1239,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 |---|---|
 | Condição de exibição | B3.05 = Sim ou Talvez |
 | Variável gravada | `VALOR_RECURSO_EXTRAORDINARIO` |
-| Qualidade do dado | ESTIMADA ou DESCONHECIDA |
+| Qualidade do dado | ESTIMADA ou DESCONHECIDA. **v1.0.2 (`DE-02`, `E-10`):** sempre valor líquido, sem dupla contagem com renda já no orçamento; em Férias/abono, apenas o acréscimo (1/3) é extraordinário — a remuneração normal já é renda mensal. |
 
 #### `B3.05C` — Recurso extraordinário — ficha REP
 
@@ -1267,7 +1267,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Condição de exibição | B3.05 = Sim ou Talvez |
 | Variável gravada | `CERTEZA_RECURSO_EXTRAORDINARIO` |
 | Valor interno / mapeamento | CONFIRMADO · PROVAVEL · POSSIVEL |
-| Salto / consequência | Não compõe renda recorrente. |
+| Salto / consequência | Não compõe renda recorrente. **v1.0.2 (`DE-02`, `E-10`):** `CONFIRMADO` (valor estimável, recebimento dentro do horizonte do plano) → projeção no mês previsto; `PROVAVEL`/`POSSIVEL` → fora da projeção-base, só viram ataque quando efetivamente recebidos; o cenário adicional (segunda projeção) inclui `PROVAVEL` e `POSSIVEL` (`specs/motor-calculo.spec.md` §15). O tipo (B3.05A), isoladamente, não decide — valem prazo e certeza. Cada item é avaliado pela própria certeza; itens nunca são somados como se tivessem a mesma. Antes de destinar às dívidas, preservar necessidades essenciais, despesas sazonais já conhecidas, obrigações prioritárias e a proteção mínima. |
 
 #### `B3.06` — Renda extra recorrente potencial
 
@@ -1716,7 +1716,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 
 #### `B3.S02` — Situação
 
-**COND** · *Checklist (múltipla)*
+**COND** · **REP** (`VINCULO_ID`, v1.0.2 · `DE-05`) · *Checklist (múltipla)*
 
 > Qual é a sua situação principal?
 
@@ -1726,11 +1726,11 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 |---|---|
 | Condição de exibição | B3.S01 ≠ Não |
 | Variável gravada | `REGIME_MARGEM` |
-| Valor interno / mapeamento | FEDERAL · ESTADUAL · MUNICIPAL · MILITAR · APOSENTADO_PUBLICO · INSS · OUTRO (permitir mais de um vínculo) |
+| Valor interno / mapeamento | FEDERAL · ESTADUAL · MUNICIPAL · MILITAR · APOSENTADO_PUBLICO · INSS · OUTRO (permitir mais de um vínculo). **v1.0.2 (`DE-05`, `E-09`):** B3.S02–B3.S05 formam uma ficha por vínculo (`VINCULO_ID`); o servidor pode ter mais de um vínculo (acumulação lícita, entes diferentes, mais de uma fonte pagadora). |
 
 #### `B3.S03` — Órgão
 
-**COND** · *Busca / texto curto*
+**COND** · **REP** (`VINCULO_ID`, v1.0.2 · `DE-05`) · *Busca / texto curto*
 
 > Qual é o órgão ou a fonte pagadora desse vínculo?
 
@@ -1741,7 +1741,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 
 #### `B3.S04` — Remuneração bruta
 
-**COND** · *Moeda R$*
+**COND** · **REP** (`VINCULO_ID`, v1.0.2 · `DE-05`) · *Moeda R$*
 
 > Qual é a sua remuneração bruta nesse vínculo?
 
@@ -1757,7 +1757,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 
 #### `B3.S05` — Acesso às margens
 
-**COND** · *Seleção única*
+**COND** · **REP** (`VINCULO_ID`, v1.0.2 · `DE-05`) · *Seleção única*
 
 > Você consegue consultar atualmente suas margens consignáveis?
 
@@ -1782,7 +1782,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 |---|---|
 | Condição de exibição | B3.S01 ≠ Não |
 | Variável gravada | `TIPO_MARGEM` |
-| Valor interno / mapeamento | EMPRESTIMO · CARTAO_CONSIGNADO · CARTAO_BENEFICIO · OUTRA_DO_REGIME. SYS: MARGEM_ID por ficha. |
+| Valor interno / mapeamento | EMPRESTIMO · CARTAO_CONSIGNADO · CARTAO_BENEFICIO · OUTRA_DO_REGIME. SYS: MARGEM_ID por ficha. **v1.0.2 (`DE-05`, `E-09`):** cada `MARGEM_ID` pertence a exatamente um `VINCULO_ID` — a margem é apurada sobre aquela folha/fonte pagadora. Total (B3.S06B), utilizada (B3.S06C) e disponível (B3.S06D) ficam individualizadas por vínculo; margens de vínculos diferentes nunca são somadas nem usadas por outro vínculo. |
 
 #### `B3.S06B` — Margem — ficha REP
 
@@ -2675,7 +2675,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Condição de exibição | Cada dívida |
 | Variável gravada | `TIPO_DIVIDA` |
 | Valor interno / mapeamento | CONSIGNADO · PESSOAL · FIN_VEICULO · FIN_IMOBILIARIO · CARTAO_ROTATIVO · CARTAO_PARCELADO · CHEQUE_ESPECIAL · PARCELAMENTO_COMPRA · TRIBUTARIA · PESSOA_FISICA · ACORDO · OUTRA |
-| Salto / consequência | Define modelo da engine, exibição de B5.C07 (linhas reutilizáveis) e de B5.G03 (modalidades portáveis). |
+| Salto / consequência | Define modelo da engine, exibição de B5.C07 (linhas reutilizáveis) e de B5.G03 (modalidades portáveis). **v1.0.2 (`DE-05`, `E-09`):** `CONSIGNADO` → a dívida aponta para o `VINCULO_ID` em que é descontada. |
 | Uso pelo motor | Modelo A–E; gatilho B8 |
 
 #### `B5.A03` — A — Finalidade
@@ -3139,7 +3139,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 |---|---|
 | Condição de exibição | B5.D05 = Sim |
 | Variável gravada | `CUSTO_SEGURO (+ base MENSAL/TOTAL)` |
-| Qualidade do dado | ESTIMADA ou DESCONHECIDA |
+| Qualidade do dado | ESTIMADA ou DESCONHECIDA. **v1.0.3 (`DE-03`, `E-11`, `E-13`):** coletar também a situação do seguro — prêmio único financiado (não somar de novo) · cobrado mensalmente à parte (despesa mensal da dívida) · cancelado com restituição (restituição só quando confirmada, como extraordinário) · Não sei (não soma; registrado como "não informado"). Valor total nunca é despesa mensal; rateio só com período de cobertura, rotulado. |
 
 #### `B5.D05B` — D — Seguro na parcela
 
@@ -3413,7 +3413,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 |---|---|
 | Condição de exibição | Cada dívida |
 | Variável gravada | `FONTE_DADO` |
-| Valor interno / mapeamento | ORIGEM_DADO = DOCUMENTO (documento/app/contracheque) ou USUARIO (memória/atendimento/combinação) |
+| Valor interno / mapeamento | ORIGEM_DADO = DOCUMENTO (documento/app/contracheque) ou USUARIO (memória/atendimento/combinação). **v1.0.3 (`DE-06`, `E-14`):** "Fonte de comprovação" em três níveis — Comprovado (documento/contrato, app, contracheque) · Informado pelo aluno (memória, combinação, outra sem documento) · Pendente de confirmação (atendimento do credor). |
 
 #### `B5.I03` — I — Atualização
 
@@ -3533,7 +3533,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Condição de exibição | Dívida qualificada para B7 |
 | Variável gravada | `EXISTE_PROPOSTA_RENEGOCIACAO (+ STATUS_VALIDADE_PROPOSTA)` |
 | Valor interno / mapeamento | VIGENTE · VALIDADE_DESCONHECIDA · EXPIRADA · NAO |
-| Salto / consequência | NAO → STATUS_PROCESSO_RENEGOCIACAO = AGUARDANDO_PROPOSTA; gera ação; não pedir condições hipotéticas. VIGENTE/VALIDADE_DESCONHECIDA → B7.05–B7.16. EXPIRADA → B7.05–B7.16 como histórico (não determina decisão). |
+| Salto / consequência | NAO → STATUS_PROCESSO_RENEGOCIACAO = AGUARDANDO_PROPOSTA; gera ação; não pedir condições hipotéticas. VIGENTE/VALIDADE_DESCONHECIDA → B7.05–B7.16. EXPIRADA → B7.05–B7.16 como histórico (não determina decisão). **v1.0.3 (`DE-07`, `E-15`):** com proposta, perguntar o tipo — à vista, parcelada ou ambas. À vista → só valor para quitação à vista + validade (B7.15); parcelada → B7.07–B7.09 + validade; ambas → os dois conjuntos. Campo não aplicável não aparece nem conta como ausente. |
 
 #### `B7.05` — Conteúdo da proposta
 
@@ -3600,7 +3600,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 
 | Campo | Valor |
 |---|---|
-| Condição de exibição | B7.07 ≠ A_VISTA |
+| Condição de exibição | B7.07 ≠ A_VISTA. **v1.0.3 (`E-15`):** tipo de proposta = parcelada ou ambas (B7.07, B7.08 e B7.09 idem); é o **prazo do parcelamento** — validade da oferta é B7.15. |
 | Variável gravada | `PROPOSTA_PRAZO` |
 
 #### `B7.10` — Nova taxa
@@ -3670,7 +3670,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Condição de exibição | B7.13 = Sim |
 | Variável gravada | `PROPOSTA_DESCONTO` |
 | Qualidade do dado | CONFIRMADA / DESCONHECIDA |
-| UX / observação | Não usar alvo universal de 20%. |
+| UX / observação | Não usar alvo universal de 20%. **v1.0.3 (`DE-03`, `E-12`):** guardar separados valor atual de quitação antes do desconto (bruto), tipo R$/%, valor informado, valor final, validade; valor final do credor prevalece; % entre 0 e 100; R$ ≤ bruto; R$ e % juntos: comparar ao centavo (bruto × % arredondado a R$ 0,01); divergência se diferença > R$ 0,01; nunca somar. |
 
 #### `B7.14` — Custos adicionais
 
@@ -3712,7 +3712,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 |---|---|
 | Condição de exibição | B7.04 = VIGENTE, VALIDADE_DESCONHECIDA ou EXPIRADA |
 | Variável gravada | `FONTE_DADO (proposta)` |
-| Valor interno / mapeamento | ORIGEM_DADO = DOCUMENTO ou USUARIO |
+| Valor interno / mapeamento | ORIGEM_DADO = DOCUMENTO ou USUARIO. **v1.0.3 (`DE-06`, `E-14`):** documento/contrato, app, mensagem/e-mail → Comprovado · Não tenho registro → Informado pelo aluno · Foi apenas informada em atendimento → Pendente de confirmação. |
 
 #### `B7.S01` — Seguro na proposta
 
@@ -3984,7 +3984,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Campo | Valor |
 |---|---|
 | Condição de exibição | B8.12 = Sim |
-| Variável gravada | `NOVO_SEGURO` |
+| Variável gravada | `NOVO_SEGURO` · **v1.0.3 (`DE-03`, `E-13`):** guardar tipo (mensal/total), valor, período e meses restantes; total nunca somado a cada mês; mensalização só com prazo informado. |
 
 #### `B8.12B` — Seguro — na parcela
 
@@ -4066,7 +4066,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | Campo | Valor |
 |---|---|
 | Condição de exibição | B8.00 = Sim |
-| Variável gravada | `FONTE_DADO (troca)` |
+| Variável gravada | `FONTE_DADO (troca)` · **v1.0.3 (`DE-06`, `E-14`):** Documento formal, App, Simulação fornecida pela instituição → Comprovado · Atendimento, Correspondente → Pendente de confirmação · Outra fonte → Informado pelo aluno, salvo documento associado. |
 
 #### `B8.P01` — Cascata
 
@@ -4873,7 +4873,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | `ACAO_DATA_CONCLUSAO` | `B11.02` | 11 | Data | única |  |
 | `ACAO_STATUS` | `B11.01` | 11 | Seleção única | única | PENDENTE · EM_EXECUCAO · AGUARDANDO_TERCEIRO · BLOQUEADA · CONCLUIDA · DESCARTADA |
 | `ACEITA_REDUCAO_GASTOS_FANTASMAS` | `B2.10A` | 2 | Seleção única | única | SIM · TALVEZ · NAO |
-| `ACESSO_MARGENS` | `B3.S05` | 3 | Seleção única | única | SIM · PARCIAL · NAO |
+| `ACESSO_MARGENS` | `B3.S05` | 3 | Seleção única | REP (`VINCULO_ID`; era "única" até v1.0.1 — `E-09`) | SIM · PARCIAL · NAO |
 | `ATAQUE_ADICIONAL_REALIZADO` | `B11.A01A` | 11 | Moeda R$ | única | R$ ______ |
 | `ATAQUE_ADICIONAL_REALIZADO_STATUS` | `B11.A01` | 11 | Seleção única | única | INTEGRAL · PARCIAL · NENHUM · MAIOR |
 | `ATAQUE_IMEDIATO_APROVADO` | `B10.C01` · `B10.C01A` · `B11.RE03` · `B11.RE03A` | 10 | Seleção única | única | TODO → = RECOMENDADO · PARTE → B10.C01A · NAO → 0 · REVISAR → pendente (0 até decidir) |
@@ -4940,7 +4940,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | `FINALIDADE_DIVIDA` | `B5.A03` | 5 | Seleção única | REP | Pagar despesas do mês · Emergência ou imprevisto · Saúde · Moradia · Veículo · Educação · Compra de bem ou serviço · Reforma · Viagem/lazer · Ajudar o |
 | `FINALIDADE_NOVA_DIVIDA` | `B1.03` | 1 | Seleção única | única | NECESSIDADE · CONSUMO · EMERGENCIA · REESTRUTURACAO_DIVIDA · OUTRA |
 | `FINALIDADE_NOVA_DIVIDA_OUTRA` | `B1.03A` | 1 | Texto curto | única |  |
-| `FONTE_DADO` | `B5.I02` · `B7.16` · `B8.15` | 5 | Seleção única | REP | ORIGEM_DADO = DOCUMENTO (documento/app/contracheque) ou USUARIO (memória/atendimento/combinação) |
+| `FONTE_DADO` | `B5.I02` · `B7.16` · `B8.15` | 5 | Seleção única | REP | v1.0.3 (`E-14`): "Fonte de comprovação" em três níveis — Comprovado por documento/registro · Informado pelo aluno, sem comprovação · Pendente de confirmação (identificadores internos a critério do plano); até v1.0.2: ORIGEM_DADO = DOCUMENTO ou USUARIO |
 | `FREQUENCIA_DESPESA_NAO_MENSAL` | `B3.NM02C` | 3 | Seleção única | REP | ANUAL · SEMESTRAL · TRIMESTRAL · OUTRA |
 | `FREQUENCIA_REGISTRO` | `B2.02` | 2 | Seleção única | única | DIARIA · VARIAS_SEMANA · SEMANAL · VARIAS_MES · SOB_DEMANDA · INDEFINIDA |
 | `GARANTIA_ESSENCIAL` | `B5.F03` | 5 | Seleção única | REP | ESSENCIAL · IMPORTANTE · NAO · NAO_SEI |
@@ -5000,7 +5000,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | `NOVO_USO` | `B5.C07A` | 5 | Moeda R$ | REP | R$ ______ · Não sei. |
 | `OBJETIVO_RENEGOCIACAO` | `B7.05` | 7 | Checklist (múltipla) | única | Quitar a dívida à vista · Dar desconto · Reduzir juros · Reduzir CET · Reduzir custo total · Reduzir parcela · Reduzir prazo · Regularizar valores em  |
 | `OBRIGACAO_FUTURA_INEVITAVEL` | `B1.06` | 1 | Seleção única | única | SIM · NAO · NAO_SEI |
-| `ORGAO_FONTE_PAGADORA` | `B3.S03` | 3 | Busca / texto curto | única |  |
+| `ORGAO_FONTE_PAGADORA` | `B3.S03` | 3 | Busca / texto curto | REP (`VINCULO_ID`; era "única" até v1.0.1 — `E-09`) |  |
 | `ORIGEM_RENDA_EXTRA_POTENCIAL` | `B3.06A` | 3 | Seleção única | única | Trabalho extra · Novo vínculo ou atividade · Horas extras/adicional · Aluguel · Negócio · Serviço autônomo · Outra |
 | `ORIGEM_RENEGOCIACAO` | `B5.A05` | 5 | Sim / Não / Não sei | REP | Sim · Não · Não sei |
 | `OUTROS_CUSTOS` | `B5.D04A` | 5 | Moeda R$ | REP | R$ ______ · Não sei. |
@@ -5048,7 +5048,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | `QUANTIDADE_DIVIDAS_DECLARADA_INICIAL` | `B5.00` | 5 | Número | única | inteiro · DESCONHECIDA |
 | `QUITACAO_CONSULTADA` | `B5.B05` | 5 | Seleção única | REP | SIM · NAO · EXPIROU · NAO_SEI |
 | `RECURSOS_EXTRAORDINARIOS_EXISTE` | `B3.05` | 3 | Seleção única | única | SIM · TALVEZ · NAO |
-| `REGIME_MARGEM` | `B3.S02` | 3 | Checklist (múltipla) | única | FEDERAL · ESTADUAL · MUNICIPAL · MILITAR · APOSENTADO_PUBLICO · INSS · OUTRO (permitir mais de um vínculo) |
+| `REGIME_MARGEM` | `B3.S02` | 3 | Checklist (múltipla) | REP (`VINCULO_ID`; era "única" até v1.0.1 — `E-09`) | FEDERAL · ESTADUAL · MUNICIPAL · MILITAR · APOSENTADO_PUBLICO · INSS · OUTRO (permitir mais de um vínculo) |
 | `REGISTRO_GASTOS` | `B2.01` | 2 | Seleção única | única | TUDO · MAIORIA · PARTE · RARAMENTE · NAO_REGISTRA |
 | `REGRA_AJUDA_TERCEIROS` | `B12.12A` | 12 | Seleção única | única | Definir um teto mensal. · Não utilizar cartão, empréstimo ou limite para ajudar terceiros. · Ajudar apenas quando houver dinheiro disponível no orçame |
 | `REGRA_AJUDA_TERCEIROS_EXISTE` | `B12.12` | 12 | Seleção única | única | Sim. · Não considero necessário. · Quero avaliar. |
@@ -5056,7 +5056,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | `REGRA_ESPERA` | `B12.07` | 12 | Seleção única | única | 24H · 48H · 7D · OUTRA (→ texto curto OPT) · NENHUMA |
 | `REGRA_PARCELAMENTO` | `B12.09` | 12 | Seleção única | única | A = SEM_PARCELAMENTO · B = SO_PLANEJADO · C = NAO_PARA_CABER · D = OUTRA (→ texto curto OPT) |
 | `REGRA_PESSOAL` | `B12.16` · `B12.16A` | 12 | Seleção única | única | “Eu não contrato crédito para pagar despesas recorrentes do meu mês.” · “Se o orçamento não comporta a compra, a parcela também não cabe.” · “Parcela  |
-| `RENDA_BRUTA_VINCULO` | `B3.S04` | 3 | Moeda R$ | única | R$ ______ · Não sei. |
+| `RENDA_BRUTA_VINCULO` | `B3.S04` | 3 | Moeda R$ | REP (`VINCULO_ID`; era "única" até v1.0.1 — `E-09`) | R$ ______ · Não sei. |
 | `RENDA_EXTRA_RECORRENTE_POTENCIAL` | `B3.06B` | 3 | Moeda R$ | única | R$ ______ · Ainda não sei. |
 | `RENDA_EXTRA_RECORRENTE_POTENCIAL_EXISTE` | `B3.06` | 3 | Seleção única | única | CONCRETA · INDEFINIDA · NAO |
 | `RENDA_IMOVEL` | `B4.I05A` | 4 | Moeda R$ | REP | R$ ______ · Não sei. |
@@ -5101,7 +5101,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 | `TIPO_GARANTIA` | `B5.F02` | 5 | Seleção única | REP | Imóvel · Veículo · Outro bem · Aval/fiança · Saldo/aplicação financeira · Outra · Não sei |
 | `TIPO_IMOVEL` | `B4.I02` | 4 | Seleção única | REP | Casa/apartamento onde moro · Outro imóvel residencial · Imóvel alugado · Terreno · Imóvel comercial · Imóvel de lazer · Outro |
 | `TIPO_INVESTIMENTO` | `B4.04A` | 4 | Seleção única | REP | Poupança · CDB/RDB · Tesouro Direto · LCI/LCA · Fundo de renda fixa · Previdência privada · Fundo de investimento · Ações · ETF · Fundo imobiliário ·  |
-| `TIPO_MARGEM` | `B3.S06A` | 3 | Seleção única | REP | EMPRESTIMO · CARTAO_CONSIGNADO · CARTAO_BENEFICIO · OUTRA_DO_REGIME. SYS: MARGEM_ID por ficha. |
+| `TIPO_MARGEM` | `B3.S06A` | 3 | Seleção única | REP | EMPRESTIMO · CARTAO_CONSIGNADO · CARTAO_BENEFICIO · OUTRA_DO_REGIME. SYS: MARGEM_ID por ficha, pertencente a um único `VINCULO_ID` (v1.0.2 — `E-09`). |
 | `TIPO_OBRIGACAO_FUTURA` | `B1.06A` | 1 | Seleção única | REP | Imposto ou obrigação anual · Educação · Saúde · Moradia · Veículo · Despesa familiar · Mudança · Viagem necessária · Outra |
 | `TIPO_OUTRO_ATIVO` | `B4.O02` | 4 | Seleção única | REP | Equipamento profissional · Joias/objetos de valor · Participação societária · Embarcação · Bem de coleção · Outro |
 | `TIPO_RECURSO_EXTRAORDINARIO` | `B3.05A` | 3 | Seleção única | REP | 13º salário · Férias/abono · Bônus ou gratificação · Restituição de imposto · Precatório/RPV · Venda já prevista · Valor a receber de terceiro · Outro |
@@ -5144,7 +5144,7 @@ Especificação de coleta. A interface deve ser **gerada a partir desta seção*
 
 ## 13. Errata — o que mudou dos PDFs
 
-Oito correções aplicadas. Rastreabilidade completa: para cada uma, a redação revogada, a vigente, a origem da decisão e o motivo.
+Oito correções aplicadas. Rastreabilidade completa: para cada uma, a redação revogada, a vigente, a origem da decisão e o motivo. As correções da v1.0.2 (`E-09`, `E-10`) estão no [Registro de alterações](#sec-rev), ao final do documento.
 
 ### `E-01` — Tipo e alternativas · B5.H03
 
@@ -5359,3 +5359,101 @@ As regras deste documento constituem a especificação definitiva do PIQ v1.0.1 
 Nenhuma dessas decisões fica a critério do desenvolvedor. Qualquer alteração futura deverá ocorrer por nova versão formal da especificação.
 
 *Os valores do Gabarito C foram recomputados mês a mês, com precisão decimal integral, a partir das regras aqui especificadas.*
+
+---
+
+<a id="sec-rev"></a>
+
+## Registro de alterações
+
+> Anexado ao final para não deslocar as linhas do corpo, citadas por número em
+> specs, planos e código. Toda edição no corpo foi feita na própria linha
+> afetada e leva a marca "v1.0.2".
+
+| Versão | Data | Fonte | Itens alterados |
+|---|---|---|---|
+| v1.0.1 | — | Matriz Canônica v1.0, Questionário Canônico v1.0, devolutivas do especialista | Versão-base (errata `E-01` a `E-08`) |
+| v1.0.2 | 2026-09-30 | Decisão do especialista — [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) `DE-02`/`DE-05` (respostas brutas `q2_1`–`q2_3`, `q5_1`, `q5_2`) | `E-09` (vínculos e margem) · `E-10` (projeção de extraordinários) |
+| v1.0.3 | 2026-09-30 | Decisão do especialista `DE-03`/`DE-06`/`DE-07` (`q3_1`–`q3_3`, `q6_1`, `q7_1`) + decisão da equipe técnica (responsável do produto) sobre o que elas não fixavam — `specs/app-aluno.spec.md` §10 `OQ-52`–`OQ-67` e `specs/motor-calculo.spec.md` §10 `OQ-46`–`OQ-50`, com base nas observações do especialista | `E-11` a `E-15` (edições de registro da §11) · precisões em `E-09` e `E-10` |
+
+### `E-09` — Vínculo repetível e margem por vínculo · B3.S02–B3.S06A · B5.A02 · §12
+
+| | |
+|---|---|
+| ❌ Revogado | Vínculo único: `REGIME_MARGEM`, `ORGAO_FONTE_PAGADORA`, `RENDA_BRUTA_VINCULO` e `ACESSO_MARGENS` com cardinalidade "única" no §12; `MARGEM_ID` sem vínculo de pertença |
+| ✅ Vigente v1.0.2 | O servidor pode ter **mais de um vínculo** (acumulação lícita, entes diferentes, mais de uma fonte pagadora). B3.S02–B3.S05 são ficha REP por `VINCULO_ID`. Cada `MARGEM_ID` pertence a **um** `VINCULO_ID`; total, utilizada e disponível ficam individualizadas por vínculo; **margens de vínculos diferentes nunca são somadas** nem usadas por outro vínculo. Todo consignado (`TIPO_DIVIDA = CONSIGNADO`) aponta para o `VINCULO_ID` em que é descontado |
+| Origem | `DE-05` (`q5_1`, `q5_2`) — decisão do especialista prevalece sobre o dicionário |
+
+`B3.S01` (`VINCULO_CONSIGNAVEL`) continua pergunta única: é o portão da Parte E.
+A validação `VALOR_UTILIZADO_MARGEM ≤ VALOR_TOTAL_MARGEM` continua por `MARGEM_ID`.
+**Precisões v1.0.3 (equipe técnica, `OQ-58`–`OQ-60` de `app-aluno`):**
+`RENDA_BRUTA_VINCULO` segue base da margem; renda líquida por vínculo é
+coletada e usada em conferência (soma das líquidas × renda do Bloco 3,
+divergência sinalizada, sem dupla contagem, não é entrada do motor); existência de consignação por vínculo é campo
+novo; **todo** contrato consignado, inclusive cartão consignado/benefício,
+aponta para o vínculo em que é descontado. Identificadores técnicos a critério
+do plano.
+
+### `E-10` — Projeção de recursos extraordinários · B3.05 · B3.05B · B3.05D
+
+| | |
+|---|---|
+| ❌ Revogado | Recurso extraordinário só alimenta `ATAQUE_IMEDIATO_POTENCIAL`/`EXTRAORDINARIOS_RECOMENDADOS`; recurso apenas previsto para o futuro não produz efeito no plano |
+| ✅ Vigente v1.0.2 | Extraordinários são **aceleradores** da quitação, nunca condição para o plano mensal fechar. O **tipo**, sozinho, não decide: valem prazo e certeza (B3.05D). **Ataque de hoje** (`EXTRAORDINARIOS_RECOMENDADOS`, `specs/motor-calculo.spec.md` §13.3): **inalterado** — só o que já está disponível no momento. **Projeção:** item `CONFIRMADO`, com valor estimável e recebimento dentro do horizonte do plano, entra na projeção **no mês previsto**. `PROVAVEL`/`POSSIVEL` aparecem só como **cenário adicional** e só viram ataque quando efetivamente recebidos. Férias: extraordinário é **apenas o acréscimo (1/3)**. Antes de destinar um extraordinário às dívidas, preservar necessidades essenciais, despesas sazonais já conhecidas, obrigações prioritárias e a proteção mínima (parâmetros de reserva já existentes). Sempre valor líquido; sem dupla contagem com renda já no orçamento. Vários itens, cada um com tipo, valor, janela e certeza — nunca somados como se tivessem a mesma certeza |
+| Origem | `DE-02` (`q2_1`–`q2_3`), confirmada pelo responsável do produto em 30/09/2026 |
+
+A regra de motor correspondente está em `specs/motor-calculo.spec.md` §15
+(`RF-70` a `RF-76`). **Precisões v1.0.3 (equipe técnica, `OQ-46`–`OQ-50` de
+`motor-calculo`):** horizonte = cronograma até a última quitação projetada;
+mês previsto = último mês da janela de B3.05C (`1_3M` → 3, `4_6M` → 6,
+`7_12M` → 12), `NAO_SEI` não entra; `ATE_30D` `CONFIRMADO` segue o ataque de
+hoje, sem duplicar; preservação pelas regras de reserva já existentes;
+cenário adicional = segunda projeção com `PROVAVEL` e `POSSIVEL` (confirmado
+pelo produto em nome do especialista em 30/09/2026, superando o `obs` de
+`q2_3`); sem aprovação prévia do aluno.
+
+### `E-11` — Situação do seguro prestamista · B5.D05A
+
+| | |
+|---|---|
+| ❌ Revogado | Só o custo (por mês / no total / não sei), sem a forma de contratação |
+| ✅ Vigente v1.0.3 | Valor total = custo total do seguro, nunca despesa mensal. Situação em três casos mais "Não sei": prêmio único financiado — já compõe saldo/parcela, não somar de novo; cobrado mensalmente à parte — despesa mensal **da dívida** enquanto existir; cancelado com restituição — cessa a cobrança, restituição só quando confirmada, como extraordinário; "Não sei" — não soma em lugar nenhum, dado registrado como "não informado" (não é "Pendente de confirmação", que `E-14` reserva a informação verbal). Equivalente mensal só para análise, com período de cobertura, rotulado como rateio. Orientar o aluno sobre apólice e cancelamento |
+| Origem | `DE-03` (`q3_1`) · equipe técnica `OQ-54` |
+
+### `E-12` — Desconto do credor · B7.13A
+
+| | |
+|---|---|
+| ❌ Revogado | Um único campo (R$ ou %) sem base declarada |
+| ✅ Vigente v1.0.3 | Base = **valor atual de quitação antes do desconto** (não "saldo devedor"). Guardar separados: bruto, tipo (R$/%), valor informado, valor final, validade. R$ → líquido = bruto − desconto; % → líquido = bruto × (1 − %). Valor final informado pelo credor prevalece; o calculado só confere. Travas: % entre 0 e 100; desconto em R$ ≤ bruto. R$ e % juntos: comparação ao centavo — desconto em R$ contra bruto × % arredondado a R$ 0,01; diferença > R$ 0,01 é divergência sinalizada; nunca somar |
+| Origem | `DE-03` (`q3_2`) · equipe técnica `OQ-55` |
+
+### `E-13` — Custo mensal × total · B8.12A (e B5.D05A)
+
+| | |
+|---|---|
+| ❌ Revogado | "por mês" / "total" sem período nem regra de mensalização |
+| ✅ Vigente v1.0.3 | Guardar tipo, valor, período e meses restantes. Mensal = despesa recorrente enquanto durar; total = custo único, nunca somado a cada mês (se parcelado, só a parcela do mês). Custo embutido na parcela/saldo não soma de novo. Mensalização só com prazo informado |
+| Origem | `DE-03` (`q3_3`) |
+
+### `E-14` — Fonte de comprovação · B5.I02 · B7.16 · B8.15 · §12
+
+| | |
+|---|---|
+| ❌ Revogado | `ORIGEM_DADO` = DOCUMENTO ou USUARIO |
+| ✅ Vigente v1.0.3 | "Fonte de comprovação" em três níveis: Comprovado por documento/registro · Informado pelo aluno, sem comprovação · Pendente de confirmação (informação verbal). Não bloqueia o cálculo; o nível é registrado por dado e exibido ao revisor e no plano; **não** alimenta `CONFIABILIDADE_DADOS`. Dado indispensável em "Pendente de confirmação" ou ausente **bloqueia a liberação pelo revisor** (homologação, `DE-08`/`q8_1`) até ser confirmado ou corrigido; o revisor vê a lista. B8.15: "Simulação fornecida pela instituição" → Comprovado; "Atendimento" e "Correspondente" → Pendente de confirmação |
+| Origem | `DE-06` (`q6_1`) · equipe técnica `OQ-61`–`OQ-64` |
+
+### `E-15` — Proposta do credor · B7.04–B7.09 · B7.15
+
+| | |
+|---|---|
+| ❌ Revogado | Tipo da proposta inferido de B7.07 ("Não há parcelas; é quitação à vista") |
+| ✅ Vigente v1.0.3 | Existe proposta? (B7.04) Não → salta todo o bloco. Sim → tipo: à vista, parcelada ou ambas. À vista → valor para quitação à vista + validade; parcelada → nº de parcelas, valor da parcela, prazo do parcelamento (B7.09) + validade; ambas → os dois conjuntos. Validade (B7.15) em qualquer tipo. Campos não aplicáveis não aparecem nem contam como ausentes |
+| Origem | `DE-07` (`q7_1`) · equipe técnica `OQ-65` |
+
+### O que a v1.0.2 e a v1.0.3 **não** alteram
+
+- `specs/motor-calculo.spec.md` §13 inteira, inclusive §13.3 (`ATAQUE_IMEDIATO_RECOMENDADO`) e §13.6 (só `ATAQUE_IMEDIATO_APROVADO` entra no cronograma como ataque imediato).
+- Parâmetros da §8, gabaritos da §10 e regras da §9.
+- `DE-01`, `DE-04` e `DE-08` são requisitos de aplicação em `specs/app-aluno.spec.md` (Rodada 9) e não mudam registros desta Matriz. Os efeitos de `DE-03`, `DE-06` e `DE-07` sobre a §11 estão em `E-11` a `E-15` (v1.0.3, `OQ-52` resolvida).

@@ -123,6 +123,7 @@ from app.http.rotas_conta import roteador as roteador_conta
 from app.http.rotas_etapas import roteador as roteador_etapas
 from app.http.rotas_fichas import roteador as roteador_fichas
 from app.http.rotas_inicio import roteador as roteador_inicio
+from app.http.rotas_inventario import roteador as roteador_inventario
 from app.http.rotas_operador import roteador as roteador_operador
 from app.http.rotas_pergunta import roteador as roteador_pergunta
 from app.http.rotas_plano import roteador as roteador_plano
@@ -198,6 +199,7 @@ def criar_aplicacao() -> FastAPI:
     # oferecer todas as telas de uma vez e a deixar a escolha com quem não
     # tem como fazê-la.
     aplicacao.include_router(roteador_inicio)
+    aplicacao.include_router(roteador_inventario)
     # T-160: rever o que já foi respondido. `RF-10` dava retomada; faltava
     # conferência — o aluno não tinha como reler o que disse sobre o próprio
     # dinheiro, nem achar o que esqueceu.

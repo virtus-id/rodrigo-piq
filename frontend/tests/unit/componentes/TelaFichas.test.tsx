@@ -122,3 +122,99 @@ describe('TelaFichas — despesa por item (T-217)', () => {
     )
   })
 })
+
+describe('TelaFichas — margens dentro do vínculo (T-259)', () => {
+  function montarVinculos() {
+    vi.spyOn(api, 'listarFichas').mockResolvedValue({
+      escopo_pai: null,
+      escopos_filhos: ['MARGEM_ID'],
+      fichas: [
+        {
+          item_id: 'V001',
+          rotulo: null,
+          pede_nome: false,
+          completa: false,
+          campos: [],
+          margens: [
+            { item_id: 'M001', rotulo: null, pede_nome: false, completa: true, campos: [] },
+          ],
+          dependentes: { margens: ['M001'], dividas: ['D002'] },
+        },
+        {
+          item_id: 'V002',
+          rotulo: null,
+          pede_nome: false,
+          completa: false,
+          campos: [],
+          margens: [
+            { item_id: 'M002', rotulo: null, pede_nome: false, completa: false, campos: [] },
+          ],
+          dependentes: { margens: ['M002'], dividas: [] },
+        },
+      ],
+    } as unknown as Awaited<ReturnType<typeof api.listarFichas>>)
+    render(
+      <TelaFichas
+        casoId="CASO-1"
+        escopo="VINCULO_ID"
+        titulo="Vínculo"
+        tituloPlural="Vínculos"
+        onAbrirFicha={vi.fn()}
+      />,
+    )
+  }
+
+  it('cada margem aparece sob o seu vínculo e a nova é criada com o pai', async () => {
+    const criar = vi.spyOn(api, 'criarFicha').mockResolvedValue(
+      {} as Awaited<ReturnType<typeof api.criarFicha>>,
+    )
+    montarVinculos()
+
+    const doV1 = await screen.findByRole('list', { name: 'Margens de Vínculo V001' })
+    const doV2 = screen.getByRole('list', { name: 'Margens de Vínculo V002' })
+    expect(doV1).toHaveTextContent('Margem M001')
+    expect(doV1).not.toHaveTextContent('M002')
+    expect(doV2).toHaveTextContent('Margem M002')
+    expect(screen.queryByText(/total/i)).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getAllByRole('button', { name: '+ Adicionar margem' })[1])
+
+    await waitFor(() => expect(criar).toHaveBeenCalledWith('CASO-1', 'MARGEM_ID', 'V002'))
+  })
+
+  it('remover vínculo lista os dependentes antes de confirmar', async () => {
+    const remover = vi.spyOn(api, 'removerFicha').mockResolvedValue({ removido: 'V001' })
+    montarVinculos()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Remover Vínculo V001' }))
+
+    const aviso = screen.getByRole('alertdialog')
+    expect(aviso).toHaveTextContent('Margem M001')
+    expect(aviso).toHaveTextContent('Dívida D002')
+    expect(remover).not.toHaveBeenCalled()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remover assim mesmo' }))
+
+    await waitFor(() => expect(remover).toHaveBeenCalledWith('CASO-1', 'VINCULO_ID', 'V001'))
+  })
+
+  it('a lista de margens sozinha não oferece criar margem sem vínculo', async () => {
+    vi.spyOn(api, 'listarFichas').mockResolvedValue({
+      escopo_pai: 'VINCULO_ID',
+      escopos_filhos: [],
+      fichas: [],
+    } as unknown as Awaited<ReturnType<typeof api.listarFichas>>)
+    render(
+      <TelaFichas
+        casoId="CASO-1"
+        escopo="MARGEM_ID"
+        titulo="Margem"
+        tituloPlural="Margens"
+        onAbrirFicha={vi.fn()}
+      />,
+    )
+
+    await screen.findByText('Nenhuma ficha cadastrada ainda.')
+    expect(screen.queryByRole('button', { name: /Adicionar margem/ })).not.toBeInTheDocument()
+  })
+})

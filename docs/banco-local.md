@@ -89,6 +89,9 @@ DATABASE_URL="postgresql://postgres:piq_local_dev@127.0.0.1:15432/piq" \
   .venv/Scripts/python.exe scripts/semear_parametros.py
 ```
 
+A versão semeada é `--versao X.Y.Z`; sem ele, a de `PARAMETROS_VERSION_VIGENTE`;
+sem as duas, `1.0.1` (`T-168`). Para a `1.0.2`: acrescente `--versao 1.0.2`.
+
 ## 4. Rodar a suíte
 
 ```bash

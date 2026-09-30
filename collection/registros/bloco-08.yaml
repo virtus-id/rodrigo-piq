@@ -12,7 +12,7 @@
 # `STATUS_TROCA`, com o valor interno correspondente a "Sim" na tabela de
 # mapeamento de B8.00 (PROPOSTA_RECEBIDA).
 
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 
 perguntas:
   - ID: B8.01
@@ -294,6 +294,52 @@ perguntas:
     admite_nao_sei: true
     salto_consequencia: null
 
+  # v1.0.3 (`E-13`, `DE-03`; T-235): valor e meses do custo do seguro da
+  # nova operação; `B8.12A` continua gravando a base (MENSAL/TOTAL).
+  # Enunciados: redação proposta (`OQ-67`).
+  - ID: B8.12V
+    bloco: 8
+    enunciado: Qual é o valor desse seguro?
+    tipo: MOEDA
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "R$ ______", valor_interno: null }
+    VARIAVEL_GRAVADA: NOVO_SEGURO_VALOR
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - { tipo: IGUAL, variavel: NOVO_SEGURO, valor: MENSAL }
+        - { tipo: IGUAL, variavel: NOVO_SEGURO, valor: TOTAL }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: false
+    salto_consequencia: "Base TOTAL: custo único da operação, nunca somado a cada mês."
+
+  - ID: B8.12P
+    bloco: 8
+    enunciado: >-
+      Por quantos meses esse seguro é cobrado? (No total: o período de
+      cobertura; por mês: quantos meses restam.)
+    tipo: NUMERO
+    obrigatoriedade: [COND]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - { rotulo: "___ meses", valor_interno: null }
+      - { rotulo: "Não sei", valor_interno: null, admite_nao_sei: true }
+    VARIAVEL_GRAVADA: NOVO_SEGURO_MESES
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - { tipo: IGUAL, variavel: NOVO_SEGURO, valor: MENSAL }
+        - { tipo: IGUAL, variavel: NOVO_SEGURO, valor: TOTAL }
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: { fonte: REGISTRO, campo_do_snapshot: null }
+    admite_nao_sei: true
+    salto_consequencia: "Sem prazo, nenhum valor mensal é derivado (RF-85)."
+
   - ID: B8.13
     bloco: 8
     enunciado: A nova operação exige alguma garantia que a dívida atual não possui?
@@ -383,12 +429,14 @@ perguntas:
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - { rotulo: "Documento formal", valor_interno: DOCUMENTO_FORMAL }
-      - { rotulo: "Aplicativo/internet banking", valor_interno: APLICATIVO_INTERNET_BANKING }
-      - { rotulo: "Simulação fornecida pela instituição", valor_interno: SIMULACAO_FORNECIDA_PELA_INSTITUICAO }
-      - { rotulo: "Atendimento", valor_interno: ATENDIMENTO }
-      - { rotulo: "Correspondente", valor_interno: CORRESPONDENTE }
-      - { rotulo: "Outra fonte", valor_interno: OUTRA_FONTE }
+      # RF-91 (`T-261`, `AC-140`, `EC-36`): simulação da instituição é
+      # registro (nível 1); atendimento e correspondente são verbais (3).
+      - { rotulo: "Documento formal", valor_interno: DOCUMENTO_FORMAL, nivel_comprovacao: COMPROVADO }
+      - { rotulo: "Aplicativo/internet banking", valor_interno: APLICATIVO_INTERNET_BANKING, nivel_comprovacao: COMPROVADO }
+      - { rotulo: "Simulação fornecida pela instituição", valor_interno: SIMULACAO_FORNECIDA_PELA_INSTITUICAO, nivel_comprovacao: COMPROVADO }
+      - { rotulo: "Atendimento", valor_interno: ATENDIMENTO, nivel_comprovacao: PENDENTE_DE_CONFIRMACAO }
+      - { rotulo: "Correspondente", valor_interno: CORRESPONDENTE, nivel_comprovacao: PENDENTE_DE_CONFIRMACAO }
+      - { rotulo: "Outra fonte", valor_interno: OUTRA_FONTE, nivel_comprovacao: INFORMADO }
     VARIAVEL_GRAVADA: "FONTE_DADO (troca)"
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []

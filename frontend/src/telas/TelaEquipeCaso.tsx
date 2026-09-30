@@ -24,6 +24,7 @@ import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
 import {
   type CasoParaRevisao,
+  type OpcoesDeDecisao,
   decidirRevisao,
   obterCasoParaRevisao,
   obterOpcoesDeDecisao,
@@ -37,6 +38,7 @@ interface TelaEquipeCasoProps {
 export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) {
   const [dados, setDados] = useState<CasoParaRevisao | null>(null)
   const [classificacoes, setClassificacoes] = useState<string[]>([])
+  const [conferencia, setConferencia] = useState<OpcoesDeDecisao | null>(null)
   const [classificacao, setClassificacao] = useState('')
   const [observacao, setObservacao] = useState('')
   const [erro, setErro] = useState<string | null>(null)
@@ -54,6 +56,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
       ])
       setDados(caso)
       setClassificacoes(opcoes.classificacoes_erro)
+      setConferencia(opcoes)
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : 'Não foi possível carregar o caso.')
     } finally {
@@ -111,6 +114,11 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
   }
 
   const { plano, estado_inputs: entradas, fila } = dados
+  const pendencias = conferencia?.pendencias_homologacao ?? []
+  const fontes = conferencia?.fontes ?? []
+  const segurosNaoInformados = conferencia?.seguros_nao_informados ?? []
+  const divergencias = conferencia?.divergencias ?? []
+  const rateios = conferencia?.rateios ?? []
 
   return (
     <Tela
@@ -120,9 +128,11 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
       largura="equipe"
       acoes={
         <div className="flex flex-wrap gap-3">
+          {/* `RF-93`: com pendência de homologação o botão fica desabilitado.
+              É conveniência — quem recusa é o servidor (`409`). */}
           <Botao
             className="flex-1"
-            disabled={enviando}
+            disabled={enviando || pendencias.length > 0}
             onClick={() => void decidir('LIBERAR')}
           >
             Liberar para o aluno
@@ -147,6 +157,57 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         <p role="status" className="aviso-ok">
           {aviso}
         </p>
+      )}
+
+      {/* `T-266` — redação proposta, aprovação do produto (`OQ-67`). */}
+      {pendencias.length > 0 && (
+        <div role="alert" className="aviso-erro">
+          <p className="font-bold">
+            Não pode ser homologado ainda: confirme ou corrija estes dados antes de liberar.
+          </p>
+          <ul>
+            {pendencias.map((p) => (
+              <li key={`${p.item_id ?? 'caso'}-${p.ID_PERGUNTA}`}>
+                {p.item_id ? `${p.item_id} · ` : ''}
+                {p.enunciado} —{' '}
+                {p.motivo === 'AUSENTE' ? 'não informado' : 'pendente de confirmação'}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(fontes.length > 0 ||
+        segurosNaoInformados.length > 0 ||
+        divergencias.length > 0 ||
+        rateios.length > 0) && (
+        <div className="cartao">
+          <span className="eyebrow">Fonte de comprovação e avisos</span>
+          <ul>
+            {fontes.map((f) => (
+              <li key={`${f.item_id}-${f.origem}`}>
+                {f.item_id} · {f.origem}: {f.rotulo}
+              </li>
+            ))}
+            {segurosNaoInformados.map((divida) => (
+              <li key={`seguro-${divida}`}>
+                {divida} · seguro: {conferencia?.rotulo_nao_informado ?? 'não informado'}
+              </li>
+            ))}
+            {divergencias.map((d, i) => (
+              <li key={`divergencia-${i}`}>
+                {d.tipo === 'DESCONTO'
+                  ? `${d.item_id} · desconto: valor em R$ e percentual não conferem`
+                  : `Renda dos vínculos (${d.soma_liquidas}) difere da renda total (${d.renda_bloco_3})`}
+              </li>
+            ))}
+            {rateios.map((r) => (
+              <li key={`rateio-${r.item_id}-${r.variavel}`}>
+                {r.item_id} · rateio mensal (só análise): {r.valor_mensal}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {/* Os dois sinais seguem SEPARADOS — `AC-28`. A política do piloto

@@ -169,11 +169,18 @@ export function listarFichas(casoId: string, escopo: string): Promise<ListaDeFic
   return pedir<ListaDeFichas>(`/caso/${casoId}/fichas/${escopo}`)
 }
 
+/** `itemPaiId`: o item dentro do qual a ficha nasce — a margem no vínculo (`T-254`). */
 export function criarFicha(
   casoId: string,
   escopo: string,
+  itemPaiId?: string,
 ): Promise<{ CASO_ID: string; escopo: string; ficha: Ficha }> {
-  return pedir(`/caso/${casoId}/fichas/${escopo}`, { method: 'POST' })
+  if (!itemPaiId) return pedir(`/caso/${casoId}/fichas/${escopo}`, { method: 'POST' })
+  return pedir(`/caso/${casoId}/fichas/${escopo}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ item_pai_id: itemPaiId }).toString(),
+  })
 }
 
 /** O nome curto de "Outro" e da despesa não listada — `T-217`. */
@@ -204,6 +211,25 @@ export function removerFicha(
  * Quem decide o que vem a seguir é o servidor. Esta função não interpreta a
  * fase para escolher destino: ela entrega o que veio, e `TelaInicio` desenha.
  */
+/**
+ * Uma pendência de inventário — `RF-86`–`RF-88` (T-250). Mesma forma das
+ * pendências do `400` do cálculo, mais a mensagem e o escopo das fichas a
+ * abrir (`null` quando a correção é só a resposta declarada).
+ */
+export interface PendenciaDeInventario extends PendenciaDoCalculo {
+  tipo: 'INVENTARIO'
+  codigo: string
+  ID_PARA_CORRIGIR: string
+  escopo: string | null
+  mensagem: string
+}
+
+export function obterInventario(
+  casoId: string,
+): Promise<{ pendencias: PendenciaDeInventario[] }> {
+  return pedir<{ pendencias: PendenciaDeInventario[] }>(`/caso/${casoId}/inventario`)
+}
+
 export function obterInicio(casoId: string): Promise<Inicio> {
   return pedir<Inicio>(`/caso/${casoId}/inicio`)
 }
@@ -357,9 +383,40 @@ export function obterCasoParaRevisao(casoId: string): Promise<CasoParaRevisao> {
  * sétimo rótulo só pode nascer lá. Codificá-los aqui criaria uma segunda
  * lista, que divergiria no dia em que a primeira mudasse.
  */
-export function obterOpcoesDeDecisao(
-  casoId: string,
-): Promise<{ classificacoes_erro: string[] }> {
+/** Fonte de comprovação de uma ficha — `RF-91`. `rotulo` vem pronto do
+ *  servidor (`textos-canonicos.yaml`). */
+export interface FonteDaFicha {
+  item_id: string
+  origem: string
+  nivel: string | null
+  rotulo: string
+}
+
+/** Dado indispensável que impede a liberação — `RF-93`, `AC-142`. */
+export interface PendenciaDeHomologacao {
+  item_id: string | null
+  ID_PERGUNTA: string
+  enunciado: string
+  motivo: 'AUSENTE' | 'PENDENTE_DE_CONFIRMACAO'
+}
+
+export interface OpcoesDeDecisao {
+  classificacoes_erro: string[]
+  // `T-266` — derivados das respostas atuais, a cada leitura.
+  fontes?: FonteDaFicha[]
+  seguros_nao_informados?: string[]
+  rotulo_nao_informado?: string | null
+  divergencias?: {
+    tipo: 'DESCONTO' | 'RENDA_VINCULOS'
+    item_id: string | null
+    soma_liquidas?: string
+    renda_bloco_3?: string
+  }[]
+  rateios?: { item_id: string; variavel: string; valor_mensal: string }[]
+  pendencias_homologacao?: PendenciaDeHomologacao[]
+}
+
+export function obterOpcoesDeDecisao(casoId: string): Promise<OpcoesDeDecisao> {
   return pedir(`/revisao/caso/${casoId}/decisao`)
 }
 
@@ -447,6 +504,8 @@ export interface LinhaDoPainel {
   estado: string
   aguardando_revisao: boolean
   tempo_desde_ultima_atividade: string
+  /** `T-248` — códigos de pendência de inventário que bloqueiam o cálculo (`RF-35`). */
+  bloqueio_inventario?: string[]
 }
 
 export function obterPainelDoOperador(): Promise<{ linhas: LinhaDoPainel[] }> {

@@ -284,9 +284,12 @@ def calcular_ATAQUE_IMEDIATO_POTENCIAL(
 
     # Parcela 4 — RECURSOS_EXTRAORDINARIOS_POTENCIAIS (§13.2): sem filtro de
     # janela nem de certeza. O filtro é da §13.3, e vive em
-    # `calcular_EXTRAORDINARIOS_RECOMENDADOS` (`AC-79`).
+    # `calcular_EXTRAORDINARIOS_RECOMENDADOS` (`AC-79`). `T-153` (`EC-52`):
+    # valor `DESCONHECIDO` é pulado, nunca somado como `0` — comportamento
+    # novo só para uma entrada que antes do `T-152` não existia.
     for recurso in recursos_extraordinarios:
-        total += recurso.VALOR_RECURSO_EXTRAORDINARIO
+        if recurso.VALOR_RECURSO_EXTRAORDINARIO is not DESCONHECIDO:
+            total += recurso.VALOR_RECURSO_EXTRAORDINARIO
 
     # Parcela 5 — ativos MOBILIZACAO_POSSIVEL OU MOBILIZACAO_RECOMENDAVEL
     # (`AC-77`); as outras duas classes não entram (`EC-30`). `T-124`:
@@ -404,6 +407,12 @@ def calcular_EXTRAORDINARIOS_RECOMENDADOS(
 
     `EC-27`: coleção vazia devolve `dinheiro(0)`.
 
+    `T-153` (`EC-52`, `RF-73`, `DE-02`): item de valor `DESCONHECIDO` é
+    **pulado** — não compõe o recomendado, não levanta erro e nunca vira
+    `0`, como `calcular_ATIVOS_RECOMENDADOS` já faz. O comportamento só é
+    novo para uma entrada que antes do `T-152` não era representável;
+    nenhuma outra linha da §13.3 muda.
+
     Pureza (spec §5): a única entrada chega por parâmetro.
     """
     total = dinheiro(0)
@@ -411,6 +420,7 @@ def calcular_EXTRAORDINARIOS_RECOMENDADOS(
         if (
             recurso.CERTEZA_RECURSO_EXTRAORDINARIO is CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO
             and recurso.JANELA_RECURSO_EXTRAORDINARIO is JANELA_RECURSO_EXTRAORDINARIO.ATE_30D
+            and recurso.VALOR_RECURSO_EXTRAORDINARIO is not DESCONHECIDO
         ):
             total += recurso.VALOR_RECURSO_EXTRAORDINARIO
     return total

@@ -185,6 +185,13 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
                   <p className="text-muted">
                     {posicao.explicacao || posicao.JUSTIFICATIVA_POSICAO}
                   </p>
+                  {/* `RF-92` (T-267): nível 2 ou 3 não bloqueia, mas fica
+                      visível por dívida. */}
+                  {posicao.fonte && (
+                    <p className="text-muted">
+                      Fonte de comprovação: {posicao.fonte}
+                    </p>
+                  )}
                 </div>
               </div>
               {posicao.valores_de_apoio.length > 0 && (
@@ -249,6 +256,36 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
             ))}
           </div>
         </div>
+      )}
+
+      {/*
+        `RF-98`, `AC-152` (`T-277`): o cenário adicional é uma seção PRÓPRIA,
+        abaixo do plano e rotulada — nunca mistura os seus números ao resumo
+        e à ordem acima, que são da projeção-base. Tudo lido do snapshot e
+        formatado pelo servidor (Lei nº 3).
+      */}
+      {plano.cenario_adicional && (
+        <section className="cartao" aria-labelledby="titulo-cenario-adicional">
+          <h2 id="titulo-cenario-adicional">{plano.cenario_adicional.rotulo}</h2>
+          <p className="text-muted">{plano.cenario_adicional.explicacao}</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <dt className="text-muted">até a última quitação</dt>
+            <dd className="m-0 tabular-nums">{plano.cenario_adicional.PRAZO_TOTAL}</dd>
+            <dt className="text-muted">de custo futuro</dt>
+            <dd className="m-0 tabular-nums">{plano.cenario_adicional.CUSTO_FUTURO_TOTAL}</dd>
+            <dt className="text-muted">ordem</dt>
+            <dd className="m-0">{plano.cenario_adicional.ordem.join(' → ')}</dd>
+          </dl>
+          {plano.cenario_adicional.itens.length > 0 && (
+            <ul className="lista list-none p-0">
+              {plano.cenario_adicional.itens.map((item) => (
+                <li key={item.ITEM_ID} className="tabular-nums">
+                  {item.ITEM_ID}: {item.valor} no mês {item.mes}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       {/* `AC-16`: carimbo de versão na saída. Uma tela sem carimbo não diz

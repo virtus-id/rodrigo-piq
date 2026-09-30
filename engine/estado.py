@@ -517,10 +517,15 @@ class RecursoExtraordinario:
     o valor líquido de `ItemInvestimento`/`ItemAtivo` (`OQ-27`, aberta).
     Não há `CLASSIFICACAO_MOBILIZACAO` aqui: a §13 não classifica recurso
     extraordinário por mobilização — quem o qualifica são janela e certeza.
+
+    `T-152` (`RF-75`, `AC-122`, `EC-52`, `DE-02`): o valor é `DinheiroTalvez`
+    — `CONFIRMADO` com valor `DESCONHECIDO` precisa ser representável para
+    que o motor o deixe de fora da projeção e da §13.3 sem jamais tratá-lo
+    como `0`. Sem `TIPO_RECURSO_EXTRAORDINARIO`: o tipo nunca decide (`RF-72`).
     """
 
     ITEM_ID: str
-    VALOR_RECURSO_EXTRAORDINARIO: Dinheiro
+    VALOR_RECURSO_EXTRAORDINARIO: DinheiroTalvez  # EC-52 — pode ser DESCONHECIDO
     JANELA_RECURSO_EXTRAORDINARIO: JANELA_RECURSO_EXTRAORDINARIO
     CERTEZA_RECURSO_EXTRAORDINARIO: CERTEZA_RECURSO_EXTRAORDINARIO
 

@@ -426,3 +426,35 @@ def exibir(snapshot):
     assert len(violacoes) == 1
     assert violacoes[0].arquivo == "report/exemplo.py"
     assert violacoes[0].linha == 7
+
+
+def _funcao(arquivo: Path, nome: str) -> ast.FunctionDef:
+    arvore = ast.parse(arquivo.read_text(encoding="utf-8"))
+    (funcao,) = [n for n in ast.walk(arvore) if isinstance(n, ast.FunctionDef) and n.name == nome]
+    return funcao
+
+
+def test_t278_cenario_adicional_so_le_projecao_extraordinarios_sem_aritmetica() -> None:
+    """`T-278` (`RF-98`, `AC-42`, `AC-152`): o cenário adicional do plano é
+    LIDO de `snapshot.projecao_extraordinarios` — nenhum outro campo do
+    snapshot em `_cenario_adicional`, e nenhuma operação aritmética nem
+    `sum(...)` nela nem na serialização do plano."""
+    leitura = _funcao(RAIZ_PROJETO / "report" / "plano.py", "_cenario_adicional")
+    serializacao = _funcao(
+        RAIZ_PROJETO / "app" / "http" / "serializacao_plano.py", "serializar_plano"
+    )
+
+    campos_do_snapshot = {
+        no.attr
+        for no in ast.walk(leitura)
+        if isinstance(no, ast.Attribute)
+        and isinstance(no.value, ast.Name)
+        and no.value.id == "snapshot"
+    }
+    assert campos_do_snapshot == {"projecao_extraordinarios"}
+    for funcao in (leitura, serializacao):
+        # Só o corpo: `X | None` da anotação não é aritmética.
+        for no in (n for comando in funcao.body for n in ast.walk(comando)):
+            assert not isinstance(no, ast.BinOp | ast.AugAssign), (funcao.name, no.lineno)
+            if isinstance(no, ast.Call):
+                assert _nome_da_chamada(no.func) != "sum", (funcao.name, no.lineno)

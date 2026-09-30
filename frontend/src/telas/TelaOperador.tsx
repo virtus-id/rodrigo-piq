@@ -97,6 +97,11 @@ export default function TelaOperador({ voltar }: TelaOperadorProps) {
               {linha.aguardando_revisao && (
                 <span className="chip bg-warn-soft text-warn">Aguarda conferência</span>
               )}
+              {(linha.bloqueio_inventario?.length ?? 0) > 0 && (
+                <span className="chip bg-warn-soft text-warn">
+                  Cálculo bloqueado: inventário incompleto
+                </span>
+              )}
             </div>
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
               <dt className="text-muted">Etapa</dt>

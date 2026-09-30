@@ -412,6 +412,21 @@ def test_recurso_extraordinario_decidivel_por_item() -> None:
     )
 
 
+def test_recurso_extraordinario_aceita_valor_desconhecido() -> None:
+    """`EC-52` · `AC-122` · `RF-75` (`T-152`): `CONFIRMADO` com valor
+    `DESCONHECIDO` passa a ser representável — o tipo é `DinheiroTalvez`
+    (a prova é `mypy --strict` aceitar esta construção), e o sentinela
+    chega intacto, nunca convertido em `0`."""
+    item = RecursoExtraordinario(
+        ITEM_ID="REC1",
+        VALOR_RECURSO_EXTRAORDINARIO=DESCONHECIDO,
+        JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO.QUATRO_A_SEIS_MESES,
+        CERTEZA_RECURSO_EXTRAORDINARIO=CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO,
+    )
+
+    assert item.VALOR_RECURSO_EXTRAORDINARIO is DESCONHECIDO
+
+
 # ---------------------------------------------------------------------------
 # AC-66 · EC-31 — o enum de classificação e a obrigatoriedade por item
 # ---------------------------------------------------------------------------

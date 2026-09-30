@@ -294,6 +294,7 @@ from collection.condicoes import (
     CondicaoOu,
     avaliar,
 )
+from collection.opcoes_do_motor import sem_itens_para_escolher
 from collection.registro import EscopoRepeticao, Obrigatoriedade, RegistroPergunta
 from collection.respostas import RespostasCaso
 from persistencia.app_aluno.casos import Caso
@@ -430,10 +431,17 @@ def _percorrer_ocorrencias(
     registro: a primeira ficha inteira, depois a segunda. Iterar registro →
     item fazia o aluno alternar de dívida a cada pergunta, contra o
     localizador "Dívida N · pergunta X de Y" (`RF-63`, `AC-92`). Como a
-    mudança é aqui, retomada e contagem mudam juntas."""
+    mudança é aqui, retomada e contagem mudam juntas.
+
+    **`T-282` — pergunta sem item para escolher não é ocorrência.** Origem
+    `ITENS_DO_ESCOPO` com o escopo vazio (a dívida consignada sem nenhum
+    vínculo cadastrado) não trava a ficha: a falta é pendência de
+    inventário, que só bloqueia o cálculo final (`DE-04`)."""
     for ficha, grupo in groupby(registros, key=lambda registro: _ficha(registro, e_por_item)):
         if ficha is None:
             for registro in grupo:
+                if sem_itens_para_escolher(registro, itens_por_escopo):
+                    continue
                 if elegivel(registro, respostas, None):
                     yield (
                         PendenciaObrigatoria(ID=registro.ID, item_id=None),
@@ -441,12 +449,33 @@ def _percorrer_ocorrencias(
                     )
             continue
 
-        da_ficha = tuple(grupo)
+        da_ficha = tuple(r for r in grupo if not sem_itens_para_escolher(r, itens_por_escopo))
         for item_id in itens_por_escopo.get(ficha[1], ()):
             for registro in da_ficha:
                 if elegivel(registro, respostas, item_id):
-                    em_branco = respostas.valor_no_item(item_id, _variavel(registro)) is None
+                    em_branco = _em_branco_no_item(registro, respostas, item_id, itens_por_escopo)
                     yield PendenciaObrigatoria(ID=registro.ID, item_id=item_id), em_branco
+
+
+def _em_branco_no_item(
+    registro: RegistroPergunta,
+    respostas: RespostasCaso,
+    item_id: str,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> bool:
+    """Sem resposta no item — ou, `T-257` (`EC-35`, `AC-139`), com resposta
+    que aponta um item que já não está ativo no caso (origem
+    `ITENS_DO_ESCOPO`: a dívida cujo vínculo foi removido). A resposta
+    continua gravada (auditoria); só volta a contar como em aberto."""
+    valor = respostas.valor_no_item(item_id, _variavel(registro))
+    if valor is None:
+        return True
+    origem = registro.origem_opcoes
+    return (
+        origem.fonte == "ITENS_DO_ESCOPO"
+        and origem.escopo is not None
+        and valor not in itens_por_escopo.get(origem.escopo, ())
+    )
 
 
 def _ficha(
@@ -631,9 +660,14 @@ def itens_em_aberto(
     registros: tuple[RegistroPergunta, ...],
     respostas: RespostasCaso,
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None = None,
+    pais: Mapping[str, str] | None = None,
 ) -> frozenset[str]:
     """`T-201` — os itens com ao menos uma pergunta ABERTA naquele item e em
     branco. Uma ficha está completa quando seu `item_id` não está aqui.
+
+    `T-257` (`EC-35`): `pais` é `item_id → item_pai_id`; o item cujo pai
+    não está entre os ativos de `itens_por_escopo` (a margem do vínculo
+    removido) também está em aberto.
 
     Não é `pendencias_obrigatorias`: as perguntas da ficha do Bloco 5 são
     `REP`/`COND, REP`, sem `OBR`, e nunca pendiam — a ficha recém-criada
@@ -652,7 +686,14 @@ def itens_em_aberto(
             e_por_item=_e_por_item_por_escopo,
         )
         if em_branco and ocorrencia.item_id is not None
-    )
+    ) | _orfaos(itens_por_escopo or {}, pais or {})
+
+
+def _orfaos(
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]], pais: Mapping[str, str]
+) -> frozenset[str]:
+    ativos = {item_id for item_ids in itens_por_escopo.values() for item_id in item_ids}
+    return frozenset(item for item, pai in pais.items() if item in ativos and pai not in ativos)
 
 
 def proxima_pergunta_do_item(
@@ -692,6 +733,8 @@ def posicao_na_ficha(
     registros: tuple[RegistroPergunta, ...],
     respostas: RespostasCaso,
     item_id: str | None = None,
+    *,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None = None,
 ) -> PosicaoNaFicha | None:
     """`RF-63`, `AC-92` — a posição de `registro` entre as perguntas ABERTAS
     da sua ficha, ou `None` quando ele não pertence a ficha nenhuma.
@@ -720,7 +763,9 @@ def posicao_na_ficha(
 
     Usa `_e_pergunta_aberta` — os predicados da RETOMADA, não os da pendência:
     o localizador conta o que o aluno percorre, igual à barra de progresso —
-    avaliados no `item_id` corrente (`T-199`)."""
+    avaliados no `item_id` corrente (`T-199`). Com `itens_por_escopo`, a
+    pergunta sem item para escolher (`sem_itens_para_escolher`, `T-282`) não
+    é exibida e não conta (`T-285`)."""
     if registro.escopo_repeticao == EscopoRepeticao.NENHUM:
         return None
 
@@ -730,6 +775,9 @@ def posicao_na_ficha(
         if candidato.escopo_repeticao == registro.escopo_repeticao
         and candidato.bloco == registro.bloco
         and _e_pergunta_aberta(candidato, respostas, item_id)
+        and not (
+            itens_por_escopo is not None and sem_itens_para_escolher(candidato, itens_por_escopo)
+        )
     ]
 
     try:
@@ -779,7 +827,9 @@ def escopos_abertos_pela_resposta(
     return tuple(
         escopo
         for escopo, cabeca in cabecas_das_fichas(registros).items()
-        if cabeca.condicao_exibicao is not None
+        # `T-254`: a ficha com pai (a margem) nasce dentro dele, não sozinha.
+        if cabeca.escopo_pai is None
+        and cabeca.condicao_exibicao is not None
         and variavel in _variaveis_da_condicao(cabeca.condicao_exibicao)
         and not itens_por_escopo.get(escopo)
         and escopo_aberto(cabeca, respostas)

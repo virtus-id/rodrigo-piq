@@ -3,7 +3,7 @@
 # (RF-03, RF-04, RF-09, AC-04, AC-36). 55 das 58 perguntas são REP por
 # DIVIDA_ID (cada dívida é uma ficha) — só B5.00, B5.00A e B5.FIM02 não são
 # repetíveis (são perguntas de caso, não de ficha de dívida).
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 perguntas:
   - ID: B5.00
     bloco: 5
@@ -102,6 +102,31 @@ perguntas:
     salto_consequencia: >-
       Define modelo da engine, exibição de B5.C07 (linhas reutilizáveis) e
       de B5.G03 (modalidades portáveis).
+
+  # RF-90, AC-139 (parte CONSIGNADO), DE-05, canônica v1.0.2 E-09 — T-256.
+  # Nome técnico a critério do plano (OQ-59); enunciado: redação proposta,
+  # aprovação do produto (OQ-67). Cartão consignado/benefício NÃO entra
+  # nesta rodada (decisão do produto R9-4, 2026-09-30 — T-279).
+  - ID: B5.A02V
+    bloco: 5
+    enunciado: Em qual vínculo esta dívida é descontada?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: VINCULO_DA_DIVIDA
+    condicao_exibicao: {tipo: IGUAL, variavel: TIPO_DIVIDA, valor: CONSIGNADO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes:
+      fonte: ITENS_DO_ESCOPO
+      campo_do_snapshot: null
+      escopo: VINCULO_ID
+      variavel_rotulo: ORGAO_FONTE_PAGADORA
+    admite_nao_sei: false
+    salto_consequencia: >-
+      SYS: a dívida consignada aponta o VINCULO_ID em que é descontada;
+      opções = vínculos ativos do caso.
 
   - ID: B5.A03
     bloco: 5
@@ -245,6 +270,7 @@ perguntas:
       - {rotulo: "R$ ______", valor_interno: null}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
     VARIAVEL_GRAVADA: SALDO_DEVEDOR_ATUAL
+    indispensavel: true  # RF-93 (`T-261`, `R9-8`)
     condicao_exibicao: null
     interpolacoes: []
     validacoes_cruzadas: []
@@ -379,6 +405,7 @@ perguntas:
       - {rotulo: "R$ ______", valor_interno: null}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
     VARIAVEL_GRAVADA: "PARCELA_CONTRATUAL (= PAGAMENTO_MENSAL_DEVIDO_VIGENTE)"
+    indispensavel: true  # RF-93 (`T-261`, `R9-8`)
     condicao_exibicao: {tipo: IGUAL, variavel: POSSUI_PARCELA_DEFINIDA, valor: SIM}
     interpolacoes: []
     validacoes_cruzadas: []
@@ -555,6 +582,9 @@ perguntas:
       - {rotulo: "Tenho uma taxa, mas não sei exatamente o que ela representa.", valor_interno: ESTIMADA}
       - {rotulo: "Não.", valor_interno: DESCONHECIDA, admite_nao_sei: true}
     VARIAVEL_GRAVADA: QUALIDADE_TAXA_INFORMADA
+    # RF-93/DE-06 (`T-283`): "Não." fecha `B5.D01A`, mas a taxa segue
+    # indispensável — a opção "não sei" pende como AUSENTE.
+    indispensavel: true
     condicao_exibicao: null
     interpolacoes: []
     validacoes_cruzadas: []
@@ -573,6 +603,7 @@ perguntas:
     opcoes:
       - {rotulo: "____ %", valor_interno: null}
     VARIAVEL_GRAVADA: TAXA_INFORMADA
+    indispensavel: true  # RF-93 (`T-261`, `R9-8`)
     condicao_exibicao:
       tipo: NAO
       termo: {tipo: IGUAL, variavel: QUALIDADE_TAXA_INFORMADA, valor: DESCONHECIDA}
@@ -628,9 +659,10 @@ perguntas:
           termo: {tipo: IGUAL, variavel: QUALIDADE_TAXA_INFORMADA, valor: DESCONHECIDA}
         - tipo: OU
           termos:
-            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: Contrato}
-            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: "Documento Descritivo de Crédito — DDC ou equivalente"}
-            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: "Extrato/demonstrativo atualizado"}
+            # `valor_interno` de `B5.I01`, não o rótulo (`T-284`).
+            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: CONTRATO}
+            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: DOCUMENTO_DESCRITIVO_DE_CREDITO_DDC_OU_EQUIVALENTE}
+            - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: EXTRATO_DEMONSTRATIVO_ATUALIZADO}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -764,6 +796,92 @@ perguntas:
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
     admite_nao_sei: true
     salto_consequencia: "Nunca duplicar custo do seguro."
+
+  # v1.0.3 (`E-11`, `E-13`, `DE-03`; T-230): situação do seguro, valor,
+  # período e restituição. `B5.D05A` continua gravando a base
+  # (MENSAL/TOTAL/NAO_SEI). Enunciados: redação proposta (`OQ-67`).
+  - ID: B5.D05S
+    bloco: 5
+    enunciado: Qual é a situação desse seguro hoje?
+    tipo: SELECAO_UNICA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "Foi pago de uma vez e financiado junto com a dívida (prêmio único).", valor_interno: PREMIO_UNICO_FINANCIADO}
+      - {rotulo: É cobrado todo mês à parte da parcela., valor_interno: COBRADO_MENSAL_A_PARTE}
+      - {rotulo: Foi cancelado e há restituição a receber., valor_interno: CANCELADO_COM_RESTITUICAO}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: SITUACAO_SEGURO
+    condicao_exibicao: {tipo: IGUAL, variavel: SEGURO_PRESTAMISTA, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Prêmio único → não somar de novo; cobrado à parte → despesa mensal
+      operacional (base MENSAL); cancelado → B5.D05R; Não sei → não soma,
+      "não informado".
+
+  - ID: B5.D05V
+    bloco: 5
+    enunciado: Qual é o valor desse seguro?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+    VARIAVEL_GRAVADA: CUSTO_SEGURO_VALOR
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: "CUSTO_SEGURO (+ base MENSAL/TOTAL)", valor: MENSAL}
+        - {tipo: IGUAL, variavel: "CUSTO_SEGURO (+ base MENSAL/TOTAL)", valor: TOTAL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: "Base TOTAL: custo total, nunca despesa mensal (RF-82)."
+
+  - ID: B5.D05P
+    bloco: 5
+    enunciado: >-
+      Por quantos meses esse seguro é cobrado? (No total: o período de
+      cobertura; por mês: quantos meses ainda faltam.)
+    tipo: NUMERO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: ___ meses, valor_interno: null}
+      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: CUSTO_SEGURO_MESES
+    condicao_exibicao:
+      tipo: OU
+      termos:
+        - {tipo: IGUAL, variavel: "CUSTO_SEGURO (+ base MENSAL/TOTAL)", valor: MENSAL}
+        - {tipo: IGUAL, variavel: "CUSTO_SEGURO (+ base MENSAL/TOTAL)", valor: TOTAL}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: "Sem prazo, nenhum valor mensal é derivado (RF-85)."
+
+  - ID: B5.D05R
+    bloco: 5
+    enunciado: Qual valor de restituição o credor ou a seguradora já confirmou?
+    tipo: MOEDA
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DIVIDA_ID
+    opcoes:
+      - {rotulo: "R$ ______", valor_interno: null}
+      - {rotulo: Ainda não foi confirmada., valor_interno: null, admite_nao_sei: true}
+    VARIAVEL_GRAVADA: RESTITUICAO_SEGURO_CONFIRMADA
+    condicao_exibicao: {tipo: IGUAL, variavel: SITUACAO_SEGURO, valor: CANCELADO_COM_RESTITUICAO}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: true
+    salto_consequencia: >-
+      Só a restituição confirmada vira recurso extraordinário (AC-123).
 
   # Grupo E — Situação
   - ID: B5.E01
@@ -1160,14 +1278,31 @@ perguntas:
     tipo: SELECAO_UNICA
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
+    # RF-91 (`T-261`, `AC-140`, `DE-06`, `OQ-61`): nível de comprovação por
+    # opção. "Outra" é INFORMADO, salvo documento associado em `B5.I01` (do
+    # mesmo item: qualquer documento, nunca "Não tenho nenhum documento").
     opcoes:
-      - {rotulo: Documento/contrato, valor_interno: DOCUMENTO_CONTRATO}
-      - {rotulo: Aplicativo ou internet banking, valor_interno: APLICATIVO}
-      - {rotulo: Atendimento do credor, valor_interno: ATENDIMENTO_CREDOR}
-      - {rotulo: Contracheque, valor_interno: CONTRACHEQUE}
-      - {rotulo: Minha memória, valor_interno: MEMORIA}
-      - {rotulo: Uma combinação dessas fontes, valor_interno: COMBINACAO}
-      - {rotulo: Outra, valor_interno: null}
+      - {rotulo: Documento/contrato, valor_interno: DOCUMENTO_CONTRATO, nivel_comprovacao: COMPROVADO}
+      - {rotulo: Aplicativo ou internet banking, valor_interno: APLICATIVO, nivel_comprovacao: COMPROVADO}
+      - {rotulo: Atendimento do credor, valor_interno: ATENDIMENTO_CREDOR, nivel_comprovacao: PENDENTE_DE_CONFIRMACAO}
+      - {rotulo: Contracheque, valor_interno: CONTRACHEQUE, nivel_comprovacao: COMPROVADO}
+      - {rotulo: Minha memória, valor_interno: MEMORIA, nivel_comprovacao: INFORMADO}
+      - {rotulo: Uma combinação dessas fontes, valor_interno: COMBINACAO, nivel_comprovacao: INFORMADO}
+      - rotulo: Outra
+        valor_interno: OUTRA
+        nivel_comprovacao: INFORMADO
+        nivel_comprovacao_se:
+          nivel: COMPROVADO
+          condicao:
+            tipo: OU
+            termos:
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: CONTRATO}
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: EXTRATO_DEMONSTRATIVO_ATUALIZADO}
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: DOCUMENTO_DESCRITIVO_DE_CREDITO_DDC_OU_EQUIVALENTE}
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: FATURA}
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: PROPOSTA_DE_NEGOCIACAO}
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: COMPROVANTE_PRINT_DE_APLICATIVO_OU_INTERNET_BANKING}
+              - {tipo: CONTEM, variavel: DOCUMENTACAO_DISPONIVEL, valor: OUTRO_DOCUMENTO}
     VARIAVEL_GRAVADA: FONTE_DADO
     condicao_exibicao: null
     interpolacoes: []

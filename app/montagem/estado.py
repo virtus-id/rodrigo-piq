@@ -217,6 +217,7 @@ from app.montagem.conversao import converter_para_dinheiro
 from collection.registro import EscopoRepeticao
 from collection.respostas import NAO_SEI, RespostasCaso, ValorResposta
 from engine.estado import (
+    CERTEZA_RECURSO_EXTRAORDINARIO,
     COBERTURA_MEIOS_PAGAMENTO,
     COBERTURA_PEQUENOS_GASTOS,
     CONHECIMENTO_GASTO,
@@ -225,6 +226,7 @@ from engine.estado import (
     FREQUENCIA_REGISTRO,
     GASTOS_NAO_IDENTIFICADOS,
     JANELA_NOVA_DIVIDA,
+    JANELA_RECURSO_EXTRAORDINARIO,
     REGISTRO_GASTOS,
     RESERVA_EXISTE,
     REVISAO_SEMANAL,
@@ -233,6 +235,7 @@ from engine.estado import (
     Divida,
     EstadoFinanceiro,
     PerfilComportamental,
+    RecursoExtraordinario,
     SinaisComportamentais,
 )
 from engine.tipos import (
@@ -503,6 +506,44 @@ def _dinheiro_estrutural_ou_desconhecido(
     return traduzido
 
 
+_SITUACAO_COBRADO_MENSAL_A_PARTE: Final[str] = "COBRADO_MENSAL_A_PARTE"
+_BASE_MENSAL: Final[str] = "MENSAL"
+
+
+def _custo_seguro_cobrado_a_parte(respostas: RespostasCaso, DIVIDA_ID: str) -> DinheiroTalvez:
+    """`T-231` (RF-81, RF-85, `AC-121`, `AC-155`, `EC-39`) — `CUSTO_SEGURO`
+    da dívida: `CUSTO_SEGURO_VALOR` (B5.D05V) só quando a situação
+    (`SITUACAO_SEGURO`, B5.D05S) é "cobrado mensalmente à parte" **e** a
+    base (B5.D05A) é `MENSAL`. Prêmio único, cancelado, "não sei", sem
+    seguro ou base `TOTAL` (nunca mensalizada, `RF-82`) → `DESCONHECIDO`.
+
+    Corrige o defeito de `R9.5`: `B5.D05A` grava a BASE (`MENSAL`/`TOTAL`)
+    na variável `_VARIAVEL_CUSTO_SEGURO`, e ler essa string como dinheiro
+    estourava o `assert` de `_dinheiro_estrutural_ou_desconhecido`."""
+    situacao = respostas.valor_no_item(DIVIDA_ID, "SITUACAO_SEGURO")
+    base = respostas.valor_no_item(DIVIDA_ID, _VARIAVEL_CUSTO_SEGURO)
+    if situacao != _SITUACAO_COBRADO_MENSAL_A_PARTE or base != _BASE_MENSAL:
+        return DESCONHECIDO
+    return _dinheiro_estrutural_ou_desconhecido(respostas, DIVIDA_ID, "CUSTO_SEGURO_VALOR")
+
+
+def _seguros_mensais_a_parte(dividas: tuple[Divida, ...]) -> Dinheiro:
+    """`T-232` — decisão do produto `R9-1` (2026-09-30): o seguro cobrado
+    mensalmente à parte compõe as despesas mensais operacionais entregues
+    ao motor, **uma vez por dívida** — nunca a `PARCELA_CONTRATUAL`, nunca
+    a `B3.C00` (a fotografia só lê o Bloco 3). Já incluído na parcela
+    (`B5.D05B = Sim`, `AC-132`) não soma de novo. `CUSTO_SEGURO` só é
+    dinheiro na situação/base que o permite (`_custo_seguro_cobrado_a_
+    parte`). Meses restantes (`B5.D05P`) ficam registrados: o motor não
+    modela término de despesa — o valor sai no recálculo em que a situação
+    deixar de ser "cobrado à parte"."""
+    total = _ZERO
+    for divida in dividas:
+        if not divida.SEGURO_INCLUIDO_PARCELA and isinstance(divida.CUSTO_SEGURO, Decimal):
+            total += divida.CUSTO_SEGURO
+    return total
+
+
 def _taxa_periodicidade_mensal_ou_desconhecido(
     respostas: RespostasCaso,
     DIVIDA_ID: str,
@@ -653,12 +694,10 @@ def montar_divida(respostas: RespostasCaso, DIVIDA_ID: str) -> Divida:
         # B5.C06A (média de 3 meses) — ver `_pagamento_mensal_efetivo`.
         PAGAMENTO_MENSAL_EFETIVO=_pagamento_mensal_efetivo(respostas, DIVIDA_ID),
         SEGURO_INCLUIDO_PARCELA=bool(seguro_incluido_bruto == "SIM"),
-        # B5.D05A — COND (só quando SEGURO_PRESTAMISTA = SIM): ausência
-        # estrutural (sem seguro) é DESCONHECIDO por leitura direta, nunca
-        # 0 — GAB-01: custo do seguro nunca é somado à parcela nem estimado.
-        CUSTO_SEGURO=_dinheiro_estrutural_ou_desconhecido(
-            respostas, DIVIDA_ID, _VARIAVEL_CUSTO_SEGURO
-        ),
+        # `T-231` (RF-81, RF-85): só o seguro cobrado mensalmente à parte tem
+        # custo mensal; qualquer outra situação é DESCONHECIDO. GAB-01: o
+        # motor nunca soma este campo à parcela nem o estima.
+        CUSTO_SEGURO=_custo_seguro_cobrado_a_parte(respostas, DIVIDA_ID),
         PESO_EMOCIONAL=peso_emocional_bruto,
         # Ver docstring do módulo — campos de GATE fora do escopo de T-49,
         # fixados no valor neutro documentado, nunca inventados por fórmula.
@@ -1099,13 +1138,44 @@ def _despesas_operacionais_atuais(respostas: RespostasCaso) -> Dinheiro:
     tratamento de fonte individual desconhecida de
     `_renda_recorrente_adicional_total`, acima) — nunca um erro que
     bloqueasse a soma inteira por uma única ficha incerta."""
-    valores = respostas.valores_do_escopo(EscopoRepeticao.ITEM_DESPESA, "VALOR_DESPESA")
+    return _soma_dos_informados(_despesas_operacionais_por_item(respostas))
+
+
+def _despesas_operacionais_por_item(
+    respostas: RespostasCaso,
+) -> tuple[tuple[str, DinheiroTalvez], ...]:
+    """`T-225` (RF-79, AC-119): a decomposição de
+    `_despesas_operacionais_atuais` — um `(item_id, VALOR_DESPESA)` por
+    ficha de `ITEM_DESPESA` respondida, `DESCONHECIDO` quando `NAO_SEI`. É
+    daqui que o total sai (`_soma_dos_informados`), para que a fotografia
+    do mês e o motor leiam a MESMA função (`OQ-53`)."""
+    # Um valor por item — a última resposta vence, a mesma chave
+    # `(variável, item)` de `RespostasCaso.valores_do_escopo`.
+    por_item = {
+        resposta.item_id: resposta.valor
+        for resposta in respostas.respostas
+        if resposta.ID_PERGUNTA == "VALOR_DESPESA" and resposta.item_id
+    }
+    return tuple(
+        (item_id, _dinheiro_ou_desconhecido(valor)) for item_id, valor in por_item.items()
+    )
+
+
+def _dinheiro_ou_desconhecido(valor: ValorResposta) -> DinheiroTalvez:
+    traduzido = _ou_desconhecido(valor)
+    return traduzido if isinstance(traduzido, Decimal) else DESCONHECIDO
+
+
+def _soma_dos_informados(linhas: tuple[tuple[str, DinheiroTalvez], ...]) -> Dinheiro:
+    """`OQ-16`: item "não sei" não contribui numericamente — nunca bloqueia
+    a soma dos demais."""
     total = _ZERO
-    for valor in valores:
-        traduzido = _ou_desconhecido(valor)
-        if isinstance(traduzido, Decimal):
-            total += traduzido
+    for _item_id, valor in linhas:
+        if isinstance(valor, Decimal):
+            total += valor
     return total
+
+
 
 
 _VALOR_JA_CONTABILIZADA_SIM: Final[str] = "SIM"
@@ -1150,12 +1220,24 @@ def _despesas_nao_mensais_normalizadas(respostas: RespostasCaso) -> Dinheiro:
     CONTABILIZADA_SIM = "SIM"`, nunca contra o rótulo em português. `Decimal`
     exato: a divisão por 12 nunca passa por `float` (RF-13, fronteira única
     de `app/montagem/conversao.py`)."""
-    itens = {
+    return _soma_dos_informados(_despesas_nao_mensais_por_item(respostas))
+
+
+def _despesas_nao_mensais_por_item(
+    respostas: RespostasCaso,
+) -> tuple[tuple[str, DinheiroTalvez], ...]:
+    """`T-225` (RF-79, AC-119): a decomposição de
+    `_despesas_nao_mensais_normalizadas` — um `(item_id, anual / 12)` por
+    ficha fora da exclusão de `JA_CONTABILIZADA = Sim`, `DESCONHECIDO`
+    quando `NAO_SEI`. O total é a soma destas linhas (a divisão por 12 é
+    por item, para que a soma das linhas seja o total EXATO, sem resíduo
+    de arredondamento entre as duas formas)."""
+    itens = dict.fromkeys(
         resposta.item_id
         for resposta in respostas.respostas
         if resposta.ID_PERGUNTA == "VALOR_DESPESA_NAO_MENSAL" and resposta.item_id
-    }
-    total_anual = _ZERO
+    )
+    linhas: list[tuple[str, DinheiroTalvez]] = []
     for item_id in itens:
         ja_contabilizada = respostas.valor_no_item(item_id, "DESPESA_NAO_MENSAL_JA_CONTABILIZADA")
         if ja_contabilizada == _VALOR_JA_CONTABILIZADA_SIM:
@@ -1163,10 +1245,81 @@ def _despesas_nao_mensais_normalizadas(respostas: RespostasCaso) -> Dinheiro:
         valor = respostas.valor_no_item(item_id, "VALOR_DESPESA_NAO_MENSAL")
         if valor is None:
             continue
-        traduzido = _ou_desconhecido(valor)
-        if isinstance(traduzido, Decimal):
-            total_anual += traduzido
-    return total_anual / _DOZE
+        anual = _dinheiro_ou_desconhecido(valor)
+        linhas.append((item_id, anual / _DOZE if isinstance(anual, Decimal) else DESCONHECIDO))
+    return tuple(linhas)
+
+
+_VARIAVEIS_RECURSO_EXTRAORDINARIO: Final[tuple[str, ...]] = (
+    "TIPO_RECURSO_EXTRAORDINARIO",
+    "VALOR_RECURSO_EXTRAORDINARIO",
+    "JANELA_RECURSO_EXTRAORDINARIO",
+    "CERTEZA_RECURSO_EXTRAORDINARIO",
+)
+# `B3.05BF` (`T-270`, `AC-151`): em Férias/abono o valor é o do acréscimo —
+# a pergunta a nomear quando ele falta é a dele, não `B3.05B`.
+_TIPO_FERIAS_ABONO: Final[str] = "FERIAS_ABONO"
+
+
+def _membro_por_valor[TEnum: Enum](enum_alvo: type[TEnum], valor: ValorResposta) -> TEnum:
+    """Como `_membro_do_enum`, mas pelo VALOR do membro — `JANELA_RECURSO_
+    EXTRAORDINARIO` tem `valor_interno` `"1_3M"`, que não é nome Python."""
+    try:
+        return enum_alvo(valor)
+    except ValueError as erro:
+        raise ErroValorInternoDesconhecido(enum_alvo, str(valor)) from erro
+
+
+def _recursos_extraordinarios(respostas: RespostasCaso) -> tuple[RecursoExtraordinario, ...]:
+    """`RF-98`, `AC-150`, `EC-38`, `DE-02` (`T-273`) — um
+    `RecursoExtraordinario` por item `EXT` respondido (`B3.05A`–`D`, escopo
+    `RECURSO_EXTRAORDINARIO_ID`), NUNCA somados: cada item leva o seu valor,
+    janela e certeza, lidos com `valor_no_item`. O tipo é lido só para
+    exigir a ficha completa — não é entregue (`motor-calculo:RF-72`).
+
+    Valor `NAO_SEI` → `DESCONHECIDO`; janela `NAO_SEI` é membro do enum —
+    nenhum dos dois vira `0` nem janela presumida (`EC-38`): quem decide o
+    que entra na projeção é o motor. Ficha sem uma das quatro respostas →
+    `ErroRespostaAusente` nomeando a pergunta (`422`, `T-197`). Resposta de
+    caso (`item_id=''`, legado anterior à migração `008`) não é item."""
+    itens = sorted(
+        {
+            resposta.item_id
+            for resposta in respostas.respostas
+            if resposta.ID_PERGUNTA in _VARIAVEIS_RECURSO_EXTRAORDINARIO and resposta.item_id
+        }
+    )
+    recursos: list[RecursoExtraordinario] = []
+    for item_id in itens:
+        tipo = respostas.valor_no_item(item_id, "TIPO_RECURSO_EXTRAORDINARIO")
+        if tipo is None:
+            raise ErroRespostaAusente(item_id, "B3.05A", "TIPO_RECURSO_EXTRAORDINARIO")
+        pergunta_do_valor = "B3.05BF" if tipo == _TIPO_FERIAS_ABONO else "B3.05B"
+        valor = _dinheiro_obrigatorio(
+            respostas, item_id, pergunta_do_valor, "VALOR_RECURSO_EXTRAORDINARIO"
+        )
+        janela = respostas.valor_no_item(item_id, "JANELA_RECURSO_EXTRAORDINARIO")
+        if janela is None:
+            raise ErroRespostaAusente(item_id, "B3.05C", "JANELA_RECURSO_EXTRAORDINARIO")
+        certeza = respostas.valor_no_item(item_id, "CERTEZA_RECURSO_EXTRAORDINARIO")
+        if certeza is None:
+            raise ErroRespostaAusente(item_id, "B3.05D", "CERTEZA_RECURSO_EXTRAORDINARIO")
+        recursos.append(
+            RecursoExtraordinario(
+                ITEM_ID=item_id,
+                VALOR_RECURSO_EXTRAORDINARIO=valor,
+                # "Ainda não sei" grava `NAO_SEI` como `valor_interno` —
+                # membro do enum, não o sentinela de coleta.
+                JANELA_RECURSO_EXTRAORDINARIO=_membro_por_valor(
+                    JANELA_RECURSO_EXTRAORDINARIO,
+                    "NAO_SEI" if janela is NAO_SEI else janela,
+                ),
+                CERTEZA_RECURSO_EXTRAORDINARIO=_membro_por_valor(
+                    CERTEZA_RECURSO_EXTRAORDINARIO, certeza
+                ),
+            )
+        )
+    return tuple(recursos)
 
 
 def _tipo_renda(respostas: RespostasCaso) -> TIPO_RENDA:
@@ -1543,10 +1696,10 @@ def montar_estado_financeiro(
     derivar_RESERVA_MOBILIZAVEL`, invocado por `engine/diagnostico.py` —
     esta camada muda a ENTRADA, nunca a derivação (`RF-44`, `AC-68`).
 
-    **`investimentos`, `ativos` e `recursos_extraordinarios` são tupla vazia
+    **`investimentos` e `ativos` são tupla vazia
     DECLARADA, com motivo — jamais omissão silenciosa, jamais estimativa,
     jamais classificação inventada (`RF-39`, `AC-60`, `AC-62`, `EC-19`).**
-    Não há função de leitura para as três porque NÃO HÁ O QUE LER: uma
+    Não há função de leitura para as duas porque NÃO HÁ O QUE LER: uma
     função vazia sugeriria que existe leitura parcial. Mesmo padrão
     documentado de `_CAMPOS_DE_GATE_FORA_DE_ESCOPO` (`:315`). Os motivos,
     nominalmente:
@@ -1561,18 +1714,21 @@ def montar_estado_financeiro(
       `CLASSIFICACAO_MOBILIZACAO` não é derivada aqui em hipótese alguma:
       derivá-la nesta camada seria fórmula patrimonial, proibida pela
       Lei nº 3 (`RF-44`).
-    - `recursos_extraordinarios` — `OQ-22` e `OQ-24`, abertas (fatia 2B).
 
-    `AC-60` é mais forte que "não implementado": as três permanecem vazias
+    `recursos_extraordinarios` deixou a lacuna em `T-273` (`RF-98`): um item
+    por ficha `EXT`, lido por `_recursos_extraordinarios`.
+
+    `AC-60` é mais forte que "não implementado": as duas permanecem vazias
     MESMO com fichas de investimento, imóvel, veículo e outro ativo
-    preenchidas nas respostas. A lacuna é do contrato, não da coleta —
-    quando 2B/2C destravarem, as três leituras nascem de uma vez.
+    preenchidas nas respostas. A lacuna é do contrato, não da coleta.
     """
     return EstadoFinanceiro(
         DATA_REFERENCIA=DATA_REFERENCIA,
         RENDA_TOTAL_RECORRENTE=_renda_total_recorrente(respostas),
         TIPO_RENDA=_tipo_renda(respostas),
-        DESPESAS_OPERACIONAIS_ATUAIS=_despesas_operacionais_atuais(respostas),
+        DESPESAS_OPERACIONAIS_ATUAIS=(
+            _despesas_operacionais_atuais(respostas) + _seguros_mensais_a_parte(dividas)
+        ),
         DESPESAS_NAO_MENSAIS_NORMALIZADAS=_despesas_nao_mensais_normalizadas(respostas),
         CAPACIDADE_ATAQUE_DECLARADA=_capacidade_ataque_declarada(respostas),
         ECONOMIA_POTENCIAL_IMEDIATA=_economia_potencial_imediata(
@@ -1596,9 +1752,9 @@ def montar_estado_financeiro(
         # --- Lacuna DECLARADA, com motivo na docstring acima (`RF-39`,
         # `AC-60`, `AC-62`, `EC-19`) — nunca omissão silenciosa: as duas
         # `motor-calculo:OQ-26` e `motor-calculo:OQ-27` bloqueiam
-        # `investimentos`/`ativos` (as DUAS, responder só uma não destrava);
-        # `OQ-22`/`OQ-24` bloqueiam `recursos_extraordinarios`.
+        # `investimentos`/`ativos` (as DUAS, responder só uma não destrava).
         investimentos=(),
         ativos=(),
-        recursos_extraordinarios=(),
+        # `T-273` (RF-98): item a item, nunca somados.
+        recursos_extraordinarios=_recursos_extraordinarios(respostas),
     )

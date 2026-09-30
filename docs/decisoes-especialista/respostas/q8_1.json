@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T18:16:21.275Z",
+  "decisao": "d8",
+  "falta": "",
+  "obs": "Os valores desta seção devem ser apurados caso a caso pelo motor, exclusivamente a partir dos dados informados no cenário e das regras vigentes da metodologia. Não deve haver qualquer valor, ordem de quitação, prazo ou uso de reserva pré-fixado. O cálculo deve respeitar o método aplicável ao caso, parcelas obrigatórias, capacidade mensal disponível, taxas/custos das dívidas, eventuais propostas de quitação e as regras de RESERVA_MOBILIZÁVEL/ATAQUE_IMEDIATO_RECOMENDADO. Se algum dado indispensável estiver ausente, o sistema deve sinalizar que o resultado não pode ser homologado, em vez de presumir valores.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Segundo a metodologia, qual deve ser o resultado para este caso?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": false,
+  "texto": "",
+  "tipo": "campos",
+  "valor": {}
+}

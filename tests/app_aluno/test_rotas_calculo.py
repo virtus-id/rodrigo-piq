@@ -822,3 +822,102 @@ def test_t217_ficha_de_divida_filtra_por_item_e_em_cadeia(
     )
 
     assert vistas == respostas[:4]
+
+
+# ---------------------------------------------------------------------------
+# T-249 — inventário incompleto recusa o cálculo sem prender o caso
+# (RF-86, AC-134, EC-06).
+# ---------------------------------------------------------------------------
+
+
+_VARIAVEL_DECLARADAS = "QUANTIDADE_DIVIDAS_DECLARADA_INICIAL"
+
+
+def _caso_com_dividas_declaradas(
+    monkeypatch: pytest.MonkeyPatch, declaradas: int
+) -> tuple[
+    TestClient, _RepositorioCasosDublê, _RepositorioSnapshotsDublê, _RepositorioEventosDublê
+]:
+    """`caso_completo` (uma ficha de dívida preenchida) com `B5.00` =
+    `declaradas`. A coleção só tem a declaração — o bastante para a guarda
+    saber qual pergunta corrigir, sem outra pendência de `OBR`."""
+    caso = caso_completo()
+    itens = (
+        ItemRepetido(
+            item_id=caso.DIVIDA_ID,
+            CASO_ID="CASO-CALCULO-1",
+            escopo=EscopoRepeticao.DIVIDA_ID,
+            removido_em=None,
+            criado_em=datetime.now(UTC),
+        ),
+    )
+    respostas = tuple(
+        Resposta(
+            CASO_ID="CASO-CALCULO-1",
+            ID_PERGUNTA=r.ID_PERGUNTA,
+            item_id=r.item_id,
+            valor=declaradas if r.ID_PERGUNTA == _VARIAVEL_DECLARADAS else r.valor,
+            QUESTIONARIO_VERSION=r.QUESTIONARIO_VERSION,
+            respondida_em=r.respondida_em,
+        )
+        for r in caso.respostas.respostas
+    )
+    colecao = ColecaoDeRegistros(
+        QUESTIONARIO_VERSION="1.0.0",
+        registros=(
+            _registro_obrigatorio_sintetico("B5.00", _VARIAVEL_DECLARADAS),
+        ),
+    )
+    repositorio_casos = _RepositorioCasosDublê(
+        _caso_fabricado(ESTADO_CASO.COLETA_INICIAL), conta_id_da_sessao="CONTA-1"
+    )
+    cliente, snapshots = _montar_aplicacao_de_teste(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        colecao=colecao,
+        respostas=respostas,
+        itens=itens,
+    )
+    eventos = _RepositorioEventosDublê()
+    cliente.app.dependency_overrides[obter_repositorio_eventos] = lambda: eventos  # type: ignore[attr-defined]
+    return cliente, repositorio_casos, snapshots, eventos
+
+
+def test_t249_ac134_inventario_incompleto_nao_invoca_o_motor_nem_prende_o_caso(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chamadas: list[object] = []
+    monkeypatch.setattr(
+        "app.motor.executor.calcular_plano", lambda *a, **k: chamadas.append(a)
+    )
+    cliente, repositorio_casos, snapshots, eventos = _caso_com_dividas_declaradas(monkeypatch, 3)
+
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+
+    assert resposta.status_code == 400
+    (pendencia,) = resposta.json()["pendencias"]
+    assert pendencia["tipo"] == "INVENTARIO"
+    assert pendencia["ID"] == "B5.00"
+    assert pendencia["enunciado"] == "Você declarou 3 dívidas e cadastrou 1. Faltam 2 fichas."
+    assert chamadas == []
+    assert snapshots.snapshots == []
+    assert repositorio_casos.chamadas_transicionar_estado_se == []
+    caso_apos = repositorio_casos.buscar("CASO-CALCULO-1")
+    assert caso_apos is not None and caso_apos.estado is ESTADO_CASO.COLETA_INICIAL
+    # Observabilidade: motivo nomeado na trilha, sem contagem nem valor.
+    (evento,) = eventos.eventos
+    assert (evento.tipo_evento, evento.detalhe) == (
+        "calculo_bloqueado_inventario",
+        "DIVIDAS_FALTANDO",
+    )
+
+
+def test_t249_inventario_completo_segue_para_o_calculo(monkeypatch: pytest.MonkeyPatch) -> None:
+    cliente, repositorio_casos, _snapshots, _eventos = _caso_com_dividas_declaradas(monkeypatch, 1)
+
+    resposta = cliente.post("/caso/CASO-CALCULO-1/calculo")
+
+    assert resposta.status_code not in (400, 422)
+    assert repositorio_casos.chamadas_transicionar_estado_se == [
+        (ESTADO_CASO.COLETA_INICIAL, ESTADO_CASO.CALCULANDO)
+    ]

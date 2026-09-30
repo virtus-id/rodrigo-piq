@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T18:04:42.986Z",
+  "decisao": "d6",
+  "falta": "",
+  "obs": "Marcelo: Todos os dados dessa ferramenta são de relatos dos alunos. Então não faz sentido essa classificação.\nRodrigo: tudo é informado pelo aluno. O que o sistema realmente precisa saber não é quem informou, mas qual é o grau de sustentação daquela informação.\nEu renomearia o conceito para algo como:\nFonte de comprovação do dado\nou\nEvidência da informação\n\nE classificaria assim:\n- Outra (dívida — B5.I02): Relato do aluno, salvo se houver documento/registro associado\n- Sim, documento/contrato: Documento\n- Sim, aplicativo ou internet banking: Documento/registro verificável\n- Sim, mensagem/e-mail: Documento/registro verificável\n- Foi apenas informada em atendimento: Relato do aluno\n- Não tenho registro: Relato do aluno\n\nA distinção não deve ser entre “dado vindo de documento” e “dado vindo do aluno”, porque todo dado é cadastrado pelo aluno. O que importa é se a informação possui ou não suporte verificável. Sugiro renomear para “Fonte de comprovação” ou “Evidência da informação”, classificando como “Comprovado por documento/registro” os dados sustentados por contrato, documento, aplicativo/internet banking, mensagem ou e-mail; e como “Informado pelo aluno, sem comprovação documental” aquilo que foi apenas relatado em atendimento ou para o qual não existe registro. Essa classificação deve afetar o grau de confiança do dado, mas não necessariamente impedir seu uso no plano, salvo quando a informação for crítica para o cálculo.\n\nMais uma proposta de melhoria: em vez de apenas duas categorias, considero melhor ter três níveis:\n1. Comprovado por documento/registro\n2. Informado pelo aluno, sem comprovação\n3. Pendente de confirmação\nIsso permitiria ao sistema dizer, por exemplo: “Saldo para quitação informado verbalmente pelo banco: pendente de confirmação.”",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Para cada fonte abaixo, marque como deve ser classificada.",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": false,
+  "texto": "",
+  "tipo": "grade",
+  "valor": {}
+}

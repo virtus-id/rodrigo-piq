@@ -33,6 +33,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Botao from '../componentes/Botao'
 import CampoPergunta from '../componentes/CampoPergunta'
 import Esqueleto from '../componentes/Esqueleto'
+import PainelFotografia from '../componentes/PainelFotografia'
 import Tela from '../componentes/Tela'
 import {
   gravarResposta,
@@ -40,7 +41,7 @@ import {
   obterProximaPergunta,
   obterRespostasDoCaso,
 } from '../services/api'
-import type { Pergunta } from '../tipos'
+import type { ConfirmacaoDeResposta, Pergunta } from '../tipos'
 
 interface TelaPerguntaProps {
   casoId: string
@@ -71,6 +72,11 @@ interface TelaPerguntaProps {
    * "Sim" em `B3.03`. Os escopos vêm do servidor, na ordem do registro.
    */
   onAbrirFichas?: (escopos: string[]) => void
+  /**
+   * A correção de uma linha da fotografia do mês (`RF-80`, T-228) — pela rota
+   * de correção de `RF-69`, nunca uma segunda via de gravação.
+   */
+  abrirCorrecao?: (idPergunta: string, itemId: string) => void
 }
 
 /**
@@ -200,6 +206,7 @@ export default function TelaPergunta({
   aoCorrigir,
   abrirPergunta,
   onAbrirFichas,
+  abrirCorrecao,
 }: TelaPerguntaProps) {
   const [pergunta, setPergunta] = useState<Pergunta | null>(null)
   const [pendencias, setPendencias] = useState(0)
@@ -208,6 +215,15 @@ export default function TelaPergunta({
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [gravando, setGravando] = useState(false)
+  /**
+   * Gravada com aviso (`T-240`): a resposta já está salva, e a tela PARA na
+   * mesma pergunta para anunciar o aviso junto do campo. O próximo
+   * "Continuar" segue com esta confirmação, sem gravar de novo — a menos
+   * que o aluno mude a resposta.
+   */
+  const [confirmacaoComAviso, setConfirmacaoComAviso] = useState<ConfirmacaoDeResposta | null>(
+    null,
+  )
   /** As respondidas, em ordem — a fonte do caminho para trás (`RF-70`). */
   const [respondidas, setRespondidas] = useState<readonly Anterior[]>([])
 
@@ -285,6 +301,12 @@ export default function TelaPergunta({
 
   async function aoResponder() {
     if (!pergunta) return
+    if (confirmacaoComAviso) {
+      const confirmacao = confirmacaoComAviso
+      setConfirmacaoComAviso(null)
+      seguir(confirmacao)
+      return
+    }
     setGravando(true)
     setErro(null)
     try {
@@ -294,35 +316,18 @@ export default function TelaPergunta({
         itemId: pergunta.item_id,
         naoSei,
       })
-      // `AC-103`: depois de corrigir, o aluno volta de onde veio — a revisão.
-      // Emendar na próxima pergunta pendente o mandaria para o meio da coleta
-      // sem ter pedido isso.
-      if (corrigindo && aoCorrigir) {
-        aoCorrigir()
+      // `T-240`: o aviso vai para o canal que o campo já anuncia
+      // (`role="status"` ligado por `aria-describedby`, em `CampoPergunta`).
+      // Nenhuma regra aqui: o texto e a decisão de avisar são do servidor.
+      if (confirmacao.avisos?.length) {
+        setPergunta({
+          ...pergunta,
+          aviso: confirmacao.avisos.map((aviso) => aviso.mensagem).join(' '),
+        })
+        setConfirmacaoComAviso(confirmacao)
         return
       }
-      // `T-212`: sem ficha criada, o servidor não tem pergunta daquele
-      // escopo a oferecer — o aluno vai à lista criar a primeira.
-      if (onAbrirFichas && confirmacao.abrir_fichas.length) {
-        onAbrirFichas(confirmacao.abrir_fichas)
-        return
-      }
-      // `T-193`: a PRÓXIMA pendente (`T-175`: nunca a mesma de novo) já veio
-      // dentro da confirmação de gravação — o servidor já sabia qual era no
-      // mesmo instante em que confirmou o `POST`. Sem isto, uma segunda
-      // requisição (`GET /pergunta`, com seu próprio check de sessão) pedia
-      // de volta algo que o servidor tinha acabado de calcular. Quem decide
-      // continua sendo só o servidor (`RF-45`) — isto só para de pedir duas
-      // vezes.
-      if (!confirmacao.proxima.pergunta) {
-        onColetaCompleta()
-        return
-      }
-      const proxima = confirmacao.proxima.pergunta
-      setPergunta(proxima)
-      setPendencias(confirmacao.total_pendencias)
-      setValor(valorInicial(proxima))
-      setNaoSei(proxima.respondida_como_nao_sei)
+      seguir(confirmacao)
     } catch (falha) {
       // `AC-104`: a recusa do servidor (`EC-01`/`EC-02`) chega nomeada —
       // mostramos o que ele disse, nunca uma mensagem inventada aqui.
@@ -336,6 +341,38 @@ export default function TelaPergunta({
     } finally {
       setGravando(false)
     }
+  }
+
+  function seguir(confirmacao: ConfirmacaoDeResposta) {
+    // `AC-103`: depois de corrigir, o aluno volta de onde veio — a revisão.
+    // Emendar na próxima pergunta pendente o mandaria para o meio da coleta
+    // sem ter pedido isso.
+    if (corrigindo && aoCorrigir) {
+      aoCorrigir()
+      return
+    }
+    // `T-212`: sem ficha criada, o servidor não tem pergunta daquele
+    // escopo a oferecer — o aluno vai à lista criar a primeira.
+    if (onAbrirFichas && confirmacao.abrir_fichas.length) {
+      onAbrirFichas(confirmacao.abrir_fichas)
+      return
+    }
+    // `T-193`: a PRÓXIMA pendente (`T-175`: nunca a mesma de novo) já veio
+    // dentro da confirmação de gravação — o servidor já sabia qual era no
+    // mesmo instante em que confirmou o `POST`. Sem isto, uma segunda
+    // requisição (`GET /pergunta`, com seu próprio check de sessão) pedia
+    // de volta algo que o servidor tinha acabado de calcular. Quem decide
+    // continua sendo só o servidor (`RF-45`) — isto só para de pedir duas
+    // vezes.
+    if (!confirmacao.proxima.pergunta) {
+      onColetaCompleta()
+      return
+    }
+    const proxima = confirmacao.proxima.pergunta
+    setPergunta(proxima)
+    setPendencias(confirmacao.total_pendencias)
+    setValor(valorInicial(proxima))
+    setNaoSei(proxima.respondida_como_nao_sei)
   }
 
   const anterior = anteriorNaLista(
@@ -408,12 +445,25 @@ export default function TelaPergunta({
         </div>
       )}
 
+      {/* `T-228` (RF-79): o servidor anexa o painel só à pergunta que o
+          declara no registro — nenhuma decisão por `ID` aqui. */}
+      {pergunta.painel && (
+        <PainelFotografia painel={pergunta.painel} aoCorrigir={abrirCorrecao} />
+      )}
+
       <CampoPergunta
         pergunta={pergunta}
         valor={valor}
         naoSei={naoSei}
-        onValor={setValor}
-        onNaoSei={setNaoSei}
+        onValor={(novo) => {
+          // Mudou a resposta: o aviso anterior não vale mais — grava de novo.
+          setConfirmacaoComAviso(null)
+          setValor(novo)
+        }}
+        onNaoSei={(marcado) => {
+          setConfirmacaoComAviso(null)
+          setNaoSei(marcado)
+        }}
       />
 
       {erro && (

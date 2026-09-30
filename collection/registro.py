@@ -21,8 +21,9 @@ REGRAS: `RF-03`, `AC-36`, `AC-37`
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import Enum
-from typing import Final
+from typing import Final, Literal
 
 from collection.condicoes import Condicao
 from collection.interpolacao import Marcador
@@ -77,6 +78,30 @@ class EscopoRepeticao(Enum):
     ACAO_ID = "ACAO_ID"
     RENDA_ADICIONAL_ID = "RENDA_ADICIONAL_ID"
     DESPESA_NAO_MENSAL_ID = "DESPESA_NAO_MENSAL_ID"
+    # `T-270` (RF-98, DE-02): `B3.05A`–`D` — vários recursos extraordinários,
+    # cada um com tipo, valor, janela e certeza, nunca somados.
+    RECURSO_EXTRAORDINARIO_ID = "RECURSO_EXTRAORDINARIO_ID"
+
+
+class NIVEL_COMPROVACAO(Enum):
+    """RF-91 — "Fonte de comprovação" em três níveis (`DE-06`). Nomes
+    técnicos a critério do plano (`E-14`, `R9.5`). O nível é atributo da
+    OPÇÃO no YAML (`OpcaoRegistro.nivel_comprovacao`) — mapear
+    `valor_interno → nível` em código seria conteúdo de questionário em
+    `.py`."""
+
+    COMPROVADO = "COMPROVADO"  # nível 1
+    INFORMADO = "INFORMADO"  # nível 2
+    PENDENTE_DE_CONFIRMACAO = "PENDENTE_DE_CONFIRMACAO"  # nível 3 — só informação verbal
+
+
+@dataclass(frozen=True, slots=True)
+class NivelCondicional:
+    """RF-91 — nível alternativo de uma opção quando `condicao` vale no item
+    da ficha (ex.: "Outra" sobe a `COMPROVADO` com documento associado)."""
+
+    condicao: Condicao
+    nivel: NIVEL_COMPROVACAO
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,6 +119,9 @@ class OpcaoRegistro:
     valor_interno: str | None
     admite_nao_sei: bool = False
     abre_campo: TipoResposta | None = None
+    # RF-91 (`T-222`): padrão neutro — opção sem nível declarado não tem nível.
+    nivel_comprovacao: NIVEL_COMPROVACAO | None = None
+    nivel_comprovacao_se: NivelCondicional | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,3 +143,17 @@ class RegistroPergunta:
     origem_opcoes: OrigemOpcoes
     admite_nao_sei: bool
     salto_consequencia: str | None
+    # Rodada 9 (`T-222`, `R9.5`) — campos opcionais com padrão neutro: os
+    # registros sem eles carregam sem edição. Quem USA cada um é tarefa
+    # própria. `painel` (RF-79): a serialização anexa a fotografia do mês.
+    # `indispensavel` (RF-93): dado cuja ausência bloqueia a liberação.
+    # `faixa` (RF-84): intervalo FECHADO aceito na gravação (EC-01).
+    painel: Literal["FOTOGRAFIA_DO_MES"] | None = None
+    indispensavel: bool = False
+    faixa: tuple[Decimal, Decimal] | None = None
+    # Redação ao aluno quando o valor sai da `faixa` (`T-238`) — do YAML.
+    mensagem_faixa: str | None = None
+    # `T-254` (RF-90, `E-09`): a ficha deste registro existe DENTRO de um
+    # item de outro escopo — a margem dentro do vínculo. O pai é gravado na
+    # criação do item (`item_pai_id`), nunca perguntado.
+    escopo_pai: EscopoRepeticao | None = None

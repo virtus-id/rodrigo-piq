@@ -105,6 +105,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Request, Response
@@ -134,6 +135,7 @@ from app.montagem.conversao import (
     converter_para_dinheiro,
     converter_para_taxa,
 )
+from app.montagem.entrada import avisos_da_gravacao
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.condicoes import avaliar
 from collection.materialidade import AvisoMaterialidade, avaliar_ao_responder
@@ -185,6 +187,7 @@ _TIPOS_QUE_EXIGEM_CONVERSAO_DECIMAL: Final[frozenset[TipoResposta]] = frozenset(
 _MENSAGEM_PERGUNTA_NAO_ENCONTRADA: Final[str] = "Registro de pergunta inválido: ID desconhecido."
 _MENSAGEM_PERGUNTA_NAO_ABERTA: Final[str] = "Pergunta não está aberta para resposta."
 _MENSAGEM_FALHA_SALVAR: Final[str] = "Não foi possível salvar."
+_MENSAGEM_FORA_DA_FAIXA: Final[str] = "Valor fora do intervalo aceito."
 
 _LOGGER: Final[logging.Logger] = logging.getLogger("app.http.rotas_coleta")
 
@@ -365,6 +368,25 @@ def _resolver_valor(
     return valor_bruto
 
 
+def _dentro_da_faixa(
+    registro: RegistroPergunta, dados: dict[str, str], valor: ValorResposta
+) -> bool:
+    """`T-238` — a `faixa` vale na unidade que o aluno digitou: para `TAXA`,
+    o percentual (`"120"` é 120%, antes da fração de `converter_para_taxa`),
+    renormalizado pela MESMA fronteira (`RF-13`); para `MOEDA`/`NUMERO`, o
+    próprio valor. "Não sei" e tipos sem número não têm faixa."""
+    assert registro.faixa is not None
+    if valor is NAO_SEI:
+        return True
+    numero: object = valor
+    if registro.tipo is TipoResposta.TAXA:
+        numero = converter_para_dinheiro(dados.get("valor", ""))
+    if not isinstance(numero, Decimal | int) or isinstance(numero, bool):
+        return True
+    minimo, maximo = registro.faixa
+    return minimo <= numero <= maximo
+
+
 def _resolver_selecao_unica(registro: RegistroPergunta, valor_bruto: str) -> ValorResposta:
     """`T-213`: com uma opção que abre campo (`abre_campo`, só `DATA` hoje),
     o que não é `valor_interno` de outra opção é a data digitada — convertida
@@ -529,6 +551,13 @@ def responder_pergunta(
         )
         return _resposta_de_erro(request, f"Resposta não aceita: {erro.motivo}.", 400)
 
+    # `T-238` (RF-84, AC-128): valor fora da `faixa` fechada do registro é
+    # recusado como `EC-01` — nada gravado, mensagem do próprio registro.
+    if registro.faixa is not None and not _dentro_da_faixa(registro, dados, valor):
+        return _resposta_de_erro(
+            request, registro.mensagem_faixa or _MENSAGEM_FORA_DA_FAIXA, 400
+        )
+
     # Passo 5: validação cruzada, só quando o registro a declara. EC-02:
     # recusa apontando os dois campos, nenhum é gravado.
     respostas_com_valor_corrente = _respostas_com_valor_provisorio(
@@ -580,6 +609,21 @@ def responder_pergunta(
             registro, valor, repositorio_itens, CASO_ID
         )
     except (ErroGravacaoItem, ErroGravacaoItemArquivo):
+        return _resposta_de_erro(request, _MENSAGEM_FALHA_SALVAR, 503)
+
+    # `T-274` (RF-81, AC-123, DE-03): restituição de seguro confirmada vira
+    # ficha de recurso extraordinário. Mesma disciplina do `T-217`: a
+    # resposta já está gravada; reenviar completa o que faltou.
+    try:
+        _sincronizar_restituicao_de_seguro(
+            registro, item_id, valor, repositorio, repositorio_itens, CASO_ID, colecao
+        )
+    except (
+        ErroGravacaoItem,
+        ErroGravacaoItemArquivo,
+        ErroGravacaoResposta,
+        ErroCasoInexistenteParaResposta,
+    ):
         return _resposta_de_erro(request, _MENSAGEM_FALHA_SALVAR, 503)
 
     # Neste ponto a resposta JÁ ESTÁ commitada no banco
@@ -646,6 +690,14 @@ def responder_pergunta(
             "total_pendencias": len(pendencias),
             "proxima": proxima,
             "abrir_fichas": [escopo.value for escopo in abrir_fichas],
+            # `T-240` (RF-84, AC-129): aviso não é recusa — a resposta já
+            # está gravada; `[]` quando não há nada a sinalizar.
+            "avisos": [
+                {"codigo": a.codigo, "mensagem": a.mensagem, "ID_PERGUNTA": registro.ID}
+                for a in avisos_da_gravacao(
+                    registro.VARIAVEL_GRAVADA, item_id, respostas_apos_gravar
+                )
+            ],
         }
     )
 
@@ -698,6 +750,64 @@ def _sincronizar_itens_de_despesa(
     for origem in sincronizacao.criar:
         repositorio_itens.proximo_identificador(CASO_ID, EscopoRepeticao.ITEM_DESPESA, origem)
     return any(pede_nome(origem) for origem in sincronizacao.criar)
+
+
+# `T-274` — a variável de `B5.D05R` e o que ela escreve no item `EXT`. Chaves
+# técnicas (`VARIAVEL_GRAVADA`/`valor_interno`), não conteúdo ao aluno.
+_VARIAVEL_RESTITUICAO_SEGURO: Final[str] = "RESTITUICAO_SEGURO_CONFIRMADA"
+_CERTEZA_CONFIRMADO: Final[str] = "CONFIRMADO"
+# `T-286` (`DE-03`): marca o item com a pergunta de origem (`registro.ID`) —
+# a condição de `B3.05A`–`D` no YAML abre a ficha dele mesmo com `B3.05 = Não`.
+_VARIAVEL_ORIGEM_RECURSO: Final[str] = "ORIGEM_RECURSO_EXTRAORDINARIO"
+
+
+def _sincronizar_restituicao_de_seguro(
+    registro: RegistroPergunta,
+    item_id: str | None,
+    valor: ValorResposta,
+    repositorio: RepositorioRespostas,
+    repositorio_itens: RepositorioItens,
+    CASO_ID: str,
+    colecao: ColecaoDeRegistros,
+) -> None:
+    """`T-274` (RF-81, AC-123, DE-03) — valor confirmado em `B5.D05R` cria
+    UM item `EXT` por dívida, `origem = "B5.D05R:<DIVIDA_ID>"`, com valor e
+    certeza `CONFIRMADO`; reconfirmar atualiza o mesmo item. A janela (e o
+    tipo) ficam para o aluno — nunca presumidos (`R9-10`). "Ainda não
+    confirmada" → nenhum item: o que havia sai (remoção lógica, `AC-04`)."""
+    if registro.VARIAVEL_GRAVADA != _VARIAVEL_RESTITUICAO_SEGURO or not item_id:
+        return
+    origem = f"{registro.ID}:{item_id}"
+    existente = next(
+        (
+            item.item_id
+            for item in repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
+            if item.escopo is EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID and item.origem == origem
+        ),
+        None,
+    )
+    if not isinstance(valor, Decimal):
+        if existente is not None:
+            repositorio_itens.remover(CASO_ID, existente)
+        return
+    recurso = existente or repositorio_itens.proximo_identificador(
+        CASO_ID, EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID, origem
+    )
+    for variavel, valor_do_item in (
+        ("VALOR_RECURSO_EXTRAORDINARIO", valor),
+        ("CERTEZA_RECURSO_EXTRAORDINARIO", _CERTEZA_CONFIRMADO),
+        (_VARIAVEL_ORIGEM_RECURSO, registro.ID),
+    ):
+        repositorio.gravar(
+            Resposta(
+                CASO_ID=CASO_ID,
+                ID_PERGUNTA=variavel,
+                item_id=recurso,
+                valor=valor_do_item,
+                QUESTIONARIO_VERSION=colecao.QUESTIONARIO_VERSION,
+                respondida_em=_agora(),
+            )
+        )
 
 
 def _primeira_exibivel(
@@ -757,8 +867,16 @@ def _serializar_proxima(
         respostas,
         item_id=pendencia.item_id,
         rotulo_do_item=(rotulos or {}).get(pendencia.item_id or ""),
+        itens_por_escopo=itens_por_escopo,
+        rotulos=rotulos,
     )
-    posicao = posicao_na_ficha(registro, colecao.registros, respostas, pendencia.item_id)
+    posicao = posicao_na_ficha(
+        registro,
+        colecao.registros,
+        respostas,
+        pendencia.item_id,
+        itens_por_escopo=itens_por_escopo,
+    )
     return {
         "pergunta": serializar_pergunta(
             contexto,

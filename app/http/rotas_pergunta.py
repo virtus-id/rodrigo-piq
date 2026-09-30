@@ -53,6 +53,7 @@ from app.casos.progresso import (
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
+from app.http.rotas_calculo import _respostas_do_calculo
 from app.http.rotas_coleta import (
     _itens_e_rotulos,
     _primeira_exibivel,
@@ -60,7 +61,8 @@ from app.http.rotas_coleta import (
     obter_repositorio_itens,
     obter_repositorio_respostas,
 )
-from app.http.serializacao import serializar_pergunta
+from app.http.serializacao import serializar_painel, serializar_pergunta
+from app.montagem.entrada import fotografia_do_mes
 from collection.carga import ColecaoDeRegistros
 from collection.registro import EscopoRepeticao, RegistroPergunta
 from collection.respostas import RespostasCaso
@@ -223,23 +225,41 @@ def _renderizar_pergunta(
     pergunta exibir continua inteira no servidor (`RF-52`) — o cliente
     recebe uma pergunta já decidida e nunca avalia `condicao_exibicao`."""
     contexto = montar_contexto_pergunta(
-        registro, respostas, item_id=item_id, rotulo_do_item=rotulos.get(item_id or "")
+        registro,
+        respostas,
+        item_id=item_id,
+        rotulo_do_item=rotulos.get(item_id or ""),
+        itens_por_escopo=itens_por_escopo,
+        rotulos=rotulos,
     )
     pendencias = pendencias_obrigatorias(colecao.registros, respostas, itens_por_escopo)
     # `RF-63` (T-148): o localizador do `.top` — "Dívida 3 · pergunta 4 de
     # 12". `None` fora de ficha repetível, e aí o cliente cai no rótulo do
     # bloco. Quem conta é o servidor: ele é que conhece o conjunto exibível.
-    posicao = posicao_na_ficha(registro, colecao.registros, respostas, item_id)
+    posicao = posicao_na_ficha(
+        registro, colecao.registros, respostas, item_id, itens_por_escopo=itens_por_escopo
+    )
+
+    pergunta = serializar_pergunta(
+        contexto,
+        CASO_ID=CASO_ID,
+        item_id=item_id,
+        posicao=posicao.posicao if posicao is not None else None,
+        total_na_ficha=posicao.total_na_ficha if posicao is not None else None,
+    )
+    # `T-227` (RF-79, RF-80): só registro com `painel` declarado no YAML —
+    # nenhum `ID` aqui. As respostas são as que o cálculo leria
+    # (`_respostas_do_calculo`), para a fotografia e o motor concordarem.
+    if registro.painel is not None:
+        pergunta["painel"] = serializar_painel(
+            fotografia_do_mes(_respostas_do_calculo(colecao.registros, respostas)),
+            colecao.registros,
+            dict(rotulos),
+        )
 
     return JSONResponse(
         {
-            "pergunta": serializar_pergunta(
-                contexto,
-                CASO_ID=CASO_ID,
-                item_id=item_id,
-                posicao=posicao.posicao if posicao is not None else None,
-                total_na_ficha=posicao.total_na_ficha if posicao is not None else None,
-            ),
+            "pergunta": pergunta,
             "avanco_permitido": not pendencias,
             "total_pendencias": len(pendencias),
         }

@@ -15,10 +15,17 @@ import pytest
 import yaml
 
 from collection.carga import ColecaoDeRegistros, ErroDeCarga, carregar_registros
-from collection.condicoes import CondicaoContem, CondicaoIgual, CondicaoOu
+from collection.condicoes import CondicaoContem, CondicaoE, CondicaoIgual, CondicaoNao, CondicaoOu
 from collection.interpolacao import Marcador
 from collection.opcoes_do_motor import OrigemOpcoes
-from collection.registro import EscopoRepeticao, Obrigatoriedade, RegistroPergunta, TipoResposta
+from collection.registro import (
+    NIVEL_COMPROVACAO,
+    EscopoRepeticao,
+    NivelCondicional,
+    Obrigatoriedade,
+    RegistroPergunta,
+    TipoResposta,
+)
 from collection.validacao import ValidacaoCruzada
 
 _ESQUEMA_PADRAO = Path(__file__).resolve().parents[2] / "collection" / "esquema-registros.json"
@@ -432,3 +439,181 @@ def test_t213_registro_real_marca_so_as_quatro_opcoes_de_data() -> None:
     assert marcadas == {ID: [TipoResposta.DATA] for ID in _IDS_COM_OPCAO_DE_DATA}
     for ID in _IDS_SEM_CAMPO_ATE_DECISAO:
         assert all(o.abre_campo is None for o in registros[ID].opcoes), ID
+
+
+# ---------------------------------------------------------------------------
+# T-222/T-223 — campos opcionais da Rodada 9 (RF-79, RF-84, RF-91, RF-93).
+# ---------------------------------------------------------------------------
+
+
+def _carregar_uma(tmp_path: Path, pergunta: dict[str, object]) -> RegistroPergunta:
+    diretorio = tmp_path / "registros"
+    diretorio.mkdir()
+    _escrever_arquivo(diretorio / "bloco-01.yaml", QUESTIONARIO_VERSION="1", perguntas=[pergunta])
+    return carregar_registros(diretorio, _ESQUEMA_PADRAO).registros[0]
+
+
+def _recusa(tmp_path: Path, pergunta: dict[str, object]) -> str:
+    with pytest.raises(ErroDeCarga) as excecao:
+        _carregar_uma(tmp_path, pergunta)
+    return str(excecao.value)
+
+
+def test_t222_registros_reais_carregam_com_os_campos_novos_em_padrao_neutro() -> None:
+    """AC-38: os YAML atuais carregam sem edição; todo registro/opção que não
+    declara um campo novo recebe o padrão neutro (nenhuma diferença de
+    conteúdo) — comparado com o YAML bruto, arquivo a arquivo."""
+    diretorio = _ESQUEMA_PADRAO.parent / "registros"
+    brutos = {
+        pergunta["ID"]: pergunta
+        for caminho in diretorio.glob("*.yaml")
+        for pergunta in yaml.safe_load(caminho.read_text(encoding="utf-8"))["perguntas"]
+    }
+
+    registros = carregar_registros(incluir_casos_de_prova=True).registros
+
+    assert {r.ID for r in registros} == set(brutos)
+    for registro in registros:
+        bruto = brutos[registro.ID]
+        if "painel" not in bruto:
+            assert registro.painel is None, registro.ID
+        if "indispensavel" not in bruto:
+            assert registro.indispensavel is False, registro.ID
+        if "faixa" not in bruto:
+            assert registro.faixa is None, registro.ID
+        for opcao, opcao_bruta in zip(registro.opcoes, bruto["opcoes"], strict=True):
+            if "nivel_comprovacao" not in opcao_bruta:
+                assert opcao.nivel_comprovacao is None, registro.ID
+            if "nivel_comprovacao_se" not in opcao_bruta:
+                assert opcao.nivel_comprovacao_se is None, registro.ID
+
+
+def test_t223_campos_novos_carregam_com_o_valor_declarado(tmp_path: Path) -> None:
+    pergunta = _pergunta_minima(
+        "B1.01",
+        opcoes=[
+            {"rotulo": "Documento", "valor_interno": "DOC", "nivel_comprovacao": "COMPROVADO"},
+            {
+                "rotulo": "Outra",
+                "valor_interno": "OUTRA",
+                "nivel_comprovacao": "INFORMADO",
+                "nivel_comprovacao_se": {
+                    "condicao": {"tipo": "IGUAL", "variavel": "X", "valor": "S"},
+                    "nivel": "COMPROVADO",
+                },
+            },
+        ],
+    )
+    pergunta.update(
+        painel="FOTOGRAFIA_DO_MES", indispensavel=True, faixa={"minimo": 0, "maximo": 100}
+    )
+
+    registro = _carregar_uma(tmp_path, pergunta)
+
+    assert registro.painel == "FOTOGRAFIA_DO_MES"
+    assert registro.indispensavel is True
+    assert registro.faixa is not None
+    assert (str(registro.faixa[0]), str(registro.faixa[1])) == ("0", "100")
+    assert registro.opcoes[0].nivel_comprovacao is NIVEL_COMPROVACAO.COMPROVADO
+    assert registro.opcoes[0].nivel_comprovacao_se is None
+    se = registro.opcoes[1].nivel_comprovacao_se
+    assert se == NivelCondicional(
+        condicao=CondicaoIgual(variavel="X", valor="S"), nivel=NIVEL_COMPROVACAO.COMPROVADO
+    )
+
+
+def test_t223_sem_os_campos_novos_valem_os_padroes_neutros(tmp_path: Path) -> None:
+    registro = _carregar_uma(
+        tmp_path, _pergunta_minima("B1.01", opcoes=[{"rotulo": "A", "valor_interno": "A"}])
+    )
+
+    assert (registro.painel, registro.indispensavel, registro.faixa) == (None, False, None)
+    assert registro.opcoes[0].nivel_comprovacao is None
+    assert registro.opcoes[0].nivel_comprovacao_se is None
+
+
+def test_t223_painel_desconhecido_e_recusado_nomeando_o_registro(tmp_path: Path) -> None:
+    pergunta = _pergunta_minima("B1.01")
+    pergunta["painel"] = "OUTRO_PAINEL"
+
+    assert "B1.01" in _recusa(tmp_path, pergunta)
+
+
+def test_t223_nivel_fora_do_enum_e_recusado_nomeando_o_registro(tmp_path: Path) -> None:
+    pergunta = _pergunta_minima(
+        "B1.01", opcoes=[{"rotulo": "A", "valor_interno": "A", "nivel_comprovacao": "NIVEL_4"}]
+    )
+
+    assert "B1.01" in _recusa(tmp_path, pergunta)
+
+
+def test_t223_nivel_condicional_fora_do_enum_e_recusado(tmp_path: Path) -> None:
+    pergunta = _pergunta_minima(
+        "B1.01",
+        opcoes=[
+            {
+                "rotulo": "A",
+                "valor_interno": "A",
+                "nivel_comprovacao": "INFORMADO",
+                "nivel_comprovacao_se": {
+                    "condicao": {"tipo": "IGUAL", "variavel": "X", "valor": "S"},
+                    "nivel": "NIVEL_4",
+                },
+            }
+        ],
+    )
+
+    assert "B1.01" in _recusa(tmp_path, pergunta)
+
+
+def test_t223_faixa_com_minimo_maior_que_maximo_e_recusada(tmp_path: Path) -> None:
+    pergunta = _pergunta_minima("B1.01")
+    pergunta["faixa"] = {"minimo": 100, "maximo": 0}
+
+    assert "B1.01" in _recusa(tmp_path, pergunta)
+
+
+def test_t223_faixa_nao_numerica_e_recusada(tmp_path: Path) -> None:
+    pergunta = _pergunta_minima("B1.01")
+    pergunta["faixa"] = {"minimo": "zero", "maximo": 100}
+
+    assert "B1.01" in _recusa(tmp_path, pergunta)
+
+
+def test_t224_questionario_na_versao_1_0_3_e_b3_c00_com_painel() -> None:
+    """RF-03/AC-38 (T-224, `OQ-52`): a canônica v1.0.3 é a versão única de
+    todos os registros; `B3.C00` declara o painel da fotografia do mês e é o
+    único registro que o faz."""
+    colecao = carregar_registros(incluir_casos_de_prova=True)
+
+    assert colecao.QUESTIONARIO_VERSION == "1.0.3"
+    assert [r.ID for r in colecao.registros if r.painel is not None] == ["B3.C00"]
+    assert next(r for r in colecao.registros if r.ID == "B3.C00").painel == "FOTOGRAFIA_DO_MES"
+
+
+def _folhas(condicao: object) -> list[CondicaoIgual | CondicaoContem]:
+    if isinstance(condicao, (CondicaoIgual, CondicaoContem)):
+        return [condicao]
+    if isinstance(condicao, (CondicaoE, CondicaoOu)):
+        return [folha for termo in condicao.termos for folha in _folhas(termo)]
+    if isinstance(condicao, CondicaoNao):
+        return _folhas(condicao.termo)
+    return []
+
+
+def test_t284_condicao_sobre_selecao_compara_valor_interno_nunca_rotulo() -> None:
+    """RF-05 (`T-284`): a seleção grava o `valor_interno`; condição que compara
+    o RÓTULO nunca abre (`B5.D02` por documento em `B5.I01`)."""
+    registros = carregar_registros().registros
+    valores = {
+        r.VARIAVEL_GRAVADA: {o.valor_interno for o in r.opcoes}
+        for r in registros
+        if r.tipo in (TipoResposta.SELECAO_UNICA, TipoResposta.SELECAO_MULTIPLA)
+    }
+
+    assert [
+        (r.ID, folha.variavel, folha.valor)
+        for r in registros
+        for folha in _folhas(r.condicao_exibicao)
+        if folha.variavel in valores and folha.valor not in valores[folha.variavel]
+    ] == []

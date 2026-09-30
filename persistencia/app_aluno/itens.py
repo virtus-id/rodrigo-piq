@@ -137,6 +137,10 @@ class ItemRepetido:
     # criadas pela lista, como sempre foi.
     origem: str | None = None
     nome: str | None = None
+    # `T-253` (migração `007`): o item a que este pertence — o `VINCULO_ID`
+    # de uma `MARGEM_ID` (`RF-90`, `AC-137`). Identificador LEGÍVEL, mesmo
+    # caso; `None` em item sem pai.
+    item_pai_id: str | None = None
 
 
 def _chave_persistida(caso_id: str, identificador_legivel: str) -> str:
@@ -180,7 +184,7 @@ def _como_utc(instante: datetime) -> datetime:
 
 
 def _linha_para_item(linha: tuple[Any, ...]) -> ItemRepetido:
-    chave_persistida, caso_id, escopo, removido_em, criado_em, origem, nome = linha
+    chave_persistida, caso_id, escopo, removido_em, criado_em, origem, nome, item_pai_id = linha
     return ItemRepetido(
         item_id=_identificador_legivel(chave_persistida, caso_id),
         CASO_ID=caso_id,
@@ -189,6 +193,7 @@ def _linha_para_item(linha: tuple[Any, ...]) -> ItemRepetido:
         criado_em=_como_utc(criado_em),
         origem=origem,
         nome=nome,
+        item_pai_id=item_pai_id,
     )
 
 
@@ -202,11 +207,16 @@ class RepositorioItens(Protocol):
     persistência real precisa."""
 
     def proximo_identificador(
-        self, CASO_ID: str, escopo: EscopoRepeticao, origem: str | None = None
+        self,
+        CASO_ID: str,
+        escopo: EscopoRepeticao,
+        origem: str | None = None,
+        item_pai_id: str | None = None,
     ) -> str:
         """Ver `collection.repeticao.GeradorDeIdentificadorDeItem`: devolve
         um novo identificador de item, estável e nunca reaproveitado, para o
-        par `(CASO_ID, escopo)`. `origem` (`T-217`) fica gravada no item."""
+        par `(CASO_ID, escopo)`. `origem` (`T-217`) e `item_pai_id` (`T-253`)
+        ficam gravados no item — quem valida o pai é o chamador."""
         ...
 
     def nomear(self, caso_id: str, item_id: str, nome: str) -> None:
@@ -231,7 +241,11 @@ class RepositorioItensSupabase:
     """Implementa `RepositorioItens` sobre `app_aluno.itens_repetidos`."""
 
     def proximo_identificador(
-        self, CASO_ID: str, escopo: EscopoRepeticao, origem: str | None = None
+        self,
+        CASO_ID: str,
+        escopo: EscopoRepeticao,
+        origem: str | None = None,
+        item_pai_id: str | None = None,
     ) -> str:
         """`GeradorDeIdentificadorDeItem.proximo_identificador` — ver a nota
         do módulo sobre o mecanismo de não-reaproveitamento
@@ -259,10 +273,10 @@ class RepositorioItensSupabase:
                 cursor.execute(
                     """
                     INSERT INTO app_aluno.itens_repetidos
-                        (item_id, "CASO_ID", escopo, origem)
-                    VALUES (%s, %s, %s, %s)
+                        (item_id, "CASO_ID", escopo, origem, item_pai_id)
+                    VALUES (%s, %s, %s, %s, %s)
                     """,
-                    (chave_persistida, CASO_ID, escopo.value, origem),
+                    (chave_persistida, CASO_ID, escopo.value, origem, item_pai_id),
                 )
         except ErroConexaoAusente:
             raise
@@ -320,7 +334,8 @@ class RepositorioItensSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 f"""
-                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em, origem, nome
+                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em, origem, nome,
+                       item_pai_id
                 FROM app_aluno.itens_repetidos
                 WHERE "CASO_ID" = %s {filtro_removidos}
                 ORDER BY criado_em
@@ -348,7 +363,8 @@ class RepositorioItensSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 f"""
-                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em, origem, nome
+                SELECT item_id, "CASO_ID", escopo, removido_em, criado_em, origem, nome,
+                       item_pai_id
                 FROM app_aluno.itens_repetidos
                 WHERE "CASO_ID" = ANY(%s) {filtro_removidos}
                 ORDER BY "CASO_ID", criado_em

@@ -150,6 +150,7 @@ def test_liberar_registra_decisao_e_preenche_snapshot_liberado_id_no_banco(
     agora = datetime.now(UTC).replace(microsecond=0)
 
     caso_liberado = liberar(
+        pendencias_homologacao=(),
         revisao_id=f"TESTE_T68_REVISAO_{uuid.uuid4().hex}",
         caso_id=caso_id,
         snapshot=snapshot,
@@ -240,6 +241,7 @@ def test_duas_liberacoes_concorrentes_do_mesmo_caso_produzem_um_unico_vencedor(
         time.sleep(atraso_segundos)
         try:
             caso = liberar(
+                pendencias_homologacao=(),
                 revisao_id=f"TESTE_T68_REVISAO_{rotulo}_{uuid.uuid4().hex}",
                 caso_id=caso_id,
                 snapshot=snapshot,
@@ -292,6 +294,7 @@ def test_liberar_apos_ja_liberado_e_recusado_sequencialmente(tmp_path: Path) -> 
     snapshot = _snapshot_real(tmp_path, "sequencial")
 
     liberar(
+        pendencias_homologacao=(),
         revisao_id=f"TESTE_T68_REVISAO_{uuid.uuid4().hex}",
         caso_id=caso_id,
         snapshot=snapshot,
@@ -304,6 +307,7 @@ def test_liberar_apos_ja_liberado_e_recusado_sequencialmente(tmp_path: Path) -> 
 
     with pytest.raises(ErroRevisaoJaDecidida):
         liberar(
+            pendencias_homologacao=(),
             revisao_id=f"TESTE_T68_REVISAO_{uuid.uuid4().hex}",
             caso_id=caso_id,
             snapshot=snapshot,

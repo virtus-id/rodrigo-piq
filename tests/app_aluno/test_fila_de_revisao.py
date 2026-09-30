@@ -379,6 +379,7 @@ def test_liberar_grava_decisao_e_so_entao_preenche_snapshot_liberado_id(
     agora = datetime(2026, 4, 1, 9, 0, tzinfo=UTC)
 
     caso_liberado = liberar(
+        pendencias_homologacao=(),
         revisao_id="revisao-t68-liberacao",
         caso_id=_CASO_ID,
         snapshot=snapshot_real,
@@ -465,6 +466,7 @@ def test_liberar_duas_vezes_o_mesmo_snapshot_e_recusado_nao_idempotente(
     agora = datetime(2026, 4, 3, 10, 0, tzinfo=UTC)
 
     caso_apos_primeira = liberar(
+        pendencias_homologacao=(),
         revisao_id="revisao-t68-primeira",
         caso_id=_CASO_ID,
         snapshot=snapshot_real,
@@ -478,6 +480,7 @@ def test_liberar_duas_vezes_o_mesmo_snapshot_e_recusado_nao_idempotente(
 
     with pytest.raises(ErroRevisaoJaDecidida) as excinfo:
         liberar(
+            pendencias_homologacao=(),
             revisao_id="revisao-t68-segunda",
             caso_id=_CASO_ID,
             snapshot=snapshot_real,
@@ -521,6 +524,7 @@ def test_liberar_apos_reprovar_e_recusado(
 
     with pytest.raises(ErroRevisaoJaDecidida):
         liberar(
+            pendencias_homologacao=(),
             revisao_id="revisao-t68-liberacao-tardia",
             caso_id=_CASO_ID,
             snapshot=snapshot_real,
@@ -562,6 +566,7 @@ def test_liberar_e_reprovar_nunca_gravam_em_repositorio_de_snapshots(
     # `snapshot` em ambas as funções é de LEITURA (`snapshot.SNAPSHOT_ID`).
     _preparar_caso_aguardando_revisao(repositorio_casos, snapshot_real)
     liberar(
+        pendencias_homologacao=(),
         revisao_id="revisao-t68-sem-repo-snapshot",
         caso_id=_CASO_ID,
         snapshot=snapshot_real,

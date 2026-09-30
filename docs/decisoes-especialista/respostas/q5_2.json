@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:59:00.257Z",
+  "decisao": "d5",
+  "falta": "",
+  "obs": "Cada margem consignável deve estar vinculada a um vínculo específico de trabalho/remuneração, porque ela é apurada sobre aquela folha ou fonte pagadora. O sistema deve impedir que uma margem seja usada indistintamente por outro vínculo.\nPara cada vínculo, registrar separadamente margem total, margem já utilizada e margem disponível. Cada contrato consignado deve apontar para o vínculo em que é descontado. Se o aluno tiver mais de um vínculo, as margens não devem ser somadas automaticamente como se fossem uma só; devem permanecer individualizadas por folha/fonte pagadora.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Cada margem consignável pertence a um vínculo específico?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "",
+  "tipo": "unica",
+  "valor": "Sim"
+}

@@ -183,6 +183,11 @@ class TextosCanonicosPlano:
     explicacao_da_posicao: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
     #: Por campo — o que falta, dito ao aluno (`T-177`).
     rotulos_de_pendencia: Mapping[str, str] = field(default_factory=dict)
+    #: Por `NIVEL_COMPROVACAO` (+ `NAO_INFORMADO`) — `RF-91`, `T-267`.
+    rotulos_de_comprovacao: Mapping[str, str] = field(default_factory=dict)
+    #: `titulo`/`explicacao` da seção do cenário adicional — `RF-98`,
+    #: `T-276`; redação proposta, aprovação do produto (`OQ-67`).
+    cenario_adicional: Mapping[str, str] = field(default_factory=dict)
 
 
 def carregar_textos_canonicos(
@@ -215,6 +220,8 @@ def carregar_textos_canonicos(
         rotulos_de_apoio=_mapa("rotulos_de_apoio"),
         explicacao_da_posicao=explicacoes,
         rotulos_de_pendencia=_mapa("rotulos_de_pendencia"),
+        rotulos_de_comprovacao=_mapa("rotulos_de_comprovacao"),
+        cenario_adicional=_mapa("cenario_adicional"),
     )
 
 
@@ -746,6 +753,59 @@ class ContextoPlano:
     MODO_ESTABILIZACAO: bool
     RESULTADO_CAIXA_OBSERVADO: str
     reserva_mobilizavel: ContextoReservaMobilizavel
+    #: `RF-98`/`AC-152` (`T-276`): seção à parte, NUNCA misturada aos campos
+    #: acima — que continuam lidos só do cenário recomendado.
+    cenario_adicional: ContextoCenarioAdicional | None = None
+    nao_projetados: tuple[tuple[str, str], ...] = ()  # (ITEM_ID, motivo) — EC-38
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoAporte:
+    """Um item projetado no cenário adicional — `mes` e valor LIDOS do
+    `AporteProjetado` do snapshot."""
+
+    ITEM_ID: str
+    mes: int
+    valor: str
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoCenarioAdicional:
+    """`RF-98`, `AC-152` (`T-276`) — a segunda projeção do motor
+    (`CenarioAdicional`, com os `PROVAVEL` e `POSSIVEL`), só LIDA de
+    `snapshot.projecao_extraordinarios` e formatada. Nenhuma aritmética
+    (`AC-42`)."""
+
+    rotulo: str
+    explicacao: str
+    PRAZO_TOTAL: str
+    CUSTO_FUTURO_TOTAL: str
+    ordem: tuple[str, ...]
+    itens: tuple[ContextoAporte, ...]
+
+
+def _cenario_adicional(
+    snapshot: SnapshotOrdem, textos: TextosCanonicosPlano
+) -> ContextoCenarioAdicional | None:
+    """`None` quando o motor não projetou cenário adicional."""
+    adicional_do_snapshot = snapshot.projecao_extraordinarios.cenario_adicional
+    if adicional_do_snapshot is None:
+        return None
+    return ContextoCenarioAdicional(
+        rotulo=textos.cenario_adicional.get("titulo", ""),
+        explicacao=textos.cenario_adicional.get("explicacao", ""),
+        PRAZO_TOTAL=_formatar_meses(adicional_do_snapshot.PRAZO_TOTAL),
+        CUSTO_FUTURO_TOTAL=formatar_dinheiro_br(adicional_do_snapshot.CUSTO_FUTURO_TOTAL),
+        ordem=adicional_do_snapshot.ORDEM_QUITACAO,
+        itens=tuple(
+            ContextoAporte(
+                ITEM_ID=aporte.ITEM_ID,
+                mes=aporte.mes,
+                valor=formatar_dinheiro_br(aporte.VALOR_DESTINADO),
+            )
+            for aporte in adicional_do_snapshot.aportes
+        ),
+    )
 
 
 def montar_contexto_plano(
@@ -826,4 +886,9 @@ def montar_contexto_plano(
             snapshot.diagnostico.RESULTADO_CAIXA_OBSERVADO
         ),
         reserva_mobilizavel=_reserva_mobilizavel(snapshot),
+        cenario_adicional=_cenario_adicional(snapshot, textos),
+        nao_projetados=tuple(
+            (item.ITEM_ID, item.motivo.value)
+            for item in snapshot.projecao_extraordinarios.nao_projetados
+        ),
     )

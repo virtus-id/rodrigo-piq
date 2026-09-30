@@ -31,8 +31,10 @@ from decimal import Decimal
 from typing import Any, Final
 
 from app.http.renderizacao import ContextoPergunta
-from collection.registro import OpcaoRegistro
+from app.montagem.entrada import FotografiaDoMes, LinhaDecomposicao
+from collection.registro import OpcaoRegistro, RegistroPergunta
 from collection.respostas import NAO_SEI, ValorResposta
+from engine.tipos import DinheiroTalvez
 
 REGRAS: Final[tuple[str, ...]] = ("RF-51", "RF-52", "RF-45")
 
@@ -128,4 +130,49 @@ def serializar_pergunta(
         "respondida_como_nao_sei": contexto.respondida_como_nao_sei,
         "valores_marcados": sorted(contexto.valores_marcados),
         "aviso": contexto.aviso.texto if contexto.aviso is not None else None,
+    }
+
+
+def _dinheiro_ou_nulo(valor: DinheiroTalvez) -> str | None:
+    """`RF-13`: string decimal; `null` = não informado (`EC-28`), nunca `0`."""
+    return str(valor) if isinstance(valor, Decimal) else None
+
+
+def serializar_painel(
+    foto: FotografiaDoMes,
+    registros: tuple[RegistroPergunta, ...],
+    rotulos: dict[str, str],
+) -> dict[str, Any]:
+    """`RF-79`/`RF-80` (`T-227`) — o painel da `B3.C00`, só para registro com
+    `painel` declarado. Valores só do servidor: o cliente nunca soma. Cada
+    linha leva o destino da correção pela rota de `RF-69` — a pergunta que
+    grava o valor (resolvida pela `VARIAVEL_GRAVADA`) e o item."""
+    id_por_variavel: dict[str, str] = {}
+    for registro in registros:
+        if registro.VARIAVEL_GRAVADA is not None:
+            id_por_variavel.setdefault(registro.VARIAVEL_GRAVADA, registro.ID)
+
+    def linha(item: LinhaDecomposicao) -> dict[str, Any]:
+        return {
+            "item_id": item.item_id,
+            "rotulo": rotulos.get(item.item_id),
+            "valor_mensal": _dinheiro_ou_nulo(item.valor_mensal),
+            "corrigir": {
+                "ID_PERGUNTA": id_por_variavel.get(item.VARIAVEL_GRAVADA),
+                "item_id": item.item_id,
+            },
+        }
+
+    return {
+        "tipo": "FOTOGRAFIA_DO_MES",
+        "renda_total": _dinheiro_ou_nulo(foto.RENDA_TOTAL),
+        "despesas_totais": _dinheiro_ou_nulo(foto.DESPESAS_TOTAIS),
+        "sobra_antes_das_dividas": _dinheiro_ou_nulo(foto.SOBRA_ANTES_DAS_DIVIDAS),
+        "parcial": {
+            "renda": foto.parcial_renda,
+            "despesas": foto.parcial_despesas,
+            "sobra": foto.parcial_sobra,
+        },
+        "despesas_por_item": [linha(item) for item in foto.despesas_por_item],
+        "nao_mensais_por_item": [linha(item) for item in foto.nao_mensais_por_item],
     }

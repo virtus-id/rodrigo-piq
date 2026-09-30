@@ -79,17 +79,7 @@ class RepositorioSnapshotsSupabase(RepositorioSnapshots):
         cenario_recomendado = s.cenarios[s.METODO_RECOMENDADO_PIQ]
         diagnostico = s.diagnostico
 
-        dados_completos = {
-            "estado_inputs": _serializar_canonico(s.estado_inputs),
-            "diagnostico": _serializar_canonico(s.diagnostico),
-            "cenarios": {
-                str(metodo.value): _serializar_canonico(cenario)
-                for metodo, cenario in s.cenarios.items()
-            },
-            "comparacao": _serializar_canonico(s.comparacao),
-            "ORDEM_QUITACAO": [_serializar_canonico(p) for p in s.ORDEM_QUITACAO],
-            "ORDEM_ACOES": [_serializar_canonico(a) for a in s.ORDEM_ACOES],
-        }
+        dados_completos = _dados_completos(s)
 
         with conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
@@ -202,6 +192,24 @@ class RepositorioSnapshotsSupabase(RepositorioSnapshots):
         )
 
 
+def _dados_completos(s: SnapshotOrdem) -> dict[str, Any]:
+    """Conteúdo de `dados_completos jsonb` — isolado para que o round-trip
+    do caminho Postgres (`T-164`) seja testável sem banco."""
+    return {
+        "estado_inputs": _serializar_canonico(s.estado_inputs),
+        "diagnostico": _serializar_canonico(s.diagnostico),
+        "cenarios": {
+            str(metodo.value): _serializar_canonico(cenario)
+            for metodo, cenario in s.cenarios.items()
+        },
+        "comparacao": _serializar_canonico(s.comparacao),
+        "ORDEM_QUITACAO": [_serializar_canonico(p) for p in s.ORDEM_QUITACAO],
+        "ORDEM_ACOES": [_serializar_canonico(a) for a in s.ORDEM_ACOES],
+        # RF-70/RF-71 (T-164): sem migração — vive em dados_completos.
+        "projecao_extraordinarios": _serializar_canonico(s.projecao_extraordinarios),
+    }
+
+
 def _bruto_para_formato_arquivo(bruto: dict[str, Any]) -> dict[str, Any]:
     """Reconcilia a linha da tabela (colunas decisivas + `dados_completos`
     jsonb) com o formato que `persistencia.arquivo.repositorio_snapshots.
@@ -236,6 +244,8 @@ def _bruto_para_formato_arquivo(bruto: dict[str, Any]) -> dict[str, Any]:
         "PROXIMA_DIVIDA": bruto["PROXIMA_DIVIDA"],
         "ORDEM_QUITACAO": dados_completos["ORDEM_QUITACAO"],
         "ORDEM_ACOES": dados_completos["ORDEM_ACOES"],
+        # T-164: snapshot anterior à Rodada 5 não tem a chave → projeção vazia.
+        "projecao_extraordinarios": dados_completos.get("projecao_extraordinarios"),
         "ENGINE_VERSION": bruto["ENGINE_VERSION"],
         "PARAMETROS_VERSION": bruto["PARAMETROS_VERSION"],
     }

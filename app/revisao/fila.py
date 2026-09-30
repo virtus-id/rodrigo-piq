@@ -134,6 +134,7 @@ from typing import Final, Protocol
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.casos.progresso import transicionar_e_registrar
 from app.concorrencia import mapear_em_paralelo
+from app.revisao.comprovacao import PendenciaHomologacao
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.eventos import RepositorioEventosCaso
@@ -408,6 +409,16 @@ class ErroRevisaoJaDecidida(Exception):
         super().__init__(" | ".join(partes))
 
 
+class ErroHomologacaoBloqueada(Exception):
+    """`RF-93`/`RF-97` (`T-264`, `AC-142`, `EC-40`) — a liberação foi
+    recusada porque há dado indispensável ausente ou pendente de
+    confirmação. Carrega as pendências para a rota nomeá-las ao revisor."""
+
+    def __init__(self, pendencias: tuple[PendenciaHomologacao, ...]) -> None:
+        self.pendencias = pendencias
+        super().__init__(",".join(f"{p.item_id}:{p.ID_PERGUNTA}" for p in pendencias))
+
+
 class ErroCasoDesaparecidoAposLiberacao(Exception):
     """Defensivo: `transicionar_estado_se` já confirmou que `caso_id`
     existe — este erro só ocorreria numa condição de corrida extrema (caso
@@ -428,9 +439,17 @@ def liberar(
     repositorio_revisoes: RepositorioRevisoesDaDecisao,
     repositorio_casos: RepositorioCasosDaDecisao,
     repositorio_eventos: RepositorioEventosCaso,
+    pendencias_homologacao: tuple[PendenciaHomologacao, ...],
     observacao: str | None = None,
 ) -> Caso:
     """`RF-23`/`RF-24`/`AC-26` — libera `snapshot` para o aluno.
+
+    `pendencias_homologacao` (`T-264`, `RF-93`, `RF-97`) é OBRIGATÓRIO, sem
+    padrão: o `mypy` aponta todo chamador que esquecer de calculá-lo
+    (`app.revisao.comprovacao.pendencias_de_homologacao`). Não vazio →
+    `ErroHomologacaoBloqueada` ANTES de gravar qualquer coisa: snapshot,
+    caso e registro de revisão intactos (`EC-40`). Reprovar não tem essa
+    guarda — reprovar com pendência continua possível.
 
     Ordem (ver a nota extensa da docstring do módulo): (1) grava o
     `RegistroRevisao` com `decisao=LIBERADO`; (2) transiciona
@@ -448,6 +467,8 @@ def liberar(
     caso, ou decisão concorrente que venceu a corrida): RECUSADA, nunca
     idempotente silenciosa (ver a nota do módulo sobre por que recusar é
     mais seguro que devolver sucesso sem efeito)."""
+    if pendencias_homologacao:
+        raise ErroHomologacaoBloqueada(pendencias_homologacao)
     registro = RegistroRevisao(
         SNAPSHOT_ID=snapshot.SNAPSHOT_ID,
         CASO_ID=caso_id,

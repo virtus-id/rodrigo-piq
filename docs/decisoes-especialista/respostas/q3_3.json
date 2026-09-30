@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:46:25.383Z",
+  "decisao": "d3",
+  "falta": "",
+  "obs": "O sistema deve guardar separadamente: tipo do custo (“mensal” ou “total”), valor informado, período de incidência e, quando aplicável, número de meses restantes. Se o custo já estiver embutido na parcela ou no saldo da dívida, não deve ser somado novamente, para evitar dupla contagem. Se o custo total for parcelado, o sistema deve considerar no fluxo mensal apenas a parcela efetivamente paga naquele mês; o valor total permanece como informação do custo global da operação.\nEu ainda acrescentaria duas regras técnicas para a equipe:\n- Custo mensal: impacta o orçamento mensal pelo período em que existir.\n- Custo total: impacta o custo global da dívida/operação; só vira impacto mensal se houver uma forma clara de parcelamento ou rateio contratual.\nVale a pena uma trava: se o aluno marcar “total” e o sistema precisar usar esse valor num cálculo mensal, deve exigir prazo/número de meses; sem isso, não deveria inventar uma mensalização.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "Custo informado como “por mês” ou “total”: como o cálculo deve tratar cada caso?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "Se o custo for informado “por mês”, o sistema deve tratá-lo como despesa mensal recorrente enquanto durar a cobrança. Se for informado como “total”, o sistema deve tratá-lo como custo único/total da operação e nunca somá-lo integralmente a cada mês. Para fins comparativos, o sistema pode calcular um equivalente mensal apenas quando houver período de referência definido, deixando claro que esse rateio é analítico e não uma nova cobrança.",
+  "tipo": "texto",
+  "valor": ""
+}

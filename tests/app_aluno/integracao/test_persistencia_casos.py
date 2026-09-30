@@ -358,3 +358,20 @@ def test_itens_repetidos_de_escopos_diferentes_tem_sequencias_independentes() ->
     assert divida_1 == "D001"
     assert margem_1 == "M001"
     assert divida_2 == "D002"
+
+
+def test_t253_item_pai_id_gravado_e_lido() -> None:
+    """`AC-137` (`T-253`, migração `007`): `item_pai_id` faz round-trip;
+    item sem pai lê `None`."""
+    with psycopg.connect(_database_url()) as conexao, conexao.cursor() as cursor:
+        cursor.execute("SET search_path TO app_aluno, public")
+        caso_id = _conta_e_caso_novos(cursor)
+
+    repositorio = RepositorioItensSupabase()
+    vinculo = repositorio.proximo_identificador(caso_id, EscopoRepeticao.VINCULO_ID)
+    repositorio.proximo_identificador(caso_id, EscopoRepeticao.MARGEM_ID, item_pai_id=vinculo)
+
+    pais = {item.item_id: item.item_pai_id for item in repositorio.listar_do_caso(caso_id)}
+    assert pais == {"V001": None, "M001": "V001"}
+    varios = repositorio.listar_de_varios_casos((caso_id,))
+    assert {item.item_pai_id for item in varios[caso_id]} == {None, "V001"}

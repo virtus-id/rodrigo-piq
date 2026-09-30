@@ -5,7 +5,7 @@
 | Slug     | `motor-calculo`                                             |
 | Status   | `em revisão`                                                |
 | Autor    | virtushold@gmail.com                                        |
-| Data     | 2026-09-10 (Rodada 4, fatia 4C — ligação de `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` (fatia 4B) e da classificação de ativos/investimentos (fatia 4A) em `calcular_diagnostico`, fazendo `ATAQUE_IMEDIATO_RECOMENDADO` sair do placeholder `dinheiro(0)` — **última fatia do documento do especialista**, fecha `OQ-29` por completo · fatia 4B (necessidade financeira imediata, `RF-61`–`RF-65`) concluída e verificada 2026-09-09 · fatia 4A (classificação de investimentos/ativos e valor líquido realizável, `RF-53`–`RF-60`) concluída e verificada 2026-09-09 · Rodada 3 em 2026-09-07 · Rodada 2 em 2026-09-04 · backlog original 78/78 concluído em 2026-09-01/02) |
+| Data     | 2026-09-30 (Rodada 5 — projeção de recursos extraordinários, `DE-02`, canônica v1.0.2 — **mudança de motor**, ver §15) · 2026-09-10 (Rodada 4, fatia 4C — ligação de `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` (fatia 4B) e da classificação de ativos/investimentos (fatia 4A) em `calcular_diagnostico`, fazendo `ATAQUE_IMEDIATO_RECOMENDADO` sair do placeholder `dinheiro(0)` — **última fatia do documento do especialista**, fecha `OQ-29` por completo · fatia 4B (necessidade financeira imediata, `RF-61`–`RF-65`) concluída e verificada 2026-09-09 · fatia 4A (classificação de investimentos/ativos e valor líquido realizável, `RF-53`–`RF-60`) concluída e verificada 2026-09-09 · Rodada 3 em 2026-09-07 · Rodada 2 em 2026-09-04 · backlog original 78/78 concluído em 2026-09-01/02) |
 | Fonte    | [`specs/piq-app-spec.md`](piq-app-spec.md) — Matriz Canônica v1.0.1 |
 | Fonte    | [`specs/piq-definicoes-engine.md`](piq-definicoes-engine.md) — Fechamento das Definições Remanescentes da Engine |
 | Fonte    | Devolutiva do especialista de 2026-09-01 — fecha `OQ-01` a `OQ-08` |
@@ -13,6 +13,7 @@
 | Fonte    | [`specs/app-aluno.spec.md`](app-aluno.spec.md) §10 — `OQ-10`, `OQ-13`, `OQ-14`, `OQ-15`, `OQ-17`, `OQ-18` (decisões do especialista, `respondida`) |
 | Fonte    | Documento canônico *"PIQ v1.0.1 — Definição Canônica de `RESERVA_MOBILIZAVEL` e `ATAQUE_IMEDIATO_RECOMENDADO`"*, entregue em 2026-09-07 — transcrito na íntegra em §13 (Rodada 3) |
 | Fonte    | Documento canônico *"PIQ v1.0.1 — Fechamento Canônico — Necessidade Financeira Imediata e Classificação de Ativos"*, entregue em 2026-09-09 — transcrito na íntegra em §14 (Rodada 4) |
+| Fonte    | Decisão do especialista de 2026-09-30 — [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) `DE-02` (confirmada), incorporada como **v1.0.2** da canônica (`piq-app-spec.md`, Registro de alterações, `E-10`) — §15 (Rodada 5) |
 
 > **Esta spec não substitui as fontes — ela as endereça.** Cada requisito aponta
 > para os IDs de regra e as seções que o definem. Nenhuma regra é parafraseada
@@ -198,6 +199,33 @@ financeiro completo e devolve um plano carimbado com versão.
 | `RF-67` | Garantir que o valor de `RF-66` seja produzido exclusivamente pelas funções puras já existentes e verificadas — `derivar_RESERVA_MOBILIZAVEL`, `calcular_ATAQUE_IMEDIATO_POTENCIAL`, `calcular_CAIXA_RECOMENDADO`, `calcular_INVESTIMENTOS_RECOMENDADOS`, `calcular_EXTRAORDINARIOS_RECOMENDADOS`, `calcular_ATIVOS_RECOMENDADOS`, `calcular_NECESSIDADE_RESIDUAL`, `derivar_RESERVA_RECOMENDADA`, `calcular_ATAQUE_IMEDIATO_RECOMENDADO` (`engine/ataque_imediato.py`, Rodada 3) e `NECESSIDADE_IMEDIATA_DIVIDA`/`NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` (`engine/gates.py`, fatia 4B) — nenhuma fórmula nova é escrita nesta fatia; a integração apenas compõe funções já homologadas | §14.2.4 (fórmula do "documento anterior... integralmente preservada") · §13.9 · §14.14 | essencial |
 | `RF-68` | Resolver formalmente `AMB-R3-01` (plano, R3.10.1) — decidir e registrar **onde** e **como** `calcular_diagnostico`/`calcular_plano` obtêm, na ordem correta de execução, os dois insumos que `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` exige (`ParticaoElegibilidade` e `Mapping[str, AcaoRequerida]`, produzidos por `particionar_elegibilidade`, hoje chamada **depois** de `calcular_diagnostico` em `engine/motor.py::calcular_plano`) — o mecanismo concreto (nova assinatura pública de `calcular_diagnostico`; segunda passada fora dela, preenchendo o campo depois via `dataclasses.replace`; ou outro desenho) é decisão técnica do plano (`OQ-44`, seção 10), não desta spec, mas o requisito de que a decisão **seja tomada e documentada** — não deixada em `dinheiro(0)` por omissão — é desta fatia | §14.2.4 · discovery Rodada 4 §5 (`OQ-43`) · plano `motor-calculo.plan.md` R3.10.1 (`AMB-R3-01`) | essencial |
 | `RF-69` | Reescrever a docstring de `engine/diagnostico.py::calcular_diagnostico` e a declaração de campo de `Diagnostico.ATAQUE_IMEDIATO_RECOMENDADO`, removendo toda afirmação de que o campo é placeholder, que `OQ-29` está aberta, ou que nenhuma decisão do motor o lê — essas três afirmações ficam factualmente desatualizadas a partir desta fatia (`engine/diagnostico.py:649-653`, `:712-727`) — e documentando, no lugar, a fórmula real aplicada e a referência a `RF-66`/`RF-67`/§14.2.4 | §14.2.4 · `engine/diagnostico.py` (docstring atual, `T-114`/`OQ-29`/`AMB-R3-01`) | essencial |
+
+### Rodada 5 (2026-09-30) — projeção de recursos extraordinários (`DE-02`) — ver seção 15
+
+> **MUDANÇA DE MOTOR.** Diferente das Rodadas 2–4, que transcreveram
+> definições já existentes, esta rodada **altera metodologia**: a canônica
+> passou à **v1.0.2** (`piq-app-spec.md`, Registro de alterações, `E-10`) por
+> decisão do especialista (`DE-02`, confirmada em 30/09/2026). Até a v1.0.1,
+> recurso apenas previsto para o futuro não produzia efeito no plano; a partir
+> da v1.0.2, recurso `CONFIRMADO` entra na **projeção** no mês previsto.
+> **§13.3 não muda**: o ataque de hoje continua só com o que está disponível
+> no momento. Detalhe normativo em §15; o que a decisão não fixava foi aberto
+> em §10 (`OQ-46` a `OQ-50`) e **resolvido em 2026-09-30** pela equipe
+> técnica, com base na prudência escrita pelo especialista — já refletido
+> abaixo. `DE-05` (vínculos/margem) **não** muda o motor —
+> `engine/` não consome vínculo nem margem.
+>
+> `RF-70` a `RF-76` são desta rodada.
+
+| ID | Requisito | Regras / seções da canônica | Prioridade |
+| --- | --- | --- | --- |
+| `RF-70` | **[mudança de motor]** Incorporar à projeção-base cada recurso extraordinário `CONFIRMADO`, com valor conhecido e recebimento previsto dentro do horizonte do plano — **a duração do cronograma, até o mês da última quitação projetada** —, como aporte ao ataque **no último mês da janela** (`1_3M` → mês 3, `4_6M` → 6, `7_12M` → 12) e nunca antes dele; `NAO_SEI` não entra na projeção; `ATE_30D` segue `RF-73` | §15.2 · v1.0.2 `E-10` · `DE-02` · `OQ-46`, `OQ-47` (resolvidas) | essencial |
+| `RF-71` | **[mudança de motor]** Manter `PROVAVEL` e `POSSIVEL` fora da projeção-base e fora do ataque de hoje. O **cenário adicional** é uma segunda projeção, separada e rotulada, que inclui os `PROVAVEL` **e** os `POSSIVEL` e não altera `ORDEM_QUITACAO`, método recomendado, prazo nem custo publicados. Ambos só viram ataque quando efetivamente recebidos (evento de recálculo já previsto em §3 da canônica). Forma de exibição: a critério do plano | §15.3 · `DE-02` · `OQ-49` (resolvida) | essencial |
+| `RF-72` | Decidir a inclusão de um recurso extraordinário **só por certeza e prazo** — `TIPO_RECURSO_EXTRAORDINARIO`, isoladamente, nunca inclui nem exclui | §15.2 · `DE-02` | essencial |
+| `RF-73` | Manter o **ataque de hoje** (§13.3, `EXTRAORDINARIOS_RECOMENDADOS`) **inalterado**, e garantir origem econômica única: um mesmo item compõe o ataque de hoje **ou** a projeção, nunca os dois; e um item já projetado, quando recebido, não é contado de novo. `CONFIRMADO` com janela `ATE_30D` segue a regra atual do §13.3 (ataque de hoje) e não é duplicado na projeção; nenhum `CONFIRMADO` exige aprovação do aluno para entrar na projeção | §13.3 · §13.8 · §15.4 · `DE-02` · `OQ-50` (resolvida) | essencial |
+| `RF-74` | **[mudança de motor]** Antes de destinar um extraordinário projetado às dívidas, preservar necessidades essenciais, despesas sazonais já conhecidas, obrigações prioritárias e a proteção mínima, aplicando as regras de mobilização/reserva **já existentes** (§13.3, `RESERVA_MOBILIZAVEL`) no mês em que o recurso é projetado — nenhum `P_*` novo | §15.5 · `DE-02` · `OQ-48` (resolvida) | essencial |
+| `RF-75` | Tratar cada item pela **própria** certeza, com valor líquido, sem somar itens como se tivessem a mesma certeza e sem dupla contagem com renda já no orçamento | §15.2 · §13.8 · `DE-02` | essencial |
+| `RF-76` | Extraordinários são **aceleradores**, nunca condição para o plano mensal fechar: capacidade de ataque, `STATUS_FINANCEIRO` e `MODO_ESTABILIZACAO` são calculados **sem** eles, e o aporte projetado não cobre déficit estrutural | §15.1 · §13.4 (trava `MODO_ESTABILIZACAO`) · `DE-02` | essencial |
 
 ## 3. User Stories
 
@@ -436,6 +464,17 @@ Atende: `RF-61`
 
 Atende: `RF-66`, `RF-67`, `RF-68`, `RF-69`
 
+### Rodada 5 (2026-09-30) — projeção de extraordinários
+
+### `US-27` — Ver o 13º confirmado acelerar o plano, sem apostar no incerto
+
+> Como **servidor endividado**, quero que **o valor extraordinário que já
+> está confirmado entre no plano no mês em que vou recebê-lo, e o que é só
+> provável apareça à parte**, para **enxergar o efeito real do que é certo
+> sem montar o plano sobre dinheiro que talvez não venha**.
+
+Atende: `RF-70`, `RF-71`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76`
+
 ## 4. Acceptance Criteria
 
 > Os critérios `AC-01` a `AC-18` são reprodução literal de gabaritos da seção 10
@@ -635,6 +674,31 @@ Atende: `RF-66`, `RF-67`, `RF-68`, `RF-69`
 | `AC-115` | `US-26` | Dado o código-fonte desta fatia, quando for auditado, então `Diagnostico.ATAQUE_IMEDIATO_RECOMENDADO` é produzido exclusivamente por composição das funções puras já existentes e verificadas de `engine/ataque_imediato.py` (Rodada 3) e `engine/gates.py` (fatia 4B) — nenhuma fórmula nova, nenhuma reimplementação paralela da §14.2.4/§13.3 é escrita nesta fatia |
 | `AC-116` | `US-26` | Dados `GAB-A`, `GAB-B`, `GAB-C` e os cinco invariantes reexecutados após esta fatia, quando cada um for verificado, então método recomendado, `ORDEM_QUITACAO`, gates, `STATUS_METODO`, número de meses, `mes_primeira_vitoria`, custo total e prazo total permanecem **idênticos** aos valores anteriores a esta fatia — a única mudança observável admitida é `ATAQUE_IMEDIATO_RECOMENDADO` deixar de ser `0` e passar a ser o valor real, exatamente como esta fatia pretende (efeito desejado, não regressão) |
 | `AC-117` | `US-26` | Dada a docstring de `calcular_diagnostico` e a declaração de `Diagnostico.ATAQUE_IMEDIATO_RECOMENDADO` (`engine/diagnostico.py`), quando forem lidas após esta fatia, então nenhuma delas afirma que o campo é placeholder, que `OQ-29` está aberta ou que nenhuma decisão do motor o lê — a docstring registra a fórmula real aplicada e referencia `RF-66`/`RF-67`/§14.2.4 (`RF-69`) |
+
+### Rodada 5 (2026-09-30) — projeção de extraordinários (**mudança de motor**)
+
+> **Rastreabilidade.** `RF-70` → `AC-118`, `AC-119`, `AC-122`, `AC-129` · `RF-71` →
+> `AC-120`, `AC-131` · `RF-72` → `AC-121` · `RF-73` → `AC-123`, `AC-124`, `AC-125`, `AC-130` ·
+> `RF-74` → `AC-126` · `RF-75` → `AC-122` · `RF-76` → `AC-127`. `AC-128`
+> fixa a não-regressão dos gabaritos. `AC-129` a `AC-131` fixam as
+> resoluções de `OQ-46`, `OQ-47`, `OQ-49` e `OQ-50` (2026-09-30).
+
+| ID | Story | Critério verificável |
+| --- | --- | --- |
+| `AC-118` | `US-27` | Dado um estado com capacidade positiva e um recurso extraordinário `CONFIRMADO` de valor conhecido, cujo mês previsto `m` cai dentro do horizonte do plano, quando `calcular_plano` rodar, então a projeção-base contém o aporte desse recurso no mês `m` e em nenhum mês anterior a `m`, e `PRAZO_TOTAL` é **menor ou igual** ao do mesmo estado sem o recurso |
+| `AC-119` | `US-27` | Dado o mesmo recurso `CONFIRMADO` com mês previsto **fora** do horizonte do plano, quando `calcular_plano` rodar, então a projeção-base é idêntica à do estado sem o recurso |
+| `AC-120` | `US-27` | Dado o mesmo estado com o recurso em `PROVAVEL` (e, em outra execução, `POSSIVEL`), quando `calcular_plano` rodar, então `ORDEM_QUITACAO`, método recomendado, `PRAZO_TOTAL`, custo total e `ATAQUE_IMEDIATO_RECOMENDADO` são **idênticos** aos do estado sem o recurso; o recurso aparece somente no cenário adicional |
+| `AC-121` | `US-27` | Dados dois estados que diferem **apenas** em `TIPO_RECURSO_EXTRAORDINARIO` (ex.: 13º × Precatório/RPV), com mesmo valor, janela e certeza, quando `calcular_plano` rodar, então as duas projeções são idênticas |
+| `AC-122` | `US-27` | Dados um recurso `CONFIRMADO` e um `PROVAVEL`, de mesmo valor e janela, quando `calcular_plano` rodar, então só o `CONFIRMADO` afeta a projeção-base — o motor nunca soma os dois num único valor; e um `CONFIRMADO` com valor `DESCONHECIDO` não entra na projeção nem é tratado como `0` |
+| `AC-123` | `US-27` | Dados `GAB-AI-01` a `GAB-AI-08` e `AC-112` a `AC-117`, quando reexecutados após esta rodada, então todos passam sem alteração de expectativa — `EXTRAORDINARIOS_RECOMENDADOS` e `ATAQUE_IMEDIATO_RECOMENDADO` (§13.3) não mudam por causa de recurso apenas previsto para o futuro |
+| `AC-124` | `US-27` | Dado um item que compõe `EXTRAORDINARIOS_RECOMENDADOS` (disponível no momento), quando `calcular_plano` rodar, então esse item não aparece também como aporte projetado — origem econômica única (§13.8) |
+| `AC-125` | `US-27` | Dado um item `CONFIRMADO` já projetado e, depois, o evento de recurso extraordinário efetivamente recebido para o **mesmo** item, quando o recálculo rodar, então o valor entra uma única vez no novo snapshot — nunca como aporte projetado e como recebido ao mesmo tempo |
+| `AC-126` | `US-27` | Dado o código-fonte de `engine/` e a fonte de parâmetros após esta rodada, quando auditados, então nenhum `P_*` novo foi criado para a preservação de `RF-74`, e o valor destinado às dívidas por um item projetado é **menor ou igual** ao seu valor líquido |
+| `AC-127` | `US-27` | Dado um estado em déficit estrutural (`MODO_ESTABILIZACAO = SIM`, como em `GAB-A`) acrescido de um recurso `CONFIRMADO` de valor alto dentro do horizonte, quando `calcular_plano` rodar, então `MODO_ESTABILIZACAO`, `STATUS_FINANCEIRO` e a capacidade de ataque mensal são **idênticos** aos do estado sem o recurso |
+| `AC-128` | `US-27` | Dados `GAB-A`, `GAB-B`, `GAB-C` e os cinco invariantes (nenhum tem recurso extraordinário), quando reexecutados após esta rodada, então todos os resultados são idênticos aos anteriores — tolerância zero |
+| `AC-129` | `US-27` | Dado um recurso `CONFIRMADO` de valor conhecido com janela `1_3M` (e, em outras execuções, `4_6M` e `7_12M`), quando `calcular_plano` rodar, então o aporte aparece no mês 3 (6, 12) da projeção e em nenhum outro — desde que esse mês não passe do mês da última quitação projetada; se passar, a projeção-base é idêntica à do estado sem o recurso |
+| `AC-130` | `US-27` | Dado um recurso `CONFIRMADO` com janela `ATE_30D`, quando `calcular_plano` rodar, então ele é tratado pela regra do §13.3 (ataque de hoje) e **não** aparece como aporte projetado; e nenhum recurso `CONFIRMADO` depende de `ATAQUE_IMEDIATO_APROVADO` para entrar na projeção dos meses 3, 6 ou 12 |
+| `AC-131` | `US-27` | Dado um estado com um `PROVAVEL` e um `POSSIVEL`, quando `calcular_plano` rodar, então o snapshot contém uma segunda projeção, distinta da base, que inclui os dois; e a projeção-base não inclui nenhum deles |
 
 ## 5. Non-Functional Requirements
 
@@ -857,6 +921,17 @@ Atende: `RF-66`, `RF-67`, `RF-68`, `RF-69`
 | `EC-48` | `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` resulta em `DESCONHECIDO` para o inventário (`AC-108`, ao menos uma dívida com ação prioritária de valor desconhecido) | `ATAQUE_IMEDIATO_RECOMENDADO` **não** pode ser produzido como `Dinheiro` certo tratando o desconhecido como `0` silenciosamente; o mecanismo concreto de propagação (retipar o campo, sinalizar `STATUS_METODO=PROVISORIO`, ou outro) é decisão do plano técnico (`OQ-44`), mas o requisito de não fabricar um número certo a partir de um insumo incerto vale já nesta spec |
 | `EC-49` | Todas as dívidas do inventário com `NECESSIDADE_IMEDIATA_DIVIDA = 0` (nenhuma elegível, `EC-45`) e recursos estrategicamente recomendados positivos | `ATAQUE_IMEDIATO_RECOMENDADO = 0` — mesma regra de `EC-28` (Rodada 3), agora observável ponta a ponta em `Diagnostico` real, não apenas na função pura isolada |
 | `EC-50` | Consumidor externo do motor (ex.: `app-aluno`, relatório) lê `Diagnostico.ATAQUE_IMEDIATO_RECOMENDADO` esperando ainda o valor fixo `0` de antes desta fatia | Não é comportamento a preservar: o placeholder nunca foi contrato, era valor de espera documentado como tal (`AC-85` parcialmente satisfeito até esta fatia); a mudança é sinalizada a `app-aluno` como o restante das mudanças de contrato desta rodada (seção 9) |
+
+### Rodada 5 (2026-09-30) — projeção de extraordinários
+
+| ID | Situação | Comportamento esperado |
+| --- | --- | --- |
+| `EC-51` | Recurso `CONFIRMADO` com `JANELA_RECURSO_EXTRAORDINARIO = NAO_SEI` ("Ainda não sei") | Sem mês previsto, não entra na projeção — nunca ganha janela presumida. Continua no estado e visível no snapshot como não projetado |
+| `EC-52` | Recurso `CONFIRMADO` com valor `DESCONHECIDO` | Não entra na projeção e não é tratado como `0` (`RF-16`, `AC-122`) |
+| `EC-53` | Aporte projetado maior que o saldo restante das dívidas elegíveis no mês previsto | O excedente segue a regra de resíduo já existente (`RF-03`, cascata e `ATAQUE_NAO_UTILIZADO`) — nenhuma regra nova de sobra |
+| `EC-54` | Recurso `CONFIRMADO` com janela "Próximos 30 dias" ainda não recebido | Segue a regra atual do §13.3 (ataque de hoje) e não é duplicado na projeção (`OQ-50`, `AC-130`) |
+| `EC-56` | Recurso `CONFIRMADO` cujo último mês da janela cai depois do mês da última quitação projetada | Fora do horizonte: não entra na projeção (`OQ-46`, `AC-129`) |
+| `EC-55` | `recursos_extraordinarios` vazio (caso de hoje: a montagem de `app-aluno` ainda entrega tupla vazia, fatia 2B bloqueada) | Resultado idêntico ao anterior a esta rodada (`AC-128`) |
 
 ## 7. Assumptions
 
@@ -1434,6 +1509,23 @@ Atende: `RF-66`, `RF-67`, `RF-68`, `RF-69`
 | `OQ-44` | **Como `calcular_diagnostico`/`calcular_plano` deixam de emitir o placeholder de `ATAQUE_IMEDIATO_RECOMENDADO`, dado que `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` exige `ParticaoElegibilidade`/`Mapping[str, AcaoRequerida]` (produzidos por `particionar_elegibilidade`), e `engine/motor.py::calcular_plano` hoje chama `calcular_diagnostico` (linha 245) **antes** de `particionar_elegibilidade` (linha 250), com o `Diagnostico` resultante já consumido por `simular_cenario` antes da partição existir?** Investigados três desenhos, nenhum decidido: (1) `calcular_diagnostico` ganha parâmetro novo (`ParticaoElegibilidade`/inventário pós-gates) — mudança de assinatura pública, todo chamador precisa fornecer o argumento novo; (2) `calcular_diagnostico` mantém a assinatura `(estado, parametros)`, e uma segunda função/passada em `calcular_plano` (depois de `particionar_elegibilidade`) substitui o campo no `Diagnostico` já construído, via `dataclasses.replace` (mecanismo já usado em `calcular_plano` para `particao`/`Cenario`) — preserva a assinatura pública, mas reordena/estende o pipeline e reabre a pergunta "onde vive a segunda passada", já registrada para `ATAQUE_IMEDIATO_APROVADO` em `OQ-30`, agora também para o *recomendado*; (3) desnormalizar `DIVIDA_STATUS_ESTRATEGICO`/`GATE_PENDENTE` de volta para dentro de `Divida`, eliminando a dependência de `ParticaoElegibilidade` — contradiz a decisão de design da Rodada 1 de que status estratégico é **saída** calculada pelo motor, não entrada declarada pelo usuário | É a mudança de maior risco de toda a Rodada 4 (discovery §5, §8): mexe na função pública mais central e mais consumida do motor, com efeito potencial sobre todo chamador de `calcular_diagnostico` dentro de `engine/` e em `app-aluno` — maior alcance que `RF-31`/`RF-41`/`RF-59`/`RF-61`, que mudaram tipo/campo de uma dataclass já existente, nunca a lista de parâmetros de uma função pública | Implementação de `RF-66`/`RF-68` desta fatia | **resolvida (fatia 4C, 2026-09-10)** — decisão (2): `calcular_diagnostico` mantém a assinatura pública `(estado, parametros)` inalterada, continuando a devolver `ATAQUE_IMEDIATO_RECOMENDADO=dinheiro(0)` quando chamada isoladamente; `engine/motor.py::calcular_plano` ganha uma segunda passada, via `dataclasses.replace` sobre o `Diagnostico` já construído, executada depois de `particionar_elegibilidade` e antes de `montar_SnapshotOrdem` (`T-141`, `T-142`). Resolve formalmente `AMB-R3-01` (plano, R3.10.1) e `OQ-43` (discovery, Rodada 4 §5/§9) por completo |
 | `OQ-45` | **Segunda metade de `EC-48`/`AC-109`: quando `NECESSIDADE_FINANCEIRA_IMEDIATA_ELEGIVEL` é `DESCONHECIDO`, `ATAQUE_IMEDIATO_RECOMENDADO` resolve para `dinheiro(0)` documentado (`T-141`, `T-144`) — mas nada sinaliza `STATUS_METODO=PROVISORIO` para esse cenário, lacuna registrada em R4C.10.1 do plano.** Ligar exigiria reordenar o pipeline de `calcular_plano` (calcular `elegivel` antes de `derivar_METODO_RECOMENDADO_PIQ`), o que arriscaria mudar `STATUS_METODO` de cenários hoje não-`PROVISORIO`, violando `AC-116` desta própria fatia | A metade "não fabricar número certo a partir do desconhecido" de `EC-48` está satisfeita; a metade "sinalizar status provisório ao usuário" não — risco de o relatório apresentar um `ATAQUE_IMEDIATO_RECOMENDADO=0` como número firme quando na verdade é incompletude de dado | Nenhuma — registrada como lacuna, não implementada por nenhuma tarefa desta fatia | **aberta** — decisão técnica pendente de especialista/humana, não resolvida nesta fatia. Candidata a rodada futura, possivelmente junto de `OQ-30`/`STATUS_ATAQUE_IMEDIATO` (fatia 3C, ainda fora de escopo) |
 
+### Rodada 5 — projeção de extraordinários (2026-09-30)
+
+> O que `DE-02` não fixava. **Todas resolvidas em 2026-09-30** — decisão da
+> equipe técnica (responsável do produto), sem retorno ao especialista, com
+> base na prudência e na regra de origem única escritas por ele; as propostas
+> originais ficam registradas para rastreio. Nenhuma questão anterior deste slug é fechada por `DE-02`;
+> `OQ-30` (integração do aprovado no cronograma, fatia 3C) é vizinha e deve
+> ser lida junto de `OQ-50`.
+
+| ID | Pergunta | Por que importa | Bloqueia | Status |
+| --- | --- | --- | --- | --- |
+| `OQ-46` | Qual é o **horizonte do plano** para decidir se um recurso `CONFIRMADO` entra na projeção? | Recurso fora do horizonte não entra (`AC-119`); o horizonte decide quais entram | `RF-70` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-02`/obs de `q2_3`: horizonte = duração do cronograma do plano, até o mês da última quitação projetada (`RF-70`, `AC-129`, `EC-56`) |
+| `OQ-47` | Qual é o **mês previsto** dentro de cada janela de `B3.05C` (`ATE_30D`, `1_3M`, `4_6M`, `7_12M`)? A coleta dá faixa, não mês | Define em que mês o aporte entra — altera ordem, prazo e custo | `RF-70`, `AC-118` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-02`/obs de `q2_1` (prudência): último mês da janela — `1_3M` → 3, `4_6M` → 6, `7_12M` → 12; `ATE_30D` → mês 1, tratado pelo §13.3 (`OQ-50`); `NAO_SEI` não entra. `app-aluno` `OQ-22`(b) resolvida (`T-208`) (`RF-70`, `AC-129`) |
+| `OQ-48` | Como se **quantifica** a preservação de `RF-74`? Quais "parâmetros de reserva já existentes" e como tratar despesas sazonais que já estão em `DESPESAS_NAO_MENSAIS_NORMALIZADAS` (preservar de novo seria dupla contagem)? | Sem regra, o valor destinado às dívidas não é determinístico | `RF-74`, `AC-126` | `resolvida` (2026-09-30) — decisão da equipe técnica com base em `DE-02`/obs de `q2_1`: a preservação usa as regras de mobilização/reserva já existentes (§13.3, `RESERVA_MOBILIZAVEL`), aplicadas no mês em que o recurso é projetado; sem parâmetro novo (`RF-74`, `AC-126`). **Nota (2026-09-30, `T-155`/`T-167`):** leitura de `RF-74` confirmada pelo responsável do produto — a preservação é a trava de déficit já existente do §13.4: com `RESULTADO_MENSAL_ATUAL < 0` nenhum aporte é destinado; fora dela `VALOR_DESTINADO = VALOR_RECURSO_EXTRAORDINARIO` (valor líquido). Nenhuma dedução de essenciais/sazonais (já fora da capacidade — seria dupla contagem). Reversível: uma expressão em `engine/extraordinarios.py::selecionar_aportes` (plano `R9M.10` #1) |
+| `OQ-49` | Qual é a **forma do cenário adicional** de `PROVAVEL`/`POSSIVEL`: só a lista dos itens, ou uma projeção alternativa completa (prazo e custo com os itens)? Um cenário por item ou um conjunto? | Define o campo novo de saída e o que o relatório mostra | `RF-71`, `AC-120` | `resolvida` (2026-09-30, revista no mesmo dia) — segunda projeção incluindo `PROVAVEL` **e** `POSSIVEL`, apresentada à parte e rotulada; forma de exibição a critério do plano. Base: `DE-02` ("Prováveis e Possíveis aparecem só como cenário adicional"), **confirmado pelo responsável do produto em nome do especialista em 30/09/2026** ("é isso mesmo"). A divergência com o `obs` de `q2_3` ("(3) Incerto — não considerar até confirmação") fica **superada** por essa confirmação posterior (`RF-71`, `AC-120`, `AC-131`) |
+| `OQ-50` | Recurso `CONFIRMADO` projetado precisa de **aprovação do aluno** (como `ATAQUE_IMEDIATO_APROVADO`, §13.6) antes de entrar na projeção? E `CONFIRMADO` em `ATE_30D` ainda não recebido é ataque de hoje ou aporte no mês 1? | §13.6 diz que só o aprovado entra no cronograma como ataque imediato; `DE-02` diz que confirmados entram na projeção | `RF-70`, `RF-73`, `EC-54` | `resolvida` (2026-09-30, mantida após revisão) — decisão da equipe técnica com base em `DE-02`: não exige aprovação do aluno; `ATE_30D` `CONFIRMADO` segue a regra **atual** do §13.3 (ataque de hoje), inalterada, e não é duplicado na projeção. **Justificativa:** `DE-02` declara expressamente "Ataque de hoje (§13.3, `EXTRAORDINARIOS_RECOMENDADOS`): só o que já está disponível no momento — **regra atual mantida**"; esta resolução não reinterpreta o §13.3, apenas o preserva como está, e evita contar o item duas vezes (§13.8) (`RF-73`, `AC-130`, `EC-54`) |
+
 ## 11. Definições incorporadas
 
 > Origem: devolutiva do especialista de 2026-09-01. **Ainda ausentes da canônica
@@ -1617,6 +1709,12 @@ informação para o relatório — não é dívida do inventário.
 > determinístico.
 
 Contratada de fato: `EVENTO_RECALCULO` = `NOVA_DIVIDA`, e novo snapshot.
+
+> **v1.0.2 (`DE-02`, 2026-09-30).** Recurso extraordinário `CONFIRMADO`, com
+> valor estimável e recebimento dentro do horizonte do plano, passa a ser
+> evento futuro que **entra** na projeção-base, no mês previsto. `PROVAVEL` e
+> `POSSIVEL` seguem a regra acima: fora da projeção-base, só em cenário
+> adicional. Ver §15 e `RF-70`–`RF-76`.
 
 ### 11.7. Fluxo liberado — `RF-04`
 
@@ -1908,6 +2006,12 @@ separado. Antes desta rodada, nenhum dos dois campos existia em `engine/*.py`
 > **Declaração final (transcrita).** *"Nenhuma dessas decisões fica a critério
 > do desenvolvedor."* Qualquer alteração futura exige nova versão formal da
 > especificação do PIQ.
+>
+> **v1.0.2 (2026-09-30, `DE-02`).** Esta seção **não muda**. Em especial,
+> `EXTRAORDINARIOS_RECOMENDADOS` (§13.3) continua só com o que está
+> disponível no momento, e §13.6 continua valendo para o ataque imediato. O
+> que muda é a **projeção** de recursos futuros `CONFIRMADO`, fora do ataque
+> de hoje — ver §15.
 
 ### 13.1. `RESERVA_MOBILIZAVEL`
 
@@ -2649,3 +2753,61 @@ nova versão formal.
 > ativo, que tem `RENDA_OUTRO_ATIVO` (linha 885). Pergunta enviada ao
 > especialista em 2026-09-09, ainda sem resposta. Registrada como `OQ-38` na
 > seção 10.
+
+## 15. Definições incorporadas — Rodada 5 (v1.0.2: projeção de recursos extraordinários)
+
+> **Origem.** Decisão do especialista `DE-02` (`docs/decisoes-especialista/README.md`;
+> respostas brutas `q2_1`–`q2_3`), confirmada pelo responsável do produto em
+> 30/09/2026 e incorporada como **v1.0.2** da canônica (`piq-app-spec.md`,
+> Registro de alterações, errata `E-10`). **Mudança de motor.** Os pontos que
+> a decisão deixava abertos (§10, `OQ-46` a `OQ-50`) foram resolvidos em
+> 2026-09-30 pela equipe técnica, com base nas observações do especialista, e
+> estão incorporados abaixo com a marca da `OQ` de origem.
+
+### 15.1. Papel dos extraordinários
+
+Recursos extraordinários são **aceleradores** da quitação, **nunca** condição
+para o plano mensal fechar. A capacidade mensal, o `STATUS_FINANCEIRO` e o
+`MODO_ESTABILIZACAO` são apurados sem eles (`RF-76`).
+
+### 15.2. Critério de inclusão
+
+- Grau de certeza informado pelo aluno (`B3.05D`): `CONFIRMADO`, `PROVAVEL`,
+  `POSSIVEL`.
+- O **tipo** (`B3.05A`), sozinho, não decide; valem **prazo e certeza**.
+- Entra na **projeção** o item `CONFIRMADO` com valor estimável e recebimento
+  dentro do horizonte do plano, **no mês previsto** (`RF-70`). Horizonte =
+  duração do cronograma, até o mês da última quitação projetada (`OQ-46`).
+  Mês previsto = **último** mês da janela: `1_3M` → 3, `4_6M` → 6,
+  `7_12M` → 12; `NAO_SEI` não entra; `ATE_30D` segue §15.4 (`OQ-47`).
+- Cada item é avaliado pela própria certeza; itens nunca são somados como se
+  tivessem a mesma certeza. Sempre valor líquido, sem dupla contagem com renda
+  já no orçamento (`RF-75`).
+- Férias: é extraordinário **apenas o acréscimo (1/3)**, não a remuneração
+  normal, que já é renda mensal. O motor recebe o valor já coletado assim
+  (`app-aluno` `RF-98`).
+
+### 15.3. Prováveis e possíveis
+
+`PROVAVEL` e `POSSIVEL` ficam fora da projeção-base e só viram ataque quando
+efetivamente recebidos — pelo evento de recálculo "recurso extraordinário
+efetivamente recebido e aprovado", já previsto na §3 da canônica (`RF-71`).
+O **cenário adicional** é uma segunda projeção, à parte e rotulada, que inclui
+os `PROVAVEL` **e** os `POSSIVEL` (`OQ-49`).
+
+### 15.4. Ataque de hoje — inalterado
+
+`EXTRAORDINARIOS_RECOMENDADOS` (§13.3) continua composto **só** pelo que já está
+disponível no momento. Um mesmo item compõe o ataque de hoje **ou** a projeção,
+nunca os dois; item projetado e depois recebido entra uma vez só (§13.8,
+`RF-73`). `CONFIRMADO` com janela `ATE_30D` segue a regra atual do §13.3 e não
+é duplicado na projeção; nenhum `CONFIRMADO` exige aprovação do aluno para
+entrar na projeção (`OQ-50`).
+
+### 15.5. Preservar antes de destinar
+
+Antes de destinar um extraordinário às dívidas, preservar necessidades
+essenciais, despesas sazonais já conhecidas, obrigações prioritárias e a
+proteção mínima, aplicando as regras de mobilização/reserva **já existentes**
+(§13.3, `RESERVA_MOBILIZAVEL`) no mês em que o recurso é projetado — nenhum
+`P_*` novo (`RF-74`, `OQ-48`).

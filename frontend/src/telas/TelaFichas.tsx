@@ -7,6 +7,10 @@
  *
  * `completa` vem do servidor (`itens_em_aberto`, `T-201`), nunca é recontado
  * aqui: obrigatoriedade é regra, e regra mora num lugar só.
+ *
+ * `T-259` (`RF-90`): a margem nasce e aparece DENTRO do seu vínculo — nunca
+ * um total entre vínculos (`AC-138`). Remover um item com dependentes lista
+ * o que perde o vínculo antes de confirmar (`EC-35`).
  */
 import { useCallback, useEffect, useState } from 'react'
 
@@ -35,6 +39,11 @@ export const TITULOS_POR_ESCOPO: Readonly<
   DIVIDA_ID: { titulo: 'Dívida', tituloPlural: 'Dívidas' },
   RENDA_ADICIONAL_ID: { titulo: 'Renda adicional', tituloPlural: 'Rendas adicionais' },
   DESPESA_NAO_MENSAL_ID: { titulo: 'Despesa não mensal', tituloPlural: 'Despesas não mensais' },
+  // `T-270` (RF-98): redação proposta — aprovação do produto (`OQ-67`).
+  RECURSO_EXTRAORDINARIO_ID: {
+    titulo: 'Valor extraordinário',
+    tituloPlural: 'Valores extraordinários',
+  },
   VINCULO_ID: { titulo: 'Vínculo', tituloPlural: 'Vínculos', possessivo: 'Seus' },
   MARGEM_ID: { titulo: 'Margem', tituloPlural: 'Margens' },
   ITEM_DESPESA: { titulo: 'Despesa', tituloPlural: 'Despesas' },
@@ -79,6 +88,9 @@ export default function TelaFichas({
   onContinuar,
 }: TelaFichasProps) {
   const [fichas, setFichas] = useState<Ficha[]>([])
+  const [escopoPai, setEscopoPai] = useState<string | null>(null)
+  const [escoposFilhos, setEscoposFilhos] = useState<string[]>([])
+  const [aConfirmar, setAConfirmar] = useState<{ ficha: Ficha; escopo: string } | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -88,6 +100,8 @@ export default function TelaFichas({
     try {
       const dados = await listarFichas(casoId, escopo)
       setFichas(dados.fichas)
+      setEscopoPai(dados.escopo_pai ?? null)
+      setEscoposFilhos(dados.escopos_filhos ?? [])
     } catch {
       setErro('Não foi possível carregar as fichas.')
     } finally {
@@ -99,9 +113,9 @@ export default function TelaFichas({
     void carregar()
   }, [carregar])
 
-  async function aoAdicionar() {
+  async function aoAdicionar(escopoAlvo = escopo, itemPaiId?: string) {
     try {
-      await criarFicha(casoId, escopo)
+      await criarFicha(casoId, escopoAlvo, itemPaiId)
       await carregar()
     } catch {
       setErro('Não foi possível adicionar.')
@@ -127,9 +141,16 @@ export default function TelaFichas({
     }
   }
 
-  async function aoRemover(itemId: string) {
+  function pedirRemocao(ficha: Ficha, escopoDoItem = escopo) {
+    const { margens = [], dividas = [] } = ficha.dependentes ?? {}
+    if (margens.length + dividas.length > 0) setAConfirmar({ ficha, escopo: escopoDoItem })
+    else void aoRemover(ficha.item_id, escopoDoItem)
+  }
+
+  async function aoRemover(itemId: string, escopoDoItem = escopo) {
+    setAConfirmar(null)
     try {
-      await removerFicha(casoId, escopo, itemId)
+      await removerFicha(casoId, escopoDoItem, itemId)
       await carregar()
     } catch {
       setErro('Não foi possível remover.')
@@ -144,9 +165,12 @@ export default function TelaFichas({
       acoes={
         <>
           {onContinuar && <Botao onClick={onContinuar}>Continuar</Botao>}
-          <Botao variante="secundario" onClick={() => void aoAdicionar()}>
-            + Adicionar {titulo.toLowerCase()}
-          </Botao>
+          {/* A ficha com pai (a margem) só nasce dentro dele (`AC-137`). */}
+          {!escopoPai && (
+            <Botao variante="secundario" onClick={() => void aoAdicionar()}>
+              + Adicionar {titulo.toLowerCase()}
+            </Botao>
+          )}
         </>
       }
     >
@@ -163,6 +187,15 @@ export default function TelaFichas({
         <p role="alert" className="aviso-erro">
           {erro}
         </p>
+      )}
+
+      {aConfirmar && (
+        <ConfirmarRemocao
+          nome={aConfirmar.ficha.rotulo ?? `${titulo} ${aConfirmar.ficha.item_id}`}
+          dependentes={aConfirmar.ficha.dependentes ?? { margens: [], dividas: [] }}
+          onConfirmar={() => void aoRemover(aConfirmar.ficha.item_id, aConfirmar.escopo)}
+          onCancelar={() => setAConfirmar(null)}
+        />
       )}
 
       {!carregando && fichas.length === 0 && (
@@ -193,6 +226,49 @@ export default function TelaFichas({
                   onSalvar={(nome) => void aoNomear(ficha.item_id, nome)}
                 />
               )}
+              {escoposFilhos.map((filho) => {
+                const nomes = TITULOS_POR_ESCOPO[filho]
+                if (!nomes) return null
+                return (
+                  <div key={filho} className="mt-2">
+                    <ul
+                      className="list-none p-0"
+                      aria-label={`${nomes.tituloPlural} de ${ficha.rotulo ?? `${titulo} ${ficha.item_id}`}`}
+                    >
+                      {(ficha.margens ?? []).map((margem) => (
+                        <li key={margem.item_id} className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="text-left text-accent"
+                            onClick={() => void aoAbrir(margem.item_id)}
+                          >
+                            {margem.rotulo ?? `${nomes.titulo} ${margem.item_id}`}
+                          </button>
+                          <span
+                            className={`chip ${margem.completa ? 'bg-accent-soft text-accent' : 'bg-warn-soft text-warn'}`}
+                          >
+                            {margem.completa ? 'Completa' : 'Pendência'}
+                          </span>
+                          <button
+                            type="button"
+                            aria-label={`Remover ${margem.rotulo ?? `${nomes.titulo} ${margem.item_id}`}`}
+                            className="min-h-toque px-3 text-muted"
+                            onClick={() => pedirRemocao(margem, filho)}
+                          >
+                            ✕
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <Botao
+                      variante="secundario"
+                      onClick={() => void aoAdicionar(filho, ficha.item_id)}
+                    >
+                      + Adicionar {nomes.titulo.toLowerCase()}
+                    </Botao>
+                  </div>
+                )
+              })}
             </div>
             <span
               className={`chip ${ficha.completa ? 'bg-accent-soft text-accent' : 'bg-warn-soft text-warn'}`}
@@ -203,7 +279,7 @@ export default function TelaFichas({
               type="button"
               aria-label={`Remover ${ficha.rotulo ?? `${titulo} ${ficha.item_id}`}`}
               className="min-h-toque px-3 text-muted"
-              onClick={() => void aoRemover(ficha.item_id)}
+              onClick={() => pedirRemocao(ficha)}
             >
               ✕
             </button>
@@ -211,6 +287,45 @@ export default function TelaFichas({
         ))}
       </ul>
     </Tela>
+  )
+}
+
+/**
+ * `EC-35` — antes de remover, o que perde o pai: essas fichas voltam a ter
+ * pendência (o servidor decide; aqui só se lista).
+ */
+function ConfirmarRemocao({
+  nome,
+  dependentes,
+  onConfirmar,
+  onCancelar,
+}: {
+  nome: string
+  dependentes: { margens: string[]; dividas: string[] }
+  onConfirmar: () => void
+  onCancelar: () => void
+}) {
+  const itens = [
+    ...dependentes.margens.map((id) => `${TITULOS_POR_ESCOPO.MARGEM_ID.titulo} ${id}`),
+    ...dependentes.dividas.map((id) => `${TITULOS_POR_ESCOPO.DIVIDA_ID.titulo} ${id}`),
+  ]
+  return (
+    <div role="alertdialog" aria-labelledby="confirmar-remocao" className="aviso-erro">
+      <p id="confirmar-remocao">
+        Remover {nome}? Estes itens ficam sem vínculo e voltam a ter pendência:
+      </p>
+      <ul>
+        {itens.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        <Botao onClick={onConfirmar}>Remover assim mesmo</Botao>
+        <Botao variante="secundario" onClick={onCancelar}>
+          Cancelar
+        </Botao>
+      </div>
+    </div>
   )
 }
 

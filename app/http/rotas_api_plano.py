@@ -27,15 +27,22 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.casos.inventario import pendencias_de_inventario
 from app.casos.maquina import ESTADO_CASO
 from app.casos.progresso import consultar_trilha_de_progresso
-from app.concorrencia import tres_em_paralelo
+from app.concorrencia import duas_em_paralelo, tres_em_paralelo
 from app.http.isolamento import (
     exigir_caso_da_sessao,
     exigir_papel_revisor,
     obter_repositorio_casos,
 )
 from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
+from app.http.rotas_coleta import _itens_por_escopo
+from app.http.rotas_coleta import obter_colecao_de_registros as obter_colecao_da_coleta
+from app.http.rotas_coleta import obter_repositorio_itens as obter_repositorio_itens_da_coleta
+from app.http.rotas_coleta import (
+    obter_repositorio_respostas as obter_repositorio_respostas_da_coleta,
+)
 from app.http.rotas_operador import (
     CasosDoPainel,
     ItensDoPainel,
@@ -53,10 +60,12 @@ from app.http.rotas_revisao import (
     obter_repositorio_snapshots_da_fila,
 )
 from app.http.serializacao_plano import (
+    fontes_por_divida,
     serializar_estado_inputs,
     serializar_item_da_fila,
     serializar_plano,
 )
+from app.revisao.comprovacao import niveis_por_ficha
 from app.revisao.fila import (
     RepositorioCasosDaFila,
     listar_fila_de_revisao,
@@ -66,6 +75,8 @@ from collection.carga import ColecaoDeRegistros
 from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
 from persistencia.app_aluno.casos import RepositorioCasos
+from persistencia.app_aluno.itens import RepositorioItens
+from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
 from report.pdf import snapshot_tem_liberacao_registrada
 from report.plano import (
@@ -96,8 +107,17 @@ def plano_do_aluno(
     repositorio_snapshots: Annotated[
         RepositorioSnapshots, Depends(obter_repositorio_snapshots)
     ],
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_da_coleta)],
+    repositorio_respostas: Annotated[
+        RepositorioRespostas, Depends(obter_repositorio_respostas_da_coleta)
+    ],
+    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens_da_coleta)],
 ) -> JSONResponse:
     """`AC-25` — sempre o snapshot **liberado**, nunca o último calculado.
+
+    `T-267` (`RF-92`): cada dívida da ordem leva a `fonte` de comprovação,
+    derivada das respostas ATUAIS (`R9.7`) — o snapshot não a carrega e
+    nenhuma conta é feita sobre ele (`AC-42`).
 
     O ponto de injeção é `rotas_plano.obter_repositorio_snapshots` — o
     mesmo da rota de PDF, porque é a mesma tela do aluno vista de dois
@@ -150,9 +170,21 @@ def plano_do_aluno(
             }
         )
 
-    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    textos = carregar_textos_canonicos()
+    contexto = montar_contexto_plano(snapshot, textos)
+    respostas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio_respostas.listar_do_caso(CASO_ID),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
+    )
+    niveis = niveis_por_ficha(
+        colecao.registros, RespostasCaso(respostas=respostas), itens_por_escopo
+    )
     return JSONResponse(
-        {"CASO_ID": CASO_ID, "estado": caso.estado.value, "plano": serializar_plano(contexto)}
+        {
+            "CASO_ID": CASO_ID,
+            "estado": caso.estado.value,
+            "plano": serializar_plano(contexto, fontes_por_divida(niveis, textos)),
+        }
     )
 
 
@@ -277,6 +309,13 @@ def painel_do_operador(
                 "estado": linha.estado.value,
                 "aguardando_revisao": linha.aguardando_revisao,
                 "tempo_desde_ultima_atividade": linha.tempo_desde_ultima_atividade,
+                # `T-248` (RF-35, NFR de observabilidade da Rodada 9): o
+                # bloqueio por inventário como motivo NOMEADO — só o código
+                # da pendência, nunca contagem nem valor.
+                "bloqueio_inventario": [
+                    p.tipo.value
+                    for p in pendencias_de_inventario(colecao.registros, respostas, itens)
+                ],
             }
         )
     return JSONResponse({"linhas": linhas})

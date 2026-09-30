@@ -1,0 +1,93 @@
+// @vitest-environment happy-dom
+/**
+ * `TelaEquipeCaso` — pendências de homologação e fontes (`T-266`, `RF-93`,
+ * `AC-142`, `AC-155`).
+ *
+ * A lista e os rótulos vêm do servidor (`GET .../decisao`); a tela só os
+ * mostra e desabilita "Liberar" — a recusa de verdade é o `409`.
+ */
+import { render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import TelaEquipeCaso from '../../../src/telas/TelaEquipeCaso'
+import * as api from '../../../src/services/api'
+import type { CasoParaRevisao, OpcoesDeDecisao } from '../../../src/services/api'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+const CASO = {
+  CASO_ID: 'CASO-1',
+  plano: {
+    titulo: 'Sua ordem projetada de quitação',
+    corpo: '',
+    ordem: [],
+    PRAZO_TOTAL: '',
+    CUSTO_FUTURO_TOTAL: '',
+    ENGINE_VERSION: 'e',
+    PARAMETROS_VERSION: 'p',
+    cenario: '',
+    acoes: [],
+    pendencias: null,
+    MODO_ESTABILIZACAO: false,
+    RESULTADO_CAIXA_OBSERVADO: '',
+    reserva_mobilizavel: { pendente_de_decisao: false, valor: null },
+  },
+  estado_inputs: { campos: [], perfil_comportamental: [], sinais_comportamentais: [], dividas: [] },
+  fila: {
+    CASO_ID: 'CASO-1',
+    SNAPSHOT_ID: 'S1',
+    versao: 1,
+    DATA_REFERENCIA: '2026-09-30',
+    MOTIVO_RECALCULO: null,
+    EVENTO_RECALCULO: null,
+    METODO_RECOMENDADO_PIQ: 'AVALANCHE',
+    STATUS_METODO: 'DEFINITIVO_NA_DATA',
+    entra_por_politica: true,
+    e_metodologico: false,
+    ENGINE_VERSION: 'e',
+    PARAMETROS_VERSION: 'p',
+  },
+} as unknown as CasoParaRevisao
+
+function montar(opcoes: OpcoesDeDecisao) {
+  vi.spyOn(api, 'obterCasoParaRevisao').mockResolvedValue(CASO)
+  vi.spyOn(api, 'obterOpcoesDeDecisao').mockResolvedValue(opcoes)
+  render(<TelaEquipeCaso casoId="CASO-1" voltar={vi.fn()} />)
+}
+
+describe('TelaEquipeCaso — pendências de homologação (T-266)', () => {
+  it('lista cada pendência nomeando dívida e dado, e desabilita Liberar', async () => {
+    montar({
+      classificacoes_erro: [],
+      fontes: [
+        { item_id: 'D001', origem: 'B5.I02', nivel: 'PENDENTE_DE_CONFIRMACAO', rotulo: 'Pendente de confirmação' },
+      ],
+      seguros_nao_informados: ['D001'],
+      rotulo_nao_informado: 'Não informado',
+      pendencias_homologacao: [
+        {
+          item_id: 'D001',
+          ID_PERGUNTA: 'B5.B03',
+          enunciado: 'Qual é o saldo devedor atual desta dívida?',
+          motivo: 'PENDENTE_DE_CONFIRMACAO',
+        },
+      ],
+    })
+
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent('D001 · Qual é o saldo devedor atual desta dívida?')
+    expect(screen.getByRole('button', { name: 'Liberar para o aluno' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Pedir correção' })).toBeEnabled()
+    expect(screen.getByText('D001 · B5.I02: Pendente de confirmação')).toBeInTheDocument()
+    expect(screen.getByText('D001 · seguro: Não informado')).toBeInTheDocument()
+  })
+
+  it('sem pendência, Liberar fica disponível', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] })
+
+    expect(await screen.findByRole('button', { name: 'Liberar para o aluno' })).toBeEnabled()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+})

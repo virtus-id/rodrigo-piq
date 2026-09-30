@@ -11,7 +11,7 @@
 # `EstadoFinanceiro`/`Divida`/`PerfilComportamental`/`SinaisComportamentais`
 # hoje e ficam de fora desta transcrição — mesmo critério de recorte já
 # aplicado por T-19 ao Bloco 12 (só o que alimenta o contrato do motor entra).
-QUESTIONARIO_VERSION: "1.0.0"
+QUESTIONARIO_VERSION: "1.0.3"
 perguntas:
   - ID: B9.02
     bloco: 9

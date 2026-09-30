@@ -44,14 +44,15 @@ REGRAS: `RF-03`, `RF-06`, `AC-05`, `AC-36`
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
 from collection.condicoes import avaliar
 from collection.interpolacao import ContextoItem, interpolar
 from collection.materialidade import AvisoMaterialidade
-from collection.opcoes_do_motor import opcoes_efetivas
-from collection.registro import OpcaoRegistro, RegistroPergunta
+from collection.opcoes_do_motor import opcoes_efetivas, sem_itens_para_escolher
+from collection.registro import EscopoRepeticao, OpcaoRegistro, RegistroPergunta
 from collection.respostas import NAO_SEI, RespostasCaso, ValorResposta
 from engine.snapshot import SnapshotOrdem
 
@@ -95,6 +96,8 @@ def montar_contexto_pergunta(
     snapshot: SnapshotOrdem | None = None,
     aviso: AvisoMaterialidade | None = None,
     rotulo_do_item: str | None = None,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None = None,
+    rotulos: Mapping[str, str] | None = None,
 ) -> ContextoPergunta:
     """Resolve tudo que o template precisa a partir do registro + respostas
     já dadas + snapshot opcional do caso (T-14).
@@ -104,21 +107,29 @@ def montar_contexto_pergunta(
     respondido NAQUELE item quanto como `ContextoItem.item_id` da
     interpolação (`[Dxxx]` em `B11.Q01`, RF-06/AC-05). `rotulo_do_item`
     (`T-217`) é o nome do item para o aluno, quando ele tem um.
+    `itens_por_escopo`/`rotulos` (`T-256`): os itens ativos do caso, para a
+    origem `ITENS_DO_ESCOPO` — sem eles, essa pergunta sai sem opções.
 
     Levanta `ErroPerguntaNaoExibivel` quando `condicao_exibicao` do registro
     avalia como falsa — a MESMA função `avaliar` de `collection/condicoes.py`
     usada pela rota de gravação (T-42), nunca uma segunda implementação —
-    avaliada no `item_id` corrente (`T-199`)."""
+    avaliada no `item_id` corrente (`T-199`). `T-282`: com
+    `itens_por_escopo`, pergunta de origem `ITENS_DO_ESCOPO` sem item para
+    escolher também não é exibível."""
     if registro.condicao_exibicao is not None and not avaliar(
         registro.condicao_exibicao, respostas, item_id
     ):
+        raise ErroPerguntaNaoExibivel(registro.ID)
+    if itens_por_escopo is not None and sem_itens_para_escolher(registro, itens_por_escopo):
         raise ErroPerguntaNaoExibivel(registro.ID)
 
     contexto_interpolacao = ContextoItem(
         item_id=item_id, respostas=respostas, snapshot=snapshot, rotulo_do_item=rotulo_do_item
     )
     enunciado = interpolar(registro.enunciado, registro.interpolacoes, contexto_interpolacao)
-    opcoes = opcoes_efetivas(registro, snapshot)
+    opcoes = opcoes_efetivas(
+        registro, snapshot, respostas=respostas, itens_por_escopo=itens_por_escopo, rotulos=rotulos
+    )
     valor_atual = _valor_ja_respondido(registro, respostas, item_id)
 
     return ContextoPergunta(

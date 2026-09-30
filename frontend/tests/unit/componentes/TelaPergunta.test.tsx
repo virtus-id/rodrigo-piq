@@ -121,3 +121,47 @@ describe('T-212: resposta que abre ficha', () => {
     expect(onAbrirFichas).not.toHaveBeenCalled()
   })
 })
+
+describe('T-240: aviso na gravação', () => {
+  const AVISO = 'O desconto em reais não bate com o percentual informado.'
+
+  function responderComAviso(avisos: { codigo: string; mensagem: string; ID_PERGUNTA: string }[]) {
+    vi.spyOn(api, 'gravarResposta').mockResolvedValue({
+      ID_PERGUNTA: 'Q1',
+      aviso: null,
+      avanco_permitido: false,
+      total_pendencias: 1,
+      proxima: { pergunta: fabricar('TEXTO_CURTO', { ID: 'Q2', enunciado: 'Pergunta seguinte' }), coleta_completa: false },
+      abrir_fichas: [],
+      avisos,
+    })
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({ pergunta: fabricar('TEXTO_CURTO') })
+    render(<TelaPergunta casoId="CASO-1" onColetaCompleta={vi.fn()} />)
+  }
+
+  it('anuncia o aviso ligado ao campo e só segue no próximo "Continuar", sem regravar', async () => {
+    responderComAviso([{ codigo: 'DIVERGENCIA_DESCONTO', mensagem: AVISO, ID_PERGUNTA: 'Q1' }])
+
+    const campo = await screen.findByLabelText(/Campo de teste TEXTO_CURTO/)
+    await userEvent.type(campo, 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    const status = await screen.findByRole('status')
+    expect(status).toHaveTextContent(AVISO)
+    expect(screen.getByLabelText(/Campo de teste TEXTO_CURTO/)).toHaveAccessibleDescription(AVISO)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    expect(await screen.findByLabelText(/Pergunta seguinte/)).toBeInTheDocument()
+    expect(api.gravarResposta).toHaveBeenCalledTimes(1)
+  })
+
+  it('sem aviso (`avisos: []`), segue direto como antes', async () => {
+    responderComAviso([])
+
+    await userEvent.type(await screen.findByLabelText(/Campo de teste TEXTO_CURTO/), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    expect(await screen.findByLabelText(/Pergunta seguinte/)).toBeInTheDocument()
+  })
+})

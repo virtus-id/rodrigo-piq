@@ -551,7 +551,11 @@ class RepositorioItensArquivo(RepositorioItens):
         self._lock = threading.Lock()
 
     def proximo_identificador(
-        self, CASO_ID: str, escopo: EscopoRepeticao, origem: str | None = None
+        self,
+        CASO_ID: str,
+        escopo: EscopoRepeticao,
+        origem: str | None = None,
+        item_pai_id: str | None = None,
     ) -> str:
         prefixo = PREFIXO_POR_ESCOPO.get(escopo)
         if prefixo is None:
@@ -581,6 +585,7 @@ class RepositorioItensArquivo(RepositorioItens):
                 "removido_em": None,
                 "criado_em": agora.isoformat(),
                 "origem": origem,
+                "item_pai_id": item_pai_id,
             }
             try:
                 _anexar_linha(self._caminho_arquivo, registro)
@@ -674,6 +679,7 @@ def _linha_para_item(linha: dict[str, Any]) -> ItemRepetido:
         criado_em=_como_utc(datetime.fromisoformat(linha["criado_em"])),
         origem=linha.get("origem"),
         nome=linha.get("nome"),
+        item_pai_id=linha.get("item_pai_id"),
     )
 
 

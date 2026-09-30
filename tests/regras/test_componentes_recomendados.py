@@ -45,7 +45,7 @@ from engine.estado import (
     RecursoExtraordinario,
 )
 from engine.precisao import dinheiro
-from engine.tipos import CLASSIFICACAO_MOBILIZACAO, Dinheiro
+from engine.tipos import CLASSIFICACAO_MOBILIZACAO, DESCONHECIDO, Dinheiro
 from tests.conftest import assertar_exato
 
 CLASSES_NAO_RECOMENDAVEIS: tuple[CLASSIFICACAO_MOBILIZACAO, ...] = (
@@ -298,6 +298,35 @@ def test_extraordinarios_recomendados_exige_confirmado_e_ate_30d() -> None:
     )
 
     assertar_exato(obtido, dinheiro(3000))
+
+
+@pytest.mark.regra
+def test_extraordinario_de_valor_desconhecido_e_pulado_no_recomendado() -> None:
+    """`EC-52` · `AC-123` · `RF-73` (`T-153`): `CONFIRMADO ∧ ATE_30D` com
+    valor `DESCONHECIDO` não compõe `EXTRAORDINARIOS_RECOMENDADOS` e não
+    levanta erro — pulado como `calcular_ATIVOS_RECOMENDADOS` já faz, nunca
+    somado como `0`. O item conhecido ao lado produz exatamente o de antes."""
+    desconhecido = RecursoExtraordinario(
+        ITEM_ID="SEM_VALOR",
+        VALOR_RECURSO_EXTRAORDINARIO=DESCONHECIDO,
+        JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO.ATE_30D,
+        CERTEZA_RECURSO_EXTRAORDINARIO=CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO,
+    )
+    conhecido = _recurso(
+        "OK",
+        3000,
+        janela=JANELA_RECURSO_EXTRAORDINARIO.ATE_30D,
+        certeza=CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO,
+    )
+
+    assertar_exato(
+        calcular_EXTRAORDINARIOS_RECOMENDADOS(recursos_extraordinarios=(desconhecido,)),
+        dinheiro(0),
+    )
+    assertar_exato(
+        calcular_EXTRAORDINARIOS_RECOMENDADOS(recursos_extraordinarios=(desconhecido, conhecido)),
+        dinheiro(3000),
+    )
 
 
 @pytest.mark.regra

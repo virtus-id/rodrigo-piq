@@ -91,6 +91,7 @@ from app.http.rotas_revisao import (
     obter_repositorio_eventos_da_decisao,
     obter_repositorio_revisoes_da_decisao,
     obter_repositorio_snapshots_da_fila,
+    pendencias_homologacao_do_caso,
 )
 from app.http.rotas_revisao import roteador as roteador_revisao
 from app.http.senhas import hashear_senha, verificar_senha
@@ -111,6 +112,7 @@ from tests.app_aluno.fixtures.caso_completo import (
     CasoCompleto,
     caso_completo,
 )
+from tests.app_aluno.fixtures.sem_respostas import sem_respostas_nem_itens
 
 pytestmark = pytest.mark.e2e
 
@@ -289,6 +291,7 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
     repositorio_casos.transicionar_estado(caso_id, ESTADO_CASO.AGUARDANDO_REVISAO)
 
     caso_liberado_primeira_vez = liberar(
+        pendencias_homologacao=(),
         revisao_id=f"REVISAO_T96_PRIMEIRA_{uuid.uuid4().hex}",
         caso_id=caso_id,
         snapshot=snapshot_raiz,
@@ -344,11 +347,15 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
     aplicacao.dependency_overrides[obter_repositorio_eventos_da_decisao] = (
         lambda: repositorio_eventos
     )
+    # `T-264`: sem pendência de homologação — a recusa tem suíte própria
+    # (`test_liberacao_homologacao.py`).
+    aplicacao.dependency_overrides[pendencias_homologacao_do_caso] = lambda: ()
 
     # Plano do aluno (app/http/rotas_plano.py).
     aplicacao.dependency_overrides[obter_repositorio_snapshots_plano] = (
         lambda: repositorio_snapshots
     )
+    sem_respostas_nem_itens(aplicacao)  # `T-267`: fonte lida das respostas
 
     cliente_aluno = TestClient(aplicacao, base_url="https://teste.local")
     cliente_aluno.__enter__()
@@ -410,6 +417,7 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
             valor_interno="QUITADA",
             caso=caso_apos_resposta,
             estado=estado_para_recalculo,  # type: ignore[arg-type]
+            pendencias_inventario=(),
             fonte_parametros=fonte_parametros,
             repositorio_snapshots=repositorio_snapshots,
             repositorio_casos=repositorio_casos,

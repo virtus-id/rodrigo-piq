@@ -191,6 +191,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Final
 
+from app.casos.inventario import PendenciaInventario, exigir_inventario_completo
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.casos.progresso import transicionar_e_registrar
 from app.eventos.mapeamento import (
@@ -389,6 +390,7 @@ def disparar_recalculo(
     estado: EstadoFinanceiro,
     caso: Caso,
     evento: EVENTO_RECALCULO,
+    pendencias_inventario: tuple[PendenciaInventario, ...],
     fonte_parametros: FonteParametros,
     repositorio_snapshots: RepositorioSnapshots,
     repositorio_casos: RepositorioCasos,
@@ -430,6 +432,13 @@ def disparar_recalculo(
     de chamar o executor: o evento, sozinho, já é suficiente para disparar o
     recálculo (a decisão de "vale a pena" é do MOTOR, `engine/eventos.py::
     avaliar_gatilho_recalculo`, nunca desta camada — Lei nº 3)."""
+    # `T-248` (RF-86): a MESMA guarda de `rotas_calculo._preparar_calculo`,
+    # antes da transição — o caso nunca fica em CALCULANDO por inventário.
+    # `pendencias_inventario` é obrigatório: o `mypy --strict` aponta quem
+    # disparar sem calculá-lo (`app/casos/inventario.py`).
+    exigir_inventario_completo(
+        pendencias_inventario, caso_id=caso.CASO_ID, repositorio_eventos=repositorio_eventos
+    )
     anterior = _snapshot_corrente(caso, repositorio_snapshots)
 
     # Passo 2: validada pela máquina ANTES de qualquer tentativa de
@@ -470,6 +479,7 @@ async def disparar_recalculo_async(
     estado: EstadoFinanceiro,
     caso: Caso,
     evento: EVENTO_RECALCULO,
+    pendencias_inventario: tuple[PendenciaInventario, ...],
     fonte_parametros: FonteParametros,
     repositorio_snapshots: RepositorioSnapshots,
     repositorio_casos: RepositorioCasos,
@@ -484,6 +494,13 @@ async def disparar_recalculo_async(
     Bloco 6. Repete os passos 1-2 aqui (em vez de compor sobre
     `disparar_recalculo`) porque a única diferença é qual das duas funções
     do executor é chamada no passo final — nenhuma lógica de negócio nova."""
+    # `T-248` (RF-86): a MESMA guarda de `rotas_calculo._preparar_calculo`,
+    # antes da transição — o caso nunca fica em CALCULANDO por inventário.
+    # `pendencias_inventario` é obrigatório: o `mypy --strict` aponta quem
+    # disparar sem calculá-lo (`app/casos/inventario.py`).
+    exigir_inventario_completo(
+        pendencias_inventario, caso_id=caso.CASO_ID, repositorio_eventos=repositorio_eventos
+    )
     anterior = _snapshot_corrente(caso, repositorio_snapshots)
 
     caso_calculando = transicionar_e_registrar(
@@ -568,6 +585,7 @@ def processar_resposta_bloco_11(
     valor_interno: str | None,
     caso: Caso,
     estado: EstadoFinanceiro,
+    pendencias_inventario: tuple[PendenciaInventario, ...],
     fonte_parametros: FonteParametros,
     repositorio_snapshots: RepositorioSnapshots,
     repositorio_casos: RepositorioCasos,
@@ -609,6 +627,7 @@ def processar_resposta_bloco_11(
             estado=estado,
             caso=caso,
             evento=evento,
+            pendencias_inventario=pendencias_inventario,
             fonte_parametros=fonte_parametros,
             repositorio_snapshots=repositorio_snapshots,
             repositorio_casos=repositorio_casos,
@@ -630,6 +649,7 @@ async def processar_resposta_bloco_11_async(
     valor_interno: str | None,
     caso: Caso,
     estado: EstadoFinanceiro,
+    pendencias_inventario: tuple[PendenciaInventario, ...],
     fonte_parametros: FonteParametros,
     repositorio_snapshots: RepositorioSnapshots,
     repositorio_casos: RepositorioCasos,
@@ -651,6 +671,7 @@ async def processar_resposta_bloco_11_async(
             estado=estado,
             caso=caso,
             evento=evento,
+            pendencias_inventario=pendencias_inventario,
             fonte_parametros=fonte_parametros,
             repositorio_snapshots=repositorio_snapshots,
             repositorio_casos=repositorio_casos,

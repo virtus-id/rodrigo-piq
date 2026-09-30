@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:56:24.305Z",
+  "decisao": "d5",
+  "falta": "",
+  "obs": "O aluno pode cadastrar mais de um vínculo de trabalho/remuneração. Cada vínculo deve possuir seus próprios dados e, quando houver consignação naquele vínculo, sua própria margem consignável. A margem deve ficar vinculada ao respectivo vínculo/folha de pagamento, e não cadastrada como um dado geral do aluno.\nExemplos: servidor com acumulação lícita de cargos, vínculos com entes diferentes, ou remuneração/provento oriundo de mais de uma fonte. Para cada vínculo, cadastrar separadamente órgão/ente pagador, tipo de vínculo, renda líquida relevante para o cálculo, existência de consignação, margem total, margem utilizada e margem disponível. Cada empréstimo consignado também deve ser associado ao vínculo em que é descontado. O sistema não deve somar automaticamente as margens de vínculos diferentes como se fossem uma única margem disponível; cada uma deve ser analisada no respectivo vínculo, salvo regra específica que permita sua utilização conjunta.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "O servidor pode ter mais de um vínculo de trabalho cadastrado?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "",
+  "tipo": "unica",
+  "valor": "Sim"
+}

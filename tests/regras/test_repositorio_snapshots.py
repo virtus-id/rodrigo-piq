@@ -50,10 +50,13 @@ from engine.estado import (
     ItemInvestimento,
     RecursoExtraordinario,
 )
+from engine.extraordinarios import PROJECAO_VAZIA
 from engine.gates import AcaoRequerida
+from engine.motor import calcular_plano
 from engine.parametros import Parametros
 from engine.portas import RepositorioSnapshots
 from engine.precisao import dinheiro
+from engine.snapshot import SnapshotOrdem
 from engine.tipos import CLASSIFICACAO_MOBILIZACAO, DESCONHECIDO, EVENTO_RECALCULO
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from persistencia.arquivo.repositorio_snapshots import (
@@ -61,7 +64,7 @@ from persistencia.arquivo.repositorio_snapshots import (
     RepositorioSnapshotsArquivo,
 )
 from tests.conftest import assertar_exato
-from tests.fixtures.carregar import carregar_gab_c
+from tests.fixtures.carregar import carregar_gab_b, carregar_gab_c
 from tests.regras.test_snapshot import _montar_snapshot_gab_c
 
 
@@ -674,3 +677,118 @@ def test_criterio5_erro_de_escrita_e_propagado_sem_perder_snapshot_em_memoria(
     repositorio_valido.anexar(snapshot)
     reobtido = repositorio_valido.obter(snapshot.SNAPSHOT_ID)
     assertar_exato(reobtido.SNAPSHOT_ID, snapshot.SNAPSHOT_ID)
+
+
+# ---------------------------------------------------------------------------
+# T-164/T-165 — SnapshotOrdem.projecao_extraordinarios (RF-70, RF-71, EC-55)
+# ---------------------------------------------------------------------------
+def _snapshot_com_projecao() -> SnapshotOrdem:
+    """`gab_b` com dívida de saldo conhecido + um `CONFIRMADO`, um
+    `PROVAVEL` e um `NAO_SEI` — projeção com as três partes preenchidas."""
+    estado = carregar_gab_b()
+    divida = dataclasses.replace(
+        estado.dividas[0],
+        SALDO_DEVEDOR_ATUAL=dinheiro("60000.33"),
+        VALOR_QUITACAO_HOJE=dinheiro("60000.33"),
+        TAXA_EFETIVA_MENSAL_NORMALIZADA=dinheiro("0.01"),
+    )
+    recursos = (
+        RecursoExtraordinario(
+            ITEM_ID="C1",
+            VALOR_RECURSO_EXTRAORDINARIO=dinheiro("5000.55"),
+            JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO.QUATRO_A_SEIS_MESES,
+            CERTEZA_RECURSO_EXTRAORDINARIO=CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO,
+        ),
+        RecursoExtraordinario(
+            ITEM_ID="P1",
+            VALOR_RECURSO_EXTRAORDINARIO=dinheiro("3000.10"),
+            JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO.UM_A_TRES_MESES,
+            CERTEZA_RECURSO_EXTRAORDINARIO=CERTEZA_RECURSO_EXTRAORDINARIO.PROVAVEL,
+        ),
+        RecursoExtraordinario(
+            ITEM_ID="N1",
+            VALOR_RECURSO_EXTRAORDINARIO=DESCONHECIDO,
+            JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO.NAO_SEI,
+            CERTEZA_RECURSO_EXTRAORDINARIO=CERTEZA_RECURSO_EXTRAORDINARIO.CONFIRMADO,
+        ),
+    )
+    estado = dataclasses.replace(estado, dividas=(divida,), recursos_extraordinarios=recursos)
+    snapshot = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.2"))
+    projecao = snapshot.projecao_extraordinarios
+    assert projecao.aportes_base and projecao.nao_projetados and projecao.cenario_adicional
+    return snapshot
+
+
+@pytest.mark.regra
+def test_T164_projecao_round_trip_arquivo(tmp_path: Path) -> None:
+    """`T-164`/`RF-71`: round-trip do arquivo preserva a projeção campo a
+    campo (`Decimal` exato, `DESCONHECIDO` do item intacto)."""
+    original = _snapshot_com_projecao()
+    repositorio = RepositorioSnapshotsArquivo(tmp_path / "snapshots.jsonl")
+    repositorio.anexar(original)
+
+    reconstruido = repositorio.obter(original.SNAPSHOT_ID)
+
+    assertar_exato(reconstruido.projecao_extraordinarios, original.projecao_extraordinarios)
+    assertar_exato(reconstruido.estado_inputs, original.estado_inputs)
+    assertar_exato(reconstruido, original)
+
+
+@pytest.mark.regra
+def test_T164_projecao_round_trip_caminho_postgres() -> None:
+    """`T-164`: `dados_completos` (jsonb) → `_bruto_para_formato_arquivo` →
+    desserialização preserva a projeção. Sem banco: a linha é montada com o
+    mesmo `_dados_completos` que `anexar` grava, passado por JSON como o
+    `psycopg` o devolveria."""
+    import json
+
+    from persistencia.arquivo.repositorio_snapshots import _desserializar_snapshot
+    from persistencia.supabase.repositorio_snapshots import (
+        _bruto_para_formato_arquivo,
+        _dados_completos,
+    )
+
+    original = _snapshot_com_projecao()
+    linha = {
+        "SNAPSHOT_ID": original.SNAPSHOT_ID,
+        "versao": original.versao,
+        "snapshot_anterior_id": original.snapshot_anterior_id,
+        "DATA_REFERENCIA": original.DATA_REFERENCIA,
+        "MOTIVO_RECALCULO": original.MOTIVO_RECALCULO,
+        "EVENTO_RECALCULO": None,
+        "hash_inputs": original.hash_inputs,
+        "METODO_RECOMENDADO_PIQ": original.METODO_RECOMENDADO_PIQ.value,
+        "STATUS_METODO": original.STATUS_METODO.value,
+        "ORDEM_STATUS": original.ORDEM_STATUS.value,
+        "REVISAO_HUMANA_OBRIGATORIA": original.REVISAO_HUMANA_OBRIGATORIA,
+        "DIVIDA_ALVO_ATUAL": original.DIVIDA_ALVO_ATUAL,
+        "PROXIMA_DIVIDA": original.PROXIMA_DIVIDA,
+        "ENGINE_VERSION": original.ENGINE_VERSION,
+        "PARAMETROS_VERSION": original.PARAMETROS_VERSION,
+        "dados_completos": json.loads(json.dumps(_dados_completos(original))),
+    }
+
+    reconstruido = _desserializar_snapshot(_bruto_para_formato_arquivo(linha))
+
+    assertar_exato(reconstruido.projecao_extraordinarios, original.projecao_extraordinarios)
+
+
+@pytest.mark.regra
+def test_T164_snapshot_anterior_sem_a_chave_tem_projecao_vazia(
+    tmp_path: Path, _estado_e_parametros: tuple[EstadoFinanceiro, Parametros]
+) -> None:
+    """`T-164`/`R9M.7`: linha gravada antes da Rodada 5 (sem a chave) →
+    `ProjecaoExtraordinarios((), (), None)`."""
+    import json
+
+    estado, parametros = _estado_e_parametros
+    caminho = tmp_path / "snapshots.jsonl"
+    original = _montar_snapshot_gab_c(estado=estado, parametros=parametros)
+    RepositorioSnapshotsArquivo(caminho).anexar(original)
+    bruto = json.loads(caminho.read_text(encoding="utf-8"))
+    del bruto["projecao_extraordinarios"]
+    caminho.write_text(json.dumps(bruto) + "\n", encoding="utf-8")
+
+    reconstruido = RepositorioSnapshotsArquivo(caminho).obter(original.SNAPSHOT_ID)
+
+    assertar_exato(reconstruido.projecao_extraordinarios, PROJECAO_VAZIA)

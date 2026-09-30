@@ -26,6 +26,11 @@ from app.casos.acompanhamento import (
     disparar_recalculo,
     disparar_recalculo_async,
 )
+from app.casos.inventario import (
+    TIPO_PENDENCIA_INVENTARIO,
+    ErroInventarioIncompleto,
+    PendenciaInventario,
+)
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.motor import executor as executor_modulo
@@ -169,6 +174,7 @@ def test_ac30_recalculo_encadeia_versao_e_snapshot_anterior_id(
 
     snapshot_recalculado = disparar_recalculo(
         estado=estado_financeiro,
+        pendencias_inventario=(),
         caso=caso,
         evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
         fonte_parametros=fonte_parametros_arquivo,
@@ -227,6 +233,7 @@ def test_ac26_snapshot_de_recalculo_entra_na_fila_de_revisao(
 
     snapshot_recalculado = disparar_recalculo(
         estado=estado_financeiro,
+        pendencias_inventario=(),
         caso=caso,
         evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
         fonte_parametros=fonte_parametros_arquivo,
@@ -289,6 +296,7 @@ def test_ec11_hash_inputs_identico_ainda_versiona_com_evento(
     # O mesmo `estado_financeiro` — nada material mudou — mas com evento.
     snapshot_recalculado = disparar_recalculo(
         estado=estado_financeiro,
+        pendencias_inventario=(),
         caso=caso,
         evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
         fonte_parametros=fonte_parametros_arquivo,
@@ -336,6 +344,7 @@ def test_recalculo_usa_o_mesmo_executor_calcular_plano_uma_unica_vez(
     with contador.substituir_em(executor_modulo):
         disparar_recalculo(
             estado=estado_financeiro,
+            pendencias_inventario=(),
             caso=caso,
             evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
             fonte_parametros=fonte_parametros_arquivo,
@@ -377,6 +386,7 @@ def test_recalculo_recusa_quando_caso_esta_fora_de_acompanhamento(
     with pytest.raises(ErroRecalculoRecusado):
         disparar_recalculo(
             estado=estado_financeiro,
+            pendencias_inventario=(),
             caso=caso_fora_de_acompanhamento,
             evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
             fonte_parametros=fonte_parametros_arquivo,
@@ -418,6 +428,7 @@ def test_recalculo_recusa_quando_transicao_condicional_ja_perdeu_a_corrida(
     with pytest.raises(ErroRecalculoRecusado):
         disparar_recalculo(
             estado=estado_financeiro,
+            pendencias_inventario=(),
             caso=caso,
             evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
             fonte_parametros=fonte_parametros_arquivo,
@@ -460,6 +471,7 @@ def test_disparar_recalculo_async_produz_o_mesmo_encadeamento(
     snapshot_recalculado = asyncio.run(
         disparar_recalculo_async(
             estado=estado_financeiro,
+            pendencias_inventario=(),
             caso=caso,
             evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
             fonte_parametros=fonte_parametros_arquivo,
@@ -472,3 +484,47 @@ def test_disparar_recalculo_async_produz_o_mesmo_encadeamento(
 
     assert snapshot_recalculado.versao == snapshot_anterior.versao + 1
     assert snapshot_recalculado.snapshot_anterior_id == snapshot_anterior.SNAPSHOT_ID
+
+
+def test_t249_recalculo_com_inventario_incompleto_e_recusado_sem_transicao(
+    estado_financeiro: EstadoFinanceiro,
+    fonte_parametros_arquivo: FonteParametrosArquivo,
+    repositorio_snapshots_arquivo: RepositorioSnapshotsArquivo,
+    repositorio_casos_arquivo: RepositorioCasosArquivo,
+    repositorio_eventos_arquivo: RepositorioEventosCasoArquivo,
+) -> None:
+    """`T-249` (`RF-86`, `AC-134`): a porta de recálculo usa a MESMA guarda
+    da porta do Bloco 6 — recusa antes de transicionar, o caso segue em
+    `ACOMPANHAMENTO`, nenhum snapshot, e o motivo vai para a trilha."""
+    pendencia = PendenciaInventario(
+        tipo=TIPO_PENDENCIA_INVENTARIO.DIVIDAS_FALTANDO,
+        declaradas=7,
+        cadastradas=5,
+        ID_PARA_CORRIGIR="B5.00",
+        escopo=None,
+    )
+    caso = repositorio_casos_arquivo.buscar(_CASO_ID)
+    assert caso is not None
+    contador = ContadorDeChamadas(getattr(executor_modulo, "calcular_plano"))  # noqa: B009
+
+    with contador.substituir_em(executor_modulo), pytest.raises(ErroInventarioIncompleto):
+        disparar_recalculo(
+            estado=estado_financeiro,
+            pendencias_inventario=(pendencia,),
+            caso=caso,
+            evento=EVENTO_RECALCULO.QUITACAO_CONFIRMADA,
+            fonte_parametros=fonte_parametros_arquivo,
+            repositorio_snapshots=repositorio_snapshots_arquivo,
+            repositorio_casos=repositorio_casos_arquivo,
+            repositorio_eventos=repositorio_eventos_arquivo,
+            parametros_versao=_PARAMETROS_VERSAO,
+        )
+
+    assert contador.chamadas == 0
+    caso_apos = repositorio_casos_arquivo.buscar(_CASO_ID)
+    assert caso_apos is not None and caso_apos.estado is ESTADO_CASO.ACOMPANHAMENTO
+    (evento,) = repositorio_eventos_arquivo.listar_do_caso(_CASO_ID)
+    assert (evento.tipo_evento, evento.detalhe) == (
+        "calculo_bloqueado_inventario",
+        "DIVIDAS_FALTANDO",
+    )

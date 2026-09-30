@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:52:41.184Z",
+  "decisao": "d4",
+  "falta": "",
+  "obs": "Marcelo: Tem que entrar uma observação que não foram cadastradas todas as dividas declaradas. Rodrigo: Se o aluno declarou N dívidas e cadastrou menos de N, o sistema deve informar exatamente quantas ainda faltam cadastrar. Ex.: “Você declarou 7 dívidas e cadastrou 5. Faltam 2 fichas.” Deve ser possível voltar e completar o cadastro a qualquer momento. Dívidas sem ficha não podem ser simplesmente ignoradas pelo motor, pois podem alterar capacidade financeira, ordem de ataque, método recomendado e prazo de quitação. A regra ideal é: \"Pode continuar preenchendo. Não pode concluir o diagnóstico nem gerar o PIQ com inventário incompleto.\"\nEssa distinção entre continuar o fluxo e autorizar o cálculo final é essencial aqui.",
+  "outra": "Rodrigo, pois, Marcelo havia preenchido \"sim, pode seguir\". Pode seguir no preenchimento, mas não pode gerar nem finalizar o plano de quitação enquanto não estiverem cadastradas todas as dívidas que declarou possuir. O sistema deve permitir salvar o progresso e continuar as demais etapas, mas manter um alerta permanente de “inventário incompleto” e bloquear o cálculo final/recomendação até que a quantidade de fichas cadastradas seja igual à quantidade de dívidas declaradas.",
+  "pendente": false,
+  "pergunta": "Se o aluno declarou N dívidas, ele pode seguir tendo cadastrado menos que N?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "",
+  "tipo": "unica",
+  "valor": "Outra resposta"
+}

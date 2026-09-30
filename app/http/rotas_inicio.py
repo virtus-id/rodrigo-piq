@@ -56,6 +56,7 @@ from app.casos.confirmacao_ataque import (
     bloco_10_alcancavel,
 )
 from app.casos.fases import FASE_INICIO, fase_do_estado, fase_do_plano_liberado
+from app.casos.inventario import pendencias_de_inventario
 from app.casos.maquina import ESTADO_CASO
 from app.casos.progresso import contar_coleta, proxima_pergunta_nao_respondida
 from app.concorrencia import tres_em_paralelo
@@ -139,6 +140,9 @@ class DESTINO_DA_ETAPA(Enum):
 
     CONSENTIMENTO = "consentimento"
     PERGUNTA = "pergunta"
+    # `T-251` (RF-86): coleta completa, mas o inventário não fecha — a
+    # etapa troca "Montar o seu plano" pela pendência.
+    INVENTARIO = "inventario"
     CALCULANDO = "calculando"
     AGUARDANDO = "aguardando"
     PROGRESSO = "progresso"
@@ -234,6 +238,17 @@ def _proxima_etapa(
                 colecao.registros, respostas, itens_por_escopo
             )
             if pendencia is None:
+                # `T-251` (RF-86): com inventário incompleto o cálculo
+                # recusaria — a etapa é a primeira pendência, pela MESMA
+                # função da guarda do cálculo.
+                inventario = pendencias_de_inventario(
+                    colecao.registros, respostas, itens_por_escopo
+                )
+                if inventario:
+                    return ProximaEtapa(
+                        destino=DESTINO_DA_ETAPA.INVENTARIO,
+                        ID_PERGUNTA=inventario[0].ID_PARA_CORRIGIR,
+                    )
                 # `EC-23`: coleta completa. A próxima etapa é o cálculo, não
                 # uma pergunta arbitrária nem uma tela vazia.
                 return ProximaEtapa(

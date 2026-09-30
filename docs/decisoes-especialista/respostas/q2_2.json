@@ -1,0 +1,14 @@
+{
+  "atualizado_em": "2026-09-30T17:16:15.643Z",
+  "decisao": "d2",
+  "falta": "",
+  "obs": "Cada recurso extraordinário deve ser cadastrado separadamente, com tipo/origem, valor estimado, data ou período provável de recebimento e grau de previsibilidade. O sistema não deve somar automaticamente todos como se tivessem a mesma certeza. Recursos certos e previsíveis podem entrar no planejamento; recursos incertos devem aparecer apenas como cenário adicional e só afetar efetivamente o plano quando recebidos ou quando sua realização estiver suficientemente confirmada.",
+  "outra": "",
+  "pendente": false,
+  "pergunta": "O aluno pode informar mais de um recurso extraordinário?",
+  "por": "u_ZaG9dv4T1jef5nSb1ajrbA",
+  "respondida": true,
+  "texto": "",
+  "tipo": "unica",
+  "valor": "Sim, vários"
+}

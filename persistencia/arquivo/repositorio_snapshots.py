@@ -78,6 +78,14 @@ from engine.estado import (
     RecursoExtraordinario,
     SinaisComportamentais,
 )
+from engine.extraordinarios import (
+    MOTIVO_NAO_PROJETADO,
+    PROJECAO_VAZIA,
+    AporteProjetado,
+    CenarioAdicional,
+    ItemNaoProjetado,
+    ProjecaoExtraordinarios,
+)
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem
 from engine.portas import RepositorioSnapshots
@@ -382,10 +390,12 @@ def _item_ativo(bruto: dict[str, Any]) -> ItemAtivo:
 def _recurso_extraordinario(bruto: dict[str, Any]) -> RecursoExtraordinario:
     """`RecursoExtraordinario` (`engine/estado.py`, T-95) — janela e certeza
     são os dois `Enum` que qualificam o recurso na §13.3, e não
-    `CLASSIFICACAO_MOBILIZACAO` (que a §13 não aplica a este tipo de item)."""
+    `CLASSIFICACAO_MOBILIZACAO` (que a §13 não aplica a este tipo de item).
+    `T-152` (`EC-52`): o valor é `DinheiroTalvez` — lido por `_dinheiro_talvez`
+    para que `DESCONHECIDO` sobreviva ao round-trip."""
     return RecursoExtraordinario(
         ITEM_ID=bruto["ITEM_ID"],
-        VALOR_RECURSO_EXTRAORDINARIO=_decimal(bruto["VALOR_RECURSO_EXTRAORDINARIO"]),
+        VALOR_RECURSO_EXTRAORDINARIO=_dinheiro_talvez(bruto["VALOR_RECURSO_EXTRAORDINARIO"]),
         JANELA_RECURSO_EXTRAORDINARIO=JANELA_RECURSO_EXTRAORDINARIO(
             bruto["JANELA_RECURSO_EXTRAORDINARIO"]
         ),
@@ -637,6 +647,43 @@ def _acao_requerida(bruto: dict[str, Any]) -> AcaoRequerida:
     )
 
 
+def _aporte_projetado(bruto: dict[str, Any]) -> AporteProjetado:
+    return AporteProjetado(
+        ITEM_ID=bruto["ITEM_ID"],
+        mes=bruto["mes"],
+        VALOR_DESTINADO=_decimal(bruto["VALOR_DESTINADO"]),
+    )
+
+
+def _projecao_extraordinarios(bruto: dict[str, Any] | None) -> ProjecaoExtraordinarios:
+    """RF-70/RF-71 (`T-164`) — `SnapshotOrdem.projecao_extraordinarios`.
+    Snapshot gravado antes da Rodada 5 não tem a chave: projeção vazia, o
+    que é verdade para ele (nenhum tinha recurso, plano `R9M.7`, `EC-55`)."""
+    if bruto is None:
+        return PROJECAO_VAZIA
+    adicional = bruto["cenario_adicional"]
+    return ProjecaoExtraordinarios(
+        aportes_base=tuple(_aporte_projetado(item) for item in bruto["aportes_base"]),
+        nao_projetados=tuple(
+            ItemNaoProjetado(ITEM_ID=item["ITEM_ID"], motivo=MOTIVO_NAO_PROJETADO(item["motivo"]))
+            for item in bruto["nao_projetados"]
+        ),
+        cenario_adicional=(
+            None
+            if adicional is None
+            else CenarioAdicional(
+                metodo=METODO(adicional["metodo"]),
+                ORDEM_QUITACAO=tuple(adicional["ORDEM_QUITACAO"]),
+                PRAZO_TOTAL=adicional["PRAZO_TOTAL"],
+                CUSTO_FUTURO_TOTAL=_decimal(adicional["CUSTO_FUTURO_TOTAL"]),
+                MESES_PRIMEIRA_VITORIA=adicional["MESES_PRIMEIRA_VITORIA"],
+                ESTOUROU_HORIZONTE=adicional["ESTOUROU_HORIZONTE"],
+                aportes=tuple(_aporte_projetado(item) for item in adicional["aportes"]),
+            )
+        ),
+    )
+
+
 def _desserializar_snapshot(bruto: dict[str, Any]) -> SnapshotOrdem:
     """Reconstrói um `SnapshotOrdem` completo a partir do dict já decodificado
     de uma linha `snapshots.jsonl` (`json.loads` já aplicado). Espelha campo
@@ -673,4 +720,5 @@ def _desserializar_snapshot(bruto: dict[str, Any]) -> SnapshotOrdem:
         ORDEM_ACOES=tuple(_acao_requerida(item) for item in bruto["ORDEM_ACOES"]),
         ENGINE_VERSION=bruto["ENGINE_VERSION"],
         PARAMETROS_VERSION=bruto["PARAMETROS_VERSION"],
+        projecao_extraordinarios=_projecao_extraordinarios(bruto.get("projecao_extraordinarios")),
     )
