@@ -24,3 +24,6 @@ frontend/.vite/
 
 # Certificados efêmeros de demonstração local (scripts/subir_demo.py)
 *.pem
+
+# macOS
+.DS_Store

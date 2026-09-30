@@ -8548,3 +8548,1317 @@ ganho.
 
 > Requisito sem tarefa não será implementado. Tarefa sem requisito é escopo
 > extra — remova ou volte à spec.
+
+---
+
+## Registro retroativo — `T-186` a `T-193` (2026-09-23/24)
+
+> Registradas em 2026-09-30 por `T-215`, a partir das mensagens de commit:
+> estas tarefas foram implementadas sem entrada prévia neste arquivo. Onde o
+> commit não cita requisito, o `Rastreia` diz isso — não se inventa rastreio.
+
+### `T-186` — (sem registro)
+
+- **Tipo:** —
+- **Rastreia:** não inferível — nenhum commit cita `T-186`
+
+**Descrição**
+
+O número foi pulado ou a tarefa não chegou a commit: `git log --all` não tem
+mensagem com `T-186`. Entrada mantida só para a numeração não parecer lacuna
+de registro.
+
+**Status:** `[-] sem commit`
+
+---
+
+### `T-187` — Pool de conexões compartilhado e rotas assíncronas destravadas
+
+- **Tipo:** `Infra`
+- **Commits:** `eef668f`, `f8b268d`, `e806892` (2026-09-23)
+- **Rastreia:** não inferível do commit (preparação para ~30 alunos
+  concorrentes; o commit não cita requisito)
+- **Arquivos:** `persistencia/supabase/conexao.py` (`obter_pool()`),
+  `persistencia/app_aluno/{cadastro,casos,consentimentos,contas,eventos,itens,respostas,revisoes,tokens_acesso,arquivo}.py`,
+  `app/http/rotas_{acoes,api_conta,api_plano,bloco10,bloco11,calculo,coleta,consentimento,operador,provisionamento,revisao}.py`,
+  `pyproject.toml` (`psycopg[binary,pool]`),
+  `tests/app_aluno/estatica/hashes_congelados.json`,
+  `tests/app_aluno/integracao/test_persistencia_respostas.py`,
+  `tests/app_aluno/test_guarda_consentimento_resposta.py`
+
+**Descrição**
+
+`psycopg_pool.ConnectionPool` singleton por processo (min=2, max=10), com
+`search_path` refeito a cada checkout. 13 rotas `async def` que chamavam
+psycopg síncrono no corpo viraram `def` (ou passaram a usar
+`run_in_threadpool`). Painel do operador de 1+3N consultas para 4
+(`buscar_varios`/`listar_de_varios_casos`). Hash de `conexao.py` atualizado
+em `AC-44` (modificação sancionada) e mocks de conexão trocados para
+`obter_pool()`.
+
+**Status:** `[x] concluída` (2026-09-23)
+
+---
+
+### `T-188` — "Sair" na interface
+
+- **Tipo:** `FEATURE`
+- **Commit:** `071ec25` (2026-09-23)
+- **Rastreia:** não inferível do commit (ajusta a lista de rótulos de
+  consulta de `AC-81`, mas não cita o requisito que pede o logout)
+- **Arquivos:** `frontend/src/App.tsx`, `frontend/src/services/api.ts`,
+  `frontend/src/telas/TelaInicio.tsx`, `frontend/src/telas/TelaRevisao.tsx`,
+  `frontend/tests/e2e/navegacao.spec.ts`
+
+**Descrição**
+
+Não havia caminho de logout na interface. `sair()` chama o
+`POST /conta/logout` existente com `redirect: 'manual'`; botão nas duas telas
+raiz (Início e Fila de revisão). "Sair" entra na lista de rótulos que não
+contam como próxima etapa em `AC-81`.
+
+**Status:** `[x] concluída` (2026-09-23)
+
+---
+
+### `T-189` — (sem registro)
+
+- **Tipo:** —
+- **Rastreia:** não inferível — nenhum commit cita `T-189`
+
+**Descrição**
+
+Mesma situação de `T-186`: nenhuma mensagem de commit cita `T-189`.
+
+**Status:** `[-] sem commit`
+
+---
+
+### `T-190` — Voltar mais rápido e "Sair" no topo
+
+- **Tipo:** `PERF`
+- **Dependências:** `T-187`, `T-188`
+- **Commit:** `a833d8c` (2026-09-23)
+- **Rastreia:** não inferível do commit
+- **Arquivos:** `frontend/src/App.tsx`, `frontend/src/componentes/Icone.tsx`,
+  `frontend/src/componentes/Tela.tsx`, `frontend/src/index.css`,
+  `frontend/src/telas/TelaInicio.tsx`, `frontend/src/telas/TelaRevisao.tsx`
+
+**Descrição**
+
+`TelaInicio` deixa de buscar `/inicio` por conta própria e consome a prop
+elevada de `App.tsx` — cada "voltar" fazia a consulta duas vezes. "Sair" sai
+do rodapé de ação para o canto superior direito do cabeçalho (prop `aoSair`
+em `Tela.tsx`, ícone `sair`; abaixo de 640px só o ícone, com texto
+`sr-only`).
+
+**Status:** `[x] concluída` (2026-09-23)
+
+---
+
+### `T-191` — Consultas independentes em paralelo nas rotas
+
+- **Tipo:** `PERF`
+- **Dependências:** `T-187`
+- **Commits:** `4e37971`, `2f0020a` (2026-09-23)
+- **Rastreia:** não inferível do commit
+- **Arquivos:** `app/concorrencia.py` (novo; criado em `app/http/` e movido),
+  `app/http/rotas_{inicio,pergunta,api_conta,api_plano,calculo,coleta,fichas,respostas}.py`,
+  `app/revisao/fila.py`
+
+**Descrição**
+
+`duas_em_paralelo`/`tres_em_paralelo`/`mapear_em_paralelo`: leituras
+independentes rodam em threads com conexão própria do pool (~484ms por
+consulta Boston↔São Paulo). `listar_fila_de_revisao` sai do N+1 com
+`buscar_varios` e `historico` em paralelo (sem tocar
+`repositorio_snapshots.py`, congelado por `AC-44`). Rotas com gate
+condicional (bloco10, bloco11, ações, coleta dirigida, etapas,
+revisão/decisão) ficam sequenciais de propósito.
+
+**Status:** `[x] concluída` (2026-09-23)
+
+---
+
+### `T-192` — F5 não pisca para o login
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-174`
+- **Commit:** `63bee52` (2026-09-23)
+- **Rastreia:** não inferível do commit (corrige a intenção já declarada
+  em `T-174`)
+- **Arquivos:** `frontend/src/App.tsx`
+
+**Descrição**
+
+Com `temSessao === null`, `casoId` vazio também é "ainda não sei": o `if` do
+login decidia cedo demais e todo F5 fora de `?caso=` piscava o login. Terceiro
+estado explícito — mostra `Esqueleto` enquanto a sessão é consultada (exceto
+em `entrada`).
+
+**Status:** `[x] concluída` (2026-09-23)
+
+---
+
+### `T-193` — `POST /resposta` devolve a próxima pergunta
+
+- **Tipo:** `PERF`
+- **Dependências:** `T-191`
+- **Commit:** `83b69b7` (2026-09-24)
+- **Rastreia:** `RF-45`, `EC-05` (garantias preservadas, citadas no commit)
+- **Arquivos:** `app/http/rotas_coleta.py`, `app/http/rotas_pergunta.py`,
+  `frontend/src/telas/TelaPergunta.tsx`, `frontend/src/tipos.ts`
+
+**Descrição**
+
+A resposta de `POST /resposta` ganha o campo aditivo `proxima`, montado com
+as mesmas funções de `GET /pergunta` sobre os dados já em memória — nenhuma
+consulta nova. `_primeira_exibivel` move de `rotas_pergunta.py` para
+`rotas_coleta.py`. `TelaPergunta` usa `confirmacao.proxima` e remove
+`carregarProxima`.
+
+**Status:** `[x] concluída` (2026-09-24)
+
+---
+
+## Achados do QA (2026-09-29) — débito técnico
+
+> Origem: `docs/revisao-qa-2026-09-29.md` (base `83b69b7`). Estas tarefas são
+> **defeitos**: o código descumpre requisitos que a spec já fixa, e nenhuma
+> delas exige decisão de negócio. Cada uma começa por um teste que reproduz o
+> bug.
+>
+> **Ficam FORA desta seção, aguardando decisão do especialista:** C3 (fichas
+> de despesa por categoria e a "fotografia" `B3.C00` — D2/D3); os
+> identificadores (`valor_interno`) dos checklists `SELECAO_MULTIPLA` (D1);
+> `B5.I02`/`ORIGEM_DADO` (P2); `B5.00` obrigar a criação de fichas; o destino
+> da resposta órfã no cálculo (D5); a condição de `B7.08`/`B7.09` em relação a
+> `B7.05`; a máscara de moeda (P7); reinício da coleta; caixa de texto em
+> "Outro"; trilha lateral por blocos (D4).
+
+### `T-194` — Opções de escolha com estado por opção, nunca `valor_interno ?? ''`
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-50`, `RF-69`, `AC-102`
+- **Arquivos:** `frontend/src/componentes/CampoPergunta.tsx`,
+  `frontend/tests/unit/componentes/CampoPergunta.test.tsx`
+
+**Descrição**
+
+Achado C1 (lado do cliente). Em `CampoPergunta.tsx:98` toda opção sem
+`valor_interno` vira `''`, então `marcados.includes('')` marca o grupo
+inteiro; em `:68`/`:77` o rádio envia `''` e compara `texto ===
+opcao.valor_interno` (`'' !== null`), então nunca aparece marcado. A `key`
+(`:71`, `:101`) usa o valor, e valores repetidos fazem o React reaproveitar
+nós entre perguntas.
+
+O componente passa a usar `key` por índice/rótulo, e o estado de marcação é
+**por opção** — marcar uma nunca marca outra. Nenhuma opção é enviada como
+`''`.
+
+**Critérios de aceite**
+
+- [ ] Teste que reproduz o bug falha antes e passa depois
+- [ ] Em `SELECAO_MULTIPLA`, marcar uma opção marca só ela, mesmo com duas ou
+      mais opções de `valor_interno` nulo
+- [ ] Em `SELECAO_UNICA`/`SIM_NAO_TALVEZ`, a opção clicada aparece marcada
+      (`aria-checked="true"`) e só ela
+- [ ] Nenhum ramo envia `''` como valor de opção
+- [ ] Nenhuma `key` deriva de `valor_interno ?? ''`
+- [ ] Gates: lint, build, test
+
+**Open Questions**
+
+- **O que a opção de `valor_interno` nulo envia?** Não se inventa valor no
+  cliente. Depois de `T-195`, só os checklists (D1) seguem nulos; até D1 ser
+  respondida, a implementação registra aqui o que fez com eles, sem escolher
+  identificador por conta própria.
+
+**Status:** `[x] concluída` (2026-09-29) — opção com `valor_interno` nulo fica
+desabilitada (o cliente não inventa valor); após `T-208`, só restam nulas as
+exceções `B5.B05B`, `B5.I02` e `B7.16`.
+
+---
+
+### `T-195` — Preencher `valor_interno` das perguntas Sim/Não do registro
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-03`, `RF-14`, `RF-36`, `AC-13`, `AC-54`
+- **Arquivos:** `collection/registros/bloco-*.yaml`,
+  `tests/app_aluno/test_carga.py` (ou teste estático novo em
+  `tests/app_aluno/estatica/`)
+
+**Descrição**
+
+Achado C1 (lado do dado). 141 registros têm opções com `valor_interno: null`;
+a montagem compara literais (`app/montagem/estado.py:550,552,655,1111,1223,
+1415,1417,1454`) e recebe `''` → `ValueError`/`ErroSinalComportamentalAusente`
+(`:556`, `:611`, `:961`, `~:800`). `RF-36`/`AC-53` já exigem resolução por
+`valor_interno`, nunca por rótulo.
+
+Edição de dado, não de código: em **toda** pergunta `SIM_NAO_TALVEZ` e em
+toda `SELECAO_UNICA` de opções Sim/Não com `valor_interno` nulo, preencher
+`Sim → SIM`, `Não → NAO`, `Talvez → TALVEZ`, `Não sei → NAO_SEI`. É a
+convenção que o próprio registro já usa (`B1.02`/`B1.07`, lidas por
+`_sim_nao_talvez_de_domino_fechado`, que faz `SimNaoTalvez[valor]`; 42
+opções já declaram `NAO_SEI`), e é o que `estado.py:554,822,861` compara
+(`valor == "NAO_SEI"`). Antes de gravar cada uma, conferir o consumidor em
+`estado.py`: onde o valor vira `SimNaoTalvez[...]`, "Talvez" tem de ser
+`TALVEZ`, nunca `NAO_SEI`.
+
+**Não inclui** os checklists `SELECAO_MULTIPLA` nem `B5.I02` (regra de
+negócio, D1/P2). Dados já gravados com `''` nas contas de teste ficam
+inválidos — reteste com contas novas.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois (fixture
+      `caso_completo` com as Sim/Não gravadas pelo `valor_interno` monta sem
+      `ValueError`)
+- [x] Teste estático: nenhuma pergunta `SIM_NAO_TALVEZ` tem opção com
+      `valor_interno` nulo
+- [x] Teste estático: nenhuma pergunta de seleção tem `valor_interno`
+      repetido entre suas opções (exceto `B5.I02`, listada como exceção
+      nomeada até P2 ser decidida)
+- [x] Nenhum rótulo em português passa a ser comparado no código (`AC-37`,
+      `AC-53` seguem verdes)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-196` — "Montar o seu plano" dispara `POST /caso/{id}/calculo`
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-16`, `RF-58`, `AC-12`
+- **Arquivos:** `frontend/src/services/api.ts`,
+  `frontend/src/telas/TelaCalculando.tsx`,
+  `frontend/tests/unit/componentes/TelaCalculando.test.tsx` (novo)
+
+**Descrição**
+
+Achado C2. `api.ts` não tem função que faça `POST /caso/{id}/calculo`
+(rota em `rotas_calculo.py:409`); `TelaCalculando.tsx:45-50` só faz polling,
+recebe `calculando:false` do caso ainda em `COLETA_INICIAL` e chama
+`onTerminou()` → volta ao Início. O Bloco 6 nunca executa.
+
+Nova `dispararCalculo(casoId)` em `api.ts`; `TelaCalculando` a chama **uma
+vez, antes** de iniciar o polling. `409` com o caso já em `CALCULANDO`
+(duplo clique, F5 na tela) é sucesso: segue para o polling.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] Ao montar, a tela faz exatamente um `POST /caso/{id}/calculo` antes do
+      primeiro `GET .../calculo/progresso`
+- [x] `409` com caso em `CALCULANDO` segue para o polling sem mensagem de erro
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-197` — Recusa do cálculo chega ao aluno; montagem nunca responde `500`
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-196`
+- **Rastreia:** `RF-16`, `AC-12`, `EC-03`, `EC-25`
+- **Arquivos:** `frontend/src/services/api.ts`,
+  `frontend/src/telas/TelaCalculando.tsx`, `app/http/rotas_calculo.py`,
+  `tests/app_aluno/test_rotas_calculo.py`,
+  `frontend/tests/unit/componentes/TelaCalculando.test.tsx`
+
+**Descrição**
+
+Achado C2 (erros escondidos). `pedir` (`api.ts:52-62`) só lê `corpo.erro`;
+`rotas_calculo.py` responde `{mensagem, pendencias}` → o aluno veria "HTTP
+4xx". E `_preparar_calculo` (`:519-527`) captura só `ErroRespostaAusente`/
+`ErroValorInternoDesconhecido`: `ValueError`, `ErroSinalComportamentalAusente`,
+`ErroCampoAgregadoDesconhecido`, `ErroDinheiroDisponivelIndeterminado`,
+`ErroConversaoInvalida` — inclusive dentro de
+`_ParametrosExternosDerivadosDoBloco2.obter` (`~:294`) — escapam como `500`.
+
+1. `pedir` lê `mensagem` além de `erro` e expõe `pendencias` no `ErroHttp`.
+2. `TelaCalculando`, quando o `POST` é recusado, mostra a mensagem e as
+   pendências em vez de voltar ao Início em silêncio.
+3. A rota converte essas exceções em `422` com mensagem legível, sem nome de
+   classe nem de variável. A recusa acontece **antes** da transição: o caso
+   fica em `COLETA_INICIAL`. `EC-25` (erro técnico nunca exposto) continua
+   valendo para falha **depois** de `CALCULANDO`, que segue indo para
+   `ERRO_DE_CALCULO`; o detalhe técnico vai para log.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] Cada uma das cinco exceções, levantada na montagem ou em
+      `parametros_externos.obter`, produz `422`, nunca `500`, e o caso
+      permanece em `COLETA_INICIAL`
+- [x] O corpo do `422` não contém nome de classe Python nem `VARIAVEL_GRAVADA`
+- [x] `ErroHttp` carrega `mensagem` e `pendencias` quando o servidor as envia
+- [x] Recusa `400`/`422` mostra mensagem e pendências na tela; a tela não
+      chama `onTerminou()`
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-198` — "Minhas respostas" carrega com resposta cuja condição fechou
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-68`, `AC-100`, `AC-101`, `AC-103`, `EC-24`
+- **Arquivos:** `app/http/rotas_respostas.py`,
+  `tests/app_aluno/test_rotas_respostas.py`
+
+**Descrição**
+
+Achado C7. `rotas_respostas.py:94` chama `montar_contexto_pergunta` para cada
+resposta gravada; ela levanta `ErroPerguntaNaoExibivel`
+(`renderizacao.py:109-112`) quando a condição deixou de valer. Sem captura,
+`GET /respostas` responde `500` em toda carga depois de uma correção — e o
+"‹ Pergunta anterior", que usa a mesma rota, some.
+
+A resposta cuja condição fechou **deixa de ser listada** (mesma disciplina de
+`_campos_da_ficha`, `rotas_fichas.py:85-88`). A resposta permanece gravada;
+esta tarefa **não** decide se ela entra no cálculo (D5).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois: `B1.02=SIM`,
+      responder `B1.03`, corrigir `B1.02=NAO` → `GET /respostas` responde
+      `200` e não lista `B1.03`
+- [x] A resposta de `B1.03` continua no repositório (nada é apagado)
+- [x] Parte que ficou sem linha visível continua aparecendo (`AC-101`)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-199` — Condição de exibição avaliada no item da ficha
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-04`, `RF-05`, `RF-52`, `AC-72`, `EC-24`
+- **Arquivos:** `collection/condicoes.py`, `app/casos/progresso.py`,
+  `app/http/renderizacao.py`, `app/http/rotas_coleta.py`,
+  `tests/app_aluno/test_condicoes.py`, `tests/app_aluno/test_progresso.py`
+
+**Descrição**
+
+Achado C4. `avaliar` (`condicoes.py:127`) lê `respostas.valor(variavel)`
+(`:137`, `:139`), que busca a chave `(var, "")`; respostas de ficha são
+gravadas com `item_id`. Toda `IGUAL`/`CONTEM` sobre variável de ficha é
+sempre falsa e toda `NAO(...)` sempre verdadeira.
+
+`avaliar(condicao, respostas, item_id=None)`: com `item_id`, a variável é
+lida por `valor_no_item(item_id, var)` e, se o item não a tiver, cai no valor
+do caso (condições de ficha também referenciam variáveis de caso). Propagar o
+`item_id` a todo chamador que o conhece: `progresso.py` (hoje a condição é
+avaliada uma vez por registro, `:405`, **antes** do laço de itens — passa a
+ser por ocorrência), `renderizacao.py:109`, `rotas_coleta.py:295`. Os
+chamadores de Bloco 10/11 (`rotas_bloco10.py:173`, `rotas_bloco11.py:196`)
+seguem sem item se não o tiverem.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois:
+      `POSSUI_PARCELA_DEFINIDA=SIM` em `D001` → `B5.C02` exibível para `D001`
+- [x] Mesma resposta em `D001` não abre `B5.C02` para `D002`
+- [x] `NAO(...)` sobre variável de ficha deixa de ser sempre verdadeira
+- [x] Condição sobre variável de caso continua avaliando igual com ou sem
+      `item_id`
+- [x] Gravação (`rotas_coleta.py`) e exibição usam a mesma avaliação por item
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-200` — Bloco 7 fora da coleta inicial e fora da ficha do Bloco 5
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-199`
+- **Rastreia:** `RF-17`, `RF-62`, `AC-19`, `AC-92`
+- **Arquivos:** `app/casos/progresso.py`, `app/http/rotas_fichas.py`,
+  `collection/repeticao.py`, `tests/app_aluno/test_progresso.py`,
+  `tests/app_aluno/test_repeticao.py`
+
+**Descrição**
+
+Achado C4/C5. `proxima_pergunta_nao_respondida` e `contar_coleta` recebem
+`colecao.registros` inteiro (`rotas_coleta.py:625`, `rotas_inicio.py:233,333`)
+e oferecem perguntas do Bloco 7 (`B7.08`/`B7.09`) na coleta inicial.
+`perguntas_da_ficha` (`repeticao.py:78`) filtra só por escopo, e a ficha de
+dívida mostra "37 campos" (35 do Bloco 5 + `B7.08`/`B7.09`).
+
+A spec já fixa: `RF-17` abre Blocos 7 e 8 **só** para dívidas que o motor
+sinalizou, e `AC-92` chama a coleta dirigida de "outra etapa" e proíbe somar
+os blocos que compartilham o escopo. Os Blocos 10 e 11 também são posteriores
+ao plano (`RF-18`, `RF-27`). A retomada/contagem inicial fica restrita aos
+blocos da coleta inicial (1–5, mais os de `RF-09` que não são 7/8/10/11 —
+conferir na coleção antes de fixar a lista).
+
+**Atenção:** `perguntas_da_ficha(…, DIVIDA_ID)` também é usada pela coleta
+dirigida (`app/casos/coleta_dirigida.py:205,215`), que **precisa** do Bloco 7.
+O filtro por bloco vai para `rotas_fichas.py` (ou um parâmetro opcional de
+bloco), nunca para dentro de `perguntas_da_ficha` sem parâmetro.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois: caso em
+      `COLETA_INICIAL` com uma dívida nunca recebe `B7.*` como próxima pergunta
+- [x] `contar_coleta` não conta perguntas dos Blocos 7, 8, 10 e 11
+- [x] A ficha de dívida em `GET /fichas/DIVIDA_ID` não contém `B7.*`
+- [x] A coleta dirigida do Bloco 7 (`test_rotas_coleta_dirigida.py`) segue
+      verde
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-201` — Ficha vazia não é "Completa"
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-199`, `T-200`
+- **Rastreia:** `RF-04`, `RF-53`, `AC-01`, `AC-04`
+- **Arquivos:** `app/http/rotas_fichas.py`, `app/casos/progresso.py`,
+  `tests/app_aluno/test_rotas_fichas.py` (novo ou existente)
+
+**Descrição**
+
+Achado C5. `completa` vem de `pendencias_obrigatorias`
+(`rotas_fichas.py:115-123`), que só conta `OBR` (`progresso.py:330-341`). As
+perguntas da ficha do Bloco 5 são `[REP]`/`[COND, REP]` → nunca pendentes, e
+uma ficha recém-criada aparece "Completa".
+
+A completude passa a usar as perguntas **por item exigíveis** da ficha, com os
+mesmos predicados da retomada (`_e_pergunta_aberta` + `_e_por_item_por_escopo`,
+já no gerador único de `progresso.py`), restritas ao bloco da ficha (`T-200`)
+e avaliadas no item (`T-199`). Nenhuma segunda varredura.
+
+**Não inclui** "`B5.00 > 0` obriga criar fichas" (regra de negócio).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois: ficha recém-criada
+      → `completa=false`
+- [x] Ficha com todas as perguntas abertas do item respondidas →
+      `completa=true`
+- [x] Pergunta cuja condição é falsa naquele item não impede `completa=true`
+- [x] A completude reusa o gerador de `progresso.py`, sem varredura nova
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-202` — Percurso da ficha item a item, não intercalado
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-199`
+- **Rastreia:** `RF-62`, `RF-63`, `AC-01`, `AC-90`, `AC-92`
+- **Arquivos:** `app/casos/progresso.py`, `tests/app_aluno/test_progresso.py`
+
+**Descrição**
+
+Achado C6. `_percorrer_ocorrencias` (`progresso.py:404-411`) itera registro →
+item e produz `B5.A01/D001, B5.A01/D002, B5.A02/D001…`: o aluno alterna entre
+dívidas a cada pergunta, o que contradiz o localizador "Dívida N · pergunta X
+de Y" de `RF-63`/`AC-92`.
+
+Para registros consecutivos de um mesmo escopo de ficha, iterar item →
+registro (toda a `D001`, depois a `D002`). A mudança fica no gerador único,
+então retomada (`proxima_pergunta_nao_respondida`, `_primeira_exibivel`) e
+`contar_coleta` mudam juntas e `AC-90` segue valendo por construção.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois: com `D001` e
+      `D002`, a ordem é `B5.A01/D001, B5.A02/D001, …`, depois `D002`
+- [x] `contar_coleta` mantém `respondidas + faltam == total` (`AC-90`)
+- [x] Perguntas fora de ficha mantêm a ordem do registro
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-203` — Abrir ficha pela lista abre a próxima pergunta do item
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-199`, `T-202`
+- **Rastreia:** `RF-04`, `RF-53`, `AC-04`, `EC-26`
+- **Arquivos:** `frontend/src/App.tsx`, `frontend/src/navegacao.ts`,
+  `app/http/rotas_pergunta.py`, `frontend/src/services/api.ts`,
+  `frontend/tests/unit/navegacao.test.ts` (novo),
+  `tests/app_aluno/test_rotas_pergunta.py`
+
+**Descrição**
+
+Achado P1. `App.tsx:489` navega com `{ tela: 'pergunta', itemId }` sem
+`idPergunta`; `rotaParaHash` (`navegacao.ts:121`) faz `filter(Boolean)` e gera
+`#pergunta/D001`; `hashParaRota` (`:167`) lê `D001` como ID de pergunta →
+`GET /pergunta/D001` → `404` → "Não foi possível carregar a pergunta".
+
+1. Hash com posições fixas: o segmento vazio é preservado, então
+   `{itemId: 'D001'}` vira `#pergunta//D001` e volta idêntico.
+2. Pergunta sem `idPergunta` e com `itemId` pede ao servidor a próxima
+   pergunta aberta **daquele item** (ex.: `GET /caso/{id}/pergunta?item_id=`),
+   decidida pelo gerador de `progresso.py` — o cliente não escolhe (`RF-45`).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] `hashParaRota(rotaParaHash(r)) == r` para `r` com só `itemId`, só
+      `idPergunta`, ambos e nenhum
+- [x] Abrir a ficha `D001` pela lista mostra a primeira pergunta aberta e em
+      branco de `D001`
+- [x] Ficha já completa abre sem erro (destino definido na implementação e
+      registrado aqui)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-204` — Nota 0–10 e número salvos aparecem pré-selecionados
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-69`, `AC-102`
+- **Arquivos:** `frontend/src/telas/TelaPergunta.tsx`,
+  `frontend/tests/unit/componentes/CampoPergunta.test.tsx`
+
+**Descrição**
+
+Achado P3. O servidor serializa `ESCALA_0_10`/`NUMERO` como `int`
+(`serializacao.py:64-65`); `TelaPergunta.tsx:224-226` e `:300` fazem
+`valor_atual as string` (só no tipo, o valor continua `7`), e
+`CampoPergunta.tsx:125` compara `texto === n` com `"7"`. A nota gravada nunca
+aparece marcada, e o aluno acha que perdeu a resposta.
+
+Normalizar no cliente com `String(valor_atual)` quando não nulo, nos dois
+pontos.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] `valor_atual: 7` numa `ESCALA_0_10` → o botão `7` tem
+      `aria-checked="true"`
+- [x] `valor_atual: 3` num `NUMERO` → o campo mostra `3`
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-205` — Mensagem de validação sem nome de variável
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `EC-01`, `AC-11`, `AC-104`
+- **Arquivos:** `app/http/rotas_coleta.py`,
+  `tests/app_aluno/test_rotas_coleta_conversao.py`
+
+**Descrição**
+
+Achado P4. `rotas_coleta.py:489` monta
+`f"{registro.VARIAVEL_GRAVADA}: {erro.motivo}"`, e o aluno lê
+"RENDA_PRINCIPAL: entrada vazia". A recusa (`EC-01`) está certa; a mensagem
+não é para humano.
+
+A mensagem ao aluno passa a ser só o motivo, em linguagem dele; a variável vai
+para o log.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] A resposta `400` não contém `VARIAVEL_GRAVADA` nem outro identificador
+      em maiúsculas
+- [x] O log registra a variável e o motivo
+- [x] Nada é gravado (`EC-01` intacto)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-206` — Rótulo das pendências diz o que o número conta
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-65`, `AC-96`
+- **Arquivos:** `frontend/src/telas/TelaPergunta.tsx`, teste de unidade da
+  tela (novo ou existente)
+
+**Descrição**
+
+Achado P5. `TelaPergunta.tsx:162` mostra "Bloco N · X pendências", mas `X` é
+o total **global** de obrigatórias em branco (`rotas_pergunta.py:190,206`;
+`rotas_coleta.py:577`). Ao lado de "Bloco 3", lê-se como pendências do bloco.
+`RF-65`/`AC-96` exigem número com unidade que diga do que é.
+
+Só o rótulo muda para dizer o que o número é (ex.: "X obrigatórias
+restantes"). A forma de contar **não** muda nesta tarefa.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] O localizador fora de ficha não associa o total ao bloco
+- [x] A contagem enviada pelo servidor é a mesma de antes
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### `T-207` — Um só "Não sei", no estilo das opções
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-194`
+- **Rastreia:** `RF-11`, `RF-50`, `AC-78`
+- **Arquivos:** `frontend/src/componentes/CampoPergunta.tsx`,
+  `frontend/tests/unit/componentes/CampoPergunta.test.tsx`
+
+**Descrição**
+
+Achado P6. 64 perguntas têm `admite_nao_sei` no registro **e** uma opção
+"Não sei…"; o componente ignora `opcao.admite_nao_sei` e desenha também o
+checkbox genérico (`CampoPergunta.tsx:188-198`), fora do `fieldset` e sem o
+estilo `.opt`. O aluno vê duas formas de dizer a mesma coisa.
+
+O checkbox genérico não é desenhado quando alguma opção já tem
+`admite_nao_sei`. Onde ele continua (campos de valor), segue o estilo `.opt`.
+`AC-78` (máscara inerte, gravação `NAO_SEI`) segue valendo.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] Pergunta com opção `admite_nao_sei` mostra um único "Não sei"
+- [x] Campo `MOEDA` com `admite_nao_sei` mantém o checkbox, com classe `.opt`
+- [x] `AC-78` continua verde
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-29)
+
+---
+
+### Pendências descobertas durante T-194–T-207 (2026-09-29)
+
+- **`T-208` — `valor_interno` nas opções de escolha restantes.** `[x]
+  concluída` (2026-09-30). Classificação: das 51 perguntas, só `B3.05C` e
+  `B5.B05B` chegam ao motor/montagem — identificador das demais é decisão
+  técnica, não do especialista. 46 opções preenchidas: código derivado do
+  rótulo (sem acento, maiúsculas); faixas de tempo com o enum do motor
+  (`ATE_30D`, `1_3M`, `4_6M`, `7_12M`); `B5.00A` com os códigos de
+  `TIPO_DIVIDA` de `B5.A02`; "R$ por mês/total" como `MENSAL`/`TOTAL`
+  (precedente `B5.D05A`); opção "não sei" como `NAO_SEI`. Ficam nulas, por
+  decisão pendente: `B5.I02` e `B7.16` (`ORIGEM_DADO` derivado) e `B5.B05B`
+  (opção "Data", lida como data pela montagem). Teste
+  `test_t208_nenhuma_pergunta_de_escolha_tem_valor_interno_nulo`.
+- **`T-209` — Validação cruzada expõe nome de variável.** Mesma classe de
+  `T-205`: a recusa em `rotas_coleta.py` monta a mensagem com
+  `variavel_esquerda`/`variavel_direita`. → Detalhada em `T-209`, na seção
+  "Débito técnico — rodada 2 (2026-09-30)" abaixo.
+- **`T-210` — Pendências do cálculo aparecem como IDs.** `T-197` mostra
+  `B5.03` ao aluno; faltam enunciado e link para a pergunta (`App.tsx`).
+  → Detalhada em `T-210`, na seção "Débito técnico — rodada 2
+  (2026-09-30)" abaixo.
+- **`T-211` — `GET /fichas/ACAO_ID` sem campos.** Efeito de `T-200`
+  (Bloco 11 fora da coleta inicial); o frontend hoje só usa `DIVIDA_ID`.
+  → Detalhada em `T-211`, na seção "Débito técnico — rodada 2
+  (2026-09-30)" abaixo.
+
+---
+
+### Débito técnico — rodada 2 (2026-09-30)
+
+> Somente estrutura. Nenhuma tarefa decide regra de cálculo ou de negócio;
+> onde a spec não decide, a tarefa para e registra a questão para o
+> especialista.
+
+### `T-209` — Recusa de validação cruzada sem nome de variável
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-07`, `EC-02`, `AC-06`, `AC-104`
+- **Arquivos:** `app/http/rotas_coleta.py`, `app/http/rotas_bloco10.py`,
+  `app/http/rotas_bloco11.py`, `tests/app_aluno/test_rotas_coleta_conversao.py`
+  (ou o teste de validação cruzada existente), testes de rota dos Blocos 10
+  e 11, teste estático novo em `tests/app_aluno/estatica/`
+
+**Descrição**
+
+Mesma classe de `T-205`. `rotas_coleta.py:509` monta
+`f"{erro.variavel_esquerda}/{erro.variavel_direita}: {erro.mensagem}"` e o
+aluno lê "VALOR_UTILIZADO_MARGEM/VALOR_TOTAL_MARGEM: O valor utilizado não
+pode superar…". A mesma linha existe em `rotas_bloco10.py:330` e
+`rotas_bloco11.py:334` — corrigir as três, não só a da coleta.
+
+`EC-02` exige mensagem "apontando os dois campos envolvidos": a `mensagem`
+de cada `validacoes_cruzadas` do registro já faz isso em linguagem do aluno
+(ex.: `bloco-03.yaml:1051`, "O valor utilizado não pode superar o valor
+total da margem."), e `ResultadoValidacao` já a carrega (`collection/
+validacao.py:94-103`). A resposta ao aluno passa a ser só essa `mensagem`;
+as duas variáveis vão para o log (`_LOGGER`, mesmo formato de `T-205`,
+`rotas_coleta.py:496-498`).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+      (`VALOR_TOTAL_MARGEM = 1000`, `VALOR_UTILIZADO_MARGEM = 1200` →
+      `AC-06`)
+- [x] A resposta `400` contém a `mensagem` do registro e não contém
+      `variavel_esquerda`, `variavel_direita` nem outro identificador em
+      maiúsculas — nas três rotas
+- [x] O log registra as duas variáveis e a mensagem
+- [x] Nenhum dos dois valores é gravado (`EC-02` intacto) e, numa correção,
+      o valor anterior permanece (`AC-104`)
+- [x] Teste estático: toda `validacoes_cruzadas` dos registros tem
+      `mensagem` não vazia
+- [x] Testes existentes que asseriam o nome da variável na mensagem passam
+      a asseri-lo no log
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-210` — Pendências do cálculo com enunciado e caminho para a pergunta
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-197`, `T-203`
+- **Rastreia:** `RF-16`, `RF-68`, `AC-12`, `AC-100`
+- **Arquivos:** `app/http/rotas_calculo.py`, `frontend/src/services/api.ts`,
+  `frontend/src/telas/TelaCalculando.tsx`, `frontend/src/App.tsx`,
+  `tests/app_aluno/test_rotas_calculo.py`,
+  `frontend/tests/unit/componentes/TelaCalculando.test.tsx`
+
+**Descrição**
+
+`T-197` levou as pendências à tela, mas como `ID` cru: `_formatar_pendencia`
+(`rotas_calculo.py:388-393`) devolve `"B5.03"` ou `"B5.03 (D001)"`, e
+`_recusar_montagem` (`:396-415`) devolve só `ID_PERGUNTA`. O aluno lê
+"B5.03" e não tem como chegar à pergunta — `AC-100` já proíbe mostrar só o
+identificador na revisão; aqui vale o mesmo.
+
+1. **Servidor.** Cada pendência do `400` (pendência `OBR`) e do `422`
+   (montagem) passa a ser um objeto `{ID, item_id, enunciado}` —
+   `item_id` quando houver. O enunciado vem do registro, pela mesma
+   renderização da pergunta (`montar_contexto_pergunta`, para interpolar
+   marcadores do item); se a pergunta não for exibível naquele momento, vai
+   o enunciado cru do registro. Nenhuma redação nova é escrita no código
+   (`AC-37`).
+2. **Cliente.** `ErroHttp.pendencias` passa ao tipo novo; `TelaCalculando`
+   mostra o enunciado e, em cada item, um link "Responder" que navega para
+   `{ tela: 'pergunta', idPergunta: ID, itemId }` (rota de `T-203`). A
+   navegação é da casca: `TelaCalculando` recebe `onAbrirPergunta` de
+   `App.tsx`, como `TelaFichas` recebe `onAbrirFicha`.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois
+- [x] `400` e `422` trazem `pendencias` como lista de `{ID, item_id,
+      enunciado}`; `item_id` é `null` fora de ficha
+- [x] O corpo continua sem nome de classe nem `VARIAVEL_GRAVADA`
+      (`T-197` intacto)
+- [x] A tela mostra o enunciado, nunca só o `ID`
+- [x] O link abre a pergunta certa, com o `item_id` certo (teste de
+      unidade da navegação)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-211` — `GET /fichas/ACAO_ID` volta a listar os campos
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-200`
+- **Rastreia:** `RF-27`, `RF-33`, `RF-51`
+- **Arquivos:** `app/http/rotas_fichas.py`,
+  `tests/app_aluno/test_rotas_fichas.py` (novo ou existente)
+
+**Descrição**
+
+`T-200` pôs `da_coleta_inicial` dentro de `_campos_da_ficha`
+(`rotas_fichas.py:89`) para tirar o Bloco 7 da ficha de dívida. O efeito
+colateral: todo registro de `ACAO_ID` é do Bloco 11, que está em
+`BLOCOS_POS_PLANO` (`progresso.py:552`), e `GET /fichas/ACAO_ID` devolve
+fichas com `campos: []`.
+
+O filtro passa a valer só para escopos que **têm** registros na coleta
+inicial — derivado da coleção (existe registro do escopo fora de
+`BLOCOS_POS_PLANO`), nunca de lista de escopos escrita no código. `DIVIDA_ID`
+continua sem `B7.*`/`B8.*`; `ACAO_ID` volta a ter os campos do Bloco 11.
+
+**Não inclui** o valor de `completa` para `ACAO_ID`: `itens_em_aberto` só
+varre a coleta inicial, então a ficha de ação sai sempre `completa=true`.
+Nenhum cliente consome essa rota hoje; a implementação registra aqui o
+valor observado, e mudar a completude da ação vira tarefa nova se o
+Bloco 11 passar a usar esta rota.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois:
+      `GET /fichas/ACAO_ID` com uma ação → `campos` com as perguntas do
+      Bloco 11 exibíveis para aquele item
+- [x] `GET /fichas/DIVIDA_ID` continua sem `B7.*`/`B8.*` (critério de
+      `T-200` segue verde)
+- [x] Nenhum nome de escopo é escrito no filtro
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-212` — Fichas repetíveis do Bloco 3 alcançáveis pelo aluno
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-203`, `T-211`
+- **Rastreia:** `RF-04`, `RF-09`, `RF-51`, `RF-52`, `RF-53`, `AC-04`,
+  `AC-06`
+- **Arquivos:** `frontend/src/App.tsx`, `frontend/src/navegacao.ts`,
+  `frontend/src/telas/TelaFichas.tsx`, `frontend/src/telas/TelaProgresso.tsx`,
+  `frontend/src/telas/TelaPergunta.tsx`, `frontend/src/services/api.ts`,
+  `app/http/rotas_fichas.py`, `app/http/rotas_coleta.py`,
+  `tests/app_aluno/test_rotas_fichas.py`,
+  `tests/app_aluno/test_rotas_coleta_conversao.py` (ou teste de
+  `POST /resposta` existente), `frontend/tests/unit/navegacao.test.ts`,
+  testes de unidade de `TelaFichas`/`TelaProgresso`
+
+**Descrição**
+
+O registro tem cinco escopos repetíveis no Bloco 3, mas o frontend só
+monta `TelaFichas` com `escopo="DIVIDA_ID"` (`App.tsx:485`), alcançada só
+por `TelaProgresso` (`App.tsx:477`). Sem item criado, o gerador não produz
+ocorrência para as perguntas `REP` do escopo (`progresso.py`,
+`_percorrer_ocorrencias`): o aluno responde "Sim" ao gatilho e a coleta
+segue como se nada houvesse. A montagem lê `RENDA_ADICIONAL_ID` e
+`DESPESA_NAO_MENSAL_ID` (`estado.py:1048-1060`, `:1117`) e soma zero itens.
+
+Gatilhos, conforme `bloco-03.yaml` e a §11 da spec canônica:
+
+| Escopo | Perguntas | Gatilho (salto na §11) | Condição no registro |
+| --- | --- | --- | --- |
+| `RENDA_ADICIONAL_ID` | `B3.03A–C` (3) | `B3.03` = Sim → "ficha REP B3.03A–C" | `RENDA_RECORRENTE_ADICIONAL_EXISTE = SIM`, nas três |
+| `DESPESA_NAO_MENSAL_ID` | `B3.NM02A–D` (4) | `B3.NM01` = Sim → "ficha REP B3.NM02A–D" | `DESPESAS_NAO_MENSAIS_EXISTE = SIM`, nas quatro |
+| `VINCULO_ID` | `B3.S02–S05` (4) | `B3.S01` = Sim/Não sei → `B3.S02`; `B3.S02`: "Permitir mais de um vínculo" | `NAO(VINCULO_CONSIGNAVEL = NAO)`, nas quatro |
+| `MARGEM_ID` | `B3.S06A–E` (5) | `B3.S06A`: "SYS: MARGEM_ID por ficha" | `NAO(VINCULO_CONSIGNAVEL = NAO)` só em `B3.S06A`; `S06B–E` sem condição |
+| `ITEM_DESPESA` | `B3.DF01–DF04` (4) | "Cada item marcado em B3.D01–D10 → abre B3.DF01–DF04"; `B3.D11` = Sim → "nome (texto curto) + DF01–DF04" | nenhuma (`condicao_exibicao: null`) |
+
+**Mecanismo que a spec determina (entra nesta tarefa)** — para
+`RENDA_ADICIONAL_ID`, `DESPESA_NAO_MENSAL_ID`, `VINCULO_ID` e `MARGEM_ID`:
+a ficha existe por item, abre quando o gatilho tem o valor do salto, e o
+ponto de entrada é logo depois do gatilho.
+
+1. **Escopo aberto, decidido no servidor.** Um escopo está aberto para o
+   caso quando a condição do **primeiro registro do escopo** (a "cabeça" da
+   ficha, na ordem do registro) é verdadeira no nível do caso — `avaliar`
+   sem `item_id`. Nada disso é avaliado no cliente (`RF-52`). `GET
+   /caso/{id}/escopos` (`rotas_fichas.py:200`) passa a informar, por
+   escopo, se está aberto.
+2. **Entrada depois do gatilho.** Quando `POST /resposta` grava a resposta
+   que abre um escopo ainda sem item, a resposta traz um destino estrutural
+   (ex.: `abrir_fichas: "RENDA_ADICIONAL_ID"`) e o cliente navega para a
+   lista de fichas daquele escopo. Como o sinal só nasce ao responder o
+   gatilho, não há laço.
+3. **Tela e rotas genéricas.** `TelaFichas` e `GET/POST/DELETE
+   /fichas/{escopo}` já são genéricas; a rota `fichas` passa a carregar o
+   escopo (`#fichas/RENDA_ADICIONAL_ID`, ida e volta em `navegacao.ts`).
+   `DIVIDA_ID` continua sendo o padrão de `#fichas`. Os títulos por escopo
+   ficam num único mapa do frontend, com os nomes dos títulos da §11
+   ("Renda adicional", "Despesa não mensal", "Margem"; "Vínculo" para
+   `VINCULO_ID`). A lista tem "Continuar", que segue para a próxima
+   pergunta (`GET /pergunta`).
+4. **Segundo caminho.** `TelaProgresso` oferece a lista de fichas de todo
+   escopo aberto, como já faz com as dívidas.
+
+**Não altera** `app/montagem/` nem `engine/`: o que a montagem faz com os
+itens é regra, e já está escrito.
+
+**Fora desta tarefa (exigem decisão, ver Open Questions):** `ITEM_DESPESA`;
+a obrigatoriedade de criar ao menos uma ficha; o vínculo entre `MARGEM_ID`
+e `VINCULO_ID`; `B3.05A–D`.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz o bug falha antes e passa depois: `B3.03 = SIM` →
+      a resposta de `POST /resposta` aponta a ficha de
+      `RENDA_ADICIONAL_ID`; criar um item faz `B3.03A` aparecer para ele
+- [x] O mesmo para `DESPESA_NAO_MENSAL_ID` (`B3.NM01 = SIM`), `VINCULO_ID`
+      e `MARGEM_ID` (`B3.S01 ≠ NAO`)
+- [x] Gatilho com resposta que não abre o escopo (ex.: `B3.03 = NAO`) não
+      aponta ficha nenhuma
+- [x] `GET /caso/{id}/escopos` diz se cada escopo está aberto, sem
+      condição avaliada no cliente (`AC-73` segue verde)
+- [x] `hashParaRota(rotaParaHash(r)) == r` para a rota `fichas` com e sem
+      escopo
+- [x] A validação cruzada `VALOR_UTILIZADO_MARGEM ≤ VALOR_TOTAL_MARGEM`
+      funciona numa ficha de margem criada pela tela (`AC-06`)
+- [x] Criar, responder e remover fichas de um escopo não altera as de
+      outro (`AC-04`)
+- [x] `ITEM_DESPESA` não ganha tela, sinal nem entrada nesta tarefa
+- [x] `git diff` vazio em `app/montagem/` e `engine/`
+- [x] Gates: lint, build, test
+
+**Open Questions** (para o especialista; nenhuma é decidida aqui)
+
+- **`ITEM_DESPESA` (já é a `D2` do QA).** A spec diz "cada item marcado em
+  `B3.D01–D10` → abre `B3.DF01–DF04`", mas não define o mecanismo: o
+  registro não liga opção marcada a item (`DF01–DF04` sem condição); a
+  interpolação `[despesa]` tem `origem: ID_DO_ITEM`, que mostraria `E001`,
+  não "Aluguel"; não há registro para o "nome (texto curto)" de `B3.D11`;
+  não se diz o que acontece com a ficha e as respostas quando o aluno
+  desmarca o item; nem se uma ficha é por opção ou por categoria. Somado ao
+  que a "fotografia" `B3.C00` faz (`D3`), fica fora até ser respondido.
+- **Criar ficha é obrigatório?** Responder "Sim" ao gatilho e seguir sem
+  ficha é possível hoje (mesma questão de `B5.00` para dívidas). Até a
+  decisão, "Continuar" na lista não bloqueia.
+- **Margem dentro de vínculo?** A §11 fala em margem "por `VINCULO_ID` e
+  `MARGEM_ID`", mas o registro não liga uma margem a um vínculo. A tarefa
+  trata os dois escopos como listas independentes, como o registro está.
+- **`VINCULO_ID` é repetível?** O dicionário da §11 marca `B3.S02–S05`
+  como "única", e o registro os declara `escopo_repeticao: VINCULO_ID`
+  (com "permitir mais de um vínculo" em `B3.S02`). A tarefa segue o
+  registro (`RF-03`) e registra a divergência.
+- **`B3.05A–D`.** A §11 diz "ficha REP B3.05A–D", mas o registro declara
+  `escopo_repeticao: NENHUM`, e `recursos_extraordinarios` é tupla vazia
+  por decisão (`RF-39`). Criar um escopo é edição de registro com efeito na
+  montagem, então fica fora.
+- **`B3.S05 = NAO`** ("ficha B3.S06 fica com valores DESCONHECIDOS"): é
+  comportamento definido, mas a montagem não lê margem, e preencher
+  desconhecidos sem o aluno criar a ficha é decisão. Fora.
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-213` — Campo para as opções que pedem valor (data)
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-03`, `RF-13`, `RF-47`, `EC-01`, `EC-25`, `AC-36`
+- **Arquivos:** `collection/registro.py`, `collection/carga.py`,
+  `collection/registros/bloco-05.yaml`, `collection/registros/bloco-07.yaml`,
+  `collection/registros/bloco-08.yaml`, `app/http/rotas_coleta.py`,
+  `app/http/serializacao.py`, `app/http/rotas_calculo.py`,
+  `frontend/src/componentes/CampoPergunta.tsx`,
+  `tests/app_aluno/test_carga.py`, `tests/app_aluno/test_rotas_coleta_conversao.py`,
+  `tests/app_aluno/test_rotas_calculo.py`,
+  `frontend/tests/unit/componentes/CampoPergunta.test.tsx`
+
+**Descrição**
+
+Opções como "Data", "Data (dd/mm/aaaa)", "R$ ___" e "____ %" em perguntas
+`SELECAO_UNICA` são desenhadas como opção comum: o aluno escolhe "Data" e
+não há onde digitar a data. Levantamento, pergunta a pergunta:
+
+| Pergunta | Opção sem campo | `VARIAVEL_GRAVADA` | Quem lê hoje | Destino do valor digitado |
+| --- | --- | --- | --- | --- |
+| `B5.B05B` | "Data" (`valor_interno: null`) | `DATA_VALIDADE_PROPOSTA` | `estado.py:627-629`, `_status_validade_proposta` (`:559-578`) lê o valor bruto; só `VALIDADE_DESCONHECIDA` (e `B5.B05 = EXPIROU`) é distinguido; qualquer data vira `VALIDADE_DESCONHECIDA` | **Definido:** a §11 dá o mapeamento "data · VALIDADE_DESCONHECIDA" — a data é o próprio valor de `DATA_VALIDADE_PROPOSTA` |
+| `B5.B04` | "Data (dd/mm/aaaa)" (`DATA_DD_MM_AAAA`) | `DATA_REFERENCIA_SALDO` | ninguém em `app/` | **Definido:** variável única da pergunta; a data grava nela no lugar do código |
+| `B7.15` | "Data" (`DATA`) | `DATA_VALIDADE_PROPOSTA → STATUS_VALIDADE_PROPOSTA` | ninguém em `app/` | **Definido:** a data grava na variável da pergunta. Derivar `STATUS_VALIDADE_PROPOSTA` (comparar com `DATA_REFERENCIA`) é regra, fora |
+| `B8.14` | "Data" (`DATA`) | `DATA_VALIDADE_PROPOSTA (troca) → STATUS_VALIDADE_PROPOSTA` | ninguém em `app/` | **Definido:** idem `B7.15` |
+| `B7.13A` | "R$ ______" (`VALOR`), "____ %" (`PERCENTUAL`) | `PROPOSTA_DESCONTO` | ninguém em `app/` | **Questão:** uma variável para moeda e percentual; a spec não diz onde fica o número nem como distinguir os dois |
+| `B8.12A` | "R$ ___ por mês" (`MENSAL`), "R$ ___ total" (`TOTAL`) | `NOVO_SEGURO` | ninguém em `app/` | **Questão:** valor e base numa só variável |
+| `B5.D05A` (achada na leitura, mesma classe) | "R$ ___ por mês" (`MENSAL`), "R$ ___ no total" (`TOTAL`) | `CUSTO_SEGURO (+ base MENSAL/TOTAL)` | `estado.py:659-660` lê como dinheiro por `_dinheiro_estrutural_ou_desconhecido`, que recebe a string `"MENSAL"`/`"TOTAL"` e falha no `assert` (`:502`) | **Questão:** onde gravar a base; se `TOTAL` precisa virar mensal é regra |
+
+**Entra nesta tarefa — só as quatro datas (`B5.B05B`, `B5.B04`, `B7.15`,
+`B8.14`):**
+
+1. **Registro.** `OpcaoRegistro` ganha um atributo opcional que declara o
+   tipo do campo que a opção abre (ex.: `abre_campo: DATA`), preenchido só
+   nessas quatro opções. A carga recusa valor desconhecido. Opção que abre
+   campo não precisa de `valor_interno` (o de `B5.B05B` segue nulo; o teste
+   de `T-208` passa a aceitar a exceção pelo atributo, não por lista de
+   IDs).
+2. **Cliente.** Com essa opção escolhida, `CampoPergunta` mostra o campo de
+   data com a mesma máscara do tipo `DATA`; o rádio sozinho não envia
+   nada.
+3. **Servidor.** `_resolver_valor` (`rotas_coleta.py:309`) converte o valor
+   pelo mesmo `_resolver_data` do tipo `DATA` e grava `date` na
+   `VARIAVEL_GRAVADA` da pergunta. Data inválida é recusada sem gravar
+   (`EC-01`). As outras opções continuam gravando o `valor_interno`.
+4. **Falha de hoje sem `500`.** Enquanto `B5.D05A` não for decidida,
+   responder `MENSAL`/`TOTAL` e pedir o cálculo responde `422` legível (via
+   `T-197`), nunca `500`: o `AssertionError` de `estado.py:502` não pode
+   escapar. A tarefa não decide o valor; só impede o `500`.
+
+**Critérios de aceite**
+
+- [ ] Teste que reproduz o bug falha antes e passa depois (`B5.B05B`:
+      escolher "Data" mostra o campo)
+- [ ] Nas quatro perguntas de data, a data digitada é gravada como `date`
+      na `VARIAVEL_GRAVADA` da pergunta, e aparece preenchida ao reabrir
+      (`AC-102`)
+- [ ] `B5.B05B` com data monta a `Divida` sem erro e
+      `STATUS_VALIDADE_PROPOSTA` sai igual a antes (a montagem não muda)
+- [ ] Data inválida é recusada sem gravar (`EC-01`)
+- [ ] Nenhum enunciado nem rótulo novo no código (`AC-37`); a marcação vive
+      no YAML (`AC-36`)
+- [ ] `B7.13A`, `B8.12A` e `B5.D05A` não ganham campo nesta tarefa
+- [ ] `POST /calculo` com `B5.D05A = MENSAL` responde `422`, não `500`, e o
+      caso fica em `COLETA_INICIAL`
+- [ ] Gates: lint, build, test
+
+**Open Questions** (para o especialista)
+
+- **`B7.13A` — desconto em R$ ou em %.** Onde se grava o número e como a
+  leitura distingue valor de percentual? `PROPOSTA_DESCONTO` é uma só.
+- **`B5.D05A` e `B8.12A` — valor e base.** A §11 nomeia
+  `CUSTO_SEGURO (+ base MENSAL/TOTAL)` e `NOVO_SEGURO`, uma variável cada.
+  Onde fica a base? Um custo `TOTAL` entra no motor como está ou é
+  convertido (e com qual regra)? O contrato do motor só fixa que
+  `CUSTO_SEGURO` nunca é somado à parcela (`engine/estado.py:547`,
+  `GAB-01`).
+
+**Status:** `[x] concluída` (2026-09-30) — só as opções de data (`abre_campo: DATA` em
+B5.B04, B5.B05B, B7.15, B8.14). `B7.13A`, `B8.12A` e `B5.D05A` (valor + base numa
+só variável) ficam para o especialista; enquanto isso `B5.D05A` com `MENSAL`/`TOTAL`
+recusa o cálculo com 422 (antes 500).
+
+---
+
+### `T-214` — Teste de ponta a ponta do plano com o questionário real
+
+- **Tipo:** `Test`
+- **Dependências:** `T-213`
+- **Rastreia:** `RF-14`, `RF-16`, `RF-42`, `AC-12`, `AC-13`, `AC-66`
+- **Arquivos:** `tests/app_aluno/fixtures/caso_completo.py`,
+  `tests/app_aluno/test_plano_ponta_a_ponta.py` (novo)
+
+**Descrição**
+
+A fixture `caso_completo` tem 30 pendências obrigatórias contra o registro
+atual (ex.: `B1.06`, `B1.08`, `B1.12`, `B2.09`, `B3.03`…), e
+`test_disparo_prossegue_quando_obr_esta_respondido`
+(`test_rotas_calculo.py:332`) monta a coleção com `registros=()` — a
+checagem de pendência roda contra nada. Nenhum teste gera um plano com o
+questionário real; foi assim que o `A01` passou despercebido.
+
+1. **Fixture.** Completar `caso_completo` (dados de teste, não regra) até
+   `pendencias_obrigatorias(colecao_real.registros, …)` devolver vazio. As
+   respostas escolhidas usam os `valor_interno` do registro.
+2. **Teste.** Com a coleção real (a mesma que `obter_colecao_de_registros`
+   carrega) e repositórios em memória (os dublês de
+   `test_rotas_calculo.py`), `POST /caso/{id}/calculo` chega ao snapshot
+   gravado por `RepositorioSnapshots.anexar` e o caso sai de `CALCULANDO`
+   para o estado seguinte.
+
+Se o motor ou a montagem recusarem por motivo de **regra**, a tarefa
+registra o motivo aqui (pergunta, variável, mensagem) e para: não se
+"conserta" regra, nem se escolhe na fixture uma resposta que só existe para
+desviar dela.
+
+**Critérios de aceite**
+
+- [x] Teste: `pendencias_obrigatorias` sobre a fixture e a coleção real
+      devolve vazio
+- [x] Teste: `POST /calculo` com coleção real e repositórios em memória
+      grava exatamente um snapshot e o caso avança (`AC-12`)
+- [x] O `EstadoFinanceiro` montado da fixture preenche todos os campos
+      obrigatórios (`AC-13`)
+- [x] Nenhum arquivo de `app/`, `engine/` ou `collection/registros/` muda
+      nesta tarefa
+- [x] Recusa por regra, se houver, está registrada nesta tarefa
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-215` — Higiene de ambiente e de processo
+
+- **Tipo:** `Infra`
+- **Dependências:** —
+- **Rastreia:** `RF-42`, `RF-23`, `EC-05`, `AC-66`
+- **Arquivos:** `tasks/app-aluno.tasks.md`, `.env.example`, `.gitignore`,
+  `tests/app_aluno/test_comando_papel_revisor.py`,
+  `scripts/papel_revisor.py` (só se necessário para o import tipado)
+
+**Descrição**
+
+Quatro itens, cada um verificável sozinho:
+
+- **(a) Backlog retroativo.** `T-186` a `T-193` aparecem nos commits
+  (`git log`, ex.: `83b69b7` `T-193`, `2f0020a`/`4e37971` `T-191`,
+  `63bee52` `T-192`) sem entrada neste arquivo. Registrar cada uma a partir
+  da mensagem do commit: título, arquivos do commit, `Rastreia` e
+  `Status: [x] concluída` com a data do commit. Onde o commit não permite
+  inferir o requisito, a entrada diz isso — não se inventa rastreio.
+- **(b) `.env.example`.** O comentário da linha 16 recomenda o pooler da
+  porta 6543, mas o app roda e foi validado com o Session pooler, porta
+  5432 (o `search_path` é por sessão). Corrigir o comentário; a URL de
+  exemplo já usa 5432.
+- **(c) `.DS_Store`** no `.gitignore`.
+- **(d) mypy.** Erro pré-existente em
+  `tests/app_aluno/test_comando_papel_revisor.py:29` (`import
+  papel_revisor` via `sys.path.insert`). Resolver sem mudar o
+  comportamento do script nem do teste.
+
+**Não incluídos, com motivo:**
+
+- Caminhos Windows no `sdd.config.md` — o config reflete a máquina do dono;
+  mudar só via `/sdd:config`.
+- Tamanho máximo do pool de conexões — decisão operacional.
+- Falha do teste axe-core — ambiente, não código.
+- Avisos oxlint pré-existentes — fora do escopo desta rodada.
+
+**Critérios de aceite**
+
+- [x] `T-186`–`T-193` têm entrada neste arquivo, cada uma apontando o
+      commit de origem
+- [x] `.env.example` recomenda o Session pooler (5432) e diz por quê
+- [x] `git status` não lista `.DS_Store`
+- [x] `build` (mypy) sem o erro de `test_comando_papel_revisor.py:29`
+- [x] `test_comando_papel_revisor.py` passa sem mudança de asserção
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-216` — Cálculo recusava todo aluno sem gasto fantasma aceito
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-214` (o teste de ponta a ponta revelou o defeito)
+- **Rastreia:** `RF-14`, `RF-16`, `AC-12`
+- **Arquivos:** `app/http/rotas_calculo.py`,
+  `tests/app_aluno/test_plano_ponta_a_ponta.py`
+
+**Descrição**
+
+`_ParametrosExternosDerivadosDoBloco2.obter` não devolvia
+`economia_nao_identificada`; `_economia_potencial_imediata` exige que a
+chamadora informe o valor quando não há economia elegível e, sem ele,
+levantava `ErroRespostaAusente("B2.10/B2.10A")`. Resultado: 422 para todo
+aluno com `GASTOS_FANTASMAS` ≠ Sim ou sem aceite. A regra não muda — a spec
+só conta a economia quando `B2.10A` = Sim; a rota passa a informar o zero,
+criado em `converter_para_dinheiro` (fronteira única, `RF-13`).
+
+**Critérios de aceite**
+
+- [x] O teste de ponta a ponta com os parâmetros de produção (antes `xfail`) gera plano
+- [x] `app/montagem/` e `engine/` sem alteração
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-217` — Decisões de estrutura retiradas do formulário do especialista
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-212`
+- **Rastreia:** `RF-04`, `RF-05`, `RF-52`
+- **Arquivos:** a definir na implementação
+
+**Descrição**
+
+Em 2026-09-30 o formulário de decisões do especialista foi reduzido às
+regras de negócio. Os itens abaixo saíram por serem decisão de sistema
+(ou já definidos na spec) e ficam com o dev:
+
+1. **Ficha de despesa por item marcado (`ITEM_DESPESA`)** — a spec define
+   "cada item marcado em B3.D01–D11 → B3.DF01–DF04"; título da ficha é o
+   rótulo do item (não o `ID_DO_ITEM`).
+2. **Desmarcar um item** remove a ficha e o valor dele.
+3. **"Outro"** pede um nome curto (spec: "Outro → texto curto OPT").
+4. **Sem limite** de itens por categoria.
+5. **B3.D11 = Sim** abre ficha com nome + B3.DF01–DF04 (spec).
+6. **Resposta cuja condição fechou** não entra no cálculo; continua
+   gravada (auditoria), sem ser apagada.
+
+Itens de **produto**, decididos pelo responsável pelo produto, não pelo
+especialista: reinício da coleta (hoje proibido por RF-01/RF-69), caixa de
+texto em "Outro", trilha lateral por blocos, comportamento da máscara de
+moeda.
+
+**Critérios de aceite**
+
+- [x] Itens 1–6 implementados sem alterar `engine/`
+- [x] Teste que reproduz cada comportamento
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-218` — `B5.I02`: código da opção separado da classificação de origem
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** —
+- **Rastreia:** `RF-03`, `RF-50`, `AC-102`
+- **Arquivos:** `collection/registros/bloco-05.yaml`, consumidor de `ORIGEM_DADO`, testes
+
+**Descrição**
+
+`B5.I02` usa `valor_interno` para guardar a classificação (`DOCUMENTO` ×3,
+`USUARIO` ×3): opções repetem valor, o front marca três ao escolher uma e
+a revisão não sabe qual fonte o aluno escolheu. Cada opção passa a ter
+código próprio; a classificação é derivada pelo mapa que a spec já define
+(documento/contrato, aplicativo, contracheque → `DOCUMENTO`; atendimento,
+memória, combinação → `USUARIO`). "Outra" continua sem classificação até a
+decisão do especialista (formulário, decisão 6).
+
+**Critérios de aceite**
+
+- [x] Nenhuma opção de `B5.I02` repete `valor_interno`
+- [x] A classificação derivada é a mesma de antes para as 6 opções mapeadas
+- [x] Teste que reproduz; gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+---
+
+### `T-219` — Ficha de ações sempre "Completa"
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-211`
+- **Rastreia:** `RF-53`
+- **Arquivos:** `app/http/rotas_fichas.py`, testes
+
+**Descrição**
+
+Após `T-211`, `GET /fichas/ACAO_ID` lista os campos, mas `completa` usa a
+completude da coleta inicial (que exclui o Bloco 11) e sai sempre `true`.
+A completude passa a considerar as perguntas do próprio escopo.
+
+**Critérios de aceite**
+
+- [x] Ficha de ação com pergunta aberta em branco sai `completa=false`
+- [x] Ficha de dívida mantém o comportamento de `T-201`
+- [x] Teste que reproduz; gates: lint, build, test
+
+**Status:** `[x] concluída` (2026-09-30)
+
+**Notas de implementação (T-217/T-218/T-219):** migração nova
+`006_itens_despesa_origem.sql` (colunas `origem` e `nome` em
+`itens_repetidos`) — **aplicar no banco antes de publicar**. Respostas de
+item removido deixam de ser lidas por `listar_do_caso` (todas as fichas),
+continuam gravadas. `B5.I02` "Outra" segue nula (decisão do especialista).
+
+---
+
+### `T-220` — Remover pela lista a ficha de um gasto ainda marcado
+
+- **Tipo:** `BUGFIX` · **Dependências:** `T-217` · **Rastreia:** `RF-04`
+- O ✕ da lista de despesas remove a ficha de um item que continua marcado
+  no checklist; ela volta quando o checklist é regravado. A lista deve
+  impedir a remoção (ou desmarcar o item junto).
+- **Status:** `[ ] pendente`
+
+### `T-221` — Nome de "Outro" vem preenchido com "Outro"
+
+- **Tipo:** `BUGFIX` · **Dependências:** `T-217` · **Rastreia:** `RF-04`
+- O servidor não informa se o item já foi nomeado; o campo abre com
+  "Outro". Expor `nome` na lista de fichas e abrir vazio quando não houver.
+- **Status:** `[ ] pendente`

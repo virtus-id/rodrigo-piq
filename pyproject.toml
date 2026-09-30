@@ -90,6 +90,9 @@ include = ["engine*", "persistencia*", "app*", "collection*", "report*"]
 python_version = "3.12"
 strict = true
 files = ["engine", "persistencia", "collection", "app", "report", "tests", "scripts"]
+# scripts/ não é pacote: os testes importam `papel_revisor` via sys.path
+# (tests/app_aluno/test_comando_papel_revisor.py); o mypy procura no mesmo lugar.
+mypy_path = "scripts"
 
 [[tool.mypy.overrides]]
 # jsonschema (T-06) não publica stubs de tipo; sem types-jsonschema no plano
