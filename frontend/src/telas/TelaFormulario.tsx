@@ -113,10 +113,14 @@ export default function TelaFormulario({
 
   function mudar(pergunta: Pergunta, mudanca: Partial<EstadoDaFilha>) {
     setComAviso(false)
+    // `T-325`: a base é `atual`, nunca `estadoDe` (que lê o `estados` da
+    // renderização anterior). Digitar com "Não sei" marcado dispara duas
+    // mudanças no mesmo instante — desmarcar e gravar o valor —, e com a base
+    // velha a segunda remarcava o "Não sei" e o valor nunca entrava.
     setEstados((atual) => ({
       ...atual,
       [chaveDa(pergunta)]: {
-        ...estadoDe(pergunta),
+        ...(atual[chaveDa(pergunta)] ?? estadoDe(pergunta)),
         aviso: null,
         erro: null,
         ...mudanca,

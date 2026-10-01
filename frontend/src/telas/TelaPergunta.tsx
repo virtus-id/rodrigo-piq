@@ -236,7 +236,13 @@ export default function TelaPergunta({
     setConfirmacaoComAviso(null)
     setFilhas((atual) => ({
       ...atual,
-      [chaveDa(filha)]: { ...estadoDa(filha), aviso: null, erro: null, ...mudanca },
+      // `T-325`: base `atual`, não o `filhas` da renderização anterior.
+      [chaveDa(filha)]: {
+        ...(atual[chaveDa(filha)] ?? estadoDa(filha)),
+        aviso: null,
+        erro: null,
+        ...mudanca,
+      },
     }))
   }
 

@@ -13255,3 +13255,23 @@ informados", "Cadastrar a próxima dívida". Erro reaproveitado de
 `TelaFichas`: "Não foi possível abrir a ficha.".
 
 **Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-325` — Formulário de ficha: "Não sei" não deixava voltar a digitar o valor
+
+- **Tipo:** `BUGFIX` · **Dependências:** `T-323` · **Rastreia:** `RF-48`, `RF-102`
+- **Arquivos:** `frontend/src/telas/TelaFormulario.tsx`, `frontend/src/telas/TelaPergunta.tsx`,
+  `frontend/tests/unit/componentes/TelaFormulario.test.tsx`
+
+Relato do produto (2026-10-01): no valor da despesa, depois de marcar "Não
+sei", digitar não voltava ao valor. Causa: ao digitar, o campo dispara
+"desmarcar não sei" e "gravar valor" no mesmo instante; o formulário montava
+a segunda mudança a partir do estado da renderização anterior e remarcava o
+"Não sei". Correção: as mudanças partem do estado atual (`atual`), no
+formulário de ficha e nas complementares (thread).
+
+- [x] Teste reproduz (falha sem a correção, passa com ela)
+- [x] Gates: tsc, vitest, playwright
+
+**Status:** `[x] concluída` (2026-10-01)

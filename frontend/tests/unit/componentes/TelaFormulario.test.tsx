@@ -419,3 +419,30 @@ describe('T-314: a coleta e a lista levam ao formulário', () => {
     await waitFor(() => expect(onAbrirFormulario).toHaveBeenCalledWith('ITEM_DESPESA', 'DESP003'))
   })
 })
+
+describe('T-325: sair do "Não sei" digitando o valor', () => {
+  it('com "Não sei" marcado, digitar o valor desmarca e o valor é gravado', async () => {
+    vi.spyOn(api, 'obterFormulario').mockResolvedValue(
+      formulario({
+        escopo: 'ITEM_DESPESA',
+        rotulo: 'Aluguel',
+        perguntas: [fabricar('B3.DF01', 'MOEDA', { admite_nao_sei: true })],
+      }),
+    )
+    const gravar = vi.spyOn(api, 'gravarResposta').mockResolvedValue(ok)
+    vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: null })
+    const onConcluir = abrir('ITEM_DESPESA')
+
+    const naoSei = await screen.findByRole('radio', { name: 'Não sei' })
+    await userEvent.click(naoSei)
+    expect(naoSei).toHaveAttribute('aria-checked', 'true')
+
+    await userEvent.type(screen.getByLabelText('Pergunta B3.DF01'), '150000')
+    expect(naoSei).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByLabelText('Pergunta B3.DF01')).not.toHaveValue('')
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(onConcluir).toHaveBeenCalledWith('ITEM_DESPESA'))
+    expect(gravar.mock.calls[0][1]).toMatchObject({ idPergunta: 'B3.DF01', naoSei: false })
+  })
+})
