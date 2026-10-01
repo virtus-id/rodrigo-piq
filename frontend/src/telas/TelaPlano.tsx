@@ -23,6 +23,9 @@ import type { Plano } from '../tipos'
 /** O título enquanto o plano não chegou — a casca precisa de um sempre. */
 const TITULO_PROVISORIO = 'Meu plano'
 
+/** `RF-96`: o que não está no snapshot aparece assim, nunca estimado. */
+const NAO_DISPONIVEL = 'não disponível'
+
 interface TelaPlanoProps {
   casoId: string
   voltar?: () => void
@@ -155,6 +158,16 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
             <dt className="rotulo-hero">de custo futuro</dt>
             <dd className="valor-hero m-0">{plano.CUSTO_FUTURO_TOTAL}</dd>
           </div>
+          {/* `T-304` (`DE-08`): a capacidade que alimenta o cronograma, lida
+              do snapshot. Fora da estabilização: nessa fase não há ataque. */}
+          {!plano.MODO_ESTABILIZACAO && (
+            <div className="flex min-w-[120px] flex-1 flex-col-reverse">
+              <dt className="rotulo-hero">a cada mês para quitar, além das parcelas</dt>
+              <dd className="valor-hero m-0">
+                {plano.valor_mensal_destinado || NAO_DISPONIVEL}
+              </dd>
+            </div>
+          )}
         </dl>
       </div>
 
@@ -171,19 +184,19 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
                 <div className="min-w-0 flex-1">
                   <p className="font-bold">{posicao.DIVIDA_ID}</p>
                   {/*
-                    `T-177`: o ALUNO lê a explicação em português; a
+                    `T-177`: o ALUNO lê a explicação em português. A
                     `JUSTIFICATIVA_POSICAO` técnica ("método BOLA_DE_NEVE,
                     critério: menor VALOR_RELEVANTE_PARA_QUITACAO… desempate
-                    O-05") é texto de auditoria e vai ao revisor, que a
-                    recebe no mesmo payload.
-
-                    O fallback não é decoração: um método novo sem redação
-                    cadastrada mostra a justificativa técnica — feia, porém
-                    verdadeira — em vez de deixar a posição sem explicação,
-                    que é o que `AC-17` proíbe.
+                    O-05") é texto de auditoria: desde `T-305` só o revisor a
+                    recebe, e esta tela não a mostra nem como fallback.
                   */}
+                  <p className="text-muted">{posicao.explicacao}</p>
+                  {/* `T-304` (`DE-08`): lido do cronograma gravado. */}
                   <p className="text-muted">
-                    {posicao.explicacao || posicao.JUSTIFICATIVA_POSICAO}
+                    Quitação prevista:{' '}
+                    {posicao.mes_de_quitacao
+                      ? `mês ${posicao.mes_de_quitacao} do plano`
+                      : NAO_DISPONIVEL}
                   </p>
                   {/* `RF-92` (T-267): nível 2 ou 3 não bloqueia, mas fica
                       visível por dívida. */}

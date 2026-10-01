@@ -29,6 +29,7 @@ from app.http.rotas_calculo import (
 from app.montagem.conversao import converter_para_dinheiro, converter_para_taxa
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.revisao.comprovacao import pendencias_de_homologacao
+from app.revisao.homologacao import NAO_DISPONIVEL, registrar_homologacao
 from collection.carga import carregar_registros
 from collection.registro import EscopoRepeticao
 from collection.respostas import RespostasCaso
@@ -49,7 +50,7 @@ from tests.app_aluno.test_rotas_calculo import (
     _montar_aplicacao_de_teste,
     _RepositorioCasosDublê,
 )
-from tests.homologacao.registro import NAO_DISPONIVEL, emitir, registrar_homologacao
+from tests.homologacao.registro import emitir
 
 # Chave de B5.C02 no registro real — o `VARIAVEL_GRAVADA` composto.
 _PARCELA_CONTRATUAL = "PARCELA_CONTRATUAL (= PAGAMENTO_MENSAL_DEVIDO_VIGENTE)"

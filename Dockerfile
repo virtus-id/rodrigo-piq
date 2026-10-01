@@ -45,6 +45,9 @@ FROM python:3.12-slim
 # testes pulados da suíte) e a razão de o `HEALTHCHECK` abaixo não bastar
 # como garantia: o PDF precisa ser exercitado depois do deploy.
 #
+# `tzdata`: o fuso `America/Sao_Paulo` do "hoje" do app (`app/relogio.py`,
+# `T-302`) — a imagem slim pode vir sem `/usr/share/zoneinfo`.
+#
 # `libpango` traz `libgobject`/`libglib` como dependência, mas as duas estão
 # declaradas explicitamente: são elas que o erro nomeia, e quem for depurar
 # isso às pressas procura pelo nome do erro, não pela árvore de dependências.
@@ -58,6 +61,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libgdk-pixbuf-2.0-0 \
         shared-mime-info \
         fonts-dejavu-core \
+        tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Usuário sem privilégio: um comprometimento da aplicação não vira root no

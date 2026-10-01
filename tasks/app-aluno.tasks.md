@@ -12205,3 +12205,252 @@ do grupo de alternativas "Outras respostas".
 de `B5.D03A` continuam sem campo — decisão do especialista.
 
 **Status:** `[x] concluída (2026-09-30)`
+
+---
+
+### `T-300` — Início diz "coleta em andamento" com o plano liberado
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-145`, `T-147`, `T-293`
+- **Rastreia:** `AC-25`, `RF-20`, `RF-58`, `EC-25`
+- **Arquivos:** `app/http/mensagens_de_estado.py`,
+  `tests/app_aluno/test_rotas_inicio.py`
+
+**Descrição** (teste ponta a ponta no ambiente publicado)
+
+`GET /inicio` com o caso em `PLANO_LIBERADO` dizia "Sua coleta está em
+andamento." — `mensagem_do_estado_do_caso` mapeava `PLANO_LIBERADO` junto
+com `COLETA_DIRIGIDA`, e `CONFIRMACAO_ATAQUE`/`ACOMPANHAMENTO` diziam "Seu
+plano está em revisão.". `CALCULANDO`, `AGUARDANDO_REVISAO` e
+`ERRO_DE_CALCULO` já tinham texto próprio (mantidos; o teste os fixa).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois — mensagem por estado
+      pós-coleta (`test_t300_mensagem_pos_coleta_reflete_o_estado`)
+- [x] Textos existentes reaproveitados; `COLETA_DIRIGIDA` segue "coleta em
+      andamento" (é coleta)
+- [x] Gates: lint, build, test
+
+**Textos novos** — aprovados pelo produto em 2026-10-01:
+`PLANO_LIBERADO` "Seu plano está liberado."; `CONFIRMACAO_ATAQUE` "Falta
+confirmar sua decisão."; `ACOMPANHAMENTO` "Seu
+plano está em acompanhamento.".
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-301` — Início leva a `B5.FIM02` com fichas de dívida faltando
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-251`, `T-291`
+- **Rastreia:** `RF-58`, `RF-87`, `AC-153`, `DE-04`
+- **Arquivos:** `app/http/rotas_inicio.py`, `app/http/rotas_coleta.py`,
+  `frontend/src/telas/TelaInicio.tsx`, `frontend/src/tipos.ts`,
+  `tests/app_aluno/test_rotas_inicio.py`,
+  `frontend/tests/e2e/inventario.spec.ts`
+
+**Descrição** (teste ponta a ponta no ambiente publicado)
+
+Com `B5.00`/`B5.00A` respondidas e 0 fichas ("Faltam 2 fichas"), o Início
+("Continuar de onde você parou") apontava `B5.FIM02`. A regra de exibição de
+`B5.FIM02` no registro não muda (ver a dúvida de `T-291`).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois
+      (`test_t301_sem_fichas_o_destino_e_a_lista_de_dividas`): pendência
+      fora de ficha, depois da declaração, com `faltam_fichas_de_divida`
+      (o predicado de `T-291`, extraído) → destino `inventario` com
+      `abrir_fichas: ["DIVIDA_ID"]`
+- [x] Ficha aberta com pergunta em branco segue para a pergunta da ficha
+      (`test_t301_ficha_aberta_em_branco_segue_para_a_pergunta_da_ficha`)
+- [x] Cliente: `abrir_fichas` na próxima etapa abre a lista de fichas
+      (`T-301: com fichas de dívida faltando, o Início abre a lista de
+      fichas`, Playwright)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-302` — `DATA_REFERENCIA` sai em UTC
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-30`, `T-179`
+- **Rastreia:** `RF-02`, `AC-18`
+- **Arquivos:** `app/relogio.py` (novo), `persistencia/app_aluno/cadastro.py`,
+  `scripts/subir_demo.py`, `Dockerfile`, `tests/app_aluno/test_relogio.py`
+
+**Descrição** (teste ponta a ponta no ambiente publicado)
+
+Cadastro às ~22h de 30/09 (BRT) gravou `DATA_REFERENCIA = 2026-10-01`:
+`date.today()` lia o fuso do servidor (UTC). Varredura de `app/` e
+`persistencia/`: as únicas datas civis do caso nascem em `cadastro.py`
+(cadastro e provisionamento); o cálculo lê `Caso.DATA_REFERENCIA` e não
+há rota de reset. `datetime.now(UTC)` restantes são timestamps de
+auditoria (mantidos em UTC).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois — 01h UTC de 01/10 é
+      30/09 (`test_t302_22h_de_30_09_em_brasilia_ainda_e_30_09`); nenhum
+      `date.today()` em `app/`/`persistencia/`
+      (`test_t302_nenhuma_data_civil_vem_do_relogio_do_servidor`)
+- [x] Um único "hoje": `app/relogio.py::hoje` (`zoneinfo`,
+      `America/Sao_Paulo`); `engine/` intocado
+- [x] `tzdata` do sistema na imagem de produção (slim pode vir sem
+      `/usr/share/zoneinfo`; sem ele a importação falha na subida)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-303` — Revisão de respostas omite o valor digitado no campo da opção
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-160`, `T-213`, `T-294`
+- **Rastreia:** `RF-68`, `AC-100`, `RF-13`
+- **Arquivos:** `app/http/rotas_respostas.py`,
+  `tests/app_aluno/test_rotas_respostas.py`
+
+**Descrição** (teste ponta a ponta no ambiente publicado)
+
+`GET /respostas` mostrava `B5.B01` só como "Sim."/"Aproximadamente.", sem o
+`VALOR_ORIGINAL` digitado (`T-294`); opção `abre_campo: DATA` (`T-213`)
+mostrava a data em ISO.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois: "Sim. — R$ 8.000,00"
+      (`test_t303_b5_b01_mostra_o_valor_original`) e "Data (dd/mm/aaaa) —
+      15/01/2026" (`test_t303_data_digitada_aparece_formatada`)
+- [x] Formatação por `report.plano.formatar_dinheiro_br` (a mesma do plano)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-304` — Plano sem mês de quitação nem valor mensal; registro de homologação invisível
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-140`, `T-150`, `T-268`, `T-269`
+- **Rastreia:** `RF-96`, `RF-97`, `AC-147`, `AC-149`, `DE-08`, `AC-42`
+- **Arquivos:** `report/plano.py`, `app/http/serializacao_plano.py`,
+  `app/revisao/homologacao.py` (movido de `tests/homologacao/registro.py`),
+  `app/http/rotas_revisao.py`, `frontend/src/telas/TelaPlano.tsx`,
+  `frontend/src/telas/TelaEquipeCaso.tsx`, `frontend/src/tipos.ts`,
+  `frontend/src/services/api.ts`,
+  `tests/app_aluno/estatica/test_sem_aritmetica_sobre_snapshot.py`,
+  `tests/app_aluno/estatica/test_sem_conteudo_de_questionario_no_codigo.py`
+
+**Descrição** (teste ponta a ponta no ambiente publicado)
+
+`GET /caso/{id}/api/plano` trazia só `PRAZO_TOTAL` e `CUSTO_FUTURO_TOTAL`:
+nem o mês de quitação de cada dívida nem o valor mensal destinado. O
+registro de homologação de `DE-08` (`T-268`) vivia só em `tests/` e nenhuma
+rota o expunha.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois — plano do aluno com
+      `ordem[].mes_de_quitacao` e `valor_mensal_destinado`
+      (`test_t304_plano_traz_mes_de_quitacao_e_valor_mensal_destinado`;
+      antes: `KeyError`)
+- [x] Só leitura do snapshot gravado: `report.plano.meses_de_quitacao`
+      (`quitacoes` × `estado_final.mes` do cenário recomendado); dívida sem
+      quitação no cronograma → `None`, "não disponível" na tela
+      (`test_t304_sem_quitacao_no_cronograma_o_mes_fica_nao_disponivel`);
+      valor mensal = `diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA` (`R9.9`)
+- [x] `TelaPlano` mostra os dois (vitest `T-304`; Playwright
+      `plano.spec.ts` "T-304"); o valor mensal some em estabilização
+- [x] Registro movido para `app/revisao/homologacao.py` sem cópia (o teste
+      só guarda `emitir`); `GET /revisao/caso/{id}/decisao` traz
+      `homologacao` (`test_t304_registro_de_homologacao_exposto_ao_revisor`,
+      snapshot relido do repositório; antes: `KeyError`); `TelaEquipeCaso`
+      mostra os cinco itens, motivo do "não disponível" e "Pode ser
+      homologado" (vitest `T-304`)
+- [x] `AC-42`: exceção declarada pelo par (`app/revisao/homologacao.py`,
+      `_juros`) — a soma telescópica de `R9-6`, só ao revisor
+      (`test_t304_excecao_da_homologacao_vale_so_para_o_par_arquivo_funcao`);
+      `AC-37`: caminho de campo do snapshot isento; motivos encurtados
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — aprovados pelo produto em 2026-10-01: plano do aluno
+"a cada mês para quitar, além das parcelas", "Quitação prevista: mês N do
+plano", "não disponível"; revisor "Registro de homologação", "Ordem final
+de ataque", "Mês de quitação de cada dívida", "Valor mensal destinado",
+"Custo total de juros", "Uso da reserva", "Pode ser homologado" (sim/não).
+
+**Fica de fora.** O PDF não ganhou mês de quitação nem valor mensal (a
+tarefa pedia a tela). `RESERVA_MOBILIZAVEL` saiu do motivo do "uso da
+reserva" (limite `AC-37`); o revisor o vê em `estado_inputs`.
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-305` — Justificativa técnica da posição enviada ao aluno
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-177`
+- **Rastreia:** `AC-17`, `AC-29`, `RF-21`
+- **Arquivos:** `app/http/serializacao_plano.py`,
+  `app/http/rotas_api_plano.py`, `report/templates/plano/posicao.html`,
+  `frontend/src/telas/TelaPlano.tsx`, `frontend/src/tipos.ts`,
+  `frontend/tests/e2e/plano.spec.ts`,
+  `tests/app_aluno/e2e/test_ciclo_completo.py`,
+  `tests/app_aluno/test_rotas_revisao_comparacao.py`
+
+**Descrição** (teste ponta a ponta no ambiente publicado)
+
+`/api/plano` enviava `ordem[].JUSTIFICATIVA_POSICAO` ("critério: maior
+BENEFICIO_MARGINAL_AMORTIZACAO … (O-01)"). `TelaPlano` e o PDF a mostravam
+como fallback quando `explicacao` vinha vazia.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois — payload do aluno sem
+      `JUSTIFICATIVA_POSICAO` e sem identificador `MAIÚSCULAS_COM_UNDERSCORE`
+      em valor textual, sobre o caso completo e `GAB-A/B/C`
+      (`test_t305_plano_do_aluno_sem_justificativa_tecnica_nem_identificadores`)
+- [x] `serializar_plano(..., para_revisor=True)` só na rota do revisor
+      (`AC-29` mantido); tela e PDF sem fallback técnico — todo método tem
+      `explicacao` (`test_todo_metodo_do_motor_tem_explicacao_ao_aluno`)
+- [x] vitest e Playwright "T-305": texto técnico no payload não aparece
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Fica de fora (pendência, `T-306`).** O teste isenta `cenario`,
+`nao_projetados[].motivo` (códigos) e `acoes[].descricao`.
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-306` — Ações requeridas e método chegam ao aluno em vocabulário do motor
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-305`
+- **Rastreia:** `EC-07`, `AC-17`
+- **Arquivos:** `report/plano.py`, `report/templates/plano/textos-canonicos.yaml`,
+  `frontend/src/telas/TelaPlano.tsx`
+
+**Descrição** (achado em `T-305`)
+
+`acoes[].descricao` é o `motivo` do gate (`engine/gates.py`: "D001:
+VALOR_RELEVANTE_PARA_QUITACAO = DESCONHECIDO — …") e aparece ao aluno na
+ordem vazia (`EC-07`). O carimbo mostra "método {cenario}" com o código do
+cenário de apresentação (`ORDEM_VAZIA`, `ESTABILIZACAO`).
+
+**Critérios de aceite**
+
+- [ ] Descrição da ação ao aluno em português, de `textos-canonicos.yaml`
+      por `TIPO_ACAO` (redação a aprovar pelo produto)
+- [ ] Carimbo sem código de cenário
+- [ ] Tirar `descricao`/`cenario` das isenções do teste de `T-305`
+- [ ] Gates: lint, build, test
+
+**Status:** `[ ] pendente`

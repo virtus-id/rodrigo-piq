@@ -22,7 +22,8 @@ daquele teste. Isolar o SQL aqui, junto dos demais adaptadores da feature,
 evita alargar a lista de exceções daquele teste com um padrão amplo demais.
 
 Direção de dependência: este módulo importa de `app.http.senhas` (hash
-puro), `app.casos.maquina` (`ESTADO_CASO`/`Caso`, tipos de domínio) e
+puro), `app.casos.maquina` (`ESTADO_CASO`/`Caso`, tipos de domínio),
+`app.relogio` (o "hoje" no fuso do aluno, `T-302`) e
 `persistencia.app_aluno.contas` (`Conta`, `ErroEmailDuplicado`),
 `collection.carga` (a versão corrente do questionário, `T-179` — mesmo
 precedente de `persistencia/app_aluno/arquivo.py`) e de `psycopg`/stdlib —
@@ -36,13 +37,14 @@ from __future__ import annotations
 import uuid
 from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Final
 
 import psycopg
 
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.senhas import hashear_senha
+from app.relogio import hoje as hoje_do_app
 from collection.carga import carregar_registros
 from persistencia.app_aluno.contas import Conta, ErroEmailDuplicado
 from persistencia.supabase.conexao import ErroConexaoAusente, obter_pool
@@ -114,7 +116,7 @@ def provisionar_conta_e_caso(email: str) -> tuple[Conta, Caso]:
     conta_id = f"CONTA_{uuid.uuid4().hex}"
     caso_id = f"CASO_{uuid.uuid4().hex}"
     agora = datetime.now(UTC)
-    hoje = date.today()
+    hoje = hoje_do_app()
     questionario_version = _questionario_version_corrente()
 
     try:
@@ -173,7 +175,7 @@ def cadastrar_conta_e_caso(email: str, senha: str) -> tuple[Conta, Caso]:
     caso_id = f"CASO_{uuid.uuid4().hex}"
     senha_hash = hashear_senha(senha)
     agora = datetime.now(UTC)
-    hoje = date.today()
+    hoje = hoje_do_app()
     # Uma leitura só: `carregar_registros()` reparseia os YAML a cada
     # chamada, e o `Caso` devolvido no fim precisa da MESMA versão gravada.
     questionario_version = _questionario_version_corrente()

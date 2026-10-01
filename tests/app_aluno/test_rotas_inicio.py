@@ -507,7 +507,8 @@ def test_ac88_valor_em_destaque_e_string_e_o_rotulo_nao_tem_o_numero(
     assert valor
 
     etapa = payload["proxima_etapa"]
-    assert set(etapa) == {"destino", "ID_PERGUNTA", "item_id"}, (
+    # `abrir_fichas` (`T-301`) é lista de códigos de escopo, não texto.
+    assert set(etapa) == {"destino", "ID_PERGUNTA", "item_id", "abrir_fichas"}, (
         f"proxima_etapa ganhou campo além do destino: {sorted(etapa)} — "
         "campo de texto aqui é onde o número voltaria a entrar na frase "
         "(AC-88), e redação no código da aplicação viola AC-37"
@@ -891,3 +892,106 @@ def test_t293_ficha_em_branco_marca_fichas_abertas(monkeypatch: pytest.MonkeyPat
 
     assert sem.json()["progresso"]["fichas_abertas"] is False
     assert com.json()["progresso"]["fichas_abertas"] is True
+
+
+# ---------------------------------------------------------------------------
+# `T-300` — depois da coleta, a mensagem do Início diz o estado real do caso.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("estado", "ataque", "mensagem_esperada"),
+    [
+        (ESTADO_CASO.CALCULANDO, None, "Seu plano está sendo calculado."),
+        (ESTADO_CASO.ERRO_DE_CALCULO, None, "Seu plano está em nova análise."),
+        (ESTADO_CASO.AGUARDANDO_REVISAO, None, "Seu plano está em revisão."),
+        (ESTADO_CASO.PLANO_LIBERADO, "0.00", "Seu plano está liberado."),
+        (ESTADO_CASO.PLANO_LIBERADO, "3000.00", "Seu plano está liberado."),
+        (
+            ESTADO_CASO.CONFIRMACAO_ATAQUE,
+            "3000.00",
+            "Falta confirmar sua decisão.",
+        ),
+        (ESTADO_CASO.ACOMPANHAMENTO, "0.00", "Seu plano está em acompanhamento."),
+        (ESTADO_CASO.ENCERRADO, "0.00", "Seu caso foi encerrado."),
+    ],
+)
+def test_t300_mensagem_pos_coleta_reflete_o_estado(
+    monkeypatch: pytest.MonkeyPatch,
+    estado: ESTADO_CASO,
+    ataque: str | None,
+    mensagem_esperada: str,
+) -> None:
+    """`AC-25`/`EC-25` — achado no teste ponta a ponta: com o plano liberado o
+    Início dizia "Sua coleta está em andamento."."""
+    payload = _payload_da_fase(monkeypatch, estado, ataque_recomendado=ataque)
+
+    assert payload["mensagem"] == mensagem_esperada
+    assert "coleta" not in payload["mensagem"].lower()
+
+
+# ---------------------------------------------------------------------------
+# `T-301` — com fichas de dívida faltando, o Início abre a lista, não `B5.FIM02`.
+# ---------------------------------------------------------------------------
+
+
+def _inicio_com_declaracao_de_dividas(
+    monkeypatch: pytest.MonkeyPatch, itens: tuple[ItemRepetido, ...] = ()
+) -> dict[str, Any]:
+    reais = {r.ID: r for r in _colecao_real().registros}
+    trecho = ColecaoDeRegistros(
+        QUESTIONARIO_VERSION="1.0.0",
+        registros=tuple(reais[i] for i in ("B5.00", "B5.00A", "B5.A01", "B5.FIM02")),
+    )
+    respostas = tuple(
+        Resposta(
+            CASO_ID=_CASO_ID,
+            ID_PERGUNTA=variavel,
+            item_id=None,
+            valor=valor,
+            QUESTIONARIO_VERSION="1.0.0",
+            respondida_em=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+        for variavel, valor in (
+            ("QUANTIDADE_DIVIDAS_DECLARADA_INICIAL", 2),
+            ("TIPOS_DIVIDA_DECLARADOS", "PESSOAL"),
+        )
+    )
+    cliente = _montar_cliente(
+        monkeypatch,
+        casos=(_caso(ESTADO_CASO.COLETA_INICIAL),),
+        respostas=respostas,
+        itens=itens,
+    )
+    cliente.app.dependency_overrides[obter_colecao_de_registros_do_inicio] = (  # type: ignore[attr-defined]
+        lambda: trecho
+    )
+    payload: dict[str, Any] = cliente.get(f"/caso/{_CASO_ID}/inicio").json()
+    return payload
+
+
+def test_t301_sem_fichas_o_destino_e_a_lista_de_dividas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`DE-04`/`RF-87`: "Faltam 2 fichas" — antes o destino era `B5.FIM02`."""
+    etapa = _inicio_com_declaracao_de_dividas(monkeypatch)["proxima_etapa"]
+
+    assert etapa["ID_PERGUNTA"] != "B5.FIM02"
+    assert etapa["abrir_fichas"] == ["DIVIDA_ID"]
+
+
+def test_t301_ficha_aberta_em_branco_segue_para_a_pergunta_da_ficha(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    item = ItemRepetido(
+        item_id="D001",
+        CASO_ID=_CASO_ID,
+        escopo=EscopoRepeticao.DIVIDA_ID,
+        removido_em=None,
+        criado_em=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    etapa = _inicio_com_declaracao_de_dividas(monkeypatch, (item,))["proxima_etapa"]
+
+    assert etapa["destino"] == "pergunta"
+    assert etapa["item_id"] == "D001"
+    assert etapa["abrir_fichas"] == []

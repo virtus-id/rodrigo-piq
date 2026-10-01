@@ -400,6 +400,19 @@ export interface PendenciaDeHomologacao {
   motivo: 'AUSENTE' | 'PENDENTE_DE_CONFIRMACAO'
 }
 
+/** Um item de `DE-08` — valor e campos de origem, ou "não disponível". */
+export interface ItemDeHomologacao {
+  valor: unknown
+  origem: string[]
+  motivo: string | null
+}
+
+/** `RF-96` (`T-304`): o registro de homologação, lido do snapshot. */
+export interface RegistroDeHomologacao {
+  homologavel: boolean
+  itens: Record<string, ItemDeHomologacao>
+}
+
 export interface OpcoesDeDecisao {
   classificacoes_erro: string[]
   // `T-266` — derivados das respostas atuais, a cada leitura.
@@ -414,6 +427,7 @@ export interface OpcoesDeDecisao {
   }[]
   rateios?: { item_id: string; variavel: string; valor_mensal: string }[]
   pendencias_homologacao?: PendenciaDeHomologacao[]
+  homologacao?: RegistroDeHomologacao
 }
 
 export function obterOpcoesDeDecisao(casoId: string): Promise<OpcoesDeDecisao> {

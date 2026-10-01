@@ -48,7 +48,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Final
 
@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.casos.maquina import ESTADO_CASO, Caso  # noqa: E402
 from app.http.aplicacao import criar_aplicacao  # noqa: E402
+from app.relogio import hoje  # noqa: E402
 from collection.carga import carregar_registros  # noqa: E402
 from persistencia.app_aluno.casos import RepositorioCasosSupabase  # noqa: E402
 from persistencia.app_aluno.contas import RepositorioContasSupabase  # noqa: E402
@@ -111,7 +112,7 @@ def _preparar_conta_e_caso() -> tuple[str, str]:
         CASO_ID=str(uuid.uuid4()),
         conta_id=conta_id,
         estado=ESTADO_CASO.COLETA_INICIAL,
-        DATA_REFERENCIA=date.today(),
+        DATA_REFERENCIA=hoje(),
         QUESTIONARIO_VERSION=colecao.QUESTIONARIO_VERSION,
         snapshot_raiz_id=None,
         snapshot_liberado_id=None,

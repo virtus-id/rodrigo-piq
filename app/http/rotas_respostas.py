@@ -27,6 +27,8 @@ REGRAS: `RF-68`, `RF-10`, `AC-100`, `AC-101`
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import date
+from decimal import Decimal
 from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends
@@ -43,10 +45,11 @@ from app.http.rotas_coleta import (
 )
 from app.http.serializacao import serializar_valor
 from collection.carga import ColecaoDeRegistros
-from collection.registro import EscopoRepeticao, RegistroPergunta
-from collection.respostas import RespostasCaso
+from collection.registro import EscopoRepeticao, RegistroPergunta, TipoResposta
+from collection.respostas import RespostasCaso, ValorResposta
 from persistencia.app_aluno.itens import RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
+from report.plano import formatar_dinheiro_br
 
 REGRAS: Final[tuple[str, ...]] = ("RF-68", "RF-10", "AC-100", "AC-101")
 
@@ -134,6 +137,8 @@ def _serializar_resposta_dada(
             (o.rotulo for o in contexto.opcoes if o.valor_interno == bruto), None
         )
         rotulos = [escolhida if escolhida is not None else str(bruto)]
+    if campo := _valor_do_campo(registro, contexto.valor_atual, respostas, item_id):
+        rotulos = [campo]
 
     return {
         "ID": registro.ID,
@@ -144,6 +149,29 @@ def _serializar_resposta_dada(
         # imporia um separador que é decisão de apresentação.
         "valores": rotulos,
     }
+
+
+def _valor_do_campo(
+    registro: RegistroPergunta,
+    valor_atual: ValorResposta | None,
+    respostas: RespostasCaso,
+    item_id: str | None,
+) -> str | None:
+    """`T-303`: opção que abre campo (`abre_campo`) — a revisão mostra o
+    rótulo E o valor digitado ("Sim. — R$ 8.000,00"). `DATA` (`T-213`) grava
+    a data na própria variável; `MOEDA` (`T-294`), em `variavel_do_campo`."""
+    for opcao in registro.opcoes:
+        if opcao.abre_campo is TipoResposta.DATA and isinstance(valor_atual, date):
+            return f"{opcao.rotulo} — {valor_atual:%d/%m/%Y}"
+        if opcao.variavel_do_campo and opcao.valor_interno == valor_atual:
+            digitado = (
+                respostas.valor_no_item(item_id, opcao.variavel_do_campo)
+                if item_id
+                else respostas.valor(opcao.variavel_do_campo)
+            )
+            if isinstance(digitado, Decimal):
+                return f"{opcao.rotulo} — {formatar_dinheiro_br(digitado)}"
+    return None
 
 
 @roteador.get("/{CASO_ID}/respostas")

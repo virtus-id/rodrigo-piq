@@ -72,7 +72,12 @@ interface TelaInicioProps {
  * nunca numa tela em branco.
  */
 function rotaDoDestino(inicio: Inicio): Rota {
-  const { destino, ID_PERGUNTA, item_id } = inicio.proxima_etapa
+  const { destino, ID_PERGUNTA, item_id, abrir_fichas } = inicio.proxima_etapa
+  // `T-301`: fichas de dívida faltando — a lista, não `B5.FIM02`.
+  if (abrir_fichas?.length) {
+    const [escopo, ...seguintes] = abrir_fichas
+    return { tela: 'fichas', escopo, seguintes }
+  }
   switch (destino) {
     case 'consentimento':
       return { tela: 'consentimento' }

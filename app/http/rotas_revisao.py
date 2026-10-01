@@ -214,6 +214,7 @@ from app.revisao.fila import (
     liberar,
     reprovar,
 )
+from app.revisao.homologacao import registrar_homologacao, serializar_registro
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.registro import EscopoRepeticao
 from collection.respostas import NAO_SEI, RespostasCaso
@@ -581,6 +582,11 @@ def formulario_de_decisao(
             "classificacoes_erro": [c.value for c in CLASSIFICACAO_ERRO],
             # `T-266`: fontes, avisos e pendências (`RF-92`, `RF-93`).
             **_contexto_de_conferencia(colecao, *dados, pendencias_homologacao),
+            # `T-304` (`RF-96`, `RF-97`, `DE-08`): os cinco itens, lidos do
+            # snapshot sobre o qual a decisão recai.
+            "homologacao": serializar_registro(
+                registrar_homologacao(snapshot, pendencias_homologacao)
+            ),
         }
     )
 

@@ -23,10 +23,10 @@
     <h2>Posição {{ posicao.indice }} de {{ posicao.total }} — {{ posicao.DIVIDA_ID }}</h2>
 
     {# T-177: o PDF é do ALUNO — mesma redação da tela. A justificativa
-       técnica continua no payload do revisor (`AC-29`), não aqui. O
-       fallback cobre método sem redação cadastrada: texto técnico é feio,
-       posição sem explicação viola `AC-17`. #}
-    <p>{{ posicao.explicacao or posicao.JUSTIFICATIVA_POSICAO }}</p>
+       técnica continua no payload do revisor (`AC-29`), não aqui — nem
+       como fallback (`T-305`): todo método tem redação cadastrada, o que
+       `test_todo_metodo_do_motor_tem_explicacao_ao_aluno` garante. #}
+    <p>{{ posicao.explicacao }}</p>
 
     {% if posicao.valores_de_apoio %}
     <dl>

@@ -720,15 +720,18 @@ class ContextoPosicao:
     indice: int  # 1-based: ordem de exibição na sequência (contagem, não valor financeiro)
     total: int  # len(ORDEM_QUITACAO) — contagem de itens, não valor financeiro (AC-42)
     DIVIDA_ID: str
-    #: Texto de AUDITORIA, do motor — vai ao revisor (`RF-26`/`AC-29`) e ao
-    #: PDF. O próprio `engine/ordem.py` o declara "não prosa de usuário
+    #: Texto de AUDITORIA, do motor — vai só ao revisor (`RF-26`/`AC-29`;
+    #: `T-305`). O próprio `engine/ordem.py` o declara "não prosa de usuário
     #: final".
     JUSTIFICATIVA_POSICAO: str
     valores_de_apoio: tuple[tuple[str, str], ...]  # (rótulo ao aluno, valor formatado)
-    #: `T-177` — por que esta dívida vem nesta posição, dito ao ALUNO. Vazia
-    #: quando o método não tem redação cadastrada: aí a tela cai na
-    #: justificativa técnica, que é visível, em vez de não explicar nada.
+    #: `T-177` — por que esta dívida vem nesta posição, dito ao ALUNO. Todo
+    #: método tem redação (`test_todo_metodo_do_motor_tem_explicacao_ao_
+    #: aluno`); `T-305` tirou o fallback para a justificativa técnica.
     explicacao: str = ""
+    #: `T-304` (`DE-08`) — mês previsto de quitação, LIDO do cronograma
+    #: gravado (`meses_de_quitacao`); `None` = não disponível.
+    mes_de_quitacao: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -761,6 +764,9 @@ class ContextoPlano:
     #: acima — que continuam lidos só do cenário recomendado.
     cenario_adicional: ContextoCenarioAdicional | None = None
     nao_projetados: tuple[tuple[str, str], ...] = ()  # (ITEM_ID, motivo) — EC-38
+    #: `T-304` (`DE-08`) — `diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA`, a
+    #: capacidade que alimenta o cronograma (`AC-07`), formatada.
+    valor_mensal_destinado: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -812,6 +818,20 @@ def _cenario_adicional(
     )
 
 
+def meses_de_quitacao(snapshot: SnapshotOrdem) -> dict[str, int] | None:
+    """`DE-08`, `RF-96` (`T-304`) — `DIVIDA_ID` → mês em que a dívida é
+    quitada no cronograma GRAVADO do cenário recomendado: o
+    `estado_final.mes` do mês em cuja `quitacoes` ela aparece. Só leitura
+    (`AC-42`), nunca o motor de novo; `None` sem cenário recomendado, e a
+    dívida que não quita dentro do horizonte não está no dicionário."""
+    cenario = snapshot.cenarios.get(snapshot.METODO_RECOMENDADO_PIQ)
+    if cenario is None:
+        return None
+    return {
+        divida_id: mes.estado_final.mes for mes in cenario.meses for divida_id in mes.quitacoes
+    }
+
+
 def montar_contexto_plano(
     snapshot: SnapshotOrdem, textos: TextosCanonicosPlano
 ) -> ContextoPlano:
@@ -841,6 +861,7 @@ def montar_contexto_plano(
     """
     cenario_recomendado = snapshot.cenarios[snapshot.METODO_RECOMENDADO_PIQ]
     total_de_posicoes = len(snapshot.ORDEM_QUITACAO)  # contagem de itens, não valor financeiro
+    quitacoes = meses_de_quitacao(snapshot) or {}
 
     ordem = tuple(
         ContextoPosicao(
@@ -866,6 +887,7 @@ def montar_contexto_plano(
             explicacao=textos.explicacao_da_posicao.get(
                 snapshot.METODO_RECOMENDADO_PIQ.value, {}
             ).get("primeira" if indice == 1 else "seguintes", ""),
+            mes_de_quitacao=quitacoes.get(posicao_do_snapshot.DIVIDA_ID),
         )
         for indice, posicao_do_snapshot in enumerate(snapshot.ORDEM_QUITACAO, start=1)
     )
@@ -894,5 +916,8 @@ def montar_contexto_plano(
         nao_projetados=tuple(
             (item.ITEM_ID, item.motivo.value)
             for item in snapshot.projecao_extraordinarios.nao_projetados
+        ),
+        valor_mensal_destinado=formatar_dinheiro_br(
+            snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA
         ),
     )

@@ -90,6 +90,15 @@ semântica:
    `len(snapshot.ORDEM_QUITACAO) + 1` continua violação: ali a aritmética é
    sobre um valor derivado do snapshot, não mais uma contagem pura).
 
+3. **Derivação exata do registro de homologação — `T-304`.** `RF-96`
+   permite item "derivado de forma exata de campos existentes do
+   `SnapshotOrdem`", e o plano (`R9.9`, `R9-6`) fixou o custo total de
+   juros como a soma telescópica `CUSTO_FUTURO_TOTAL − Σ SALDO_DEVEDOR_
+   ATUAL + Σ saldos finais`. Ela vive em UMA função,
+   `app/revisao/homologacao.py::_juros`, cujo valor vai só ao revisor
+   (nunca ao aluno). A exceção é pelo PAR (arquivo, função) — mesmo nome
+   em outro arquivo, ou outra função do mesmo arquivo, continua violação.
+
 ## Segundo alvo: total exibido produzido por `sum(...)`
 
 O critério de aceite "o teste falha se um total exibido for produzido por
@@ -120,6 +129,11 @@ PASTAS_VERIFICADAS: Final[tuple[Path, ...]] = (
 # quantizar_exibicao"). Critério por NOME de função — mesmo mecanismo de
 # `T-27` (`desserializar_*`), aplicado aqui a um nome exato, não a prefixo.
 NOME_FUNCAO_EXCECAO: Final[str] = "quantizar_exibicao"
+
+# Exceção 3 da docstring (`T-304`, `RF-96`): (sufixo do caminho, função).
+EXCECOES_DERIVACAO_EXATA: Final[frozenset[tuple[str, str]]] = frozenset(
+    {("app/revisao/homologacao.py", "_juros")}
+)
 
 # Nomes de variável que, por convenção do projeto (ver docstring, "a
 # heurística e sua limitação"), indicam que a expressão deriva de
@@ -193,18 +207,25 @@ def _funcoes_que_envolvem_linha(
 
 
 def _dentro_de_quantizar_exibicao(
-    linha: int, funcoes: list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, int, int]]
+    linha: int,
+    funcoes: list[tuple[ast.FunctionDef | ast.AsyncFunctionDef, int, int]],
+    nome_arquivo: str = "",
 ) -> bool:
     """A `linha` está dentro do corpo de alguma função cujo nome é
-    literalmente `quantizar_exibicao`? Usa a função mais interna (menor
-    extensão) que contém a linha, para lidar com funções aninhadas."""
+    literalmente `quantizar_exibicao` — ou de um par de
+    `EXCECOES_DERIVACAO_EXATA`? Usa a função mais interna (menor extensão)
+    que contém a linha, para lidar com funções aninhadas."""
     candidatas = [
         (no, inicio, fim) for (no, inicio, fim) in funcoes if inicio <= linha <= fim
     ]
     if not candidatas:
         return False
-    mais_interna = min(candidatas, key=lambda item: item[2] - item[1])
-    return mais_interna[0].name == NOME_FUNCAO_EXCECAO
+    nome = min(candidatas, key=lambda item: item[2] - item[1])[0].name
+    caminho = Path(nome_arquivo).as_posix()
+    return nome == NOME_FUNCAO_EXCECAO or any(
+        caminho.endswith(sufixo) and nome == funcao
+        for sufixo, funcao in EXCECOES_DERIVACAO_EXATA
+    )
 
 
 def verificar_arquivo(codigo_fonte: str, nome_arquivo: str) -> list[ViolacaoAritmeticaSnapshot]:
@@ -221,7 +242,7 @@ def verificar_arquivo(codigo_fonte: str, nome_arquivo: str) -> list[ViolacaoArit
         if isinstance(no, ast.BinOp) and isinstance(
             no.op, (ast.Add, ast.Sub, ast.Mult, ast.Div)
         ):
-            if _dentro_de_quantizar_exibicao(no.lineno, funcoes):
+            if _dentro_de_quantizar_exibicao(no.lineno, funcoes, nome_arquivo):
                 continue
             if _deriva_de_snapshot(no.left) or _deriva_de_snapshot(no.right):
                 violacoes.append(
@@ -426,6 +447,25 @@ def exibir(snapshot):
     assert len(violacoes) == 1
     assert violacoes[0].arquivo == "report/exemplo.py"
     assert violacoes[0].linha == 7
+
+
+def test_t304_excecao_da_homologacao_vale_so_para_o_par_arquivo_funcao() -> None:
+    """Exceção 3: a soma telescópica de `_juros` é aceita em
+    `app/revisao/homologacao.py` e só ali — a mesma função em outro
+    arquivo, ou outra função no mesmo arquivo, segue violação."""
+    codigo = """
+def _juros(cenario, iniciais):
+    return cenario.CUSTO_FUTURO_TOTAL - iniciais
+
+
+def outra(cenario, iniciais):
+    return cenario.CUSTO_FUTURO_TOTAL - iniciais
+"""
+    no_lugar = verificar_arquivo(codigo, str(RAIZ_PROJETO / "app/revisao/homologacao.py"))
+    fora = verificar_arquivo(codigo, str(RAIZ_PROJETO / "app/revisao/fila.py"))
+
+    assert [v.linha for v in no_lugar] == [7]
+    assert [v.linha for v in fora] == [3, 7]
 
 
 def _funcao(arquivo: Path, nome: str) -> ast.FunctionDef:

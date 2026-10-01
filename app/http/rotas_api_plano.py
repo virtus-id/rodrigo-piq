@@ -258,7 +258,7 @@ def caso_para_revisao(
     return JSONResponse(
         {
             "CASO_ID": CASO_ID_REVISAO,
-            "plano": serializar_plano(contexto),
+            "plano": serializar_plano(contexto, para_revisor=True),
             "estado_inputs": serializar_estado_inputs(estado_inputs),
             "fila": serializar_item_da_fila(item),
         }

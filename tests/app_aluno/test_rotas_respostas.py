@@ -16,6 +16,7 @@ produção.
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 from functools import cache
 from typing import Any, Final
 
@@ -444,3 +445,49 @@ def test_t297_respostas_do_bloco_9_aparecem_na_revisao(
     assert {"B9.02", "B9.04"} <= set(ids)
     parte_1 = next(p for p in partes if p["bloco"] == 1)
     assert {"B9.02", "B9.04"} <= {r["ID"] for r in parte_1["respondidas"]}
+
+
+# ---------------------------------------------------------------------------
+# `T-303` — opção que abre campo mostra o valor digitado.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("valor", "esperado"),
+    [("CONFIRMADA", "Sim. — R$ 8.000,00"), ("ESTIMADA", "Aproximadamente. — R$ 8.000,00")],
+)
+def test_t303_b5_b01_mostra_o_valor_original(
+    monkeypatch: pytest.MonkeyPatch, valor: str, esperado: str
+) -> None:
+    """Achado no teste ponta a ponta: a revisão mostrava só "Sim."."""
+    valor_original = Resposta(
+        CASO_ID=_CASO,
+        ID_PERGUNTA="VALOR_ORIGINAL",
+        item_id="D001",
+        valor=Decimal("8000"),
+        QUESTIONARIO_VERSION="1.0.0",
+        respondida_em=datetime(2026, 3, 1, tzinfo=UTC),
+    )
+    cliente = _montar_cliente(
+        monkeypatch,
+        respostas=(_resposta("B5.B01", valor, "D001"), valor_original),
+        itens=_dividas("D001"),
+    )
+
+    parte = next(p for p in _partes(cliente) if p["bloco"] == 5)
+    linha = next(r for r in parte["respondidas"] if r["ID"] == "B5.B01")
+
+    assert linha["valores"] == [esperado]
+
+
+def test_t303_data_digitada_aparece_formatada(monkeypatch: pytest.MonkeyPatch) -> None:
+    cliente = _montar_cliente(
+        monkeypatch,
+        respostas=(_resposta("B5.B04", date(2026, 1, 15), "D001"),),
+        itens=_dividas("D001"),
+    )
+
+    parte = next(p for p in _partes(cliente) if p["bloco"] == 5)
+    linha = next(r for r in parte["respondidas"] if r["ID"] == "B5.B04")
+
+    assert linha["valores"] == ["Data (dd/mm/aaaa) — 15/01/2026"]

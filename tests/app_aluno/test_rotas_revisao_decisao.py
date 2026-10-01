@@ -57,6 +57,7 @@ from app.http.sessao import iniciar_sessao_conta
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.motor.executor import ParametrosDoCalculo, executar_calculo
 from app.revisao.fila import DECISAO_REVISAO, RegistroRevisao
+from app.revisao.homologacao import NAO_DISPONIVEL, registrar_homologacao
 from collection.respostas import RespostasCaso
 from engine.estado import EstadoFinanceiro
 from engine.snapshot import SnapshotOrdem
@@ -645,3 +646,53 @@ def test_formulario_de_decisao_e_exibido_sem_campo_autor(
     corpo = resposta.json()
     assert "autor" not in resposta.text.lower()
     assert corpo["decisoes"] == ["LIBERAR", "REPROVAR"]
+
+
+def test_t304_registro_de_homologacao_exposto_ao_revisor(
+    monkeypatch: pytest.MonkeyPatch,
+    repositorio_casos: RepositorioCasosArquivo,
+    repositorio_snapshots: RepositorioSnapshotsArquivo,
+    repositorio_eventos: RepositorioEventosCasoArquivo,
+    repositorio_revisoes: _RepositorioRevisoesDublê,
+) -> None:
+    """`T-304` (`RF-96`, `DE-08`): o `GET` da decisão traz os cinco itens do
+    registro de homologação, lidos do snapshot GRAVADO (repositório de
+    arquivo, ida e volta) — mesmos valores de `registrar_homologacao`; o
+    item não derivável vem "não disponível" com o motivo."""
+    caso_id = "CASO-DECISAO-HOMOLOGACAO"
+    _criar_caso(repositorio_casos, caso_id, "conta-aluno-homologacao")
+    _calcular_snapshot(caso_id, repositorio_casos, repositorio_snapshots, repositorio_eventos)
+    caso = repositorio_casos.buscar(caso_id)
+    assert caso is not None and caso.snapshot_raiz_id is not None
+    gravado = repositorio_snapshots.historico(caso.snapshot_raiz_id)[-1]
+    esperado = registrar_homologacao(gravado, ())
+
+    aplicacao = _montar_aplicacao(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        repositorio_snapshots=repositorio_snapshots,
+        repositorio_eventos=repositorio_eventos,
+        repositorio_revisoes=repositorio_revisoes,
+    )
+    cliente = TestClient(aplicacao, base_url="https://teste.local")
+
+    homologacao = cliente.get(f"/revisao/caso/{caso_id}/decisao").json()["homologacao"]
+
+    itens = homologacao["itens"]
+    assert homologacao["homologavel"] is True
+    assert set(itens) == {
+        "ordem_final_de_ataque",
+        "mes_de_quitacao_por_divida",
+        "valor_mensal_destinado",
+        "custo_total_de_juros",
+        "uso_da_reserva",
+    }
+    assert itens["ordem_final_de_ataque"]["valor"] == [p.DIVIDA_ID for p in gravado.ORDEM_QUITACAO]
+    assert itens["mes_de_quitacao_por_divida"]["valor"] == esperado.mes_de_quitacao_por_divida.valor
+    assert itens["mes_de_quitacao_por_divida"]["valor"]
+    assert itens["valor_mensal_destinado"]["valor"].startswith("R$ ")
+    assert itens["uso_da_reserva"] == {
+        "valor": NAO_DISPONIVEL,
+        "origem": [],
+        "motivo": esperado.uso_da_reserva.motivo,
+    }

@@ -19,6 +19,7 @@ import pytest
 
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.revisao.comprovacao import PendenciaHomologacao, pendencias_de_homologacao
+from app.revisao.homologacao import NAO_DISPONIVEL, RegistroHomologacao, registrar_homologacao
 from collection.carga import carregar_registros
 from collection.registro import EscopoRepeticao
 from collection.respostas import NAO_SEI
@@ -30,12 +31,7 @@ from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from tests.app_aluno.fixtures.caso_completo import DATA_REFERENCIA, CasoCompleto, caso_completo
 from tests.conftest import assertar_exato, assertar_monetario
 from tests.fixtures.carregar import carregar_gab_a, carregar_gab_b, carregar_gab_c
-from tests.homologacao.registro import (
-    NAO_DISPONIVEL,
-    RegistroHomologacao,
-    emitir,
-    registrar_homologacao,
-)
+from tests.homologacao.registro import emitir
 
 type Registrar = Callable[[str, object], None]
 

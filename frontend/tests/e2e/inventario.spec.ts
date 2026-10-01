@@ -9,7 +9,7 @@
  */
 import { expect, test } from '@playwright/test'
 
-import { abrirTela, interceptarBase } from './apoio/navegacao'
+import { abrirTela, acaoPrincipal, interceptarBase } from './apoio/navegacao'
 
 const CASO = 'CASO-INVENTARIO-E2E'
 const MENSAGEM = 'Você declarou 7 dívidas e cadastrou 5. Faltam 2 fichas.'
@@ -74,4 +74,23 @@ test('AC-133: igualadas as fichas, o alerta some na navegação seguinte', async
   await page.getByRole('button', { name: 'Cadastrar as fichas' }).click()
 
   await expect(page.getByText(MENSAGEM)).toHaveCount(0)
+})
+
+test('T-301: com fichas de dívida faltando, o Início abre a lista de fichas', async ({ page }) => {
+  await interceptarBase(page, CASO, {
+    inventario: [PENDENCIA],
+    inicio: {
+      proxima_etapa: {
+        destino: 'inventario',
+        ID_PERGUNTA: null,
+        item_id: null,
+        abrir_fichas: ['DIVIDA_ID'],
+      },
+    },
+  })
+  await abrirTela(page, CASO, 'inicio')
+
+  await acaoPrincipal(page, 'Completar o inventário').click()
+
+  await expect(page).toHaveURL(/#fichas/)
 })

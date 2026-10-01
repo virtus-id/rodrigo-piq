@@ -200,17 +200,20 @@ export interface PosicaoDaOrdem {
    * O texto de AUDITORIA do motor — cita método, critério normativo e
    * regras de desempate (`O-04`/`O-05`). É o que o revisor precisa para
    * refazer a decisão (`AC-29`); `engine/ordem.py` o declara "não prosa de
-   * usuário final".
+   * usuário final". Só vem no payload do REVISOR (`T-305`).
    */
-  JUSTIFICATIVA_POSICAO: string
+  JUSTIFICATIVA_POSICAO?: string
   /**
-   * O mesmo "porquê", dito ao ALUNO — `T-177`.
-   *
-   * Vem de `textos-canonicos.yaml` por método. Vazia quando o método não
-   * tem redação cadastrada: aí a tela cai na justificativa técnica, que é
-   * visível, em vez de não explicar nada.
+   * O mesmo "porquê", dito ao ALUNO — `T-177`. Vem de
+   * `textos-canonicos.yaml` por método; todo método tem redação.
    */
   explicacao: string
+  /**
+   * Mês previsto de quitação, lido do cronograma gravado — `T-304`
+   * (`DE-08`). `null`: não disponível. Opcional só para os planos montados
+   * à mão nos testes de outras telas.
+   */
+  mes_de_quitacao?: number | null
   /**
    * Fonte de comprovação dos dados desta dívida — `RF-92`, `T-267`. O
    * rótulo do nível vem pronto do servidor (`textos-canonicos.yaml`);
@@ -249,6 +252,8 @@ export interface Plano {
   ordem: PosicaoDaOrdem[]
   PRAZO_TOTAL: string
   CUSTO_FUTURO_TOTAL: string
+  /** `T-304` (`DE-08`): valor por mês destinado ao ataque, já formatado. */
+  valor_mensal_destinado?: string
   ENGINE_VERSION: string
   PARAMETROS_VERSION: string
   cenario: string
@@ -347,6 +352,8 @@ export interface ProximaEtapa {
   destino: DestinoDaEtapa
   ID_PERGUNTA: string | null
   item_id: string | null
+  /** `T-301`: listas de fichas a abrir antes da coleta (sinal de `T-291`). */
+  abrir_fichas?: string[]
 }
 
 export interface ProgressoDaColeta {

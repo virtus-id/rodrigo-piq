@@ -837,13 +837,31 @@ def _abre_fichas_de_divida(
     se faltam fichas é a pendência de `RF-87`, não uma regra nova aqui."""
     return (
         variavel in _DECLARACAO_DE_DIVIDAS
-        and all(respostas.valor(v) is not None for v in _DECLARACAO_DE_DIVIDAS)
         and not itens_por_escopo.get(EscopoRepeticao.DIVIDA_ID)
-        and any(
-            p.escopo is EscopoRepeticao.DIVIDA_ID
-            for p in pendencias_de_inventario(colecao.registros, respostas, itens_por_escopo)
-        )
+        and faltam_fichas_de_divida(colecao, respostas, itens_por_escopo)
     )
+
+
+def faltam_fichas_de_divida(
+    colecao: ColecaoDeRegistros,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> bool:
+    """A declaração está respondida e `pendencias_de_inventario` pede fichas
+    de `DIVIDA_ID` — o sinal de `T-291`, lido também pelo Início (`T-301`)."""
+    return all(respostas.valor(v) is not None for v in _DECLARACAO_DE_DIVIDAS) and any(
+        p.escopo is EscopoRepeticao.DIVIDA_ID
+        for p in pendencias_de_inventario(colecao.registros, respostas, itens_por_escopo)
+    )
+
+
+def posterior_a_declaracao_de_dividas(colecao: ColecaoDeRegistros, ID_PERGUNTA: str) -> bool:
+    """`T-301`: a pergunta vem depois de `B5.00`/`B5.00A` na ordem da coleta."""
+    ids = [r.ID for r in colecao.registros]
+    declaracao = [
+        i for i, r in enumerate(colecao.registros) if r.VARIAVEL_GRAVADA in _DECLARACAO_DE_DIVIDAS
+    ]
+    return bool(declaracao) and ID_PERGUNTA in ids and ids.index(ID_PERGUNTA) > max(declaracao)
 
 
 def _itens_por_escopo(

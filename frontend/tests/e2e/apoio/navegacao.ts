@@ -29,6 +29,7 @@ export interface InicioDeTeste {
     destino:
       | 'consentimento'
       | 'pergunta'
+      | 'inventario'
       | 'calculando'
       | 'aguardando'
       | 'progresso'
@@ -37,6 +38,7 @@ export interface InicioDeTeste {
       | 'plano'
     ID_PERGUNTA: string | null
     item_id: string | null
+    abrir_fichas?: string[]
   }
   progresso: { respondidas: number; total: number }
   valor_em_destaque: string | null

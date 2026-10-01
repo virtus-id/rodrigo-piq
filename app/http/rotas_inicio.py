@@ -67,7 +67,11 @@ from app.casos.progresso import (
 from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.mensagens_de_estado import MENSAGEM_COLETA_COMPLETA, mensagem_do_estado_do_caso
-from app.http.rotas_coleta import _itens_por_escopo
+from app.http.rotas_coleta import (
+    _itens_por_escopo,
+    faltam_fichas_de_divida,
+    posterior_a_declaracao_de_dividas,
+)
 from app.http.rotas_plano import obter_repositorio_snapshots
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.registro import EscopoRepeticao
@@ -168,11 +172,15 @@ class ProximaEtapa:
     `ID_PERGUNTA` e `item_id` só vêm preenchidos quando o destino é a coleta —
     é o que permite "continuar de onde parei" cair na pergunta exata, e vem
     de `proxima_pergunta_nao_respondida`, a MESMA função da retomada
-    (`AC-01`)."""
+    (`AC-01`).
+
+    `abrir_fichas` (`T-301`) é o mesmo sinal do `POST /resposta` (`T-291`):
+    os escopos cuja lista de fichas o cliente abre antes da coleta."""
 
     destino: DESTINO_DA_ETAPA
     ID_PERGUNTA: str | None = None
     item_id: str | None = None
+    abrir_fichas: tuple[EscopoRepeticao, ...] = ()
 
 
 def _snapshot_liberado(
@@ -258,6 +266,18 @@ def _proxima_etapa(
                 # uma pergunta arbitrária nem uma tela vazia.
                 return ProximaEtapa(
                     destino=DESTINO_DA_ETAPA.CALCULANDO,
+                )
+            # `T-301` (DE-04, RF-87): passada a declaração das dívidas, fora
+            # de uma ficha, e com fichas faltando — o destino é a lista de
+            # fichas, não `B5.FIM02` (cuja regra de exibição não muda).
+            if (
+                pendencia.item_id is None
+                and posterior_a_declaracao_de_dividas(colecao, pendencia.ID)
+                and faltam_fichas_de_divida(colecao, respostas, itens_por_escopo)
+            ):
+                return ProximaEtapa(
+                    destino=DESTINO_DA_ETAPA.INVENTARIO,
+                    abrir_fichas=(EscopoRepeticao.DIVIDA_ID,),
                 )
             return ProximaEtapa(
                 destino=DESTINO_DA_ETAPA.PERGUNTA,
@@ -389,6 +409,7 @@ def inicio_do_caso(
                 "destino": etapa.destino.value,
                 "ID_PERGUNTA": etapa.ID_PERGUNTA,
                 "item_id": etapa.item_id,
+                "abrir_fichas": [escopo.value for escopo in etapa.abrir_fichas],
             },
             "progresso": {
                 "respondidas": contagem.respondidas,

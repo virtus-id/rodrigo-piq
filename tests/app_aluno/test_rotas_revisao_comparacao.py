@@ -261,7 +261,7 @@ def test_plano_exibido_e_o_mesmo_html_de_montar_contexto_plano(
 
     textos = carregar_textos_canonicos()
     contexto_plano = montar_contexto_plano(snapshot, textos)
-    esperado = serializar_plano(contexto_plano)
+    esperado = serializar_plano(contexto_plano, para_revisor=True)
 
     cliente = _montar_cliente(
         monkeypatch,

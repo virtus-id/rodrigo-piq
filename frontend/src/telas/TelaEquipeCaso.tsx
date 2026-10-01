@@ -30,6 +30,26 @@ import {
   obterOpcoesDeDecisao,
 } from '../services/api'
 
+/** `T-304`: os cinco itens de `DE-08`, na ordem da decisão do especialista. */
+const ITENS_DE_HOMOLOGACAO: [string, string][] = [
+  ['ordem_final_de_ataque', 'Ordem final de ataque'],
+  ['mes_de_quitacao_por_divida', 'Mês de quitação de cada dívida'],
+  ['valor_mensal_destinado', 'Valor mensal destinado'],
+  ['custo_total_de_juros', 'Custo total de juros'],
+  ['uso_da_reserva', 'Uso da reserva'],
+]
+
+/** Valor do registro como texto — sem conta nenhuma (Lei nº 3). */
+function textoDoItem(valor: unknown): string {
+  if (Array.isArray(valor)) return valor.join(' → ')
+  if (valor && typeof valor === 'object') {
+    return Object.entries(valor)
+      .map(([divida, mes]) => `${divida}: mês ${String(mes)}`)
+      .join(' · ')
+  }
+  return String(valor)
+}
+
 interface TelaEquipeCasoProps {
   casoId: string
   voltar: () => void
@@ -119,6 +139,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
   const segurosNaoInformados = conferencia?.seguros_nao_informados ?? []
   const divergencias = conferencia?.divergencias ?? []
   const rateios = conferencia?.rateios ?? []
+  const homologacao = conferencia?.homologacao
 
   return (
     <Tela
@@ -208,6 +229,35 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
             ))}
           </ul>
         </div>
+      )}
+
+      {/* `T-304` (`RF-96`, `DE-08`): o registro de homologação, lido do
+          snapshot em decisão. Item não derivável vem "não disponível" com o
+          motivo — nunca estimado. */}
+      {homologacao && (
+        <section className="cartao" aria-labelledby="titulo-homologacao">
+          <h2 id="titulo-homologacao" className="eyebrow">
+            Registro de homologação
+          </h2>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            {ITENS_DE_HOMOLOGACAO.map(([chave, rotulo]) => {
+              const item = homologacao.itens[chave]
+              return (
+                <div key={chave} className="contents">
+                  <dt className="text-muted">{rotulo}</dt>
+                  <dd className="m-0 tabular-nums">
+                    {item ? textoDoItem(item.valor) : 'não disponível'}
+                    {item?.motivo && (
+                      <small className="block text-muted">{item.motivo}</small>
+                    )}
+                  </dd>
+                </div>
+              )
+            })}
+            <dt className="text-muted">Pode ser homologado</dt>
+            <dd className="m-0">{homologacao.homologavel ? 'sim' : 'não'}</dd>
+          </dl>
+        </section>
       )}
 
       {/* Os dois sinais seguem SEPARADOS — `AC-28`. A política do piloto

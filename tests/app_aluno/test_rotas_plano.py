@@ -24,8 +24,11 @@ REGRAS: `RF-20`, `RF-21`, `RF-23`, `AC-14`, `AC-16`, `AC-25`
 
 from __future__ import annotations
 
+import re
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, date, datetime
+from typing import Any
 
 import pytest
 from fastapi import FastAPI, Request
@@ -40,15 +43,17 @@ from app.http.sessao import iniciar_sessao_conta
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from collection.registro import EscopoRepeticao
 from collection.respostas import Resposta
+from engine.estado import EstadoFinanceiro
 from engine.motor import calcular_plano
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.itens import ItemRepetido
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
-from report.plano import carregar_textos_canonicos
+from report.plano import carregar_textos_canonicos, formatar_dinheiro_br
 from tests.app_aluno.fixtures.caso_completo import DATA_REFERENCIA, caso_completo
 from tests.app_aluno.fixtures.sem_respostas import sem_respostas_nem_itens
+from tests.fixtures.carregar import carregar_gab_a, carregar_gab_b, carregar_gab_c
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-nao-usar-em-producao"
 _VERSAO_PARAMETROS_REAL = "1.0.1"
@@ -564,3 +569,89 @@ def test_t245_orientacao_do_seguro_so_para_divida_com_seguro(
     esperado = orientacao if seguro == "SIM" else None
     assert {p["DIVIDA_ID"]: p["orientacao_seguro"] for p in ordem}[divida_id] == esperado
     assert all(p["orientacao_seguro"] is None for p in ordem if p["DIVIDA_ID"] != divida_id)
+
+
+def _plano_do_aluno(monkeypatch: pytest.MonkeyPatch, snapshot: SnapshotOrdem) -> dict[str, Any]:
+    caso = _caso_fabricado(snapshot_liberado_id=snapshot.SNAPSHOT_ID)
+    cliente = _montar_cliente(
+        monkeypatch,
+        repositorio_casos=_RepositorioCasosDublê(caso, "CONTA-PDF-ROTA-1"),
+        repositorio_snapshots=_RepositorioSnapshotsDublê(snapshot),
+    )
+    plano: dict[str, Any] = cliente.get(f"/caso/{caso.CASO_ID}/api/plano").json()["plano"]
+    return plano
+
+
+def test_t304_plano_traz_mes_de_quitacao_e_valor_mensal_destinado(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`T-304` (`DE-08`, `RF-96`): por dívida, o mês previsto de quitação —
+    LIDO do cronograma gravado do cenário recomendado — e, no plano, o valor
+    mensal destinado (`CAPACIDADE_ATAQUE_CONSERVADORA`), formatado."""
+    snapshot = _snapshot_real()
+    cenario = snapshot.cenarios[snapshot.METODO_RECOMENDADO_PIQ]
+    esperado = {d: m.estado_final.mes for m in cenario.meses for d in m.quitacoes}
+    assert esperado, "o caso completo quita a dívida dentro do horizonte"
+
+    plano = _plano_do_aluno(monkeypatch, snapshot)
+
+    assert {p["DIVIDA_ID"]: p["mes_de_quitacao"] for p in plano["ordem"]} == esperado
+    assert plano["valor_mensal_destinado"] == formatar_dinheiro_br(
+        snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA
+    )
+
+
+def test_t304_sem_quitacao_no_cronograma_o_mes_fica_nao_disponivel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dívida que não aparece em nenhuma `quitacoes` do cronograma gravado
+    (ex.: estourou o horizonte) vai como `None` — "não disponível" na tela,
+    nunca um mês estimado."""
+    snapshot = _snapshot_real()
+    metodo = snapshot.METODO_RECOMENDADO_PIQ
+    sem_cronograma = replace(
+        snapshot,
+        cenarios={**snapshot.cenarios, metodo: replace(snapshot.cenarios[metodo], meses=())},
+    )
+
+    plano = _plano_do_aluno(monkeypatch, sem_cronograma)
+
+    assert [p["mes_de_quitacao"] for p in plano["ordem"]] == [None] * len(plano["ordem"])
+
+
+# Valores que são CÓDIGO (discriminador lido pela tela, não texto ao aluno)
+# ou pendência registrada (`T-306`: `ORDEM_ACOES[].descricao` é o motivo
+# técnico do gate). Qualquer outro campo com identificador falha.
+_CHAVES_DE_CODIGO = frozenset({"cenario", "motivo", "descricao"})
+_IDENTIFICADOR = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
+
+
+def _identificadores(valor: object, chave: str = "") -> list[str]:
+    if isinstance(valor, dict):
+        return [i for k, v in valor.items() for i in _identificadores(v, k)]
+    if isinstance(valor, list):
+        return [i for v in valor for i in _identificadores(v, chave)]
+    if isinstance(valor, str) and chave not in _CHAVES_DE_CODIGO:
+        return [f"{chave}: {achado}" for achado in _IDENTIFICADOR.findall(valor)]
+    return []
+
+
+@pytest.mark.parametrize("carregar", [carregar_gab_a, carregar_gab_b, carregar_gab_c, None])
+def test_t305_plano_do_aluno_sem_justificativa_tecnica_nem_identificadores(
+    monkeypatch: pytest.MonkeyPatch, carregar: Callable[[], EstadoFinanceiro] | None
+) -> None:
+    """`T-305`: `JUSTIFICATIVA_POSICAO` ("critério: maior BENEFICIO_
+    MARGINAL_AMORTIZACAO … (O-01)") não é enviada ao aluno — fica para o
+    revisor —, e nenhum valor textual do payload do aluno carrega
+    identificador em MAIÚSCULAS_COM_UNDERSCORE."""
+    snapshot = (
+        _snapshot_real()
+        if carregar is None
+        else calcular_plano(carregar(), FonteParametrosArquivo().carregar(_VERSAO_PARAMETROS_REAL))
+    )
+
+    plano = _plano_do_aluno(monkeypatch, snapshot)
+
+    assert all("JUSTIFICATIVA_POSICAO" not in p for p in plano["ordem"])
+    assert all(p["explicacao"] for p in plano["ordem"])
+    assert _identificadores(plano) == []

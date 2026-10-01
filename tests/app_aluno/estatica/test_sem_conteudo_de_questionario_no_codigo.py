@@ -95,6 +95,10 @@ EXCECOES_PERMITIDAS: Final[tuple[re.Pattern[str], ...]] = (
     re.compile(r"DATABASE_URL"),
     re.compile(r"CHAVE_ASSINATURA_SESSAO"),
     re.compile(r"[A-Z][A-Z0-9_]{2,}"),  # CONSTANTE_ESTILO_ENV, sem espaço/pontuação de frase
+    # `T-304`: caminho de campo do `SnapshotOrdem` (`origem` do registro de
+    # homologação, `app/revisao/homologacao.py`) — identificador pontuado,
+    # sem espaço, nunca frase.
+    re.compile(r"[A-Za-z_]+(\[[^\]\s]*\])?(\.[A-Za-z_]+(\[[^\]\s]*\])?)+"),
 )
 
 

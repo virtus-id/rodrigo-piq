@@ -39,7 +39,8 @@ const PLANO_LIBERADO = {
         indice: 1,
         total: 2,
         DIVIDA_ID: 'D001',
-        JUSTIFICATIVA_POSICAO: 'Maior custo efetivo entre as dívidas elegíveis.',
+        explicacao: 'Maior custo efetivo entre as dívidas elegíveis.',
+        mes_de_quitacao: 9,
         valores_de_apoio: [{ rotulo: 'SALDO_DEVEDOR_ATUAL', valor: '5000.00' }],
       },
       {
@@ -47,12 +48,14 @@ const PLANO_LIBERADO = {
         indice: 2,
         total: 2,
         DIVIDA_ID: 'D002',
-        JUSTIFICATIVA_POSICAO: 'Segue a primeira na ordem projetada.',
+        explicacao: 'Segue a primeira na ordem projetada.',
+        mes_de_quitacao: null,
         valores_de_apoio: [],
       },
     ],
     PRAZO_TOTAL: '18',
     CUSTO_FUTURO_TOTAL: '1200.00',
+    valor_mensal_destinado: 'R$ 512,34',
     ENGINE_VERSION: '1.0.1',
     PARAMETROS_VERSION: '1.0.1',
     cenario: 'RECOMENDADO',
@@ -133,7 +136,7 @@ test.describe('plano liberado', () => {
     await expect(resumo).toBeVisible()
 
     const primeiraPosicao = page.getByText(
-      PLANO_LIBERADO.plano.ordem[0].JUSTIFICATIVA_POSICAO,
+      PLANO_LIBERADO.plano.ordem[0].explicacao,
     )
     await expect(primeiraPosicao).toBeVisible()
 
@@ -161,28 +164,29 @@ test.describe('plano liberado', () => {
 
     for (const posicao of PLANO_LIBERADO.plano.ordem) {
       await expect(page.getByText(posicao.DIVIDA_ID, { exact: true })).toBeVisible()
-      // Sem `explicacao` no payload, a tela cai na justificativa técnica —
-      // `T-177`. Feia, porém verdadeira: `AC-17` proíbe posição sem
-      // explicação, e o silêncio seria pior que o texto de auditoria.
-      await expect(page.getByText(posicao.JUSTIFICATIVA_POSICAO)).toBeVisible()
+      // `T-305`: a explicação ao aluno — o payload dele não traz mais a
+      // justificativa técnica.
+      await expect(page.getByText(posicao.explicacao)).toBeVisible()
     }
   })
 
-  test('T-177: com explicação ao aluno, o texto técnico não aparece', async ({ page }) => {
-    // O payload real traz as DUAS justificativas: a técnica para o revisor
-    // (`AC-29`) e a redação em português para o aluno. A tela do aluno
-    // mostra a segunda — o servidor público endividado não deve precisar
-    // ler "método BOLA_DE_NEVE, critério: menor VALOR_RELEVANTE_PARA_
-    // QUITACAO… desempate O-05 (O-04)" para saber por que aquela dívida
-    // vem primeiro.
-    const explicacao = 'Entre as que sobraram, esta é a de menor valor para quitar.'
+  test('T-305: mesmo que o payload traga o texto técnico, a tela não o mostra', async ({
+    page,
+  }) => {
+    // O servidor deixou de enviar `JUSTIFICATIVA_POSICAO` ao aluno (`T-305`);
+    // a tela também não a usa mais como fallback. O aluno não deve precisar
+    // ler "critério: maior BENEFICIO_MARGINAL_AMORTIZACAO … (O-01)".
+    const tecnica = 'critério: maior BENEFICIO_MARGINAL_AMORTIZACAO (O-01)'
     await page.route(`**/caso/${CASO}/api/plano`, async (rota) => {
       await rota.fulfill({
         json: {
           ...PLANO_LIBERADO,
           plano: {
             ...PLANO_LIBERADO.plano,
-            ordem: PLANO_LIBERADO.plano.ordem.map((posicao) => ({ ...posicao, explicacao })),
+            ordem: PLANO_LIBERADO.plano.ordem.map((posicao) => ({
+              ...posicao,
+              JUSTIFICATIVA_POSICAO: tecnica,
+            })),
           },
         },
       })
@@ -190,10 +194,18 @@ test.describe('plano liberado', () => {
 
     await abrirPlano(page)
 
-    await expect(page.getByText(explicacao).first()).toBeVisible()
-    for (const posicao of PLANO_LIBERADO.plano.ordem) {
-      await expect(page.getByText(posicao.JUSTIFICATIVA_POSICAO)).toHaveCount(0)
-    }
+    await expect(page.getByText(PLANO_LIBERADO.plano.ordem[0].explicacao)).toBeVisible()
+    await expect(page.getByText(tecnica)).toHaveCount(0)
+  })
+
+  test('T-304: mês previsto de quitação por dívida e valor mensal destinado', async ({
+    page,
+  }) => {
+    await abrirPlano(page)
+
+    await expect(page.getByText('Quitação prevista: mês 9 do plano')).toBeVisible()
+    await expect(page.getByText('Quitação prevista: não disponível')).toBeVisible()
+    await expect(page.locator('.cartao-destaque')).toContainText('R$ 512,34')
   })
 
   test('OQ-09: o PDF é alcançável pela tela, apontando para a rota real', async ({

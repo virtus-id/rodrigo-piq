@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import TelaPlano from '../../../src/telas/TelaPlano'
 import * as api from '../../../src/services/api'
-import type { CenarioAdicional, Plano } from '../../../src/tipos'
+import type { CenarioAdicional, Plano, PosicaoDaOrdem } from '../../../src/tipos'
 
 afterEach(() => {
   vi.restoreAllMocks()
@@ -118,5 +118,55 @@ describe('TelaPlano — orientação do seguro prestamista (RF-82, T-245)', () =
 
     await screen.findByText('14 meses')
     expect(screen.queryByText(/seguro prestamista/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TelaPlano — mês de quitação e valor mensal (T-304, DE-08)', () => {
+  function mostrarCom(posicao: Partial<PosicaoDaOrdem>, extra: Partial<Plano> = {}) {
+    const base = plano(null)
+    vi.spyOn(api, 'obterPlano').mockResolvedValue({
+      CASO_ID: 'CASO-1',
+      estado: 'LIBERADO',
+      plano: { ...base, ...extra, ordem: [{ ...base.ordem[0], ...posicao }] },
+    })
+    return render(<TelaPlano casoId="CASO-1" />)
+  }
+
+  it('mostra o mês previsto de cada dívida e o valor mensal destinado', async () => {
+    mostrarCom({ mes_de_quitacao: 7 }, { valor_mensal_destinado: 'R$ 500,00' })
+
+    expect(await screen.findByText('Quitação prevista: mês 7 do plano')).toBeInTheDocument()
+    expect(screen.getByText('a cada mês para quitar, além das parcelas')).toBeInTheDocument()
+    expect(screen.getByText('R$ 500,00')).toBeInTheDocument()
+  })
+
+  it('sem o dado no snapshot, "não disponível" — nunca um mês estimado', async () => {
+    mostrarCom({ mes_de_quitacao: null })
+
+    expect(await screen.findByText('Quitação prevista: não disponível')).toBeInTheDocument()
+  })
+})
+
+describe('TelaPlano — sem texto técnico ao aluno (T-305)', () => {
+  it('mostra a explicação; a JUSTIFICATIVA_POSICAO não aparece nem como fallback', async () => {
+    const base = plano(null)
+    vi.spyOn(api, 'obterPlano').mockResolvedValue({
+      CASO_ID: 'CASO-1',
+      estado: 'LIBERADO',
+      plano: {
+        ...base,
+        ordem: [
+          {
+            ...base.ordem[0],
+            explicacao: '',
+            JUSTIFICATIVA_POSICAO: 'critério: maior BENEFICIO_MARGINAL_AMORTIZACAO (O-01)',
+          },
+        ],
+      },
+    })
+    const { container } = render(<TelaPlano casoId="CASO-1" />)
+
+    await screen.findByText('14 meses')
+    expect(container.textContent).not.toContain('BENEFICIO_MARGINAL_AMORTIZACAO')
   })
 })

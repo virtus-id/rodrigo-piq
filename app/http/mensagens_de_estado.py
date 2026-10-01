@@ -1,5 +1,5 @@
-"""A mensagem que o aluno lê quando ainda não há plano liberado — `AC-25`
-(T-145).
+"""A mensagem do estado do caso — `AC-25` (T-145). Lida pela tela do plano
+quando ainda não há plano liberado e pelo Início em todos os estados (T-300).
 
 **Por que isto é um módulo, e não uma constante dentro da rota.** A mensagem
 nasceu em `app/http/rotas_plano.py`, alimentando `plano/aguardando.html`.
@@ -37,8 +37,12 @@ _MENSAGEM_ESTADO_CALCULANDO: Final[str] = "Seu plano está sendo calculado."
 _MENSAGEM_ESTADO_ERRO_DE_CALCULO: Final[str] = "Seu plano está em nova análise."
 _MENSAGEM_ESTADO_AGUARDANDO_REVISAO: Final[str] = "Seu plano está em revisão."
 _MENSAGEM_ESTADO_REPROVADO_EM_REVISAO: Final[str] = "Seu plano está em revisão."
-_MENSAGEM_ESTADO_CONFIRMACAO_ATAQUE: Final[str] = "Seu plano está em revisão."
-_MENSAGEM_ESTADO_ACOMPANHAMENTO: Final[str] = "Seu plano está em revisão."
+# `T-300`: textos aprovados pelo produto em 2026-10-01 — antes estes três
+# estados diziam "coleta em andamento" ou "em revisão", que já não é verdade
+# depois que a equipe libera o plano.
+_MENSAGEM_ESTADO_PLANO_LIBERADO: Final[str] = "Seu plano está liberado."
+_MENSAGEM_ESTADO_CONFIRMACAO_ATAQUE: Final[str] = "Falta confirmar sua decisão."
+_MENSAGEM_ESTADO_ACOMPANHAMENTO: Final[str] = "Seu plano está em acompanhamento."
 _MENSAGEM_ESTADO_ENCERRADO: Final[str] = "Seu caso foi encerrado."
 
 
@@ -59,12 +63,12 @@ def mensagem_do_estado_do_caso(estado: ESTADO_CASO) -> str:
             return _MENSAGEM_ESTADO_AGUARDANDO_REVISAO
         case ESTADO_CASO.REPROVADO_EM_REVISAO:
             return _MENSAGEM_ESTADO_REPROVADO_EM_REVISAO
-        case ESTADO_CASO.PLANO_LIBERADO | ESTADO_CASO.COLETA_DIRIGIDA:
-            # `PLANO_LIBERADO` sem `snapshot_liberado_id` preenchido é uma
-            # inconsistência defensiva (não deveria ocorrer em uso normal —
-            # a Entrega 8 sempre grava os dois juntos), mas nada aqui trava:
-            # a mesma mensagem de "coleta em andamento" cobre também
-            # `COLETA_DIRIGIDA` (nova rodada de coleta pós-liberação).
+        case ESTADO_CASO.PLANO_LIBERADO:
+            # `T-300`: o Início também lê esta mensagem COM plano liberado —
+            # "coleta em andamento" aqui era falso.
+            return _MENSAGEM_ESTADO_PLANO_LIBERADO
+        case ESTADO_CASO.COLETA_DIRIGIDA:
+            # Nova rodada de coleta pós-liberação (Blocos 7/8).
             return _MENSAGEM_ESTADO_COLETA
         case ESTADO_CASO.CONFIRMACAO_ATAQUE:
             return _MENSAGEM_ESTADO_CONFIRMACAO_ATAQUE

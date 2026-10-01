@@ -91,3 +91,34 @@ describe('TelaEquipeCaso — pendências de homologação (T-266)', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
+
+describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
+  it('mostra os cinco itens de DE-08, com "não disponível" e o motivo', async () => {
+    montar({
+      classificacoes_erro: [],
+      pendencias_homologacao: [],
+      homologacao: {
+        homologavel: true,
+        itens: {
+          ordem_final_de_ataque: { valor: ['D002', 'D001'], origem: ['o'], motivo: null },
+          mes_de_quitacao_por_divida: { valor: { D002: 4, D001: 9 }, origem: ['o'], motivo: null },
+          valor_mensal_destinado: { valor: 'R$ 500,00', origem: ['o'], motivo: null },
+          custo_total_de_juros: { valor: 'R$ 321,00', origem: ['o'], motivo: null },
+          uso_da_reserva: {
+            valor: 'não disponível',
+            origem: [],
+            motivo: 'RESERVA_RECOMENDADA não gravada (R9-6)',
+          },
+        },
+      },
+    })
+
+    const secao = await screen.findByRole('region', { name: 'Registro de homologação' })
+    expect(secao).toHaveTextContent('Ordem final de ataqueD002 → D001')
+    expect(secao).toHaveTextContent('D002: mês 4 · D001: mês 9')
+    expect(secao).toHaveTextContent('Valor mensal destinadoR$ 500,00')
+    expect(secao).toHaveTextContent('Custo total de jurosR$ 321,00')
+    expect(secao).toHaveTextContent('não disponívelRESERVA_RECOMENDADA não gravada (R9-6)')
+    expect(secao).toHaveTextContent('Pode ser homologadosim')
+  })
+})

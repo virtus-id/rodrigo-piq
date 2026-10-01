@@ -713,14 +713,15 @@ def test_ciclo_completo_us01_us04_cadastro_a_plano_liberado_ac14_ac15_ac16_ac17_
     assert snapshot.PARAMETROS_VERSION in html
 
     # AC-17 — N posições e N justificativas conferidas contra o snapshot.
+    # `T-305`: ao aluno vai a `explicacao`; a `JUSTIFICATIVA_POSICAO` técnica
+    # fica para o revisor (`AC-29`) e não pode aparecer aqui.
     assert len(snapshot.ORDEM_QUITACAO) >= 1
-    justificativas_nao_vazias = 0
+    ordem = resposta_plano.json()["plano"]["ordem"]
+    assert [p["DIVIDA_ID"] for p in ordem] == [p.DIVIDA_ID for p in snapshot.ORDEM_QUITACAO]
+    assert all(p["explicacao"] for p in ordem)
     for posicao in snapshot.ORDEM_QUITACAO:
-        assert posicao.DIVIDA_ID in html
-        assert posicao.JUSTIFICATIVA_POSICAO in html
-        if posicao.JUSTIFICATIVA_POSICAO:
-            justificativas_nao_vazias += 1
-    assert justificativas_nao_vazias == len(snapshot.ORDEM_QUITACAO)
+        assert posicao.JUSTIFICATIVA_POSICAO
+        assert posicao.JUSTIFICATIVA_POSICAO not in html
 
     cliente.__exit__(None, None, None)
 

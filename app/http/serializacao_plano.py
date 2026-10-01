@@ -58,6 +58,8 @@ def serializar_plano(
     contexto: ContextoPlano,
     fontes: Mapping[str, str] | None = None,
     orientacoes_seguro: Mapping[str, str] | None = None,
+    *,
+    para_revisor: bool = False,
 ) -> dict[str, Any]:
     """`ContextoPlano` → JSON, campo a campo.
 
@@ -75,6 +77,8 @@ def serializar_plano(
 
     `orientacoes_seguro` (`T-245`, `RF-82`): `DIVIDA_ID` → orientação sobre
     o seguro prestamista, só para dívida com seguro; `None` nas demais.
+
+    `para_revisor` (`T-305`): só o revisor recebe `JUSTIFICATIVA_POSICAO`.
     """
     fontes = fontes or {}
     orientacoes_seguro = orientacoes_seguro or {}
@@ -89,10 +93,16 @@ def serializar_plano(
                 "DIVIDA_ID": posicao.DIVIDA_ID,
                 # `JUSTIFICATIVA_POSICAO` é o texto de AUDITORIA do motor —
                 # o revisor precisa dele para refazer a decisão (`AC-29`).
-                # `explicacao` (T-177) é o mesmo "porquê" dito ao ALUNO. As
-                # duas viajam: quem escolhe qual mostrar é cada tela.
-                "JUSTIFICATIVA_POSICAO": posicao.JUSTIFICATIVA_POSICAO,
+                # `explicacao` (T-177) é o mesmo "porquê" dito ao ALUNO.
+                # `T-305`: o texto técnico não sai para o aluno.
+                **(
+                    {"JUSTIFICATIVA_POSICAO": posicao.JUSTIFICATIVA_POSICAO}
+                    if para_revisor
+                    else {}
+                ),
                 "explicacao": posicao.explicacao,
+                # `T-304` (`DE-08`): lido do cronograma; `None` = não disponível.
+                "mes_de_quitacao": posicao.mes_de_quitacao,
                 "fonte": fontes.get(posicao.DIVIDA_ID),
                 "orientacao_seguro": orientacoes_seguro.get(posicao.DIVIDA_ID),
                 "valores_de_apoio": [
@@ -104,6 +114,7 @@ def serializar_plano(
         ],
         "PRAZO_TOTAL": contexto.PRAZO_TOTAL,
         "CUSTO_FUTURO_TOTAL": contexto.CUSTO_FUTURO_TOTAL,
+        "valor_mensal_destinado": contexto.valor_mensal_destinado,
         "ENGINE_VERSION": contexto.ENGINE_VERSION,
         "PARAMETROS_VERSION": contexto.PARAMETROS_VERSION,
         "cenario": contexto.cenario.value
