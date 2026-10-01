@@ -39,12 +39,34 @@ export default function CampoPergunta({
 }: CampoPerguntaProps) {
   const id = idDoCampo(pergunta)
   const idAviso = pergunta.aviso ? `aviso-${pergunta.ID}` : undefined
-  const texto = Array.isArray(valor) ? '' : valor
+  const grupo = pergunta.tipo === 'SELECAO_UNICA' || pergunta.tipo === 'SIM_NAO_TALVEZ'
+  // `T-294`: na seleção única, `[código, R$ digitado]` quando a opção abre
+  // campo de outra variável; o código vem primeiro, como o servidor lê.
+  const texto = Array.isArray(valor) ? (grupo ? (valor[0] ?? '') : '') : valor
+  const digitadoNoCampo = grupo && Array.isArray(valor) ? (valor[1] ?? '') : ''
   const marcados = Array.isArray(valor) ? valor : []
 
+  // `T-299`: nos tipos de valor as opções do registro não são desenhadas
+  // como lista — o campo É a resposta. O "não sei" é o checkbox (com o
+  // rótulo da opção, se houver) e as alternativas ao campo (ex.: renda
+  // variável) aparecem ao lado dele. Opção sem `valor_interno` é o próprio
+  // campo ("R$ ______") e não aparece.
+  const deValor =
+    pergunta.tipo === 'MOEDA' ||
+    pergunta.tipo === 'TAXA' ||
+    pergunta.tipo === 'NUMERO' ||
+    pergunta.tipo === 'DATA'
+  const opcaoNaoSei = pergunta.opcoes.find((opcao) => opcao.admite_nao_sei)
+  const alternativas = deValor
+    ? pergunta.opcoes.filter((opcao) => opcao.valor_interno !== null && !opcao.admite_nao_sei)
+    : []
+  const alternativaEscolhida = alternativas.some((opcao) => opcao.valor_interno === texto)
+
   // `T-207`: quando uma opção do registro já é o "não sei", ela é a única
-  // forma de dizê-lo — o checkbox genérico não é desenhado.
-  const naoSeiNaOpcao = pergunta.opcoes.some((opcao) => opcao.admite_nao_sei)
+  // forma de dizê-lo — o checkbox genérico não é desenhado. Só nos grupos:
+  // nos tipos de valor a opção não é desenhada, e o checkbox é o "não sei".
+  const naoSeiNaOpcao = !deValor && opcaoNaoSei !== undefined
+  const mostraCheckbox = (pergunta.admite_nao_sei || opcaoNaoSei !== undefined) && !naoSeiNaOpcao
 
   // `RF-48`/`AC-78`: com "não sei" marcado, o campo fica inerte. A máscara
   // não roda e nada digitado antes é submetido como se fosse valor. Sem o
@@ -68,14 +90,12 @@ export default function CampoPergunta({
     )
   }
 
-  const grupo = pergunta.tipo === 'SELECAO_UNICA' || pergunta.tipo === 'SIM_NAO_TALVEZ'
-
-  // `T-213`: a opção com `abre_campo` ("Data") grava o que o aluno digita,
+  // `T-213`: a opção com `abre_campo: DATA` ("Data") grava o que o aluno digita,
   // não o `valor_interno`. Ela está escolhida quando o valor não é o de outra
   // opção — assim a data gravada reabre marcada (`AC-102`). Com o campo ainda
   // vazio, só o clique diz que foi escolhida; o estado guarda de qual
   // pergunta foi, porque a casca reaproveita este componente entre perguntas.
-  const opcaoDoCampo = pergunta.opcoes.find((opcao) => opcao.abre_campo)
+  const opcaoDoCampo = pergunta.opcoes.find((opcao) => opcao.abre_campo === 'DATA')
   const chave = `${pergunta.ID}|${pergunta.item_id ?? ''}`
   const [campoEscolhidoEm, setCampoEscolhidoEm] = useState<string | null>(null)
   const campoAberto =
@@ -84,6 +104,13 @@ export default function CampoPergunta({
     (texto === ''
       ? campoEscolhidoEm === chave
       : !pergunta.opcoes.some((o) => o !== opcaoDoCampo && o.valor_interno === texto))
+
+  // `T-294`: a opção com `abre_campo: MOEDA` grava o próprio código, e o R$
+  // digitado vai a outra variável (o servidor sabe qual). Trocar entre duas
+  // dessas opções ("Sim."/"Aproximadamente.") mantém o que foi digitado.
+  const abreMoeda = pergunta.opcoes.some(
+    (opcao) => opcao.abre_campo === 'MOEDA' && opcao.valor_interno === texto,
+  )
 
   /** O rádio sozinho não envia nada: o valor é a data digitada. */
   function escolherCampo() {
@@ -120,7 +147,9 @@ export default function CampoPergunta({
                   if (doCampo) escolherCampo()
                   else if (valorInterno !== null) {
                     setCampoEscolhidoEm(null)
-                    escolher(valorInterno)
+                    escolher(
+                      opcao.abre_campo === 'MOEDA' ? [valorInterno, digitadoNoCampo] : valorInterno,
+                    )
                   }
                 }}
               >
@@ -149,6 +178,19 @@ export default function CampoPergunta({
                 onValor(e.target.value)
               }}
             />
+          )}
+          {abreMoeda && (
+            // Mesmo campo do tipo `MOEDA`, com a mesma máscara.
+            <div className="money">
+              <span aria-hidden="true">R$</span>
+              <input
+                inputMode="decimal"
+                aria-label="Valor em R$"
+                aria-describedby={idAviso}
+                value={digitadoNoCampo}
+                onChange={(e) => onValor([texto, aplicarMascara('MOEDA', e.target.value)])}
+              />
+            </div>
           )}
         </fieldset>
       ) : pergunta.tipo === 'SELECAO_MULTIPLA' ? (
@@ -212,7 +254,7 @@ export default function CampoPergunta({
               <input
                 id={id}
                 inputMode="decimal"
-                value={texto}
+                value={alternativaEscolhida ? '' : texto}
                 disabled={inerte}
                 aria-describedby={idAviso}
                 onChange={(e) => aoDigitar(e.target.value)}
@@ -226,7 +268,7 @@ export default function CampoPergunta({
                 <input
                   id={id}
                   inputMode="decimal"
-                  value={texto}
+                  value={alternativaEscolhida ? '' : texto}
                   disabled={inerte}
                   aria-describedby={idAviso}
                   onChange={(e) => aoDigitar(e.target.value)}
@@ -242,16 +284,45 @@ export default function CampoPergunta({
               type={pergunta.tipo === 'DATA' ? 'date' : 'text'}
               inputMode={pergunta.tipo === 'NUMERO' ? 'numeric' : undefined}
               className="campo-texto"
-              value={texto}
+              value={alternativaEscolhida ? '' : texto}
               disabled={inerte}
               aria-describedby={idAviso}
               onChange={(e) => aoDigitar(e.target.value)}
             />
           )}
+          {alternativas.length > 0 && (
+            <div role="radiogroup" aria-label="Outras respostas" className="flex flex-col gap-2">
+              {alternativas.map((opcao, indice) => {
+                const marcado = opcao.valor_interno === texto
+                return (
+                  <button
+                    key={indice}
+                    type="button"
+                    role="radio"
+                    aria-checked={marcado}
+                    aria-describedby={idAviso}
+                    className="opt"
+                    disabled={inerte}
+                    onClick={() => opcao.valor_interno !== null && escolher(opcao.valor_interno)}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`grid h-[26px] w-[26px] shrink-0 place-items-center rounded-full border-2 ${
+                        marcado ? 'border-accent' : 'border-muted'
+                      }`}
+                    >
+                      {marcado && <span className="h-[14px] w-[14px] rounded-full bg-accent" />}
+                    </span>
+                    <span>{opcao.rotulo}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
       )}
 
-      {pergunta.admite_nao_sei && !naoSeiNaOpcao && (
+      {mostraCheckbox && (
         <label className="opt">
           <input
             type="checkbox"
@@ -259,7 +330,7 @@ export default function CampoPergunta({
             checked={naoSei}
             onChange={(e) => onNaoSei(e.target.checked)}
           />
-          <span>Não sei</span>
+          <span>{opcaoNaoSei?.rotulo ?? 'Não sei'}</span>
         </label>
       )}
 

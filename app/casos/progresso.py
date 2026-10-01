@@ -717,6 +717,24 @@ def proxima_pergunta_do_item(
     return primeira_aberta
 
 
+def em_branco_no_item(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None,
+    item_id: str,
+) -> tuple[PendenciaObrigatoria, ...]:
+    """`T-292` — TODAS as perguntas abertas e em branco do item, na ordem do
+    percurso. Mesma varredura de `proxima_pergunta_do_item`; quem confirma a
+    ficha (`B5.CHECK`) recusa enquanto houver alguma antes dela."""
+    return tuple(
+        ocorrencia
+        for ocorrencia, em_branco in _ocorrencias_da_retomada(
+            registros, respostas, itens_por_escopo
+        )
+        if em_branco and ocorrencia.item_id == item_id
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class PosicaoNaFicha:
     """`RF-63`, `AC-92` — onde a pergunta está dentro da ficha corrente.

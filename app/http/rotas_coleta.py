@@ -111,6 +111,7 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from app.casos.inventario import pendencias_de_inventario
 from app.casos.itens_despesa import (
     CHECKLISTS_DE_DESPESA,
     DESPESA_NAO_LISTADA,
@@ -121,6 +122,7 @@ from app.casos.itens_despesa import (
 from app.casos.maquina import ErroConsentimentoNaoRegistrado
 from app.casos.progresso import (
     PendenciaObrigatoria,
+    em_branco_no_item,
     escopos_abertos_pela_resposta,
     pendencias_obrigatorias,
     posicao_na_ficha,
@@ -129,17 +131,18 @@ from app.casos.progresso import (
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
-from app.http.serializacao import serializar_pergunta
+from app.http.rotas_calculo import _respostas_do_calculo
+from app.http.serializacao import serializar_painel, serializar_pergunta, serializar_valor
 from app.montagem.conversao import (
     ErroConversaoInvalida,
     converter_para_dinheiro,
     converter_para_taxa,
 )
-from app.montagem.entrada import avisos_da_gravacao
+from app.montagem.entrada import avisos_da_gravacao, fotografia_do_mes
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.condicoes import avaliar
 from collection.materialidade import AvisoMaterialidade, avaliar_ao_responder
-from collection.registro import EscopoRepeticao, RegistroPergunta, TipoResposta
+from collection.registro import EscopoRepeticao, Obrigatoriedade, RegistroPergunta, TipoResposta
 from collection.respostas import NAO_SEI, Resposta, RespostasCaso, ValorResposta
 from collection.validacao import validar_cruzada
 from persistencia.app_aluno.arquivo import ErroGravacaoItem as ErroGravacaoItemArquivo
@@ -188,6 +191,7 @@ _MENSAGEM_PERGUNTA_NAO_ENCONTRADA: Final[str] = "Registro de pergunta inválido:
 _MENSAGEM_PERGUNTA_NAO_ABERTA: Final[str] = "Pergunta não está aberta para resposta."
 _MENSAGEM_FALHA_SALVAR: Final[str] = "Não foi possível salvar."
 _MENSAGEM_FORA_DA_FAIXA: Final[str] = "Valor fora do intervalo aceito."
+_MENSAGEM_FICHA_INCOMPLETA: Final[str] = "Antes de salvar, responda nesta ficha:"
 
 _LOGGER: Final[logging.Logger] = logging.getLogger("app.http.rotas_coleta")
 
@@ -348,6 +352,11 @@ def _resolver_valor(
 
     valor_bruto = dados.get("valor", "")
 
+    # `T-299`: nos tipos de valor, uma opção alternativa do registro (ex.:
+    # `B3.01` `RENDA_VARIAVEL`) grava o próprio código — a montagem já o lê
+    # como desconhecido (`T-296`). Código numérico (`"0"`) segue convertido.
+    if registro.tipo in _TIPOS_DE_VALOR and valor_bruto in _codigos_alternativos(registro):
+        return valor_bruto
     if registro.tipo is TipoResposta.MOEDA:
         return converter_para_dinheiro(valor_bruto)
     if registro.tipo is TipoResposta.TAXA:
@@ -361,11 +370,47 @@ def _resolver_valor(
     if registro.tipo is TipoResposta.DATA:
         return _resolver_data(valor_bruto)
     if registro.tipo is TipoResposta.SELECAO_UNICA:
-        return _resolver_selecao_unica(registro, valor_bruto)
+        # `T-294`: com campo de outra variável o corpo traz dois `valor` — o
+        # código da opção vem primeiro (`_resolver_campo` lê o segundo).
+        return _resolver_selecao_unica(registro, valores_brutos[0] if valores_brutos else "")
     # TEXTO_CURTO, SIM_NAO_TALVEZ: `str` direto — já corretos
     # antes desta tarefa, nenhuma mudança de comportamento (quarto critério
     # de aceite de T-101).
     return valor_bruto
+
+
+_TIPOS_DE_VALOR: Final[frozenset[TipoResposta]] = frozenset(
+    {TipoResposta.MOEDA, TipoResposta.TAXA, TipoResposta.NUMERO, TipoResposta.DATA}
+)
+
+
+def _codigos_alternativos(registro: RegistroPergunta) -> frozenset[str]:
+    """`T-299` — os `valor_interno` não numéricos das opções além do campo.
+    A opção "não sei" fica de fora: ela é o `nao_sei` (`NAO_SEI`)."""
+    return frozenset(
+        opcao.valor_interno
+        for opcao in registro.opcoes
+        if opcao.valor_interno is not None
+        and not opcao.admite_nao_sei
+        and not opcao.valor_interno.isdigit()
+    )
+
+
+def _resolver_campo(
+    registro: RegistroPergunta, valor: ValorResposta, valores_brutos: tuple[str, ...]
+) -> tuple[str, ValorResposta] | None:
+    """`T-294` — a opção escolhida declara `variavel_do_campo` (ex.: `B5.B01`
+    "Sim." → `VALOR_ORIGINAL`): o segundo `valor` do corpo é o R$ digitado,
+    convertido pela mesma fronteira de `MOEDA` (`RF-13`). Vazio ou inválido
+    recusa a resposta inteira (`EC-01`) — nada é gravado."""
+    opcao = next(
+        (o for o in registro.opcoes if o.variavel_do_campo and o.valor_interno == valor),
+        None,
+    )
+    if opcao is None or opcao.variavel_do_campo is None:
+        return None
+    digitado = valores_brutos[1] if len(valores_brutos) > 1 else ""
+    return opcao.variavel_do_campo, converter_para_dinheiro(digitado)
 
 
 def _dentro_da_faixa(
@@ -376,7 +421,7 @@ def _dentro_da_faixa(
     renormalizado pela MESMA fronteira (`RF-13`); para `MOEDA`/`NUMERO`, o
     próprio valor. "Não sei" e tipos sem número não têm faixa."""
     assert registro.faixa is not None
-    if valor is NAO_SEI:
+    if valor is NAO_SEI or isinstance(valor, str):
         return True
     numero: object = valor
     if registro.tipo is TipoResposta.TAXA:
@@ -388,14 +433,19 @@ def _dentro_da_faixa(
 
 
 def _resolver_selecao_unica(registro: RegistroPergunta, valor_bruto: str) -> ValorResposta:
-    """`T-213`: com uma opção que abre campo (`abre_campo`, só `DATA` hoje),
+    """`T-213`: com uma opção que abre campo de data (`abre_campo: DATA`),
     o que não é `valor_interno` de outra opção é a data digitada — convertida
     por `_resolver_data` e gravada na `VARIAVEL_GRAVADA` da pergunta. O rádio
     sozinho (vazio ou o próprio `valor_interno` da opção) recusa (`EC-01`).
-    Sem essa opção, `str` direto, como sempre."""
-    if not any(opcao.abre_campo for opcao in registro.opcoes):
+    Sem essa opção, `str` direto, como sempre (o campo `MOEDA` de `T-294`
+    grava em outra variável: `_resolver_campo`)."""
+    if not any(opcao.abre_campo is TipoResposta.DATA for opcao in registro.opcoes):
         return valor_bruto
-    comuns = {opcao.valor_interno for opcao in registro.opcoes if opcao.abre_campo is None}
+    comuns = {
+        opcao.valor_interno
+        for opcao in registro.opcoes
+        if opcao.abre_campo is not TipoResposta.DATA
+    }
     if valor_bruto in comuns:
         return valor_bruto
     return _resolver_data(valor_bruto)
@@ -544,6 +594,7 @@ def responder_pergunta(
     # recusa sem gravar, nunca trunca nem coage.
     try:
         valor = _resolver_valor(registro, dados, valores_brutos)
+        campo = _resolver_campo(registro, valor, valores_brutos)
     except (ErroConversaoInvalida, ErroValorInvalido) as erro:
         # `T-205`: o aluno lê só o motivo; a variável vai para o log.
         _LOGGER.info(
@@ -576,6 +627,19 @@ def responder_pergunta(
         )
         return _resposta_de_erro(request, erro.mensagem, 400)
 
+    # `T-292`: "salvar" a ficha com pergunta obrigatória (`REP`) aberta e em
+    # branco naquele item é recusado, listando o que falta — nada é gravado.
+    if item_id is not None and valor == _SALVAR_FICHA.get(registro.VARIAVEL_GRAVADA):
+        faltam = _em_branco_antes_de(
+            colecao, registro, respostas_do_caso, repositorio_itens, CASO_ID, item_id
+        )
+        if faltam:
+            return _resposta_de_erro(
+                request,
+                f"{_MENSAGEM_FICHA_INCOMPLETA} {'; '.join(r.enunciado for r in faltam)}",
+                400,
+            )
+
     # Passo 6: gravação com transação confirmada. EC-05: falha nunca reporta
     # sucesso — devolve erro explícito e NÃO avança.
     #
@@ -594,6 +658,19 @@ def responder_pergunta(
     )
     try:
         repositorio.gravar(resposta)
+        # `T-294`: o valor do campo vai para a variável própria, no mesmo
+        # item — a resposta da pergunta continua sendo o código da opção.
+        if campo is not None:
+            repositorio.gravar(
+                Resposta(
+                    CASO_ID=CASO_ID,
+                    ID_PERGUNTA=campo[0],
+                    item_id=item_id,
+                    valor=campo[1],
+                    QUESTIONARIO_VERSION=colecao.QUESTIONARIO_VERSION,
+                    respondida_em=_agora(),
+                )
+            )
     except ErroConsentimentoNaoRegistrado:
         return _resposta_de_erro(request, _MENSAGEM_PERGUNTA_NAO_ABERTA, 400)
     except (ErroGravacaoResposta, ErroCasoInexistenteParaResposta):
@@ -678,6 +755,13 @@ def responder_pergunta(
     # `T-217`: "Outro" e a despesa não listada pedem nome — na lista.
     if abriu_ficha_sem_nome:
         abrir_fichas = (*abrir_fichas, EscopoRepeticao.ITEM_DESPESA)
+    # `T-291` (RF-87, DE-04): a cabeça de `DIVIDA_ID` não tem condição, então
+    # `escopos_abertos_pela_resposta` nunca a aponta. Com `B5.00` e `B5.00A`
+    # respondidas e a pendência de dívidas pedindo fichas, a lista abre.
+    if _abre_fichas_de_divida(
+        colecao, registro.VARIAVEL_GRAVADA, respostas_apos_gravar, itens_por_escopo
+    ):
+        abrir_fichas = (*abrir_fichas, EscopoRepeticao.DIVIDA_ID)
 
     # T-144: a resposta é sempre JSON — a tela é React. Os sete passos
     # acima correram idênticos ao que sempre correram; só a montagem da
@@ -704,6 +788,62 @@ def responder_pergunta(
 
 def _agora() -> datetime:
     return datetime.now(UTC)
+
+
+# `T-292` — a variável da confirmação da ficha (`B5.CHECK`) e o valor que a
+# salva. Chaves técnicas (`VARIAVEL_GRAVADA`/`valor_interno`).
+_SALVAR_FICHA: Final[Mapping[str, str]] = {"SYS (salvar/editar)": "SIM_SALVAR_DIVIDA"}
+
+
+def _em_branco_antes_de(
+    colecao: ColecaoDeRegistros,
+    registro: RegistroPergunta,
+    respostas: RespostasCaso,
+    repositorio_itens: RepositorioItens,
+    CASO_ID: str,
+    item_id: str,
+) -> tuple[RegistroPergunta, ...]:
+    """`T-292` — as perguntas `REP` abertas e em branco do item que vêm
+    ANTES de `registro` no percurso. As de depois (`B5.FIM01`) não contam:
+    são respondidas depois de salvar."""
+    posicao = {r.ID: indice for indice, r in enumerate(colecao.registros)}
+    por_id = {r.ID: r for r in colecao.registros}
+    return tuple(
+        por_id[p.ID]
+        for p in em_branco_no_item(
+            colecao.registros, respostas, _itens_por_escopo(repositorio_itens, CASO_ID), item_id
+        )
+        if posicao[p.ID] < posicao[registro.ID]
+        and Obrigatoriedade.REP in por_id[p.ID].obrigatoriedade
+    )
+
+
+# `T-291` — as variáveis de `B5.00` e `B5.00A`: a declaração das dívidas.
+_DECLARACAO_DE_DIVIDAS: Final[tuple[str, ...]] = (
+    "QUANTIDADE_DIVIDAS_DECLARADA_INICIAL",
+    "TIPOS_DIVIDA_DECLARADOS",
+)
+
+
+def _abre_fichas_de_divida(
+    colecao: ColecaoDeRegistros,
+    variavel: str,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+) -> bool:
+    """A resposta fecha a declaração (as duas variáveis respondidas), não há
+    ficha de dívida e `pendencias_de_inventario` pede fichas de `DIVIDA_ID`
+    — quantidade numérica acima de zero ou "não sei" (`AC-153`). Quem decide
+    se faltam fichas é a pendência de `RF-87`, não uma regra nova aqui."""
+    return (
+        variavel in _DECLARACAO_DE_DIVIDAS
+        and all(respostas.valor(v) is not None for v in _DECLARACAO_DE_DIVIDAS)
+        and not itens_por_escopo.get(EscopoRepeticao.DIVIDA_ID)
+        and any(
+            p.escopo is EscopoRepeticao.DIVIDA_ID
+            for p in pendencias_de_inventario(colecao.registros, respostas, itens_por_escopo)
+        )
+    )
 
 
 def _itens_por_escopo(
@@ -862,31 +1002,85 @@ def _serializar_proxima(
         return {"pergunta": None, "coleta_completa": True}
 
     registro, pendencia = encontrada
-    contexto = montar_contexto_pergunta(
-        registro,
-        respostas,
-        item_id=pendencia.item_id,
-        rotulo_do_item=(rotulos or {}).get(pendencia.item_id or ""),
-        itens_por_escopo=itens_por_escopo,
-        rotulos=rotulos,
-    )
-    posicao = posicao_na_ficha(
-        registro,
-        colecao.registros,
-        respostas,
-        pendencia.item_id,
-        itens_por_escopo=itens_por_escopo,
-    )
     return {
-        "pergunta": serializar_pergunta(
-            contexto,
-            CASO_ID=CASO_ID,
-            item_id=pendencia.item_id,
-            posicao=posicao.posicao if posicao is not None else None,
-            total_na_ficha=posicao.total_na_ficha if posicao is not None else None,
+        "pergunta": serializar_pergunta_do_caso(
+            CASO_ID,
+            registro,
+            respostas,
+            colecao,
+            itens_por_escopo,
+            pendencia.item_id,
+            rotulos or {},
         ),
         "coleta_completa": False,
     }
+
+
+def serializar_pergunta_do_caso(
+    CASO_ID: str,
+    registro: RegistroPergunta,
+    respostas: RespostasCaso,
+    colecao: ColecaoDeRegistros,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    item_id: str | None,
+    rotulos: Mapping[str, str],
+) -> dict[str, object]:
+    """A pergunta como o cliente a recebe — UMA função para `GET
+    /pergunta` e para `proxima` do `POST` (`T-290`): antes eram duas
+    montagens, e a do `POST` esquecia o `painel` de `B3.C00`.
+
+    `ErroPerguntaNaoExibivel` sobe para quem chama (`404` no `GET`)."""
+    contexto = montar_contexto_pergunta(
+        registro,
+        respostas,
+        item_id=item_id,
+        rotulo_do_item=rotulos.get(item_id or ""),
+        itens_por_escopo=itens_por_escopo,
+        rotulos=rotulos,
+    )
+    # `RF-63` (T-148): o localizador do `.top` — "Dívida 3 · pergunta 4 de
+    # 12". `None` fora de ficha repetível, e aí o cliente cai no rótulo do
+    # bloco. Quem conta é o servidor: ele é que conhece o conjunto exibível.
+    posicao = posicao_na_ficha(
+        registro, colecao.registros, respostas, item_id, itens_por_escopo=itens_por_escopo
+    )
+    pergunta = serializar_pergunta(
+        contexto,
+        CASO_ID=CASO_ID,
+        item_id=item_id,
+        posicao=posicao.posicao if posicao is not None else None,
+        total_na_ficha=posicao.total_na_ficha if posicao is not None else None,
+    )
+    # `T-294`: a opção escolhida grava o campo em outra variável — reabrir
+    # mostra o valor digitado (`AC-102`). Só registro com essa opção.
+    if any(opcao.variavel_do_campo for opcao in registro.opcoes):
+        escolhida = next(
+            (
+                o.variavel_do_campo
+                for o in registro.opcoes
+                if o.variavel_do_campo and o.valor_interno == contexto.valor_atual
+            ),
+            None,
+        )
+        pergunta["valor_do_campo"] = (
+            None
+            if escolhida is None
+            else serializar_valor(
+                respostas.valor_no_item(item_id, escolhida)
+                if item_id
+                else respostas.valor(escolhida)
+            )
+        )
+    # `T-227` (RF-79, RF-80): só registro com `painel` declarado no YAML —
+    # nenhum `ID` aqui. As respostas são as que o cálculo leria
+    # (`_respostas_do_calculo`), para a fotografia e o motor concordarem.
+    if registro.painel is not None:
+        pergunta["painel"] = serializar_painel(
+            fotografia_do_mes(_respostas_do_calculo(colecao.registros, respostas)),
+            colecao.registros,
+            dict(rotulos),
+        )
+    return pergunta
 
 
 def _respostas_com_valor_provisorio(

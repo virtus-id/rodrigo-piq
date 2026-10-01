@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 import pytest
 from fastapi import Request
@@ -36,6 +37,7 @@ from app.http.rotas_coleta import (
     obter_colecao_de_registros,
     obter_repositorio_itens,
     obter_repositorio_respostas,
+    serializar_pergunta_do_caso,
 )
 from app.http.sessao import iniciar_sessao_conta
 from app.montagem.estado import ErroSinalComportamentalAusente, _mecanismo_deficit
@@ -48,7 +50,7 @@ from collection.registro import (
     RegistroPergunta,
     TipoResposta,
 )
-from collection.respostas import Resposta, RespostasCaso
+from collection.respostas import NAO_SEI, Resposta, RespostasCaso
 from collection.validacao import ValidacaoCruzada
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-t101-conversao"
@@ -172,6 +174,43 @@ _REGISTRO_SELECAO_COM_DATA = _registro(
         OpcaoRegistro(rotulo="Não informada", valor_interno="NAO_INFORMADA"),
     ),
 )
+# `T-299`: `MOEDA`/`NUMERO` com alternativas ao campo, como `B3.01`
+# (`RENDA_VARIAVEL`), `B3.C01` (`0`) e `B5.00`/`B4.03A` ("Não sei").
+_REGISTRO_MOEDA_COM_OPCOES = _registro(
+    "T299.MOEDA",
+    TipoResposta.MOEDA,
+    "MOEDA_COM_OPCOES_TESTE",
+    opcoes=(
+        OpcaoRegistro(rotulo="R$ ______", valor_interno=None),
+        OpcaoRegistro(rotulo="Variável", valor_interno="RENDA_VARIAVEL"),
+        OpcaoRegistro(rotulo="Nenhum", valor_interno="0"),
+        OpcaoRegistro(rotulo="Não sei.", valor_interno="NAO_SEI", admite_nao_sei=True),
+    ),
+)
+_REGISTRO_NUMERO_COM_OPCOES = _registro(
+    "T299.NUMERO",
+    TipoResposta.NUMERO,
+    "NUMERO_COM_OPCOES_TESTE",
+    opcoes=(
+        OpcaoRegistro(rotulo="___ parcelas", valor_interno=None),
+        OpcaoRegistro(rotulo="Varia", valor_interno="VARIA"),
+    ),
+)
+# `T-294`: como `B5.B01` — "Sim." grava o código e o R$ vai a outra variável.
+_REGISTRO_SELECAO_COM_MOEDA = _registro(
+    "T294.SEL_MOEDA",
+    TipoResposta.SELECAO_UNICA,
+    "QUALIDADE_TESTE",
+    opcoes=(
+        OpcaoRegistro(
+            rotulo="Sim.",
+            valor_interno="CONFIRMADA",
+            abre_campo=TipoResposta.MOEDA,
+            variavel_do_campo="VALOR_DO_CAMPO_TESTE",
+        ),
+        OpcaoRegistro(rotulo="Não.", valor_interno="DESCONHECIDA", admite_nao_sei=True),
+    ),
+)
 # `T-209`: a validação cruzada normativa de `B3.S06B`/`B3.S06C` (`AC-06`).
 _MARGEM = ValidacaoCruzada(
     variavel_esquerda="VALOR_UTILIZADO_MARGEM",
@@ -198,6 +237,9 @@ _COLECAO_DE_TESTE = ColecaoDeRegistros(
         _REGISTRO_TEXTO_CURTO,
         _REGISTRO_SIM_NAO_TALVEZ,
         _REGISTRO_SELECAO_COM_DATA,
+        _REGISTRO_MOEDA_COM_OPCOES,
+        _REGISTRO_NUMERO_COM_OPCOES,
+        _REGISTRO_SELECAO_COM_MOEDA,
         _REGISTRO_MARGEM_TOTAL,
         _REGISTRO_MARGEM_UTILIZADO,
     ),
@@ -538,6 +580,150 @@ def test_t213_data_invalida_ou_radio_sozinho_e_recusado_sem_gravar(
 
     assert resposta.status_code == 400
     assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
+
+
+# ---------------------------------------------------------------------------
+# T-299 — alternativas ao campo nos tipos de valor gravam o código.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("id_pergunta", "variavel", "valor_bruto", "esperado"),
+    [
+        ("T299.MOEDA", "MOEDA_COM_OPCOES_TESTE", "RENDA_VARIAVEL", "RENDA_VARIAVEL"),
+        ("T299.MOEDA", "MOEDA_COM_OPCOES_TESTE", "0", Decimal("0")),
+        ("T299.MOEDA", "MOEDA_COM_OPCOES_TESTE", "1.234,56", Decimal("1234.56")),
+        ("T299.NUMERO", "NUMERO_COM_OPCOES_TESTE", "VARIA", "VARIA"),
+        ("T299.NUMERO", "NUMERO_COM_OPCOES_TESTE", "12", 12),
+    ],
+)
+def test_t299_alternativa_ao_campo_grava_o_codigo(
+    monkeypatch: pytest.MonkeyPatch,
+    id_pergunta: str,
+    variavel: str,
+    valor_bruto: str,
+    esperado: object,
+) -> None:
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta", data={"ID_PERGUNTA": id_pergunta, "valor": valor_bruto}
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert _valor_gravado(repositorio_respostas, variavel) == esperado
+
+
+@pytest.mark.parametrize("valor_bruto", ["OUTRO_CODIGO", "NAO_SEI"])
+def test_t299_codigo_fora_das_alternativas_segue_recusado(
+    monkeypatch: pytest.MonkeyPatch, valor_bruto: str
+) -> None:
+    """Só os códigos do registro; o "não sei" é o `nao_sei`, não um código."""
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta", data={"ID_PERGUNTA": "T299.MOEDA", "valor": valor_bruto}
+    )
+
+    assert resposta.status_code == 400
+    assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
+
+
+def test_t299_nao_sei_em_moeda_com_opcao_grava_nao_sei(monkeypatch: pytest.MonkeyPatch) -> None:
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta", data={"ID_PERGUNTA": "T299.MOEDA", "nao_sei": "on"}
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert _valor_gravado(repositorio_respostas, "MOEDA_COM_OPCOES_TESTE") is NAO_SEI
+
+
+# ---------------------------------------------------------------------------
+# T-294 — opção com campo R$ grava o código na pergunta e o valor na
+# variável do campo.
+# ---------------------------------------------------------------------------
+
+
+def test_t294_opcao_com_campo_grava_codigo_e_valor(monkeypatch: pytest.MonkeyPatch) -> None:
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta",
+        data={"ID_PERGUNTA": "T294.SEL_MOEDA", "valor": ["CONFIRMADA", "1.500,00"]},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert _valor_gravado(repositorio_respostas, "QUALIDADE_TESTE") == "CONFIRMADA"
+    assert _valor_gravado(repositorio_respostas, "VALOR_DO_CAMPO_TESTE") == Decimal("1500.00")
+
+
+def test_t294_opcao_sem_campo_grava_so_o_codigo(monkeypatch: pytest.MonkeyPatch) -> None:
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta",
+        data={"ID_PERGUNTA": "T294.SEL_MOEDA", "valor": "DESCONHECIDA"},
+    )
+
+    assert resposta.status_code == 200, resposta.text
+    assert [r.ID_PERGUNTA for r in repositorio_respostas.listar_do_caso(_CASO_ID)] == [
+        "QUALIDADE_TESTE"
+    ]
+
+
+@pytest.mark.parametrize("valores", [["CONFIRMADA"], ["CONFIRMADA", ""], ["CONFIRMADA", "abc"]])
+def test_t294_valor_vazio_ou_invalido_recusa_sem_gravar(
+    monkeypatch: pytest.MonkeyPatch, valores: list[str]
+) -> None:
+    """`EC-01`: nem o código é gravado sem um valor válido."""
+    cliente, repositorio_respostas = _montar_cliente(monkeypatch)
+
+    resposta = cliente.post(
+        f"/caso/{_CASO_ID}/resposta", data={"ID_PERGUNTA": "T294.SEL_MOEDA", "valor": valores}
+    )
+
+    assert resposta.status_code == 400
+    assert repositorio_respostas.listar_do_caso(_CASO_ID) == ()
+
+
+def test_t294_reabrir_devolve_o_valor_do_campo() -> None:
+    """`AC-102`: a pergunta reabre com a opção (`valor_atual`) e o valor."""
+
+    def respostas(*pares: tuple[str, object]) -> RespostasCaso:
+        return RespostasCaso(
+            respostas=tuple(
+                Resposta(
+                    CASO_ID=_CASO_ID,
+                    ID_PERGUNTA=variavel,
+                    item_id=None,
+                    valor=valor,  # type: ignore[arg-type]
+                    QUESTIONARIO_VERSION="T101-1.0.0",
+                    respondida_em=datetime(2026, 9, 30, tzinfo=UTC),
+                )
+                for variavel, valor in pares
+            )
+        )
+
+    def reabrir(
+        caso: RespostasCaso, registro: RegistroPergunta = _REGISTRO_SELECAO_COM_MOEDA
+    ) -> dict[str, object]:
+        return serializar_pergunta_do_caso(
+            _CASO_ID, registro, caso, _COLECAO_DE_TESTE, {}, None, {}
+        )
+
+    com_valor = reabrir(
+        respostas(("QUALIDADE_TESTE", "CONFIRMADA"), ("VALOR_DO_CAMPO_TESTE", Decimal("1500.00")))
+    )
+    assert (com_valor["valor_atual"], com_valor["valor_do_campo"]) == ("CONFIRMADA", "1500.00")
+    # Opção sem campo: um valor antigo da variável não volta.
+    sem_campo = reabrir(
+        respostas(("QUALIDADE_TESTE", "DESCONHECIDA"), ("VALOR_DO_CAMPO_TESTE", Decimal("1")))
+    )
+    assert sem_campo["valor_do_campo"] is None
+    # Registro sem opção de campo: a chave nem aparece.
+    assert "valor_do_campo" not in reabrir(respostas(), _REGISTRO_SELECAO_UNICA)
 
 
 # ---------------------------------------------------------------------------

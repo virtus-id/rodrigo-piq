@@ -57,11 +57,10 @@ function textoDaResposta(resposta: RespostaDada): string {
 /**
  * "N de M respondidas" — a contagem de uma parte.
  *
- * `total_de_perguntas` é o número de REGISTROS do bloco, e numa parte com
- * ficha repetível o número de respostas pode passar dele (36 perguntas × 3
- * dívidas). Não é erro de contagem: são respostas diferentes à mesma pergunta,
- * e juntá-las esconderia qual valor é de qual dívida. Por isso a frase não
- * promete proporção — ela informa duas quantidades reais.
+ * `total_de_perguntas` conta na mesma unidade das respostas (`T-297`): numa
+ * ficha repetível, cada pergunta vale uma vez por item (36 perguntas × 3
+ * dívidas = 108). O total inclui condicionais que talvez nunca abram, por
+ * isso a frase não promete proporção — ela informa duas quantidades reais.
  */
 function contagemDaParte(parte: ParteDasRespostas): string {
   const dadas = parte.respondidas.length

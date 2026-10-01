@@ -136,13 +136,19 @@ export default function TelaProgresso({
         <div className="cartao">
           <div className="linha">
             <span>Você já respondeu</span>
+            {/* `T-293`: com fichas abertas o total ainda cresce — só as
+                respondidas, sem barra que pareceria voltar. */}
             <strong>
-              {progresso.respondidas} de {progresso.total}
+              {progresso.fichas_abertas
+                ? progresso.respondidas
+                : `${progresso.respondidas} de ${progresso.total}`}
             </strong>
           </div>
-          <div className="bar">
-            <i style={{ width: `${pct}%` }} />
-          </div>
+          {!progresso.fichas_abertas && (
+            <div className="bar">
+              <i style={{ width: `${pct}%` }} />
+            </div>
+          )}
         </div>
       )}
 

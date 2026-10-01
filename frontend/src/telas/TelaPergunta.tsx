@@ -187,6 +187,10 @@ function valorInicial(pergunta: Pergunta): string | string[] {
   if (pergunta.valores_marcados.length > 0) return pergunta.valores_marcados
   const atual = pergunta.valor_atual
   if (atual === null) return ''
+  // `T-294`: opção com campo R$ em outra variável reabre com os dois.
+  if (pergunta.valor_do_campo != null && !Array.isArray(atual)) {
+    return [String(atual), pergunta.valor_do_campo]
+  }
   return Array.isArray(atual) ? atual : String(atual)
 }
 

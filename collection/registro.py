@@ -113,12 +113,18 @@ class OpcaoRegistro:
 
     `abre_campo` (`T-213`): a opção pede um valor digitado (ex.: "Data" de
     `B5.B05B`), gravado na `VARIAVEL_GRAVADA` da pergunta no lugar do
-    `valor_interno`. Hoje só `DATA` — o esquema recusa qualquer outro."""
+    `valor_interno`. Só `DATA` e `MOEDA` — o esquema recusa qualquer outro.
+
+    `variavel_do_campo` (`T-294`): com ela, o valor digitado vai para ESTA
+    variável, no mesmo item, e a opção grava seu `valor_interno` na
+    `VARIAVEL_GRAVADA` como sempre (ex.: `B5.B01` "Sim." → `CONFIRMADA` +
+    `VALOR_ORIGINAL`). O esquema a exige com `abre_campo: MOEDA`."""
 
     rotulo: str
     valor_interno: str | None
     admite_nao_sei: bool = False
     abre_campo: TipoResposta | None = None
+    variavel_do_campo: str | None = None
     # RF-91 (`T-222`): padrão neutro — opção sem nível declarado não tem nível.
     nivel_comprovacao: NIVEL_COMPROVACAO | None = None
     nivel_comprovacao_se: NivelCondicional | None = None

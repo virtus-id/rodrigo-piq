@@ -411,7 +411,7 @@ def test_t213_abre_campo_desconhecido_e_recusado_na_carga(tmp_path: Path) -> Non
     diretorio = tmp_path / "registros"
     diretorio.mkdir()
     pergunta = _pergunta_minima(
-        "B1.01", opcoes=[{"rotulo": "R$", "valor_interno": None, "abre_campo": "MOEDA"}]
+        "B1.01", opcoes=[{"rotulo": "Nome", "valor_interno": None, "abre_campo": "TEXTO_CURTO"}]
     )
     _escrever_arquivo(diretorio / "bloco-01.yaml", QUESTIONARIO_VERSION="1", perguntas=[pergunta])
 
@@ -421,13 +421,58 @@ def test_t213_abre_campo_desconhecido_e_recusado_na_carga(tmp_path: Path) -> Non
     assert "B1.01" in str(excecao.value)
 
 
+def test_t294_abre_campo_moeda_carrega_com_a_variavel_do_campo(tmp_path: Path) -> None:
+    diretorio = tmp_path / "registros"
+    diretorio.mkdir()
+    opcao: dict[str, object] = {
+        "rotulo": "Sim.",
+        "valor_interno": "CONFIRMADA",
+        "abre_campo": "MOEDA",
+        "variavel_do_campo": "VALOR_ORIGINAL",
+    }
+    pergunta = _pergunta_minima("B1.01", opcoes=[opcao])
+    _escrever_arquivo(diretorio / "bloco-01.yaml", QUESTIONARIO_VERSION="1", perguntas=[pergunta])
+
+    registro = carregar_registros(diretorio, _ESQUEMA_PADRAO).registros[0]
+
+    assert registro.opcoes[0].abre_campo is TipoResposta.MOEDA
+    assert registro.opcoes[0].variavel_do_campo == "VALOR_ORIGINAL"
+
+
+@pytest.mark.parametrize(
+    "opcao",
+    [
+        # `MOEDA` sem destino gravaria o R$ por cima do código da opção.
+        {"rotulo": "Sim.", "valor_interno": "CONFIRMADA", "abre_campo": "MOEDA"},
+        # Destino sem `MOEDA`: nada abriria o campo.
+        {"rotulo": "Sim.", "valor_interno": "CONFIRMADA", "variavel_do_campo": "VALOR_ORIGINAL"},
+        {
+            "rotulo": "Data",
+            "valor_interno": None,
+            "abre_campo": "DATA",
+            "variavel_do_campo": "VALOR_ORIGINAL",
+        },
+    ],
+)
+def test_t294_variavel_do_campo_so_com_abre_campo_moeda(
+    tmp_path: Path, opcao: dict[str, object]
+) -> None:
+    diretorio = tmp_path / "registros"
+    diretorio.mkdir()
+    pergunta = _pergunta_minima("B1.01", opcoes=[opcao])
+    _escrever_arquivo(diretorio / "bloco-01.yaml", QUESTIONARIO_VERSION="1", perguntas=[pergunta])
+
+    with pytest.raises(ErroDeCarga):
+        carregar_registros(diretorio, _ESQUEMA_PADRAO)
+
+
 _IDS_COM_OPCAO_DE_DATA = ("B5.B04", "B5.B05B", "B7.15", "B8.14")
 # Questão do especialista (T-213, Open Questions): valor e base/unidade numa
 # só variável — nenhum campo até ser decidida.
 _IDS_SEM_CAMPO_ATE_DECISAO = ("B5.D05A", "B7.13A", "B8.12A")
 
 
-def test_t213_registro_real_marca_so_as_quatro_opcoes_de_data() -> None:
+def test_t213_registro_real_marca_so_as_opcoes_de_data_e_b5b01() -> None:
     registros = {r.ID: r for r in carregar_registros().registros}
 
     marcadas = {
@@ -436,7 +481,12 @@ def test_t213_registro_real_marca_so_as_quatro_opcoes_de_data() -> None:
         if any(o.abre_campo is not None for o in r.opcoes)
     }
 
-    assert marcadas == {ID: [TipoResposta.DATA] for ID in _IDS_COM_OPCAO_DE_DATA}
+    # `T-294`: `B5.B01` "Sim."/"Aproximadamente." → campo R$ → `VALOR_ORIGINAL`.
+    assert marcadas == {
+        **{ID: [TipoResposta.DATA] for ID in _IDS_COM_OPCAO_DE_DATA},
+        "B5.B01": [TipoResposta.MOEDA, TipoResposta.MOEDA],
+    }
+    assert {o.variavel_do_campo for o in registros["B5.B01"].opcoes} == {"VALOR_ORIGINAL", None}
     for ID in _IDS_SEM_CAMPO_ATE_DECISAO:
         assert all(o.abre_campo is None for o in registros[ID].opcoes), ID
 

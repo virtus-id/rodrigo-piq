@@ -34,7 +34,7 @@ from app.http.rotas_coleta import (
 from app.http.sessao import iniciar_sessao_conta
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.registro import EscopoRepeticao
-from collection.respostas import Resposta
+from collection.respostas import Resposta, ValorResposta
 from persistencia.app_aluno.itens import ItemRepetido
 
 _CHAVE_TESTE: Final[str] = "chave-de-teste-para-assinatura-de-sessao-nao-usar-producao"
@@ -101,7 +101,9 @@ def _caso_fabricado() -> Caso:
     )
 
 
-def _resposta(id_pergunta: str, valor: str, item_id: str | None = None) -> Resposta:
+def _resposta(
+    id_pergunta: str, valor: ValorResposta, item_id: str | None = None
+) -> Resposta:
     """Uma resposta gravada, como a PRODUÇÃO a grava.
 
     ⚠️ **O campo se chama `ID_PERGUNTA` mas guarda a `VARIAVEL_GRAVADA`.**
@@ -370,3 +372,75 @@ def test_t198_resposta_cuja_condicao_fechou_nao_quebra_nem_e_listada(
 
     assert [r["ID"] for r in parte["respondidas"]] == ["B1.02"]
     assert b103 in _RepositorioRespostasDublê(respostas).listar_do_caso(_CASO)
+
+
+# ---------------------------------------------------------------------------
+# `T-295` — checklist sem nada marcado.
+# ---------------------------------------------------------------------------
+
+
+def test_t295_checklist_sem_item_marcado_e_texto_legivel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AC-100`: `B3.D04` respondida sem marcar nada grava `frozenset()`; a
+    revisão mostrava `"[]"` — serialização técnica, não o que o aluno disse."""
+    cliente = _montar_cliente(monkeypatch, respostas=(_resposta("B3.D04", frozenset()),))
+
+    parte = next(p for p in _partes(cliente) if p["bloco"] == 3)
+    linha = next(r for r in parte["respondidas"] if r["ID"] == "B3.D04")
+
+    assert linha["valores"] == ["Nenhum item marcado."]
+
+
+# ---------------------------------------------------------------------------
+# `T-297` — total por ficha e o Bloco 9 na revisão.
+# ---------------------------------------------------------------------------
+
+
+def _dividas(*item_ids: str) -> tuple[ItemRepetido, ...]:
+    return tuple(
+        ItemRepetido(
+            CASO_ID=_CASO,
+            escopo=EscopoRepeticao.DIVIDA_ID,
+            item_id=item_id,
+            criado_em=datetime(2026, 1, 1, tzinfo=UTC),
+            removido_em=None,
+        )
+        for item_id in item_ids
+    )
+
+
+def test_t297_total_conta_por_ficha_como_as_respondidas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Com duas dívidas, cada pergunta da ficha conta duas vezes no total —
+    a mesma unidade das respondidas (uma linha por item). Antes o total
+    contava registros e a parte dizia "80 respondidas de 63"."""
+    cliente = _montar_cliente(monkeypatch, itens=_dividas("D001", "D002"))
+    do_bloco_5 = [r for r in _colecao_real().registros if r.bloco == 5]
+    de_caso = sum(1 for r in do_bloco_5 if r.escopo_repeticao == EscopoRepeticao.NENHUM)
+    de_ficha = len(do_bloco_5) - de_caso
+
+    parte = next(p for p in _partes(cliente) if p["bloco"] == 5)
+
+    assert parte["total_de_perguntas"] == de_caso + 2 * de_ficha
+
+
+def test_t297_respostas_do_bloco_9_aparecem_na_revisao(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`AC-100`: `B9.02`/`B9.04` são respondidas na coleta inicial e sumiam
+    da revisão — nenhuma das cinco partes listava o Bloco 9. Ficam em "Seu
+    compromisso" (perseverança no plano), sem criar sexta parte (`RF-68`)."""
+    cliente = _montar_cliente(
+        monkeypatch,
+        respostas=(_resposta("B9.02", 7), _resposta("B9.04", "NAO")),
+    )
+
+    partes = _partes(cliente)
+    ids = [r["ID"] for p in partes for r in p["respondidas"]]
+
+    assert [p["bloco"] for p in partes] == [1, 2, 3, 4, 5]
+    assert {"B9.02", "B9.04"} <= set(ids)
+    parte_1 = next(p for p in partes if p["bloco"] == 1)
+    assert {"B9.02", "B9.04"} <= {r["ID"] for r in parte_1["respondidas"]}

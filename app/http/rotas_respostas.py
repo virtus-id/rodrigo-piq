@@ -57,13 +57,22 @@ roteador = APIRouter(prefix="/caso", tags=["respostas"])
 # ficam no SERVIDOR porque é ele que conhece o número do bloco de cada
 # registro; o cliente recebe a parte já nomeada e não precisa saber que
 # "Bloco 3" existe.
-_PARTES: Final[tuple[tuple[int, str], ...]] = (
-    (1, "Seu compromisso"),
-    (2, "Como você controla os gastos"),
-    (3, "O que entra e o que sai por mês"),
-    (4, "Salário, margem e o que você tem"),
-    (5, "Suas dívidas, uma por uma"),
+#
+# `T-297`: o Bloco 9 (`B9.02`, `B9.04`) também é coleta inicial, e a spec só
+# prevê cinco partes (`RF-68`). Ele entra em "Seu compromisso" — as duas
+# perguntas são sobre perseverar no plano — depois do Bloco 1.
+_PARTES: Final[tuple[tuple[int, str, tuple[int, ...]], ...]] = (
+    (1, "Seu compromisso", (1, 9)),
+    (2, "Como você controla os gastos", (2,)),
+    (3, "O que entra e o que sai por mês", (3,)),
+    (4, "Salário, margem e o que você tem", (4,)),
+    (5, "Suas dívidas, uma por uma", (5,)),
 )
+
+# `T-295`: checklist respondido sem nada marcado grava `frozenset()`; o aluno
+# lê isto, nunca `"[]"`. Texto vazio vai como lista vazia ("Respondida." no
+# cliente), nunca `""`.
+_NENHUM_ITEM_MARCADO: Final[str] = "Nenhum item marcado."
 
 
 def _respondida(
@@ -117,7 +126,9 @@ def _serializar_resposta_dada(
         if opcao.valor_interno is not None
         and opcao.valor_interno in contexto.valores_marcados
     ]
-    if not rotulos and contexto.valor_atual is not None:
+    if contexto.valor_atual == frozenset():
+        rotulos = [_NENHUM_ITEM_MARCADO]
+    elif not rotulos and contexto.valor_atual not in (None, ""):
         bruto = serializar_valor(contexto.valor_atual)
         escolhida = next(
             (o.rotulo for o in contexto.opcoes if o.valor_interno == bruto), None
@@ -161,9 +172,17 @@ def respostas_do_caso(
     respostas = RespostasCaso(respostas=respostas_brutas)
 
     partes: list[dict[str, Any]] = []
-    for numero, rotulo in _PARTES:
-        do_bloco = [r for r in colecao.registros if r.bloco == numero]
+    for numero, rotulo, blocos in _PARTES:
+        do_bloco = [r for blc in blocos for r in colecao.registros if r.bloco == blc]
         linhas: list[dict[str, Any]] = []
+        # `T-297`: o total conta na mesma unidade das respondidas — uma
+        # pergunta de ficha vale uma vez por item cadastrado.
+        total = sum(
+            1
+            if r.escopo_repeticao == EscopoRepeticao.NENHUM
+            else len(itens_por_escopo.get(r.escopo_repeticao, ()))
+            for r in do_bloco
+        )
 
         for registro in do_bloco:
             if registro.escopo_repeticao != EscopoRepeticao.NENHUM:
@@ -189,7 +208,7 @@ def respostas_do_caso(
             {
                 "bloco": numero,
                 "rotulo": rotulo,
-                "total_de_perguntas": len(do_bloco),
+                "total_de_perguntas": total,
                 "respondidas": linhas,
             }
         )

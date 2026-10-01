@@ -9254,6 +9254,12 @@ O checkbox genérico não é desenhado quando alguma opção já tem
 
 **Status:** `[x] concluída` (2026-09-29)
 
+> **Nota (2026-09-30, `T-299`):** a regra "sem checkbox quando alguma opção
+> tem `admite_nao_sei`" valia também para `MOEDA`/`TAXA`/`NUMERO`/`DATA`,
+> que não desenham opções — essas perguntas ficaram sem "não sei". Agora
+> vale só para os tipos de seleção; nos tipos de valor o checkbox volta,
+> com o rótulo da opção do registro.
+
 ---
 
 ### Pendências descobertas durante T-194–T-207 (2026-09-29)
@@ -11800,3 +11806,402 @@ textos de `B7.13*` sobre o valor de quitação antes do desconto (12 —
 **Status:** `[x] concluída (2026-09-30)` — sem mudança de regra. Números de
 linha da "Origem técnica" do documento são anteriores ao ajuste; o `ID` é a
 referência estável.
+
+---
+
+### `T-290` — `proxima` do `POST /resposta` sem o `painel` da fotografia
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-193`, `T-227`
+- **Rastreia:** `RF-79`, `RF-80`, `AC-119`, `RF-45`
+- **Arquivos:** `app/http/rotas_coleta.py`, `app/http/rotas_pergunta.py`,
+  `tests/app_aluno/test_rotas_coleta_fotografia.py`
+
+**Descrição** (teste ponta a ponta no ambiente publicado, perfil T02)
+
+`GET /pergunta` montava a pergunta com `painel` (`B3.C00`); `proxima` do
+`POST /resposta` (`T-193`) tinha montagem própria e não o incluía. O
+frontend usa `proxima`, então o aluno via `B3.C00` sem a fotografia.
+
+**Critérios de aceite**
+
+- [x] Uma função só (`rotas_coleta.py::serializar_pergunta_do_caso`) monta
+      a pergunta para o `GET` e para `proxima`: contexto, posição na ficha e
+      `painel`
+- [x] Teste compara os dois payloads da mesma pergunta (`B3.DF01` →
+      `B3.C00`): idênticos, com `painel` — falhava antes
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — o `painel` era o único campo
+divergente. Teste `test_t290_*`.
+
+---
+
+### `T-291` — `B5.00`/`B5.00A` não abrem as fichas de dívida
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-212`, `T-246`
+- **Rastreia:** `RF-87`, `RF-86`, `AC-133`, `AC-153`, `DE-04`
+- **Arquivos:** `app/http/rotas_coleta.py`,
+  `tests/app_aluno/test_coleta_fichas_de_divida.py`
+
+**Descrição** (teste ponta a ponta, perfil T02)
+
+Com `B5.00 = 2` e `B5.00A` respondidas, `abrir_fichas` vinha vazio e a
+próxima pergunta já era `B5.FIM02` com 0 fichas. Causa: a cabeça de
+`DIVIDA_ID` (`B5.A01`) não tem condição, e `escopos_abertos_pela_resposta`
+(`T-212`) só aponta escopo cuja cabeça tem condição.
+
+**Critérios de aceite**
+
+- [x] Resposta a `B5.00` ou `B5.00A` que deixa as duas respondidas, sem
+      ficha de dívida, e com pendência de inventário pedindo fichas de
+      `DIVIDA_ID` (`pendencias_de_inventario`: quantidade > cadastradas, ou
+      "não sei" sem confirmação — `AC-153`) → `abrir_fichas` inclui
+      `DIVIDA_ID`
+- [x] `B5.00` com `B5.00A` em branco não abre (a próxima é `B5.00A`); com
+      ficha já criada, não reabre
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — teste `test_t291_*`.
+
+**Dúvida registrada (não implementada):** a regra de exibição de `B5.FIM02`
+não depende de ficha cadastrada — canônica §11: "Condição de exibição:
+Sempre"; registro com `condicao_exibicao: null`. Exigir ao menos uma ficha
+antes de `B5.FIM02` mudaria a condição do registro e precisa de decisão
+(o bloqueio de `RF-87` já impede o cálculo com 0 de N fichas).
+
+---
+
+### `T-292` — `B5.CHECK` aceita "salvar dívida" com pergunta aberta em branco
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-202`, `T-284`
+- **Rastreia:** `RF-09`, `AC-11`, `RF-63`, `AC-92`
+- **Arquivos:** `app/casos/progresso.py`, `app/http/rotas_coleta.py`,
+  `tests/app_aluno/test_coleta_fichas_de_divida.py`
+
+**Descrição** (teste ponta a ponta, perfil T02, `D002`)
+
+`B5.D02` abre só depois de `B5.I01 = CONTRATO` e, por estar antes de
+`B5.I01` na ordem do registro, a retomada a oferece "para trás" (posição
+19/39 depois da 34). O servidor aceitou `B5.I02`, `B5.I03` e `B5.CHECK`
+("Sim, salvar dívida.") com ela pendente.
+
+**Investigação da ordem.** O percurso da ficha (`_percorrer_ocorrencias`,
+item a item, `T-202`) segue a ordem da §11 e está correto: depois de
+`B5.I01`, a primeira pergunta aberta e em branco do item é `B5.D02`, e a
+retomada a devolve (por isso a posição 19). Não há bug de ordem — o
+"encaixe para trás" é efeito da condição de `B5.D02` ler uma variável
+respondida depois dela (ambiguidade da canônica já anotada em `T-17`).
+Aceitar `B5.I02`/`B5.I03` com `B5.D02` pendente é a regra de edição livre
+(`RF-69`) e continua.
+
+**Critérios de aceite**
+
+- [x] `B5.CHECK` = "Sim, salvar dívida." com pergunta `REP` aberta e em
+      branco no item, antes de `B5.CHECK` no percurso → `400` "Antes de
+      salvar, responda nesta ficha: <enunciados>", nada gravado
+      (`progresso.py::em_branco_no_item`, mesma varredura da retomada)
+- [x] "Quero corrigir alguma informação." continua aceita; respondida a
+      pendente, "salvar" é aceito
+- [x] Nenhuma condição de exibição alterada
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — teste `test_t292_*`.
+`B5.FIM01` (depois de `B5.CHECK`) não conta como falta.
+
+**Dúvida registrada:** mover `B5.D02` para depois de `B5.I01` eliminaria o
+salto para trás, mas muda a ordem da §11 — decisão da canônica, não desta
+tarefa. A mensagem de recusa é redação da equipe técnica, pendente de
+aprovação do produto.
+
+---
+
+### `T-293` — `/inicio`: mensagem e progresso da coleta
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-147`, `T-251`
+- **Rastreia:** `RF-64`, `RF-65`, `RF-62`, `AC-90`, `AC-96`, `EC-23`
+- **Arquivos:** `app/http/rotas_inicio.py`,
+  `app/http/mensagens_de_estado.py`, `frontend/src/tipos.ts`,
+  `frontend/src/componentes/TrilhaDaJornada.tsx`,
+  `frontend/src/telas/TelaProgresso.tsx`, testes
+
+**Descrição** (teste ponta a ponta, perfil T02)
+
+(a) Com a coleta completa (destino `calculando`) e o caso ainda em
+`COLETA_INICIAL`, `/inicio` dizia "Sua coleta está em andamento.". (b) O
+total do progresso saltou de 59 para 152 durante a coleta: cresce a cada
+ficha criada, e "faltam N" parecia regredir.
+
+**Critérios de aceite**
+
+- [x] (a) Fase `coleta` com destino `calculando` → mensagem "Sua coleta
+      está completa." (`MENSAGEM_COLETA_COMPLETA`); demais casos seguem
+      `mensagem_do_estado_do_caso`
+- [x] (b) Escolha: `progresso.fichas_abertas` (servidor) — verdadeiro com
+      ficha da coleta inicial com pergunta aberta em branco
+      (`itens_em_aberto`) ou ficha ainda por cadastrar
+      (`pendencias_de_inventario`). Com ele, a trilha diz "Você já
+      respondeu N perguntas." e "Meu progresso" mostra só N, sem barra;
+      sem ele, "Faltam N perguntas." como antes. `respondidas`/`total`
+      (`RF-62`, `AC-90`) não mudam
+- [x] Testes: `test_t293_*` (`test_rotas_inicio.py`) e vitest
+      `TrilhaDaJornada.test.tsx`
+- [x] Gates: lint, build, test, tsc, vitest, playwright
+
+**Status:** `[x] concluída (2026-09-30)`.
+
+**Dúvidas registradas:** (1) com fichas abertas a trilha não diz "faltam N
+perguntas" — `AC-96` pede o que falta com unidade; o que falta não é
+conhecido enquanto fichas são criadas. Ratificar na spec. (2) Os textos
+"Sua coleta está completa." e "Você já respondeu N perguntas." são redação
+da equipe técnica, pendente de aprovação do produto. (3) Antes da primeira
+ficha (ex.: antes de `B3.D01`) o total ainda não as inclui e pode crescer
+depois — limite aceito por `RF-62`.
+
+---
+
+### `T-294` — `B5.B01`: "Sim"/"Aproximadamente" não pede o valor original
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-213`
+- **Rastreia:** `RF-03`, `RF-13`, `AC-36`
+- **Arquivos:** `collection/registros/bloco-05.yaml`, `collection/registro.py`,
+  `collection/esquema-registros.json`, `app/http/rotas_coleta.py`,
+  `frontend/src/componentes/CampoPergunta.tsx`
+
+**Descrição**
+
+Teste de ponta a ponta no ambiente publicado: responder "Sim." ou
+"Aproximadamente." em `B5.B01` segue direto para `B5.B02`. A §11
+(`specs/piq-app-spec.md`, `B5.B01`) define o campo e a condição — "Salto:
+Sim/Aproximadamente → campo R$ → VALOR_ORIGINAL" — e `B5.B02` é outra
+variável (`VALOR_JA_PAGO`), não o valor original. **Há defeito.** A spec não
+dá `ID`, enunciado nem entrada de dicionário para `VALOR_ORIGINAL`, e nada em
+`app/`/`engine/` a lê: o campo é uma opção que abre R$ (como `abre_campo`
+de `T-213`), não uma pergunta nova — criar `B5.B01A` seria inventar
+pergunta.
+
+O mecanismo de `T-213` não cobre: grava o valor digitado **na própria**
+`VARIAVEL_GRAVADA` (aqui apagaria `CONFIRMADA`/`ESTIMADA`) e aceita uma só
+opção com campo, só `DATA`. Corrigir exige `abre_campo: MOEDA` com variável
+de destino (`VALOR_ORIGINAL`) nas duas opções, gravação dupla em
+`_resolver_valor` e o campo R$ no cliente.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois (`B5.B01 = CONFIRMADA`
+      com valor grava `QUALIDADE_VALOR_ORIGINAL` e `VALOR_ORIGINAL`)
+      (`test_t294_opcao_com_campo_grava_codigo_e_valor`; componente:
+      `T-294: opção que abre campo R$ em outra variável`)
+- [x] "Não." não abre campo; valor inválido recusa sem gravar (`EC-01`)
+      (`test_t294_opcao_sem_campo_grava_so_o_codigo`,
+      `test_t294_valor_vazio_ou_invalido_recusa_sem_gravar`)
+- [x] Reabrir mostra a opção e o valor (`AC-102`)
+      (`test_t294_reabrir_devolve_o_valor_do_campo`; `TelaPergunta`)
+- [x] Gates: lint, build, test
+
+**Implementação.** `abre_campo` de `T-213` generalizado: `MOEDA` com
+`variavel_do_campo` declarada no YAML (o esquema exige uma com a outra).
+`B5.B01` "Sim."/"Aproximadamente." → `abre_campo: MOEDA, variavel_do_campo:
+VALOR_ORIGINAL`. O cliente envia `valor=CODIGO&valor=R$`; `_resolver_campo`
+converte pela fronteira de `MOEDA` e a rota grava as duas respostas no
+mesmo item. `GET /pergunta` devolve `valor_do_campo` para reabrir.
+`VALOR_ORIGINAL` entrou no dicionário pela errata `E-17` da canônica
+v1.0.5 (sem mudança de regra). Nada em `engine/`/`app/montagem` lê
+`VALOR_ORIGINAL` (verificado por `grep`; teste
+`test_t299_t294_codigos_e_valor_original_nao_mudam_o_calculo`).
+
+**Textos novos** — aprovados pelo produto em 2026-09-30: rótulo acessível
+do campo R$ "Valor em R$".
+
+**Limites conhecidos.** Trocar de "Sim." para "Não." não apaga o
+`VALOR_ORIGINAL` gravado antes (o repositório não remove respostas); ele
+não reabre nem é lido. A revisão (`GET /respostas`) não lista
+`VALOR_ORIGINAL`.
+
+**Status:** `[x] concluída (2026-09-30)`
+
+---
+
+### `T-295` — Checklist sem nada marcado aparece como `[]` na revisão
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-160`
+- **Rastreia:** `RF-68`, `AC-100`
+- **Arquivos:** `app/http/rotas_respostas.py`,
+  `tests/app_aluno/test_rotas_respostas.py`
+
+**Descrição**
+
+`SELECAO_MULTIPLA` respondida sem marcar nada (ex.: `B3.D04`..`B3.D10`)
+grava `frozenset()`; `GET /respostas` caía em `str(serializar_valor(...))` e
+mandava `"[]"` ao aluno.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes (`['[]']`) e passa depois
+      (`test_t295_checklist_sem_item_marcado_e_texto_legivel`)
+- [x] Conjunto vazio → `"Nenhum item marcado."`
+- [x] Outros tipos vazios: texto `""` vai como lista vazia (o cliente diz
+      "Respondida."); `NAO_SEI` já tinha texto próprio; números, datas e
+      dinheiro nunca chegam vazios (`EC-01` recusa)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)`
+
+---
+
+### `T-296` — `valor_interno` nas opções além do campo em `B3.01` e `B4.03A`
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-208`
+- **Rastreia:** `RF-03`, `RF-36`, `RF-37`, `AC-53`, `AC-56`, `OQ-22`
+- **Arquivos:** `collection/registros/bloco-03.yaml`,
+  `collection/registros/bloco-04.yaml`, `app/montagem/estado.py`
+  (só docstring), `tests/app_aluno/estatica/test_valor_interno_sim_nao.py`
+
+**Descrição**
+
+`B3.01` "Minha renda é variável…" e `B4.03A` "Prefiro decidir somente
+depois…"/"Não sei." tinham `valor_interno: null`. Consumo verificado antes:
+`_renda_principal` (`estado.py`) recusa qualquer não-`Decimal` com
+`ErroCampoAgregadoDesconhecido` (= a §11 "RENDA_PRINCIPAL = DESCONHECIDA");
+`_valor_maximo_reserva_informado_usuario` lê qualquer não-`Decimal` como
+`DESCONHECIDO`. Códigos dados: `RENDA_VARIAVEL`, `DECIDIR_DEPOIS`, `NAO_SEI`
+— sem efeito no cálculo.
+
+**Decisão do especialista (aberta, `OQ-22`(a)):** "Prefiro decidir depois
+de ver a análise" deve ser lido diferente de "Não sei" (ex.: a análise
+mostrar cenário com a reserva e perguntar de novo)? Hoje os dois são
+`RESERVA_MOBILIZAVEL = DESCONHECIDA`. O código só torna a distinção possível.
+
+**Critérios de aceite**
+
+- [x] Teste falha antes e passa depois
+      (`test_t296_opcoes_alem_do_campo_tem_valor_interno_estavel`)
+- [x] Leitura da montagem igual à de antes (`test_t296_montagem_le_as_novas_opcoes_como_antes`)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — só o registro. O cliente ainda
+não desenha opções de `MOEDA`: ver `T-299`.
+
+---
+
+### `T-297` — Revisão: total por ficha e respostas do Bloco 9
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-160`
+- **Rastreia:** `RF-68`, `AC-100`, `AC-101`
+- **Arquivos:** `app/http/rotas_respostas.py`,
+  `frontend/src/telas/TelaRespostas.tsx` (só comentário),
+  `tests/app_aluno/test_rotas_respostas.py`
+
+**Descrição**
+
+A parte 5 dizia "80 respondidas" de 63: o total contava registros, as
+respondidas uma linha por ficha. `B9.02`/`B9.04` (coleta inicial) não
+apareciam: as cinco partes só cobriam os Blocos 1–5.
+
+**Critérios de aceite**
+
+- [x] Testes falham antes e passam depois (`test_t297_*`)
+- [x] Total = perguntas de caso + perguntas de ficha × itens do escopo
+- [x] Bloco 9 entra na parte 1, "Seu compromisso" (as duas perguntas são
+      sobre perseverar no plano), depois do Bloco 1; continuam cinco
+      partes, como `RF-68`/`AC-100` preveem
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — o total conta condicionais que
+talvez não abram (a frase do cliente não promete proporção).
+
+---
+
+### `T-298` — Textos: aluno em 3ª pessoa e barra com espaço
+
+- **Tipo:** `Docs`
+- **Dependências:** —
+- **Rastreia:** `RF-03`, `AC-36`
+- **Arquivos:** `collection/registros/bloco-05.yaml`,
+  `specs/piq-app-spec.md` (`B5.H03`),
+  `tests/app_aluno/estatica/test_textos_ao_aluno.py`
+
+**Descrição e ocorrências**
+
+Varredura de todos os enunciados e rótulos do registro:
+
+- `B5.H03`: "10 = máxima urgência na percepção do usuário" → "10 = máxima
+  urgência para você" (spec ajustada igual). Única ocorrência de "usuário".
+- `B5.E03`: "inadimplência/ negativação" → "inadimplência/negativação".
+  Era quebra de linha do `>-` do YAML (a spec já estava certa). Única
+  barra com espaço de um lado só; " / " com espaço dos dois lados
+  (`B1.06`, `B3.NM01`, `B5.D03A`, `B5.G03`, `B7.10`, `B7.13E`, `B8.06`,
+  `B9.04`) é separador intencional.
+
+**Critérios de aceite**
+
+- [x] Teste estático falha antes e passa depois (`test_t298_*`)
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)`
+
+---
+
+### `T-299` — Opções de `MOEDA`/`NUMERO` não são desenhadas; "Não sei" some
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-207`, `T-296`
+- **Rastreia:** `RF-11`, `RF-48`, `RF-50`, `AC-78`
+- **Arquivos:** `frontend/src/componentes/CampoPergunta.tsx`,
+  `app/http/rotas_coleta.py`, registros dos Blocos 1–5, 7 e 8
+
+**Descrição**
+
+Achado em `T-296`. O ramo `MOEDA`/`TAXA`/`NUMERO` de `CampoPergunta` só
+desenha o campo; as opções do registro não aparecem. E desde `T-207` o
+checkbox "Não sei" genérico não é desenhado quando alguma opção tem
+`admite_nao_sei` — em `MOEDA` com opção "Não sei." (ex.: `B5.B03`,
+indispensável; `B4.03A`; ~45 perguntas) **o aluno não tem como dizer "não
+sei"** (verificado com teste de componente descartável). "Renda variável"
+(`B3.01`), "decidir depois" (`B4.03A`), "estimativa" (`B5.B02`), "não possui
+custo" (`B4.I06`, `B4.V09`) também ficam inalcançáveis; e
+`_resolver_valor` converteria um código como dinheiro (`EC-01` → 422).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois (`MOEDA` com opção
+      "Não sei." mostra um "Não sei") — `T-299: opções e "Não sei" nos
+      tipos de valor` (`CampoPergunta.test.tsx`, também `TAXA`/`NUMERO`/`DATA`)
+- [x] Opções além do campo aparecem e gravam o `valor_interno` (servidor
+      aceita o código em `MOEDA`/`NUMERO`); códigos nas opções nulas
+      restantes, padrão `T-208` — `test_t299_alternativa_ao_campo_grava_o_codigo`,
+      `test_t299_codigo_fora_das_alternativas_segue_recusado`,
+      `test_t299_nos_tipos_de_valor_toda_opcao_nula_e_o_proprio_campo`
+- [x] Gates: lint, build, test
+
+**Implementação.** Cliente: nos tipos de valor, "não sei" é o checkbox
+sempre que a pergunta ou uma opção admite (rótulo da opção do registro,
+ex.: "Não sei.", "Ainda não sei o valor."), gravando `NAO_SEI`; opções com
+código e sem `admite_nao_sei` aparecem como rádios ao lado do campo; opção
+nula é o próprio campo e não aparece. `T-207` segue nos tipos de seleção.
+Servidor: `_resolver_valor` aceita, nos tipos de valor, o código não
+numérico de uma alternativa do registro e grava a string (`"0"` segue
+convertido para `Decimal`). Registro: `SEM_CUSTO_RELEVANTE` (`B4.I06`,
+`B4.V09`), `APENAS_ESTIMATIVA` (`B5.B02`); "Não sei" com `NAO_SEI`/
+`DESCONHECIDA` sem marca ganhou `admite_nao_sei` (`B7.07`, `B7.08`,
+`B8.03`, `B8.04`, `B8.06`, `B8.08`, `B8.09`, `B11.Q03`, `B11.Q04A`) — sem
+ela o cliente desenharia dois "não sei". Ninguém em `app/` lê
+`CUSTO_IMOVEL`, `CUSTOS_ESTIMADOS_DESMOBILIZACAO` nem `VALOR_JA_PAGO`;
+`VARIA` (`B5.C06`) agora é alcançável e a montagem já o trata (`B5.C06A`).
+Cálculo igual: `test_t299_t294_codigos_e_valor_original_nao_mudam_o_calculo`.
+
+**Textos novos** — aprovados pelo produto em 2026-09-30: rótulo acessível
+do grupo de alternativas "Outras respostas".
+
+**Fica de fora (pendência).** Opções "____ %" de `B4.06A`, `B4.I09`,
+`B4.O09` (custo em R$ ou %, mesma questão de `B7.13A`) e a periodicidade
+de `B5.D03A` continuam sem campo — decisão do especialista.
+
+**Status:** `[x] concluída (2026-09-30)`

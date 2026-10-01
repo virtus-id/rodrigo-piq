@@ -151,8 +151,10 @@ perguntas:
     escopo_repeticao: NENHUM
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
-      - {rotulo: Prefiro decidir somente depois de ver a análise., valor_interno: null}
-      - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
+      # T-296: códigos sem efeito no cálculo — a montagem lê os dois como
+      # DESCONHECIDO; distingui-los é OQ-22(a), decisão do especialista.
+      - {rotulo: Prefiro decidir somente depois de ver a análise., valor_interno: DECIDIR_DEPOIS}
+      - {rotulo: Não sei., valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO
     condicao_exibicao:
       tipo: NAO
@@ -451,7 +453,7 @@ perguntas:
     escopo_repeticao: NENHUM
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
-      - {rotulo: Não possui custo relevante., valor_interno: null}
+      - {rotulo: Não possui custo relevante., valor_interno: SEM_CUSTO_RELEVANTE}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
     VARIAVEL_GRAVADA: CUSTO_IMOVEL
     condicao_exibicao: {tipo: IGUAL, variavel: IMOVEL_EXISTE, valor: SIM}
@@ -767,7 +769,7 @@ perguntas:
     escopo_repeticao: NENHUM
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
-      - {rotulo: Não há custo relevante que eu conheça., valor_interno: null}
+      - {rotulo: Não há custo relevante que eu conheça., valor_interno: SEM_CUSTO_RELEVANTE}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
     VARIAVEL_GRAVADA: "CUSTOS_ESTIMADOS_DESMOBILIZACAO (veículo)"
     condicao_exibicao: {tipo: IGUAL, variavel: VEICULO_EXISTE, valor: SIM}

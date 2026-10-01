@@ -229,8 +229,10 @@ perguntas:
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
     opcoes:
-      - {rotulo: "Sim.", valor_interno: CONFIRMADA}
-      - {rotulo: Aproximadamente., valor_interno: ESTIMADA}
+      # `T-294`: "campo R$ → VALOR_ORIGINAL" (§11) — o valor digitado vai
+      # para `VALOR_ORIGINAL`, e a opção grava o código aqui, como sempre.
+      - {rotulo: "Sim.", valor_interno: CONFIRMADA, abre_campo: MOEDA, variavel_do_campo: VALOR_ORIGINAL}
+      - {rotulo: Aproximadamente., valor_interno: ESTIMADA, abre_campo: MOEDA, variavel_do_campo: VALOR_ORIGINAL}
       - {rotulo: "Não.", valor_interno: DESCONHECIDA, admite_nao_sei: true}
     VARIAVEL_GRAVADA: QUALIDADE_VALOR_ORIGINAL
     condicao_exibicao: null
@@ -250,7 +252,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - {rotulo: "R$ ______", valor_interno: null}
-      - {rotulo: Tenho apenas uma estimativa., valor_interno: null}
+      - {rotulo: Tenho apenas uma estimativa., valor_interno: APENAS_ESTIMATIVA}
       - {rotulo: Não sei., valor_interno: null, admite_nao_sei: true}
     VARIAVEL_GRAVADA: VALOR_JA_PAGO
     condicao_exibicao: null
@@ -934,9 +936,7 @@ perguntas:
 
   - ID: B5.E03
     bloco: 5
-    enunciado: >-
-      Esta dívida aparece atualmente em cadastro de inadimplência/
-      negativação?
+    enunciado: Esta dívida aparece atualmente em cadastro de inadimplência/negativação?
     tipo: SIM_NAO_TALVEZ
     obrigatoriedade: [REP]
     escopo_repeticao: DIVIDA_ID
@@ -1219,7 +1219,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - {rotulo: "0 = pode esperar, sem urgência relevante", valor_interno: "0"}
-      - {rotulo: "10 = máxima urgência na percepção do usuário", valor_interno: "10"}
+      - {rotulo: "10 = máxima urgência para você", valor_interno: "10"}  # T-298
     VARIAVEL_GRAVADA: URGENCIA_PERCEBIDA
     condicao_exibicao: null
     interpolacoes: []

@@ -213,3 +213,27 @@ def test_t229_ac120_nao_sei_segue_para_b3_c01_sem_acao_nem_pendencia(
     assert "B3.C00" not in ids_pendentes
     itens = {EscopoRepeticao.DESPESA_NAO_MENSAL_ID: ("NM001",)}
     assert pendencias_de_inventario(_colecao_real().registros, gravadas, itens) == ()
+
+
+def test_t290_proxima_do_post_e_identica_ao_get_da_mesma_pergunta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`T-290` (RF-79, RF-80, AC-119): `proxima.pergunta` do `POST
+    /resposta` é o MESMO payload de `GET /pergunta` — inclusive o `painel`
+    de `B3.C00`. Trecho real `B3.DF01` → `B3.C00`."""
+    reais = {r.ID: r for r in _colecao_real().registros}
+    trecho = ColecaoDeRegistros(
+        QUESTIONARIO_VERSION="1.0.3", registros=(reais["B3.DF01"], reais["B3.C00"])
+    )
+    cliente, _ = _cliente(monkeypatch, trecho)
+
+    gravada = cliente.post(
+        f"/caso/{_CASO}/resposta",
+        data={"ID_PERGUNTA": "B3.DF01", "item_id": "I001", "valor": "3.000,00"},
+    )
+    assert gravada.status_code == 200, gravada.text
+    proxima = gravada.json()["proxima"]["pergunta"]
+
+    assert proxima["ID"] == "B3.C00"
+    assert "painel" in proxima
+    assert proxima == cliente.get(f"/caso/{_CASO}/pergunta").json()["pergunta"]

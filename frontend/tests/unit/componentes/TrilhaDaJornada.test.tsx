@@ -87,4 +87,13 @@ describe('TrilhaDaJornada', () => {
     // `RF-57`/`AC-83` mataram.
     expect(container.querySelector('button, a, [role="button"], [tabindex]')).toBeNull()
   })
+
+  it('T-293: com fichas abertas mostra só as respondidas, nunca "faltam"', () => {
+    const inicio = fabricarInicio('coleta', 59, 152)
+    inicio.progresso.fichas_abertas = true
+    render(<TrilhaDaJornada inicio={inicio} />)
+
+    expect(screen.getByText('Você já respondeu 59 perguntas.')).toBeInTheDocument()
+    expect(screen.queryByText(/Faltam/)).not.toBeInTheDocument()
+  })
 })

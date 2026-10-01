@@ -60,7 +60,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: VALOR_NOVA_OPERACAO
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []
@@ -78,7 +78,7 @@ perguntas:
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
       - { rotulo: "Todo o valor da nova operação.", valor_interno: "VALOR_NOVA_OPERACAO" }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: VALOR_SUBSTITUICAO
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []
@@ -137,7 +137,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "____ % + periodicidade (ao mês / ao ano)", valor_interno: null }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: "NOVA_TAXA (+ periodicidade)"
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []
@@ -172,7 +172,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: NOVA_PARCELA
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []
@@ -189,7 +189,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "___ parcelas", valor_interno: null }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: NOVO_PRAZO
     condicao_exibicao: *condicao_status_troca_proposta_recebida
     interpolacoes: []

@@ -838,3 +838,56 @@ def test_mensagem_do_payload_e_sempre_a_de_mensagens_de_estado(
         payload = _payload_da_fase(monkeypatch, estado)
 
         assert payload["mensagem"] == mensagem_do_estado_do_caso(estado), estado.name
+
+
+# ---------------------------------------------------------------------------
+# `T-293` — mensagem e progresso refletem o estado real da coleta.
+# ---------------------------------------------------------------------------
+
+
+def test_t293_coleta_completa_nao_diz_em_andamento(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Coleta completa (destino `calculando`) com o caso ainda em
+    `COLETA_INICIAL`: a mensagem é a de coleta completa."""
+    reais = {r.ID: r for r in _colecao_real().registros}
+    trecho = ColecaoDeRegistros(QUESTIONARIO_VERSION="1.0.0", registros=(reais["B1.01"],))
+    resposta = Resposta(
+        CASO_ID=_CASO_ID,
+        ID_PERGUNTA="PACTO",
+        item_id=None,
+        valor="ESTABELECIDO",
+        QUESTIONARIO_VERSION="1.0.0",
+        respondida_em=datetime(2026, 1, 1, tzinfo=UTC),
+    )
+    cliente = _montar_cliente(
+        monkeypatch, casos=(_caso(ESTADO_CASO.COLETA_INICIAL),), respostas=(resposta,)
+    )
+    cliente.app.dependency_overrides[obter_colecao_de_registros_do_inicio] = (  # type: ignore[attr-defined]
+        lambda: trecho
+    )
+
+    payload = cliente.get(f"/caso/{_CASO_ID}/inicio").json()
+
+    assert payload["proxima_etapa"]["destino"] == "calculando"
+    assert payload["mensagem"] == "Sua coleta está completa."
+    assert payload["progresso"]["fichas_abertas"] is False
+
+
+def test_t293_ficha_em_branco_marca_fichas_abertas(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Com fichas em branco o total vai crescer: o payload avisa, e o cliente
+    mostra só as respondidas. Sem ficha nem inventário pendente, não."""
+    caso = _caso(ESTADO_CASO.COLETA_INICIAL)
+    itens = (
+        ItemRepetido(
+            item_id="D001",
+            CASO_ID=_CASO_ID,
+            escopo=EscopoRepeticao.DIVIDA_ID,
+            removido_em=None,
+            criado_em=datetime(2026, 1, 1, tzinfo=UTC),
+        ),
+    )
+
+    sem = _montar_cliente(monkeypatch, casos=(caso,)).get(f"/caso/{_CASO_ID}/inicio")
+    com = _montar_cliente(monkeypatch, casos=(caso,), itens=itens).get(f"/caso/{_CASO_ID}/inicio")
+
+    assert sem.json()["progresso"]["fichas_abertas"] is False
+    assert com.json()["progresso"]["fichas_abertas"] is True

@@ -153,7 +153,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "Não sei.", valor_interno: "DESCONHECIDA" }
+      - { rotulo: "Não sei.", valor_interno: "DESCONHECIDA", admite_nao_sei: true }
     VARIAVEL_GRAVADA: PROPOSTA_PARCELA
     condicao_exibicao: *condicao_parcelada
     interpolacoes: []
@@ -170,7 +170,7 @@ perguntas:
     escopo_repeticao: DIVIDA_ID
     opcoes:
       - { rotulo: "___ parcelas", valor_interno: null }
-      - { rotulo: "Não sei", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: PROPOSTA_QTD_PARCELAS
     condicao_exibicao: *condicao_parcelada
     interpolacoes: []

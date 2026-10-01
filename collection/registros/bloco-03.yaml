@@ -17,7 +17,7 @@ perguntas:
       - rotulo: >-
           Minha renda é variável e não consigo representá-la por um único
           valor.
-        valor_interno: null
+        valor_interno: RENDA_VARIAVEL  # T-296
     VARIAVEL_GRAVADA: RENDA_PRINCIPAL
     indispensavel: true  # RF-93 (`T-261`, `R9-8`)
     condicao_exibicao: null

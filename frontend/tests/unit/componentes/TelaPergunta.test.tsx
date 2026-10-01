@@ -64,6 +64,23 @@ describe('T-204: valor numérico salvo reabre preenchido', () => {
   })
 })
 
+describe('T-294: opção com campo R$ reabre com o valor', () => {
+  it('`valor_do_campo` do servidor volta ao campo, com a opção marcada', async () => {
+    abrir(
+      fabricar('SELECAO_UNICA', {
+        opcoes: [
+          { rotulo: 'Sim.', valor_interno: 'CONFIRMADA', admite_nao_sei: false, abre_campo: 'MOEDA' },
+        ],
+        valor_atual: 'CONFIRMADA',
+        valor_do_campo: '1500.00',
+      }),
+    )
+
+    expect(await screen.findByLabelText('Valor em R$')).toHaveValue('1500.00')
+    expect(screen.getByRole('radio', { name: 'Sim.' })).toHaveAttribute('aria-checked', 'true')
+  })
+})
+
 describe('T-206: rótulo das pendências', () => {
   it('fora de ficha, o total não é atribuído ao bloco', async () => {
     abrir(fabricar('TEXTO_CURTO'), 28)

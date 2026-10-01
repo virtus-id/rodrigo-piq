@@ -182,7 +182,7 @@ perguntas:
     escopo_repeticao: ACAO_ID
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "Não sei com segurança.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei com segurança.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: VALOR_PAGO_QUITACAO
     condicao_exibicao: *condicao_status_quitacao_real_quitada
     interpolacoes: []
@@ -217,7 +217,7 @@ perguntas:
     escopo_repeticao: ACAO_ID
     opcoes:
       - { rotulo: "R$ ______", valor_interno: null }
-      - { rotulo: "Não sei.", valor_interno: "NAO_SEI" }
+      - { rotulo: "Não sei.", valor_interno: "NAO_SEI", admite_nao_sei: true }
     VARIAVEL_GRAVADA: "SALDO_DEVEDOR_ATUAL (resíduo)"
     condicao_exibicao:
       tipo: IGUAL

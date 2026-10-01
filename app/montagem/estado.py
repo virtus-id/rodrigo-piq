@@ -1511,15 +1511,16 @@ def _valor_maximo_reserva_informado_usuario(respostas: RespostasCaso) -> Dinheir
     (`RF-13`), sem `float` em nenhum ponto do caminho.
 
     Os quatro caminhos que colapsam em `DESCONHECIDO` (plano R2.4.3):
-    `NAO_SEI` ("Não sei.", `:155`); a opção SEM `valor_interno`
+    `NAO_SEI` ("Não sei.", `:155`); a opção `DECIDIR_DEPOIS`
     ("Prefiro decidir somente depois...", `:154`); e as duas ausências
     estruturais — `B4.03 = NAO` suprime `B4.03A` (`condicao_exibicao`,
     `:157-159`, `EC-17`) e, por cadeia, `B4.02 = NAO` suprime `B4.03` e com
     ela `B4.03A` (`EC-16`).
 
     **`OQ-22`(a) está ABERTA, e enquanto estiver esta leitura NÃO PODE
-    distinguir "decidir depois" de "não sei" pelo `valor_interno`** — as duas
-    opções gravam `valor_interno: null` no registro. Aritmeticamente a Regra
+    distinguir "decidir depois" de "não sei" pelo `valor_interno`** — desde
+    `T-296` as opções têm código (`DECIDIR_DEPOIS`, `NAO_SEI`), mas os dois
+    seguem lidos como desconhecido. Aritmeticamente a Regra
     3 da §13.1 já colapsa as duas em `RESERVA_MOBILIZAVEL = DESCONHECIDA`,
     então a leitura correta hoje é idêntica nos dois casos. Tratar a opção
     sem `valor_interno` como qualquer coisa diferente de desconhecido seria

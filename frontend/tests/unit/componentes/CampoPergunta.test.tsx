@@ -403,3 +403,176 @@ describe('T-213: opção que abre campo de data', () => {
     expect(screen.getByRole('radio', { name: 'Data' })).toHaveAttribute('aria-checked', 'false')
   })
 })
+
+describe('T-299: opções e "Não sei" nos tipos de valor', () => {
+  // Como `B5.B03` (indispensável): o "Não sei." é opção do registro.
+  const saldo = fabricar('MOEDA', {
+    admite_nao_sei: true,
+    opcoes: [
+      { rotulo: 'R$ ______', valor_interno: null, admite_nao_sei: false },
+      { rotulo: 'Não sei.', valor_interno: null, admite_nao_sei: true },
+    ],
+  })
+  // Como `B3.01`: a renda variável é alternativa ao campo.
+  const renda = fabricar('MOEDA', {
+    opcoes: [
+      { rotulo: 'R$ ______', valor_interno: null, admite_nao_sei: false },
+      {
+        rotulo: 'Minha renda é variável.',
+        valor_interno: 'RENDA_VARIAVEL',
+        admite_nao_sei: false,
+      },
+    ],
+  })
+
+  function ComEstado({ pergunta, inicial = '' }: { pergunta: Pergunta; inicial?: string }) {
+    const [valor, setValor] = useState<string | string[]>(inicial)
+    const [naoSei, setNaoSei] = useState(false)
+    return (
+      <>
+        <CampoPergunta
+          pergunta={pergunta}
+          valor={valor}
+          naoSei={naoSei}
+          onValor={setValor}
+          onNaoSei={setNaoSei}
+        />
+        <output data-testid="valor">{`${String(valor)}|${String(naoSei)}`}</output>
+      </>
+    )
+  }
+
+  it('MOEDA com opção "Não sei." mostra um "Não sei", e marcá-lo grava NAO_SEI', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado pergunta={saldo} />)
+
+    // Um só, com o rótulo do registro; o "R$ ______" não vira opção.
+    expect(screen.getAllByText('Não sei.')).toHaveLength(1)
+    expect(screen.queryByText('R$ ______')).not.toBeInTheDocument()
+    await usuario.click(screen.getByRole('checkbox', { name: 'Não sei.' }))
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('|true')
+    expect(screen.getByLabelText(/Campo de teste MOEDA/)).toBeDisabled()
+  })
+
+  it.each(['TAXA', 'NUMERO', 'DATA'] as const)(
+    '%s com opção "não sei" também mostra o "Não sei"',
+    (tipo) => {
+      render(
+        <CampoPergunta
+          pergunta={fabricar(tipo, {
+            admite_nao_sei: false,
+            opcoes: [{ rotulo: 'Não sei.', valor_interno: null, admite_nao_sei: true }],
+          })}
+          valor=""
+          naoSei={false}
+          onValor={vi.fn()}
+          onNaoSei={vi.fn()}
+        />,
+      )
+
+      expect(screen.getByRole('checkbox', { name: 'Não sei.' })).toBeInTheDocument()
+    },
+  )
+
+  it('a opção alternativa aparece ao lado do campo e grava o código', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado pergunta={renda} />)
+
+    await usuario.click(screen.getByRole('radio', { name: 'Minha renda é variável.' }))
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('RENDA_VARIAVEL|false')
+    expect(screen.getByRole('radio', { name: 'Minha renda é variável.' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    // O código nunca aparece no campo de R$.
+    expect(screen.getByLabelText(/Campo de teste MOEDA/)).toHaveValue('')
+  })
+
+  it('digitar um valor desfaz a alternativa', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado pergunta={renda} inicial="RENDA_VARIAVEL" />)
+
+    await usuario.type(screen.getByLabelText(/Campo de teste MOEDA/), '1')
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('0,01|false')
+    expect(screen.getByRole('radio', { name: 'Minha renda é variável.' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    )
+  })
+})
+
+describe('T-294: opção que abre campo R$ em outra variável', () => {
+  // Como `B5.B01`: "Sim."/"Aproximadamente." pedem o valor original.
+  const valorOriginal = fabricar('SELECAO_UNICA', {
+    admite_nao_sei: true,
+    opcoes: [
+      { rotulo: 'Sim.', valor_interno: 'CONFIRMADA', admite_nao_sei: false, abre_campo: 'MOEDA' },
+      {
+        rotulo: 'Aproximadamente.',
+        valor_interno: 'ESTIMADA',
+        admite_nao_sei: false,
+        abre_campo: 'MOEDA',
+      },
+      { rotulo: 'Não.', valor_interno: 'DESCONHECIDA', admite_nao_sei: true },
+    ],
+  })
+
+  function ComEstado({ inicial = '' }: { inicial?: string | string[] }) {
+    const [valor, setValor] = useState<string | string[]>(inicial)
+    return (
+      <>
+        <CampoPergunta
+          pergunta={valorOriginal}
+          valor={valor}
+          naoSei={false}
+          onValor={setValor}
+          onNaoSei={vi.fn()}
+        />
+        <output data-testid="valor">{JSON.stringify(valor)}</output>
+      </>
+    )
+  }
+
+  it('"Sim." abre o campo R$ e envia o código e o valor', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado />)
+
+    await usuario.click(screen.getByRole('radio', { name: 'Sim.' }))
+    await usuario.type(screen.getByLabelText('Valor em R$'), '1')
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('["CONFIRMADA","0,01"]')
+    expect(screen.getByRole('radio', { name: 'Sim.' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('trocar para "Aproximadamente." mantém o valor digitado', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado inicial={['CONFIRMADA', '1.500,00']} />)
+
+    await usuario.click(screen.getByRole('radio', { name: 'Aproximadamente.' }))
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('["ESTIMADA","1.500,00"]')
+  })
+
+  it('"Não." não abre campo e grava só o código', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado inicial={['CONFIRMADA', '1.500,00']} />)
+
+    await usuario.click(screen.getByRole('radio', { name: 'Não.' }))
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('"DESCONHECIDA"')
+    expect(screen.queryByLabelText('Valor em R$')).not.toBeInTheDocument()
+  })
+
+  it('AC-102: reabre com a opção e o valor', () => {
+    render(<ComEstado inicial={['ESTIMADA', '1.500,00']} />)
+
+    expect(screen.getByRole('radio', { name: 'Aproximadamente.' })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    )
+    expect(screen.getByLabelText('Valor em R$')).toHaveValue('1.500,00')
+  })
+})

@@ -124,6 +124,12 @@ function oQueFalta(inicio: Inicio): string | null {
   const { fase, progresso } = inicio
 
   if (fase === 'coleta') {
+    // `T-293`: com fichas abertas o total cresce a cada ficha — "faltam"
+    // pareceria regredir. As respondidas só sobem.
+    if (progresso.fichas_abertas) {
+      const n = progresso.respondidas
+      return n === 1 ? 'Você já respondeu 1 pergunta.' : `Você já respondeu ${n} perguntas.`
+    }
     const faltam = progresso.total - progresso.respondidas
     if (faltam <= 0) return 'Você respondeu tudo o que precisávamos.'
     return faltam === 1 ? 'Falta 1 pergunta.' : `Faltam ${faltam} perguntas.`

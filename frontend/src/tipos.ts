@@ -33,7 +33,10 @@ export interface Opcao {
   rotulo: string
   valor_interno: string | null
   admite_nao_sei: boolean
-  /** `T-213`: a opção pede um valor digitado (hoje só `DATA`). */
+  /**
+   * `T-213`: a opção pede um valor digitado. `DATA` grava no lugar do
+   * código; `MOEDA` (`T-294`) grava o código e o R$ vai a outra variável.
+   */
   abre_campo?: TipoResposta | null
 }
 
@@ -59,6 +62,11 @@ export interface Pergunta {
   respondida_como_nao_sei: boolean
   valores_marcados: string[]
   aviso: string | null
+  /**
+   * `T-294`: o R$ gravado pela opção com `abre_campo: MOEDA` escolhida
+   * (`null` sem valor). Ausente quando nenhuma opção do registro o pede.
+   */
+  valor_do_campo?: string | null
   /**
    * O painel da fotografia do mês (`RF-79`, `RF-80`, T-227) — só na pergunta
    * cujo registro o declara. Ausente em todas as outras.
@@ -344,6 +352,11 @@ export interface ProximaEtapa {
 export interface ProgressoDaColeta {
   respondidas: number
   total: number
+  /**
+   * `T-293`: há ficha com pergunta em branco ou ainda por cadastrar — o
+   * `total` vai crescer. A tela mostra só as respondidas, que nunca regridem.
+   */
+  fichas_abertas?: boolean
 }
 
 // ---------------------------------------------------------------------------

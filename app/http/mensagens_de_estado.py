@@ -30,6 +30,9 @@ REGRAS: Final[tuple[str, ...]] = ("AC-25", "RF-20")
 
 _MENSAGEM_ESTADO_CADASTRADO: Final[str] = "Falta registrar seu consentimento."
 _MENSAGEM_ESTADO_COLETA: Final[str] = "Sua coleta está em andamento."
+# `T-293`: coleta completa, caso ainda em `COLETA_INICIAL` (o cálculo é a
+# próxima etapa) — lida por `rotas_inicio.py`, que conhece a próxima etapa.
+MENSAGEM_COLETA_COMPLETA: Final[str] = "Sua coleta está completa."
 _MENSAGEM_ESTADO_CALCULANDO: Final[str] = "Seu plano está sendo calculado."
 _MENSAGEM_ESTADO_ERRO_DE_CALCULO: Final[str] = "Seu plano está em nova análise."
 _MENSAGEM_ESTADO_AGUARDANDO_REVISAO: Final[str] = "Seu plano está em revisão."

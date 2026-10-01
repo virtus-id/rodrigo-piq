@@ -58,10 +58,15 @@ from app.casos.confirmacao_ataque import (
 from app.casos.fases import FASE_INICIO, fase_do_estado, fase_do_plano_liberado
 from app.casos.inventario import pendencias_de_inventario
 from app.casos.maquina import ESTADO_CASO
-from app.casos.progresso import contar_coleta, proxima_pergunta_nao_respondida
+from app.casos.progresso import (
+    contar_coleta,
+    da_coleta_inicial,
+    itens_em_aberto,
+    proxima_pergunta_nao_respondida,
+)
 from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
-from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
+from app.http.mensagens_de_estado import MENSAGEM_COLETA_COMPLETA, mensagem_do_estado_do_caso
 from app.http.rotas_coleta import _itens_por_escopo
 from app.http.rotas_plano import obter_repositorio_snapshots
 from collection.carga import ColecaoDeRegistros, carregar_registros
@@ -358,12 +363,28 @@ def inicio_do_caso(
         else None
     )
 
+    # `T-293` (a): com a coleta completa o caso ainda está em
+    # `COLETA_INICIAL` — a mensagem do estado diria "em andamento".
+    mensagem = (
+        MENSAGEM_COLETA_COMPLETA
+        if fase is FASE_INICIO.COLETA and etapa.destino is DESTINO_DA_ETAPA.CALCULANDO
+        else mensagem_do_estado_do_caso(caso.estado)
+    )
+
+    # `T-293` (b): ficha com pergunta em branco, ou ficha ainda por cadastrar
+    # (`RF-87`/`RF-88`), faz o total crescer — o cliente mostra só as
+    # respondidas, que nunca regridem.
+    fichas_abertas = bool(
+        itens_em_aberto(da_coleta_inicial(colecao.registros), respostas, itens_por_escopo)
+        or pendencias_de_inventario(colecao.registros, respostas, itens_por_escopo)
+    )
+
     return JSONResponse(
         {
             "CASO_ID": CASO_ID,
             "estado": caso.estado.value,
             "fase": fase.value,
-            "mensagem": mensagem_do_estado_do_caso(caso.estado),
+            "mensagem": mensagem,
             "proxima_etapa": {
                 "destino": etapa.destino.value,
                 "ID_PERGUNTA": etapa.ID_PERGUNTA,
@@ -372,6 +393,7 @@ def inicio_do_caso(
             "progresso": {
                 "respondidas": contagem.respondidas,
                 "total": contagem.total,
+                "fichas_abertas": fichas_abertas,
             },
             "valor_em_destaque": valor_em_destaque,
             "plano_liberado": caso.snapshot_liberado_id is not None,
