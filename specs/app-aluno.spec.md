@@ -416,6 +416,17 @@ com a redação canônica obrigatória.
 | `RF-107` | No formulário da ficha curta (e na ficha nova de `RF-106`), **todo campo exibível do item precisa de resposta ou "Não sei"** — os mesmos predicados da retomada (`itens_em_aberto`, `T-201`); a despesa que pede nome precisa do nome. O cliente destaca o que falta e não grava; o servidor confirma em `POST /caso/{id}/concluir/{escopo}/{item_id}`, recusando com `400`, mensagem legível e `pendencias`. Resposta gravada em branco (`""`) não conta como respondida. Vale para criar e para revisar | Decisão do produto (2026-10-01) · `RF-11`, `RF-45`, `RF-102` · `T-320` | importante |
 | `RF-108` | Concluído um item de ficha curta, o servidor nomeia o **próximo item pendente do mesmo escopo** (mesmo pai; depois do atual, senão o primeiro antes) e o formulário dele abre em seguida ("Despesa 4 de 20"); sem nenhum pendente, a lista do escopo reabre com "+ Adicionar outro(a)" e "Continuar" | Decisão do produto (2026-10-01) · `RF-101`, `RF-105` · `T-321` | importante |
 
+### Rodada 10 (2026-10-01) — "Não sei" no formato das opções e o inventário que diz quais
+
+> **Decisões do responsável do produto, 2026-10-01**, após teste no sistema
+> (`T-323`, `T-324`). Textos novos ao aluno: redação da equipe técnica,
+> aprovada pelo produto na mesma data (lista em `T-323`/`T-324`).
+
+| ID | Requisito | Regras / seções / IDs de origem | Prioridade |
+| --- | --- | --- | --- |
+| `RF-109` | Nas perguntas de valor (`MOEDA`, `TAXA`, `NUMERO`, `DATA`), **todas as alternativas não numéricas do registro, inclusive "Não sei", aparecem no mesmo formato**: um grupo de opções exclusivas (estilo `.opt`) junto ao campo de valor — nada de checkbox à parte. Escolher uma alternativa limpa o campo; digitar um valor desmarca a alternativa. A gravação não muda (`NAO_SEI`, o código da alternativa ou o valor). Vale na tela da pergunta e no formulário de ficha. Nas perguntas de seleção segue `T-207`. Revisa `AC-78` nos tipos de valor: "inerte" passa a ser campo vazio, não travado | Decisão do produto (2026-10-01) · `RF-11`, `RF-48`, `RF-50`, `AC-78` · `T-323` | importante |
+| `RF-110` | O alerta de dívidas faltando (`RF-87`) **diz quais**: abaixo da mensagem de `RF-87` (literal, primeira linha), os **tipos marcados na declaração de tipos (`B5.00A`) que ainda não têm nenhuma ficha** daquele tipo (`TIPO_DIVIDA`, pelo rótulo legível) e as **fichas já cadastradas** (credor e tipo de cada uma), com a ação "Cadastrar a próxima dívida", que reabre a ficha criada e vazia ou cria uma e abre a primeira pergunta (`RF-101`). Como a declaração dá só o total, não há contagem por tipo. Cálculo no servidor (payload de `/inventario`); o cliente só escreve | Decisão do produto (2026-10-01) · `RF-86`, `RF-87`, `RF-101`, `DE-04` · `T-324` | importante |
+
 ## 3. User Stories
 
 ### `US-01` — Responder em várias sessões sem perder nada
@@ -960,6 +971,15 @@ Atende: `RF-98`
 | `AC-169` | `US-05` | Dado um item de despesa com `B3.DF03`/`DF04` em branco, quando concluir, então o servidor responde `400` com "Antes de salvar, responda nesta ficha: …" e `pendencias` daquelas perguntas; `""` gravado não conta como resposta; "Não sei" conta; a despesa sem nome não conclui. No cliente, "Salvar" com campo em branco destaca "Responda esta pergunta." e não grava nada (`T-320`) |
 | `AC-170` | `US-21` | Dadas três despesas do checklist, quando a 2ª for concluída, então `proximo_item` é a 3ª; concluída a 3ª, é a 1ª; concluída a última pendente, é `null`; e a tela abre o formulário do próximo ("Despesa 2 de 3") ou, sem ele, a lista (`T-321`) |
 | `AC-171` | `US-05` | Dado um item de despesa preenchido, quando o formulário do item seguinte ou de um item novo for aberto, então nenhum campo vem com valor de outro item (servidor e tela), e o formulário de cada ficha curta só traz perguntas do próprio escopo — nenhuma de dívida, como `B5.A01` (`T-322`) |
+
+### Rodada 10 (2026-10-01) — "Não sei" no formato das opções e o inventário que diz quais
+
+> **Rastreabilidade `RF` → `AC`.** `RF-109` → `AC-172` · `RF-110` → `AC-173`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-172` | `US-18` | Dada uma pergunta de valor como `B4.V09` (alternativa "Não há custo relevante…" e "Não sei."), quando renderizada, então as duas são opções `.opt` do mesmo grupo e não há checkbox; marcar "Não sei." grava `NAO_SEI` e esvazia o campo; marcar a alternativa grava o código e desmarca "Não sei."; digitar um valor desmarca ambas. Dada uma pergunta de valor só com "não sei", então ele é opção do grupo, não checkbox (`T-323`) |
+| `AC-173` | `US-28` | Dadas 12 dívidas declaradas, os tipos `CONSIGNADO`, `PESSOAL` e `CARTAO_ROTATIVO` marcados, uma ficha `PESSOAL` com credor, uma sem tipo e uma criada vazia, quando `/inventario` for pedido, então a mensagem é "Você declarou 12 dívidas e cadastrou 2. Faltam 10 fichas." e `dividas` traz `tipos_sem_ficha` = consignado e cartão rotativo (rótulos), as duas fichas com credor/tipo e `ficha_vazia`; e na tela, "Cadastrar a próxima dívida" abre a ficha vazia ou, sem ela, cria uma (`T-324`) |
 
 ## 5. Non-Functional Requirements
 

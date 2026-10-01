@@ -281,7 +281,8 @@ describe('T-320: nada em branco', () => {
     vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: null })
     const onConcluir = abrir('ITEM_DESPESA')
 
-    await userEvent.click(await screen.findByRole('checkbox', { name: 'Não sei' }))
+    // `T-323`: no campo de valor o "Não sei" é rádio, também na ficha.
+    await userEvent.click(await screen.findByRole('radio', { name: 'Não sei' }))
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(await screen.findByText('Informe o nome da despesa.')).toBeVisible()
     expect(gravar).not.toHaveBeenCalled()

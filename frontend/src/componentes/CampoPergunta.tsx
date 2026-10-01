@@ -47,10 +47,11 @@ export default function CampoPergunta({
   const marcados = Array.isArray(valor) ? valor : []
 
   // `T-299`: nos tipos de valor as opções do registro não são desenhadas
-  // como lista — o campo É a resposta. O "não sei" é o checkbox (com o
-  // rótulo da opção, se houver) e as alternativas ao campo (ex.: renda
+  // como lista — o campo É a resposta. As alternativas ao campo (ex.: renda
   // variável) aparecem ao lado dele. Opção sem `valor_interno` é o próprio
-  // campo ("R$ ______") e não aparece.
+  // campo ("R$ ______") e não aparece. `T-323`: o "não sei" (com o rótulo
+  // da opção, se houver) é mais uma alternativa do mesmo grupo, não um
+  // checkbox à parte.
   const deValor =
     pergunta.tipo === 'MOEDA' ||
     pergunta.tipo === 'TAXA' ||
@@ -61,19 +62,26 @@ export default function CampoPergunta({
     ? pergunta.opcoes.filter((opcao) => opcao.valor_interno !== null && !opcao.admite_nao_sei)
     : []
   const alternativaEscolhida = alternativas.some((opcao) => opcao.valor_interno === texto)
+  const naoSeiDeValor = deValor && (pergunta.admite_nao_sei || opcaoNaoSei !== undefined)
+  const rotuloNaoSei = opcaoNaoSei?.rotulo ?? 'Não sei'
 
   // `T-207`: quando uma opção do registro já é o "não sei", ela é a única
   // forma de dizê-lo — o checkbox genérico não é desenhado. Só nos grupos:
-  // nos tipos de valor a opção não é desenhada, e o checkbox é o "não sei".
+  // nos tipos de valor o "não sei" é opção do grupo ao lado do campo (`T-323`).
   const naoSeiNaOpcao = !deValor && opcaoNaoSei !== undefined
-  const mostraCheckbox = (pergunta.admite_nao_sei || opcaoNaoSei !== undefined) && !naoSeiNaOpcao
+  const mostraCheckbox =
+    (pergunta.admite_nao_sei || opcaoNaoSei !== undefined) && !naoSeiNaOpcao && !deValor
 
   // `RF-48`/`AC-78`: com "não sei" marcado, o campo fica inerte. A máscara
   // não roda e nada digitado antes é submetido como se fosse valor. Sem o
   // checkbox não haveria como destravar, então aí as opções seguem ativas.
-  const inerte = naoSei && !naoSeiNaOpcao
+  // `T-323`: nos tipos de valor o "não sei" é rádio — o campo fica vazio
+  // em vez de travado, e digitar nele desfaz o "não sei".
+  const inerte = naoSei && !naoSeiNaOpcao && !deValor
+  const campoVazio = alternativaEscolhida || (deValor && naoSei)
 
   function aoDigitar(bruto: string) {
+    if (naoSei) onNaoSei(false)
     onValor(temMascara(pergunta.tipo) ? aplicarMascara(pergunta.tipo, bruto) : bruto)
   }
 
@@ -254,7 +262,7 @@ export default function CampoPergunta({
               <input
                 id={id}
                 inputMode="decimal"
-                value={alternativaEscolhida ? '' : texto}
+                value={campoVazio ? '' : texto}
                 disabled={inerte}
                 aria-describedby={idAviso}
                 onChange={(e) => aoDigitar(e.target.value)}
@@ -268,7 +276,7 @@ export default function CampoPergunta({
                 <input
                   id={id}
                   inputMode="decimal"
-                  value={alternativaEscolhida ? '' : texto}
+                  value={campoVazio ? '' : texto}
                   disabled={inerte}
                   aria-describedby={idAviso}
                   onChange={(e) => aoDigitar(e.target.value)}
@@ -284,16 +292,24 @@ export default function CampoPergunta({
               type={pergunta.tipo === 'DATA' ? 'date' : 'text'}
               inputMode={pergunta.tipo === 'NUMERO' ? 'numeric' : undefined}
               className="campo-texto"
-              value={alternativaEscolhida ? '' : texto}
+              value={campoVazio ? '' : texto}
               disabled={inerte}
               aria-describedby={idAviso}
               onChange={(e) => aoDigitar(e.target.value)}
             />
           )}
-          {alternativas.length > 0 && (
+          {(alternativas.length > 0 || naoSeiDeValor) && (
             <div role="radiogroup" aria-label="Outras respostas" className="flex flex-col gap-2">
-              {alternativas.map((opcao, indice) => {
-                const marcado = opcao.valor_interno === texto
+              {[
+                ...alternativas.map((opcao) => ({
+                  rotulo: opcao.rotulo,
+                  marcado: !naoSei && opcao.valor_interno === texto,
+                  aoEscolher: () => opcao.valor_interno !== null && escolher(opcao.valor_interno),
+                })),
+                ...(naoSeiDeValor
+                  ? [{ rotulo: rotuloNaoSei, marcado: naoSei, aoEscolher: () => onNaoSei(true) }]
+                  : []),
+              ].map(({ rotulo, marcado, aoEscolher }, indice) => {
                 return (
                   <button
                     key={indice}
@@ -302,8 +318,7 @@ export default function CampoPergunta({
                     aria-checked={marcado}
                     aria-describedby={idAviso}
                     className="opt"
-                    disabled={inerte}
-                    onClick={() => opcao.valor_interno !== null && escolher(opcao.valor_interno)}
+                    onClick={aoEscolher}
                   >
                     <span
                       aria-hidden="true"
@@ -313,7 +328,7 @@ export default function CampoPergunta({
                     >
                       {marcado && <span className="h-[14px] w-[14px] rounded-full bg-accent" />}
                     </span>
-                    <span>{opcao.rotulo}</span>
+                    <span>{rotulo}</span>
                   </button>
                 )
               })}
@@ -330,7 +345,7 @@ export default function CampoPergunta({
             checked={naoSei}
             onChange={(e) => onNaoSei(e.target.checked)}
           />
-          <span>{opcaoNaoSei?.rotulo ?? 'Não sei'}</span>
+          <span>{rotuloNaoSei}</span>
         </label>
       )}
 

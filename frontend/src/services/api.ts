@@ -245,6 +245,15 @@ export interface PendenciaDeInventario extends PendenciaDoCalculo {
   ID_PARA_CORRIGIR: string
   escopo: string | null
   mensagem: string
+  /**
+   * `T-324`: só em dívidas faltando — rótulos dos tipos declarados sem
+   * ficha, as fichas já cadastradas e a ficha criada e ainda vazia.
+   */
+  dividas?: {
+    tipos_sem_ficha: string[]
+    fichas: { item_id: string; credor: string | null; tipo: string | null }[]
+    ficha_vazia: string | null
+  } | null
 }
 
 export function obterInventario(

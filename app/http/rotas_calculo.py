@@ -419,11 +419,13 @@ def _formatar_pendencia(
     return {"ID": ID, "item_id": item_id, "enunciado": enunciado}
 
 
-def formatar_pendencia_inventario(pendencia: PendenciaInventario) -> dict[str, str | None]:
+def formatar_pendencia_inventario(pendencia: PendenciaInventario) -> dict[str, object]:
     """`T-248`/`T-250` — pendência de inventário na MESMA forma das
     pendências do `400` (`{ID, item_id, enunciado}`, `T-210`), mais `tipo`
     `INVENTARIO`, o código da pendência e o escopo das fichas a abrir. O
-    `enunciado` é a mensagem de `RF-87`/`RF-88`."""
+    `enunciado` é a mensagem de `RF-87`/`RF-88`. Dívidas faltando levam
+    `dividas` (`T-324`): tipos sem ficha, fichas cadastradas e a ficha vazia."""
+    detalhe = pendencia.dividas
     return {
         "tipo": "INVENTARIO",
         "codigo": pendencia.tipo.value,
@@ -433,6 +435,16 @@ def formatar_pendencia_inventario(pendencia: PendenciaInventario) -> dict[str, s
         "escopo": pendencia.escopo.value if pendencia.escopo is not None else None,
         "enunciado": mensagem_da_pendencia(pendencia),
         "mensagem": mensagem_da_pendencia(pendencia),
+        "dividas": None
+        if detalhe is None
+        else {
+            "tipos_sem_ficha": list(detalhe.tipos_sem_ficha),
+            "fichas": [
+                {"item_id": f.item_id, "credor": f.credor, "tipo": f.tipo}
+                for f in detalhe.fichas
+            ],
+            "ficha_vazia": detalhe.ficha_vazia,
+        },
     }
 
 

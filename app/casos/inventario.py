@@ -11,6 +11,10 @@ final. Nunca grava nada — as pendências são derivadas a cada leitura
   "esta foi a última" em alguma ficha de dívida (`AC-153`, `EC-32`).
 - **Itens declarados** (`RF-88`): só a resposta `SIM` exige ao menos um item
   (`EC-34` — "não sei" não exige).
+- **Quais dívidas faltam** (`T-324`): a pendência de dívidas faltando leva
+  os tipos marcados na declaração de tipos sem nenhuma ficha daquele tipo
+  e as fichas já cadastradas. A declaração dá só o total, nunca quantas
+  por tipo — então não há contagem por tipo, só "tipos sem ficha".
 - **Consignado sem vínculo** (`T-282`, `DE-04`, `AC-139`): dívida em que
   `B5.A02V` se aplica, sem nenhum vínculo cadastrado para apontar.
 
@@ -49,6 +53,11 @@ _QUANTIDADE_DECLARADA: Final[str] = "QUANTIDADE_DIVIDAS_DECLARADA_INICIAL"
 _FIM_DO_CADASTRO: Final[str] = "SYS (loop)"
 _ESTA_FOI_A_ULTIMA: Final[str] = "NAO_ESTA_FOI_A_ULTIMA"
 _SIM: Final[str] = "SIM"
+# T-324: os tipos declarados e o tipo/credor de cada ficha. Os `valor_interno`
+# da declaração e da ficha são os mesmos códigos (`T-208`).
+_TIPOS_DECLARADOS: Final[str] = "TIPOS_DIVIDA_DECLARADOS"
+_TIPO_DA_FICHA: Final[str] = "TIPO_DIVIDA"
+_CREDOR: Final[str] = "CREDOR"
 
 # Trilha (`RF-31`) e painel (`RF-35`): o bloqueio é um motivo NOMEADO — o
 # `detalhe` leva só os tipos de pendência, nunca valor (NFR da Rodada 9).
@@ -101,6 +110,27 @@ _REFERENCIAS_SEM_ITEM: Final[
 
 
 @dataclass(frozen=True, slots=True)
+class FichaDeDivida:
+    """T-324 — uma ficha de dívida cadastrada, como o aluno a reconhece:
+    credor e rótulo do tipo, `None` enquanto não respondidos."""
+
+    item_id: str
+    credor: str | None
+    tipo: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class DetalheDasDividas:
+    """T-324 — o que acompanha `DIVIDAS_FALTANDO`: rótulos dos tipos
+    declarados ainda sem ficha, as fichas cadastradas e a ficha criada e
+    ainda vazia (a reabrir antes de criar outra), se houver."""
+
+    tipos_sem_ficha: tuple[str, ...]
+    fichas: tuple[FichaDeDivida, ...]
+    ficha_vazia: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class PendenciaInventario:
     """Uma pendência que bloqueia o cálculo. `ID_PARA_CORRIGIR` é a pergunta
     da declaração (a ação direta de `AC-154`); `escopo`, quando a correção
@@ -111,6 +141,7 @@ class PendenciaInventario:
     cadastradas: int | None
     ID_PARA_CORRIGIR: str
     escopo: EscopoRepeticao | None
+    dividas: DetalheDasDividas | None = None
 
 
 def pendencias_de_inventario(
@@ -140,6 +171,14 @@ def pendencias_de_inventario(
                 cadastradas=len(dividas),
                 ID_PARA_CORRIGIR=id_declaradas,
                 escopo=EscopoRepeticao.DIVIDA_ID if faltando else None,
+                dividas=_detalhe_das_dividas(
+                    registros,
+                    respostas,
+                    dividas,
+                    itens_por_escopo.get(EscopoRepeticao.DIVIDA_ID, ()),
+                )
+                if faltando
+                else None,
             )
         )
     if id_declaradas is not None and declaradas is not None and not isinstance(declaradas, int):
@@ -178,6 +217,55 @@ def pendencias_de_inventario(
             )
     pendencias.extend(_referencias_sem_item(registros, respostas, itens_por_escopo))
     return tuple(pendencias)
+
+
+def _detalhe_das_dividas(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    cadastradas: tuple[str, ...],
+    todas: tuple[str, ...],
+) -> DetalheDasDividas:
+    """T-324 — relaciona os tipos declarados com os tipos das fichas. Rótulos
+    vêm das opções do registro de cada variável; código sem opção (ou o
+    "não tenho certeza", que não é tipo) não aparece."""
+    rotulos_declarados = _rotulos(registros, _TIPOS_DECLARADOS)
+    rotulos_da_ficha = _rotulos(registros, _TIPO_DA_FICHA)
+    declarados = respostas.valor(_TIPOS_DECLARADOS)
+    marcados = declarados if isinstance(declarados, frozenset) else frozenset()
+    tipos_com_ficha = {respostas.valor_no_item(i, _TIPO_DA_FICHA) for i in cadastradas}
+    fichas = []
+    for item_id in cadastradas:
+        tipo = respostas.valor_no_item(item_id, _TIPO_DA_FICHA)
+        credor = respostas.valor_no_item(item_id, _CREDOR)
+        fichas.append(
+            FichaDeDivida(
+                item_id=item_id,
+                credor=credor if isinstance(credor, str) and credor.strip() else None,
+                tipo=rotulos_da_ficha.get(tipo) if isinstance(tipo, str) else None,
+            )
+        )
+    return DetalheDasDividas(
+        tipos_sem_ficha=tuple(
+            rotulo
+            for codigo, rotulo in rotulos_declarados.items()
+            if codigo in marcados and codigo not in tipos_com_ficha
+        ),
+        fichas=tuple(fichas),
+        ficha_vazia=next((i for i in todas if i not in cadastradas), None),
+    )
+
+
+def _rotulos(registros: tuple[RegistroPergunta, ...], variavel: str) -> dict[str, str]:
+    """`valor_interno → rótulo` das opções da pergunta que grava `variavel`,
+    na ordem do registro. A opção "não sei" não é tipo e fica de fora."""
+    registro = next((r for r in registros if r.VARIAVEL_GRAVADA == variavel), None)
+    if registro is None:
+        return {}
+    return {
+        o.valor_interno: o.rotulo
+        for o in registro.opcoes
+        if o.valor_interno is not None and not o.admite_nao_sei
+    }
 
 
 def _referencias_sem_item(

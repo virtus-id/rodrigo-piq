@@ -13166,3 +13166,92 @@ antes de mexer nos atributos.
       `T-320`)
 
 **Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-323` — "Não sei" e alternativas no mesmo formato nas perguntas de valor
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-207`, `T-299`
+- **Rastreia:** `RF-109`, `AC-172` (e `RF-11`, `RF-48`, `RF-50`, `AC-78`)
+- **Arquivos:** `frontend/src/componentes/CampoPergunta.tsx`,
+  `frontend/tests/unit/componentes/CampoPergunta.test.tsx`,
+  `frontend/tests/unit/componentes/TelaFormulario.test.tsx`,
+  `frontend/tests/e2e/coleta.spec.ts`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+Em `B4.V09` ("Você estima algum custo relevante…") a tela mostrava a
+alternativa "Não há custo relevante que eu conheça." como rádio `.opt` e o
+"Não sei." como checkbox à parte (desenho de `T-299`). Agora, nos tipos de
+valor (`MOEDA`/`TAXA`/`NUMERO`/`DATA`), o "Não sei" — com o rótulo da opção
+do registro, ou "Não sei" quando só a pergunta admite — é mais uma opção do
+grupo "Outras respostas", junto ao campo. Escolher uma alternativa ou o
+"Não sei" esvazia o campo; digitar desmarca a alternativa e o "Não sei".
+Gravação igual (`NAO_SEI`, código, valor). Revisão de `AC-78` nos tipos de
+valor: o campo com "Não sei" fica vazio, não travado — travado, não haveria
+como voltar a digitar (rádio não desmarca). O formulário de ficha
+(`CamposDoItem`) reaproveita o componente e muda junto. Seleção, escala,
+múltipla e texto seguem como estavam (`T-207`).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois — `T-323: nos tipos de
+      valor, …` (`CampoPergunta.test.tsx`: `B4.V09`-like, digitar desmarca
+      o "Não sei", e `MOEDA`/`TAXA`/`NUMERO`/`DATA` só com "não sei"; 6
+      falhavam)
+- [x] Testes de `AC-78`, `T-207`, `T-299` e o "Não sei" de `T-320`
+      (`TelaFormulario`) e o Playwright `AC-78` atualizados para o rádio
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos:** nenhum ("Não sei" e o rótulo do grupo já existiam).
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-324` — Alerta de dívidas faltando diz quais
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-246`, `T-250`, `T-251`, `T-208`, `T-311`
+- **Rastreia:** `RF-110`, `AC-173` (e `RF-86`, `RF-87`, `RF-101`, `DE-04`)
+- **Arquivos:** `app/casos/inventario.py`, `app/http/rotas_calculo.py`
+  (`formatar_pendencia_inventario`), `frontend/src/componentes/AlertaInventario.tsx`,
+  `frontend/src/services/api.ts`, `tests/app_aluno/test_rotas_inventario.py`,
+  `frontend/tests/unit/componentes/AlertaInventario.test.tsx`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+"Você declarou 12 dívidas e cadastrou 2. Faltam 10 fichas." não dizia
+quais. `pendencias_de_inventario` passa a anexar a `DIVIDAS_FALTANDO` um
+`DetalheDasDividas`: `tipos_sem_ficha` — rótulos (de `B5.00A`, pela variável
+`TIPOS_DIVIDA_DECLARADOS`) dos tipos marcados sem nenhuma ficha cadastrada
+com aquele `TIPO_DIVIDA`, na ordem do registro, sem o "Não tenho certeza";
+`fichas` — cada ficha cadastrada com `credor` (`CREDOR`) e `tipo` (rótulo de
+`B5.A02`), `null` enquanto não respondidos; e `ficha_vazia` — ficha criada e
+ainda sem resposta, se houver. Sem contagem por tipo (a declaração só dá o
+total). O payload de `/inventario` (e do `400` do cálculo) leva `dividas`;
+as demais pendências levam `dividas: null`. Os `valor_interno` de `B5.00A` e
+`B5.A02` coincidem (conferido em teste). No cliente, `AlertaInventario` (na
+casca: Início, Pergunta e a lista de fichas de dívida) mostra o detalhe
+abaixo da mensagem de `RF-87`, que segue literal na primeira linha, e troca
+"Cadastrar as fichas" por "Cadastrar a próxima dívida": reabre a
+`ficha_vazia` ou cria uma (`criarFicha`) e abre a primeira pergunta dela
+(fluxo de `T-311`).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois —
+      `test_t324_dividas_faltando_diz_quais_tipos_e_quais_fichas`
+      (`KeyError: 'dividas'` antes); `test_t324_tipos_da_declaracao_e_da_ficha_sao_os_mesmos_codigos`
+- [x] vitest: tipos sem ficha, fichas cadastradas, mensagem literal antes;
+      "Cadastrar a próxima dívida" cria e abre; com ficha vazia, reabre sem criar
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — redação da equipe técnica, aprovada pelo produto em
+2026-10-01: "Tipos que você marcou e ainda não têm ficha: {tipos}.",
+"Fichas já cadastradas:", "{credor} — {tipo}", "Ficha sem credor e tipo
+informados", "Cadastrar a próxima dívida". Erro reaproveitado de
+`TelaFichas`: "Não foi possível abrir a ficha.".
+
+**Status:** `[x] concluída (2026-10-01)`

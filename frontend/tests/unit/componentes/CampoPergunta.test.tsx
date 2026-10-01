@@ -10,7 +10,7 @@
  * testa a acessibilidade de graça: se o rótulo não estiver associado ao
  * campo, a query falha.
  */
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -133,17 +133,19 @@ describe('ESCALA_0_10', () => {
 
 describe('não sei', () => {
   it('RF-48/AC-78: marcar "não sei" deixa o campo inerte', () => {
+    // `T-323`: nos tipos de valor, inerte = vazio (o digitado não aparece
+    // nem vai junto); digitar de novo desfaz o "não sei".
     render(
       <CampoPergunta
         pergunta={fabricar('MOEDA', { admite_nao_sei: true })}
-        valor=""
+        valor="50,00"
         naoSei={true}
         onValor={vi.fn()}
         onNaoSei={vi.fn()}
       />,
     )
 
-    expect(screen.getByLabelText(/Campo de teste MOEDA/)).toBeDisabled()
+    expect(screen.getByLabelText(/Campo de teste MOEDA/)).toHaveValue('')
   })
 
   it('só aparece quando o registro admite', () => {
@@ -322,7 +324,7 @@ describe('T-207: um só "Não sei"', () => {
     expect(aoNaoSei).toHaveBeenCalledWith(false)
   })
 
-  it('MOEDA mantém o checkbox, no estilo das opções', () => {
+  it('MOEDA mantém o "Não sei", no estilo das opções (rádio desde T-323)', () => {
     render(
       <CampoPergunta
         pergunta={fabricar('MOEDA', { admite_nao_sei: true })}
@@ -333,10 +335,9 @@ describe('T-207: um só "Não sei"', () => {
       />,
     )
 
-    const caixa = screen.getByRole('checkbox', { name: 'Não sei' })
     // Exceção deliberada à regra de não consultar classe: o critério de aceite
     // É o estilo `.opt`.
-    expect(caixa.closest('label')).toHaveClass('opt')
+    expect(screen.getByRole('radio', { name: 'Não sei' })).toHaveClass('opt')
   })
 })
 
@@ -449,10 +450,10 @@ describe('T-299: opções e "Não sei" nos tipos de valor', () => {
     // Um só, com o rótulo do registro; o "R$ ______" não vira opção.
     expect(screen.getAllByText('Não sei.')).toHaveLength(1)
     expect(screen.queryByText('R$ ______')).not.toBeInTheDocument()
-    await usuario.click(screen.getByRole('checkbox', { name: 'Não sei.' }))
+    await usuario.click(screen.getByRole('radio', { name: 'Não sei.' }))
 
     expect(screen.getByTestId('valor')).toHaveTextContent('|true')
-    expect(screen.getByLabelText(/Campo de teste MOEDA/)).toBeDisabled()
+    expect(screen.getByLabelText(/Campo de teste MOEDA/)).toHaveValue('')
   })
 
   it.each(['TAXA', 'NUMERO', 'DATA'] as const)(
@@ -471,7 +472,7 @@ describe('T-299: opções e "Não sei" nos tipos de valor', () => {
         />,
       )
 
-      expect(screen.getByRole('checkbox', { name: 'Não sei.' })).toBeInTheDocument()
+      expect(screen.getByRole('radio', { name: 'Não sei.' })).toBeInTheDocument()
     },
   )
 
@@ -575,4 +576,95 @@ describe('T-294: opção que abre campo R$ em outra variável', () => {
     )
     expect(screen.getByLabelText('Valor em R$')).toHaveValue('1.500,00')
   })
+})
+
+describe('T-323: nos tipos de valor, "Não sei" e as alternativas no mesmo formato', () => {
+  // Como `B4.V09`: alternativa com código e "Não sei." do registro.
+  const custo = fabricar('MOEDA', {
+    admite_nao_sei: true,
+    opcoes: [
+      { rotulo: 'R$ ______', valor_interno: null, admite_nao_sei: false },
+      {
+        rotulo: 'Não há custo relevante que eu conheça.',
+        valor_interno: 'SEM_CUSTO_RELEVANTE',
+        admite_nao_sei: false,
+      },
+      { rotulo: 'Não sei.', valor_interno: null, admite_nao_sei: true },
+    ],
+  })
+
+  function ComEstado({ pergunta }: { pergunta: Pergunta }) {
+    const [valor, setValor] = useState<string | string[]>('')
+    const [naoSei, setNaoSei] = useState(false)
+    return (
+      <>
+        <CampoPergunta
+          pergunta={pergunta}
+          valor={naoSei ? '' : valor}
+          naoSei={naoSei}
+          onValor={setValor}
+          onNaoSei={setNaoSei}
+        />
+        <output data-testid="valor">{`${String(valor)}|${String(naoSei)}`}</output>
+      </>
+    )
+  }
+
+  it('B4.V09: a alternativa e o "Não sei." são opções do mesmo grupo, sem checkbox', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado pergunta={custo} />)
+
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+    const grupo = screen.getByRole('radiogroup')
+    const opcoes = within(grupo).getAllByRole('radio')
+    expect(opcoes.map((o) => o.textContent)).toEqual([
+      'Não há custo relevante que eu conheça.',
+      'Não sei.',
+    ])
+    // Exceção deliberada à regra de não consultar classe: o critério É o
+    // mesmo estilo `.opt` nas duas.
+    for (const opcao of opcoes) expect(opcao).toHaveClass('opt')
+
+    const campo = screen.getByLabelText(/Campo de teste MOEDA/)
+    await usuario.type(campo, '5000')
+    await usuario.click(screen.getByRole('radio', { name: 'Não sei.' }))
+    // Grava `NAO_SEI` e limpa o campo — nada digitado vai junto (`AC-78`).
+    expect(screen.getByTestId('valor')).toHaveTextContent('|true')
+    expect(campo).toHaveValue('')
+    expect(screen.getByRole('radio', { name: 'Não sei.' })).toHaveAttribute('aria-checked', 'true')
+
+    await usuario.click(screen.getByRole('radio', { name: 'Não há custo relevante que eu conheça.' }))
+    expect(screen.getByTestId('valor')).toHaveTextContent('SEM_CUSTO_RELEVANTE|false')
+    expect(screen.getByRole('radio', { name: 'Não sei.' })).toHaveAttribute('aria-checked', 'false')
+    expect(campo).toHaveValue('')
+
+    // Digitar um valor desmarca a alternativa.
+    await usuario.type(campo, '7')
+    expect(screen.getByTestId('valor')).toHaveTextContent('0,07|false')
+    for (const opcao of screen.getAllByRole('radio'))
+      expect(opcao).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('digitar depois do "Não sei" desmarca o "Não sei"', async () => {
+    const usuario = userEvent.setup()
+    render(<ComEstado pergunta={custo} />)
+
+    await usuario.click(screen.getByRole('radio', { name: 'Não sei.' }))
+    await usuario.type(screen.getByLabelText(/Campo de teste MOEDA/), '1')
+
+    expect(screen.getByTestId('valor')).toHaveTextContent('0,01|false')
+    expect(screen.getByRole('radio', { name: 'Não sei.' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it.each(['MOEDA', 'TAXA', 'NUMERO', 'DATA'] as const)(
+    '%s só com "não sei" mostra o "Não sei" como opção',
+    async (tipo) => {
+      const usuario = userEvent.setup()
+      render(<ComEstado pergunta={fabricar(tipo, { admite_nao_sei: true })} />)
+
+      expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
+      await usuario.click(screen.getByRole('radio', { name: 'Não sei' }))
+      expect(screen.getByTestId('valor')).toHaveTextContent('|true')
+    },
+  )
 })

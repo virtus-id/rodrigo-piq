@@ -106,9 +106,12 @@ test.describe('coleta', () => {
   test('AC-78: marcar "não sei" deixa o campo inerte', async ({ page }) => {
     await abrirTela(page, CASO, 'pergunta')
 
-    await page.getByLabel('Não sei').check()
+    // `T-323`: nos tipos de valor o "Não sei" é rádio; o campo fica vazio
+    // (o digitado não vai junto) em vez de travado.
+    await page.getByLabel(ENUNCIADO).pressSequentially('5000')
+    await page.getByRole('radio', { name: 'Não sei' }).click()
 
-    await expect(page.getByLabel(ENUNCIADO)).toBeDisabled()
+    await expect(page.getByLabel(ENUNCIADO)).toHaveValue('')
   })
 
   test('RF-52: o grafo condicional não chega ao navegador', async ({ page }) => {

@@ -147,3 +147,50 @@ def test_t251_inicio_troca_montar_o_plano_pela_pendencia() -> None:
 
     assert etapa(3) == (DESTINO_DA_ETAPA.INVENTARIO, "B5.00")
     assert etapa(0) == (DESTINO_DA_ETAPA.CALCULANDO, None)
+
+
+def test_t324_dividas_faltando_diz_quais_tipos_e_quais_fichas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`T-324` (`AC-173`): 12 declaradas, 2 cadastradas e uma criada vazia →
+    a mensagem de `RF-87` segue literal e o payload relaciona os tipos
+    marcados com os tipos das fichas — sem contagem por tipo."""
+    fichas = (_ficha("D001"), _ficha("D002"), _ficha("D003"))
+    respostas = (
+        _resposta("QUANTIDADE_DIVIDAS_DECLARADA_INICIAL", 12),
+        _resposta(
+            "TIPOS_DIVIDA_DECLARADOS", frozenset({"CONSIGNADO", "PESSOAL", "CARTAO_ROTATIVO"})
+        ),
+        _resposta("TIPO_DIVIDA", "PESSOAL", item_id="D001"),
+        _resposta("CREDOR", "Banco X", item_id="D001"),
+        _resposta("CREDOR", "Loja Y", item_id="D002"),
+    )
+
+    resposta = _cliente(monkeypatch, respostas, fichas).get(f"/caso/{_CASO_ID}/inventario")
+
+    (pendencia,) = resposta.json()["pendencias"]
+    assert pendencia["mensagem"] == "Você declarou 12 dívidas e cadastrou 2. Faltam 10 fichas."
+    assert pendencia["dividas"] == {
+        "tipos_sem_ficha": ["Empréstimo consignado", "Cartão com saldo rotativo"],
+        "fichas": [
+            {"item_id": "D001", "credor": "Banco X", "tipo": "Empréstimo pessoal"},
+            {"item_id": "D002", "credor": "Loja Y", "tipo": None},
+        ],
+        "ficha_vazia": "D003",
+    }
+
+
+def test_t324_tipos_da_declaracao_e_da_ficha_sao_os_mesmos_codigos() -> None:
+    """`T-324`/`T-208`: todo tipo declarável (exceto "não tenho certeza") é
+    um tipo de ficha — senão o tipo nunca sairia de "sem ficha"."""
+    registros = _colecao_real().registros
+
+    def codigos(variavel: str) -> set[str]:
+        registro = next(r for r in registros if r.VARIAVEL_GRAVADA == variavel)
+        return {
+            o.valor_interno
+            for o in registro.opcoes
+            if o.valor_interno is not None and not o.admite_nao_sei
+        }
+
+    assert codigos("TIPOS_DIVIDA_DECLARADOS") == codigos("TIPO_DIVIDA")
