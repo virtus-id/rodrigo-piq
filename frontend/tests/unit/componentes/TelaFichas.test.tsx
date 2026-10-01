@@ -218,3 +218,37 @@ describe('TelaFichas — margens dentro do vínculo (T-259)', () => {
     expect(screen.queryByRole('button', { name: /Adicionar margem/ })).not.toBeInTheDocument()
   })
 })
+
+describe('T-311: adicionar outro item', () => {
+  it('com uma ficha, o convite é "outra" e o item novo abre direto', async () => {
+    vi.spyOn(api, 'criarFicha').mockResolvedValue({
+      CASO_ID: 'CASO-1',
+      escopo: 'DIVIDA_ID',
+      ficha: { item_id: 'D002', pede_nome: false } as never,
+    })
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({
+      pergunta: { ID: 'B5.A01', item_id: 'D002' } as Pergunta,
+    } as RespostaPergunta)
+    const onAbrirFicha = vi.fn()
+    vi.spyOn(api, 'listarFichas').mockResolvedValue({
+      fichas: [{ item_id: 'D001', completa: true, campos: [] }],
+    } as unknown as Awaited<ReturnType<typeof api.listarFichas>>)
+    render(
+      <TelaFichas
+        casoId="CASO-1"
+        escopo="DIVIDA_ID"
+        titulo="Dívida"
+        tituloPlural="Dívidas"
+        feminino
+        onAbrirFicha={onAbrirFicha}
+        onContinuar={vi.fn()}
+      />,
+    )
+
+    await screen.findByRole('button', { name: 'Dívida D001' })
+    await userEvent.click(screen.getByRole('button', { name: '+ Adicionar outra dívida' }))
+
+    await waitFor(() => expect(onAbrirFicha).toHaveBeenCalledWith('D002', 'B5.A01'))
+    expect(screen.getByRole('button', { name: 'Continuar' })).toBeInTheDocument()
+  })
+})

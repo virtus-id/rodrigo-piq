@@ -1563,13 +1563,11 @@ test('AC-104: correção recusada mostra a mensagem do servidor e não apaga o v
 /**
  * `AC-105` — o caminho para a pergunta anterior, durante a coleta.
  *
- * **Por que a fonte é `/respostas`.** O cliente não conhece o conjunto de
- * perguntas exibíveis (`RF-45`), então "qual vem antes" não pode ser deduzido
- * aqui. `/respostas` já devolve, na ordem dos registros, exatamente as
- * perguntas que o aluno RESPONDEU — que é o conjunto que o critério pede. Um
- * histórico de navegação no cliente foi recusado: ele diz por onde o aluno
- * passou nesta sessão, e `RF-10` promete retomada em outro aparelho, onde ele
- * estaria vazio.
+ * **A fonte é `pergunta.anterior`, do servidor** (`T-309`). O cliente não
+ * conhece o percurso (`RF-45`); montá-lo a partir de `/respostas` (ordem dos
+ * registros, por parte) fazia o botão saltar perguntas nas fichas. Um
+ * histórico de navegação no cliente foi recusado: `RF-10` promete retomada
+ * em outro aparelho, onde ele estaria vazio.
  */
 const PROXIMA_PENDENTE = {
   pergunta: {
@@ -1597,9 +1595,13 @@ test('AC-105: na coleta há caminho para a pergunta anterior já respondida', as
   page,
 }) => {
   await interceptarBase(page, CASO_REVISAO)
-  await interceptarRespostas(page, CASO_REVISAO, partesComRespostas())
   await page.route(`**/caso/${CASO_REVISAO}/pergunta`, async (rota) => {
-    await rota.fulfill({ json: PROXIMA_PENDENTE })
+    await rota.fulfill({
+      json: {
+        ...PROXIMA_PENDENTE,
+        pergunta: { ...PROXIMA_PENDENTE.pergunta, anterior: { ID: 'B5.B03', item_id: 'D001' } },
+      },
+    })
   })
   await page.route(`**/caso/${CASO_REVISAO}/pergunta/B5.B03*`, async (rota) => {
     await rota.fulfill({ json: PERGUNTA_B5B03 })
@@ -1608,9 +1610,7 @@ test('AC-105: na coleta há caminho para a pergunta anterior já respondida', as
   await abrirTela(page, CASO_REVISAO, 'pergunta')
   await expect(page.getByLabel('Terceira pergunta do compromisso?')).toBeVisible()
 
-  // A anterior é a ÚLTIMA respondida na ordem do servidor — a da parte 5, com
-  // o seu item. Ela é o destino porque a pergunta na tela ainda não foi
-  // respondida.
+  // `T-309`: o destino é o que o servidor nomeia, com o item.
   const anterior = acaoPrincipal(page, /Pergunta anterior/)
   await expect(anterior).toBeVisible()
   await anterior.click()
@@ -1620,21 +1620,11 @@ test('AC-105: na coleta há caminho para a pergunta anterior já respondida', as
 test('AC-105: na PRIMEIRA pergunta não há "anterior" oferecido', async ({ page }) => {
   await interceptarBase(page, CASO_REVISAO)
 
-  // Uma única resposta no caso, e é justamente a que está na tela: não há
-  // nenhuma antes dela.
-  const partes = partesVazias()
-  partes[0].respondidas = [
-    {
-      ID: 'B1.03',
-      item_id: null,
-      enunciado: 'Terceira pergunta do compromisso?',
-      respondida_como_nao_sei: false,
-      valores: ['Algo'],
-    },
-  ]
-  await interceptarRespostas(page, CASO_REVISAO, partes)
+  // Nenhuma respondida antes desta no percurso: o servidor diz `null`.
   await page.route(`**/caso/${CASO_REVISAO}/pergunta`, async (rota) => {
-    await rota.fulfill({ json: PROXIMA_PENDENTE })
+    await rota.fulfill({
+      json: { ...PROXIMA_PENDENTE, pergunta: { ...PROXIMA_PENDENTE.pergunta, anterior: null } },
+    })
   })
 
   await abrirTela(page, CASO_REVISAO, 'pergunta')
@@ -1723,4 +1713,108 @@ test('AC-106: no desktop o conteúdo ganha largura, sem virar linha infinita', a
   // ...e ainda assim limitado. Linha de texto longa cansa, e "adaptar à
   // janela" não autoriza ocupar um monitor inteiro com uma frase.
   expect(largura).toBeLessThanOrEqual(1200)
+})
+
+// ---------------------------------------------------------------------------
+// Decisões do produto de 2026-10-01 — `T-308`, `T-310`, `T-311`.
+// ---------------------------------------------------------------------------
+
+/** As cinco partes como o servidor as manda (`app/http/jornada.py`). */
+const TRILHA_NA_PARTE_3 = [
+  { numero: 1, rotulo: 'Seu compromisso', estado: 'concluida' },
+  { numero: 2, rotulo: 'Como você controla os gastos', estado: 'concluida' },
+  { numero: 3, rotulo: 'O que entra e o que sai por mês', estado: 'atual' },
+  { numero: 4, rotulo: 'Salário, margem e o que você tem', estado: 'proxima' },
+  { numero: 5, rotulo: 'Suas dívidas, uma por uma', estado: 'proxima' },
+]
+
+const PERGUNTA_NA_PARTE_3 = {
+  ...PROXIMA_PENDENTE,
+  pergunta: { ...PROXIMA_PENDENTE.pergunta, bloco: 3, trilha: TRILHA_NA_PARTE_3 },
+}
+
+test('T-308: o topo da pergunta diz "‹ Início" e leva ao Início', async ({ page }) => {
+  await interceptarBase(page, CASO_REVISAO)
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta`, async (rota) => {
+    await rota.fulfill({ json: PROXIMA_PENDENTE })
+  })
+
+  await abrirTela(page, CASO_REVISAO, 'pergunta')
+  await expect(voltarDaTela(page)).toHaveText('‹ Início')
+  await voltarDaTela(page).click()
+  await expect(page).toHaveURL(/#inicio/)
+})
+
+test('T-308: na correção o topo diz "‹ Voltar" e volta à revisão', async ({ page }) => {
+  await interceptarBase(page, CASO_REVISAO)
+  await interceptarRespostas(page, CASO_REVISAO, partesComRespostas())
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta/B1.01*`, async (rota) => {
+    await rota.fulfill({ json: PERGUNTA_B101 })
+  })
+
+  await abrirTela(page, CASO_REVISAO, 'respostas/B1.01')
+  await expect(voltarDaTela(page)).toHaveText('‹ Voltar')
+  await voltarDaTela(page).click()
+  await expect(page).toHaveURL(/#respostas$/)
+})
+
+test('T-310: a trilha das cinco partes marca a atual, sem ser navegável', async ({ page }) => {
+  await interceptarBase(page, CASO_REVISAO)
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta`, async (rota) => {
+    await rota.fulfill({ json: PERGUNTA_NA_PARTE_3 })
+  })
+
+  await abrirTela(page, CASO_REVISAO, 'pergunta')
+  const partes = page.getByRole('region', { name: 'Partes da coleta' })
+  await expect(partes.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2')
+  await expect(partes.getByRole('button')).toHaveCount(0)
+
+  const largura = page.viewportSize()?.width ?? 0
+  if (largura >= 1024) {
+    await expect(partes.locator('[aria-current="step"]')).toContainText(
+      'O que entra e o que sai por mês',
+    )
+    await expect(partes.locator('.degrau.feito')).toHaveCount(2)
+  } else {
+    await expect(partes.getByText('Parte 3 de 5 ·')).toBeVisible()
+    await expect(partes.locator('ol')).toBeHidden()
+  }
+})
+
+test('T-311: na lista com uma ficha, "Adicionar outra" abre a pergunta do item novo', async ({
+  page,
+}) => {
+  const fichas = [{ item_id: 'D001', completa: true, campos: [] }]
+  await interceptarBase(page, CASO_REVISAO)
+  await page.route(`**/caso/${CASO_REVISAO}/fichas/DIVIDA_ID`, async (rota) => {
+    if (rota.request().method() === 'POST') {
+      await rota.fulfill({
+        status: 201,
+        json: {
+          CASO_ID: CASO_REVISAO,
+          escopo: 'DIVIDA_ID',
+          ficha: { item_id: 'D002', completa: false, campos: [], pede_nome: false },
+        },
+      })
+      return
+    }
+    await rota.fulfill({
+      json: { CASO_ID: CASO_REVISAO, escopo: 'DIVIDA_ID', fichas, trilha: TRILHA_NA_PARTE_3 },
+    })
+  })
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta?item_id=D002`, async (rota) => {
+    await rota.fulfill({
+      json: { ...PERGUNTA_B5B03, pergunta: { ...PERGUNTA_B5B03.pergunta, item_id: 'D002' } },
+    })
+  })
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta/B5.B03*`, async (rota) => {
+    await rota.fulfill({
+      json: { ...PERGUNTA_B5B03, pergunta: { ...PERGUNTA_B5B03.pergunta, item_id: 'D002' } },
+    })
+  })
+
+  await abrirTela(page, CASO_REVISAO, 'fichas')
+  await expect(acaoPrincipal(page, 'Continuar')).toBeVisible()
+  await acaoPrincipal(page, '+ Adicionar outra dívida').click()
+  await expect(page).toHaveURL(/#pergunta\/B5\.B03\/D002/)
 })

@@ -174,7 +174,7 @@ export function acaoPrincipal(page: Page, rotulo: string | RegExp) {
   return page.locator('.acoes').getByRole('button', { name: rotulo })
 }
 
-/** O "‹ Voltar" do topo da casca — o único caminho de volta que o aluno tem. */
+/** O "‹ Início" / "‹ Voltar" do topo da casca (`T-308`) — o caminho de volta do aluno. */
 export function voltarDaTela(page: Page) {
   return page.locator('.top button.back')
 }

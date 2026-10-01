@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
+import TrilhaDaColeta from '../componentes/TrilhaDaColeta'
 import {
   criarFicha,
   listarFichas,
@@ -24,7 +25,7 @@ import {
   obterProximaPergunta,
   removerFicha,
 } from '../services/api'
-import type { Ficha } from '../tipos'
+import type { Ficha, ParteDaTrilha } from '../tipos'
 
 /**
  * Os nomes de cada escopo que tem tela — `T-212`, títulos da §11. É o ÚNICO
@@ -34,19 +35,30 @@ import type { Ficha } from '../tipos'
  * para dar nome a "Outro" e adicionar despesa não listada.
  */
 export const TITULOS_POR_ESCOPO: Readonly<
-  Record<string, { titulo: string; tituloPlural: string; possessivo?: string }>
+  Record<
+    string,
+    { titulo: string; tituloPlural: string; possessivo?: string; feminino?: boolean }
+  >
 > = {
-  DIVIDA_ID: { titulo: 'Dívida', tituloPlural: 'Dívidas' },
-  RENDA_ADICIONAL_ID: { titulo: 'Renda adicional', tituloPlural: 'Rendas adicionais' },
-  DESPESA_NAO_MENSAL_ID: { titulo: 'Despesa não mensal', tituloPlural: 'Despesas não mensais' },
+  DIVIDA_ID: { titulo: 'Dívida', tituloPlural: 'Dívidas', feminino: true },
+  RENDA_ADICIONAL_ID: {
+    titulo: 'Renda adicional',
+    tituloPlural: 'Rendas adicionais',
+    feminino: true,
+  },
+  DESPESA_NAO_MENSAL_ID: {
+    titulo: 'Despesa não mensal',
+    tituloPlural: 'Despesas não mensais',
+    feminino: true,
+  },
   // `T-270` (RF-98): redação aprovada pelo produto (`T-289`, 2026-09-30).
   RECURSO_EXTRAORDINARIO_ID: {
     titulo: 'Valor extraordinário',
     tituloPlural: 'Valores extraordinários',
   },
   VINCULO_ID: { titulo: 'Vínculo', tituloPlural: 'Vínculos', possessivo: 'Seus' },
-  MARGEM_ID: { titulo: 'Margem', tituloPlural: 'Margens' },
-  ITEM_DESPESA: { titulo: 'Despesa', tituloPlural: 'Despesas' },
+  MARGEM_ID: { titulo: 'Margem', tituloPlural: 'Margens', feminino: true },
+  ITEM_DESPESA: { titulo: 'Despesa', tituloPlural: 'Despesas', feminino: true },
 }
 
 interface TelaFichasProps {
@@ -64,6 +76,8 @@ interface TelaFichasProps {
   tituloPlural: string
   /** "Suas dívidas", mas "Seus vínculos". */
   possessivo?: string
+  /** "Adicionar outra dívida", mas "Adicionar outro vínculo" (`T-311`). */
+  feminino?: boolean
   voltar?: () => void
   /**
    * `idPergunta` é a pergunta em que a ficha abre — a próxima em branco
@@ -83,6 +97,7 @@ export default function TelaFichas({
   titulo,
   tituloPlural,
   possessivo = 'Suas',
+  feminino = false,
   voltar,
   onAbrirFicha,
   onContinuar,
@@ -90,6 +105,7 @@ export default function TelaFichas({
   const [fichas, setFichas] = useState<Ficha[]>([])
   const [escopoPai, setEscopoPai] = useState<string | null>(null)
   const [escoposFilhos, setEscoposFilhos] = useState<string[]>([])
+  const [trilha, setTrilha] = useState<ParteDaTrilha[] | null>(null)
   const [aConfirmar, setAConfirmar] = useState<{ ficha: Ficha; escopo: string } | null>(null)
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
@@ -102,6 +118,7 @@ export default function TelaFichas({
       setFichas(dados.fichas)
       setEscopoPai(dados.escopo_pai ?? null)
       setEscoposFilhos(dados.escopos_filhos ?? [])
+      setTrilha(dados.trilha ?? null)
     } catch {
       setErro('Não foi possível carregar as fichas.')
     } finally {
@@ -115,7 +132,13 @@ export default function TelaFichas({
 
   async function aoAdicionar(escopoAlvo = escopo, itemPaiId?: string) {
     try {
-      await criarFicha(casoId, escopoAlvo, itemPaiId)
+      const { ficha } = await criarFicha(casoId, escopoAlvo, itemPaiId)
+      // `T-311`: o item novo abre direto na primeira pergunta. A despesa
+      // não listada fica na lista: ela pede nome antes (`T-217`).
+      if (!ficha.pede_nome) {
+        await aoAbrir(ficha.item_id)
+        return
+      }
       await carregar()
     } catch {
       setErro('Não foi possível adicionar.')
@@ -161,6 +184,8 @@ export default function TelaFichas({
     <Tela
       titulo={`${possessivo} ${tituloPlural.toLowerCase()}`}
       voltar={voltar}
+      // `T-310` (RF-100): a trilha das cinco partes, do servidor.
+      lateral={trilha ? <TrilhaDaColeta trilha={trilha} /> : undefined}
       onde={fichas.length > 0 ? `${fichas.length} cadastrada${fichas.length === 1 ? '' : 's'}` : undefined}
       acoes={
         <>
@@ -168,7 +193,10 @@ export default function TelaFichas({
           {/* A ficha com pai (a margem) só nasce dentro dele (`AC-137`). */}
           {!escopoPai && (
             <Botao variante="secundario" onClick={() => void aoAdicionar()}>
-              + Adicionar {titulo.toLowerCase()}
+              {/* `T-311`: com a primeira já criada, o convite é para outra. */}
+              + Adicionar{' '}
+              {fichas.length > 0 ? `${feminino ? 'outra' : 'outro'} ` : ''}
+              {titulo.toLowerCase()}
             </Botao>
           )}
         </>

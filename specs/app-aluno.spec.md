@@ -230,7 +230,7 @@ com a redação canônica obrigatória.
 
 | ID | Requisito | Regras / seções / IDs de origem | Prioridade |
 | --- | --- | --- | --- |
-| `RF-57` | A navegação do aluno é **fluxo linear guiado**: uma tela por vez, com "‹ Voltar" e localizador no topo (`.top`) e a ação no rodapé fixo (`.acoes`, `position: sticky`). **Nunca** uma barra que ofereça todas as telas de uma vez | Protótipo `PIQ Meu Plano`, linhas 75–89 (`.top`/`.actions`) e `go()`, linha ~820 · `RF-50` | essencial |
+| `RF-57` | A navegação do aluno é **fluxo linear guiado**: uma tela por vez, com o caminho de volta e localizador no topo (`.top`) — o caminho de volta diz para onde leva: **"‹ Início"** quando leva ao Início, **"‹ Voltar"** só quando volta de fato à tela anterior (decisão do produto, 2026-10-01, `T-308`) e a ação no rodapé fixo (`.acoes`, `position: sticky`). **Nunca** uma barra que ofereça todas as telas de uma vez | Protótipo `PIQ Meu Plano`, linhas 75–89 (`.top`/`.actions`) e `go()`, linha ~820 · `RF-50` | essencial |
 | `RF-58` | A tela **Início** lê o estado do caso e apresenta **uma única próxima etapa**. Nenhuma outra tela do aluno é ponto de entrada, e o destino da etapa é decidido **no servidor**, a partir da fase — o cliente não escolhe o que vem a seguir | Protótipo `renderInicio`, linha ~917 · `RF-01`, `RF-10`, `RF-31` · `RF-34` (Lei nº 3) | essencial |
 | `RF-59` | As telas da equipe (fila de conferência, conferência do caso, painel) têm **rota e largura próprias** (900px, `.wide` do protótipo) e **não aparecem** na navegação de quem não é revisor. O papel vem do servidor no login (`e_revisor`), e serve **apenas** para a interface decidir o que oferecer — a autorização continua inteiramente no servidor, reverificada a cada requisição | Protótipo, linha 199 (`.wide`) e telas `equipe-*` · `RF-02` · `RF-35` · `exigir_papel_revisor` | essencial |
 | `RF-60` | Expor `GET /caso/{CASO_ID}/inicio`, que devolve a **fase**, a mensagem de estado, o **destino da próxima etapa única** e o progresso da coleta (`respondidas`/`total`). O servidor manda o **destino** — dado estrutural, enum fechado —, nunca a redação: quem decide *qual* é a etapa é ele; quem decide *como dizer* é a interface, e `AC-37` proíbe redação longa no código da aplicação. O valor monetário em destaque viaja como **string em campo separado**, nunca interpolado numa frase montada pelo servidor — `RF-13` (dinheiro nunca atravessa `float`) e Lei nº 3 (o número é leitura de campo do snapshot) | `RF-58` · `RF-13` · `RF-34` · `AC-37` · `AC-42` | essencial |
@@ -281,7 +281,7 @@ com a redação canônica obrigatória.
 | --- | --- | --- | --- |
 | `RF-68` | O aluno **revê todas as respostas que deu**, agrupadas pelas cinco partes da coleta, vendo lado a lado a pergunta e o que respondeu. Retomar sem redigitar (`RF-10`) não é o mesmo que conferir: quem não consegue reler o que disse sobre o próprio dinheiro não tem como confiar no plano que sai dali | `RF-10` · `RF-31` · relato de uso (2026-09-18) | essencial |
 | `RF-69` | O aluno **corrige qualquer resposta já dada**, a partir da revisão e também durante a coleta, sem reiniciar nada. A correção usa a **mesma** rota de gravação da resposta original — não existe caminho paralelo de escrita — e o valor anterior chega preenchido, para que corrigir seja editar, nunca redigitar | `RF-10` · `AC-02` · `EC-01` (a validação continua soberana) | essencial |
-| `RF-70` | Durante a coleta, o aluno alcança a **pergunta anterior e a seguinte** entre as que já respondeu, sem passar pela lista. Errar a pergunta anterior e perceber na seguinte é o caso mais comum de correção, e mandá-lo à lista para isso é desproporcional | `RF-68` · relato de uso | importante |
+| `RF-70` | Durante a coleta, o aluno alcança a **pergunta anterior e a seguinte** entre as que já respondeu, sem passar pela lista. Errar a pergunta anterior e perceber na seguinte é o caso mais comum de correção, e mandá-lo à lista para isso é desproporcional. **A anterior é a respondida imediatamente antes no percurso** (ficha item a item, `item_id` incluído, condicionais avaliadas), nomeada pelo servidor no payload da pergunta (`anterior`) — nunca remontada no cliente a partir de `/respostas`, cuja ordem é a dos registros agrupada por parte (decisão do produto, 2026-10-01, `T-309`) | `RF-68` · relato de uso · `T-309` | importante |
 | `RF-71` | A interface **se adapta à largura da janela**: no computador, a jornada ocupa uma coluna lateral e o conteúdo o restante; no celular, a tela permanece **exatamente** como o protótipo validado — coluna única de 560px, na ordem validada. O layout de duas colunas é progressivo e nunca aparece onde não cabe | Protótipo validado (560px) · `OQ-29` (respondida: preenchido no computador) · NFR de responsividade (360px) | importante |
 
 ### Rodada 8 (2026-09-19) — acabamento visual: o que nunca foi especificado
@@ -363,6 +363,32 @@ com a redação canônica obrigatória.
 | `RF-96` | Homologação: nenhum resultado é pré-fixado — o motor apura caso a caso. A referência de aprovação são os gabaritos `GAB-A`, `GAB-B`, `GAB-C` e os invariantes. **Todo teste de homologação registra**: ordem final de ataque, mês de quitação de cada dívida, valor mensal destinado ao plano, custo total de juros e uso da reserva — cada item lido ou derivado de forma exata de campos existentes do `SnapshotOrdem` (cronograma incluído), com a correspondência fixada no plano; o que não for derivável de forma exata é registrado "não disponível", nunca estimado (decisão do produto `R9-6`, 2026-09-30; `T-268`) | `DE-08` (`q8_1`, `q8_2`) · `sdd.config.md` §5 · `OQ-66` (resolvida) | essencial |
 | `RF-97` | Se faltar dado indispensável (`RF-93`), o sistema sinaliza, nomeando o dado, que o resultado **não pode ser homologado** — a liberação na fila fica bloqueada até o dado ser confirmado ou corrigido (`RF-93`) — e nunca presume valor | `DE-08` (`q8_1`) · `RF-12` · `GAB-03` · `OQ-62`, `OQ-64` (resolvidas) | essencial |
 | `RF-98` | Recursos extraordinários (`B3.05A–D`): o aluno cadastra **vários**, cada um com tipo, valor, janela e certeza, e a montagem os entrega ao motor **item a item**, nunca somados como se tivessem a mesma certeza. Em Férias/abono, o valor coletado é **só o acréscimo (1/3)**. O plano apresenta o **cenário adicional** (segunda projeção com os `PROVAVEL` e os `POSSIVEL`; nenhum deles entra na projeção-base até ser recebido), separado e rotulado, lido do snapshot. A regra de projeção é do motor (`motor-calculo` `RF-70`–`RF-76`) — esta camada lê e entrega. Restituição de seguro confirmada (`B5.D05R`) cria um item com `ORIGEM_RECURSO_EXTRAORDINARIO = B5.D05R` (nome ratificado na canônica v1.0.4, `E-16`), cujas perguntas abrem mesmo com `B3.05 = Não`; nesse caso o aluno recebe um aviso curto de que a restituição será considerada valor extraordinário (decisão do produto, 2026-09-30, `T-288`). Textos ao aluno: aprovados pelo responsável do produto em 2026-09-30 (`T-289`); a explicação do cenário adicional e o enunciado de Férias/abono ficam pendentes de validação do especialista | `DE-02` (`q2_1`–`q2_3`) · canônica v1.0.2 `E-10` · `RF-39` (fatia 2B) · `OQ-22`(b) (resolvida, `T-208`) · `OQ-24` (tarefa técnica) · `OQ-67` (resolvida) | essencial |
+
+### Rodada 10 (2026-10-01) — perguntas complementares na mesma tela
+
+> **Decisão do responsável do produto, 2026-10-01.** Quando a opção escolhida
+> abre perguntas complementares, elas aparecem **na mesma tela, logo abaixo,
+> como uma thread**, em vez de em outra página. O servidor continua decidindo
+> o que abre. Isto **resolve `OQ-46`** (discovery "Coleta agrupada por
+> categoria") **para este caso** — a condicional dentro da mesma tela — pela
+> saída "o servidor pré-avalia e manda o mapa": o cliente recebe, por opção,
+> a lista já decidida e só a consulta pelo valor escolhido. Agrupamento por
+> categoria/bloco (`OQ-47`–`OQ-51`) continua em aberto.
+
+| ID | Requisito | Regras / seções / IDs de origem | Prioridade |
+| --- | --- | --- | --- |
+| `RF-99` | Ao servir uma pergunta cuja resposta abre perguntas complementares no **mesmo bloco e na mesma ficha, imediatamente depois dela**, o payload traz `complementares`: para cada opção que abre algo, as perguntas filhas (profundidade 1) que ficariam exibíveis se a mãe recebesse aquele valor — calculado **no servidor**, com a mesma `avaliar` sobre as respostas gravadas mais o valor provisório da mãe. O cliente desenha as filhas sob a opção escolhida, com recuo e transição sutil, e as esconde ao trocar de opção (respostas escondidas não são enviadas). Gravar é **mãe primeiro, filhas depois**, pela mesma rota de `RF-69`, cada filha com a validação de sempre; filha recusada mostra o erro junto dela e a mãe continua gravada. `RF-45`/`RF-52` continuam valendo: nenhum `.ts`/`.tsx` avalia condição | Decisão do produto (2026-10-01) · `OQ-46` (resolvida para este caso) · `RF-45`, `RF-52`, `RF-69` · `T-307` | importante |
+
+### Rodada 10 (2026-10-01) — trilha da coleta e fichas que nascem com o item
+
+> **Decisões do responsável do produto, 2026-10-01**, após teste no sistema
+> (`T-308`–`T-311`). Textos novos ao aluno: redação da equipe técnica,
+> aprovada pelo produto na mesma data (lista em `T-310`/`T-311`).
+
+| ID | Requisito | Regras / seções / IDs de origem | Prioridade |
+| --- | --- | --- | --- |
+| `RF-100` | Na tela de pergunta e na lista de fichas, a **trilha da coleta** mostra as cinco partes de `/respostas` (`RF-68`) com o estado de cada uma — concluída (✓), atual (destacada, `aria-current`) e próximas (esmaecidas) — e uma barra discreta de **partes concluídas** (nunca de perguntas: o total cresce a cada ficha e a barra pareceria regredir, `T-293`). No desktop é a coluna lateral (`RF-71`); no celular, a barra no topo e o resumo "Parte N de 5 · rótulo". O estado vem do servidor (`trilha` no payload); o cliente não avalia condição nem conta perguntas. A trilha é informativa, nunca navegável (`AC-115`) | Decisão do produto (2026-10-01) · `RF-45`, `RF-62`, `RF-67`, `RF-68`, `RF-71`, `RF-77` · `T-310` | importante |
+| `RF-101` | Ao declarar algo que abre fichas ainda sem item (`B3.03` renda extra, `B3.S01` vínculo, `B3.NM01` despesa não mensal, `B3.05` valores extraordinários, `B5.00`/`B5.00A` dívidas), o servidor **cria o primeiro item** e a coleta segue direto para a primeira pergunta dele. Ao terminar um item desses escopos, a lista reabre com "Adicionar outro(a)" — que também abre direto a primeira pergunta do item novo — e "Continuar". As fichas criadas pelo checklist de despesas (`T-217`) seguem como estão | Decisão do produto (2026-10-01) · `RF-04`, `RF-53`, `RF-45` · `T-212`, `T-291` · `T-311` | importante |
 
 ## 3. User Stories
 
@@ -864,6 +890,26 @@ Atende: `RF-98`
 | `AC-154` | `US-28` | Dado `B5.00 = 5` e 6 fichas cadastradas, quando o aluno navegar, então o sistema exibe o pedido de atualizar `B5.00` com ação direta para fazê-lo, e `calcular_plano` não é invocado; e quando `B5.00` for atualizado para 6 (ou uma ficha for removida), então o bloqueio cessa (`DE-04`, `q4_1`, `OQ-56`) |
 | `AC-155` | `US-27` | Dada uma dívida com seguro de situação "Não sei", quando o estado for montado, então nenhum valor de seguro é somado a saldo, parcela, despesa ou desembolso, e o dado aparece ao revisor como "não informado" — nunca como "Pendente de confirmação" (`DE-03`, `OQ-54`) |
 | `AC-156` | `US-29` | Dados dois vínculos com renda líquida `R$ 4.000` e `R$ 2.500` e renda do Bloco 3 `R$ 6.500`, quando a conferência rodar, então nenhuma divergência é sinalizada; com renda do Bloco 3 `R$ 6.000`, então a divergência é sinalizada ao aluno e ao revisor; e em ambos os casos a renda entregue ao motor é a do Bloco 3, sem a soma das líquidas acrescentada, e nenhum campo novo de renda líquida chega ao motor (`DE-05`, `OQ-58`) |
+
+### Rodada 10 (2026-10-01) — perguntas complementares na mesma tela
+
+> **Rastreabilidade `RF` → `AC`.** `RF-99` → `AC-157`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-157` | `US-05` | Dada `B3.02` exibida, quando o aluno escolher "Variável", então `B3.02A` e `B3.02B` aparecem na mesma tela, abaixo da opção, vindas de `complementares["VARIAVEL"]` do servidor; quando trocar para outra opção, então elas somem e não são enviadas; e quando continuar, então `B3.02` é gravada antes das filhas, filha recusada mostra o erro junto dela sem desfazer a mãe, e a próxima pergunta não é nenhuma das já respondidas. Pergunta complementar fora do trecho contíguo (ex.: `B5.G03` sob `B5.A02`) não entra na thread (`RF-99`) |
+
+### Rodada 10 (2026-10-01) — navegação, trilha e fichas na coleta
+
+> **Rastreabilidade `RF` → `AC`.** `RF-57` → `AC-160` · `RF-70` → `AC-161` ·
+> `RF-100` → `AC-162` · `RF-101` → `AC-163`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-160` | `US-19` | Dada uma tela do aluno cujo caminho de volta leva ao Início, quando renderizada, então o topo diz "‹ Início"; e dada a correção de uma resposta (volta à revisão) ou uma ação (volta à lista), então diz "‹ Voltar" (`T-308`) |
+| `AC-161` | `US-23` | Dado um percurso com duas fichas do mesmo escopo e uma condicional dentro delas, quando qualquer pergunta exibida for aberta, então `anterior` é exatamente a pergunta exibida imediatamente antes (com o `item_id`), e "‹ Pergunta anterior" leva a ela; na primeira, `anterior` é `null` e o botão não existe (`T-309`) |
+| `AC-162` | `US-21` | Dada a tela de pergunta ou a lista de fichas na coleta inicial, quando renderizada, então a trilha mostra as cinco partes com exatamente uma atual, as anteriores concluídas e a barra em partes concluídas; e o Bloco 9, no fim do percurso, não tira "Seu compromisso" de concluída (`T-310`) |
+| `AC-163` | `US-02` | Dado `B3.05 = Sim` sem item, quando gravado, então nasce `EXT001` e a próxima pergunta é a primeira dele, sem a lista; quando o último campo do item for respondido, então a resposta aponta a lista do escopo; e dado um escopo que já tem item, então responder de novo não cria outro (`T-311`) |
 
 ## 5. Non-Functional Requirements
 

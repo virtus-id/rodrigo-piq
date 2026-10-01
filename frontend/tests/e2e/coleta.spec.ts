@@ -140,12 +140,21 @@ test.describe('fichas repetíveis', () => {
       await rota.fulfill({ json: { CASO_ID: CASO, escopo: 'DIVIDA_ID', fichas } })
     })
 
+    // `T-311`: o item novo abre direto na primeira pergunta dele.
+    const doItemNovo = { pergunta: { ...PERGUNTA_MOEDA.pergunta, item_id: 'D002' } }
+    await page.route(`**/caso/${CASO}/pergunta?item_id=D002`, async (rota) => {
+      await rota.fulfill({ json: { ...PERGUNTA_MOEDA, ...doItemNovo } })
+    })
+    await page.route(`**/caso/${CASO}/pergunta/B5.B03*`, async (rota) => {
+      await rota.fulfill({ json: { ...PERGUNTA_MOEDA, ...doItemNovo } })
+    })
+
     await abrirTela(page, CASO, 'fichas')
 
     await expect(page.getByRole('button', { name: 'Dívida D001', exact: true })).toBeVisible()
 
-    await acaoPrincipal(page, /Adicionar dívida/).click()
-    await expect(page.getByRole('button', { name: 'Dívida D002', exact: true })).toBeVisible()
+    await acaoPrincipal(page, /Adicionar outra dívida/).click()
+    await expect(page).toHaveURL(/#pergunta\/B5\.B03\/D002/)
   })
 })
 

@@ -4,7 +4,7 @@
  *
  * Três partes, como no protótipo validado (linhas 75–89):
  *
- *     ┌─ .top ─────────────┐   ‹ Voltar        localizador
+ *     ┌─ .top ─────────────┐   ‹ Início        localizador
  *     ├─ .corpo ───────────┤   o conteúdo, rolável
  *     ├─ .acoes ───────────┤   sticky: a ação nunca sai da tela
  *     └────────────────────┘
@@ -46,8 +46,18 @@ import Icone from './Icone'
 interface TelaProps {
   /** Vai para `document.title` e, por padrão, para o `<h1>` visível. */
   titulo: string
-  /** Ausente ⇒ sem "‹ Voltar". A tela Início é a raiz: não há para onde voltar. */
+  /** Ausente ⇒ sem "‹ Início". A tela Início é a raiz: não há para onde voltar. */
   voltar?: () => void
+  /**
+   * O rótulo do caminho de volta — `T-308` (decisão do produto, 2026-10-01).
+   *
+   * O botão diz para ONDE leva: quase toda tela do aluno volta ao Início, e
+   * "‹ Voltar" fazia o aluno esperar a pergunta anterior. Por isso o padrão
+   * do aluno é "‹ Início"; a tela cujo `voltar` leva à anterior de fato (a
+   * ação → a lista, a correção → a revisão) passa "‹ Voltar". A equipe
+   * volta sempre à fila, nunca ao Início do aluno: "‹ Voltar".
+   */
+  rotuloVoltar?: string
   /** O localizador à direita do topo — "Dívida 3 · pergunta 4 de 12". */
   onde?: string
   /**
@@ -110,6 +120,7 @@ interface TelaProps {
 export default function Tela({
   titulo,
   voltar,
+  rotuloVoltar,
   onde,
   aoSair,
   largura = 'aluno',
@@ -164,7 +175,7 @@ export default function Tela({
         <div className="top">
           {voltar ? (
             <button type="button" className="back" onClick={voltar}>
-              ‹ Voltar
+              {rotuloVoltar ?? (largura === 'equipe' ? '‹ Voltar' : '‹ Início')}
             </button>
           ) : (
             // Não é decoração. O `.top` é `justify-between`: sem este span o

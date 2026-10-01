@@ -51,6 +51,7 @@ from app.casos.progresso import (
 )
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
+from app.http.jornada import anexar_ao_payload
 from app.http.renderizacao import ErroPerguntaNaoExibivel
 from app.http.rotas_coleta import (
     _itens_e_rotulos,
@@ -226,6 +227,8 @@ def _renderizar_pergunta(
     pergunta = serializar_pergunta_do_caso(
         CASO_ID, registro, respostas, colecao, itens_por_escopo, item_id, rotulos
     )
+    # `T-309`/`T-310`: a anterior no percurso e a trilha por partes.
+    anexar_ao_payload(pergunta, colecao.registros, respostas, itens_por_escopo)
 
     return JSONResponse(
         {

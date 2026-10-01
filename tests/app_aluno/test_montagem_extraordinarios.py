@@ -102,8 +102,9 @@ def test_t270_sim_em_b305_aponta_a_ficha_e_dois_itens_sao_independentes(
     """`AC-04` — cada item `EXT` tem as suas respostas; nada vaza entre eles."""
     cliente = _cliente_real(monkeypatch, tmp_path)
 
-    assert _responder(cliente, "B3.05", "SIM").json()["abrir_fichas"] == [_ESCOPO]
-    primeiro = _criar_em(cliente, _ESCOPO).json()["ficha"]["item_id"]
+    # `T-311`: o "Sim" cria o primeiro item e leva à primeira pergunta dele.
+    proxima = _responder(cliente, "B3.05", "SIM").json()["proxima"]["pergunta"]
+    primeiro = proxima["item_id"]
     segundo = _criar_em(cliente, _ESCOPO).json()["ficha"]["item_id"]
     assert (primeiro, segundo) == ("EXT001", "EXT002")
 
@@ -122,8 +123,7 @@ def test_ac151_ferias_abono_exibe_b305bf_e_grava_o_valor_informado(
     `B3.05B` não abre, e o valor gravado é o informado: nada de 1/3
     calculado pela aplicação."""
     cliente = _cliente_real(monkeypatch, tmp_path)
-    _responder(cliente, "B3.05", "SIM")
-    item = _criar_em(cliente, _ESCOPO).json()["ficha"]["item_id"]
+    item = _responder(cliente, "B3.05", "SIM").json()["proxima"]["pergunta"]["item_id"]
     _responder(cliente, "B3.05A", "FERIAS_ABONO", item)
 
     assert _proxima_do_item(cliente, item) == "B3.05BF"
@@ -348,7 +348,8 @@ def test_ac123_restituicao_confirmada_cria_um_item_ligado_a_origem(
     # Reconfirmar (inclusive com outro valor) não duplica: atualiza o item.
     assert _responder(cliente, "B5.D05R", "320", divida).status_code == 200
 
-    (item,) = _itens_ext(tmp_path)
+    # `T-311`: o "Sim" em `B3.05` já criou `EXT001`, sem origem.
+    (item,) = [i for i in _itens_ext(tmp_path) if i.origem is not None]
     assert item.origem == f"B5.D05R:{divida}"
     gravadas = {
         r.ID_PERGUNTA: r.valor for r in _respostas_gravadas(tmp_path) if r.item_id == item.item_id

@@ -765,6 +765,27 @@
     }
   }
 
+  /* `T-307` (RF-99): a thread — as perguntas que a opção escolhida abre,
+     recuadas sob a mãe, com uma entrada curta. Sem movimento para quem
+     pediu menos movimento. */
+  .thread {
+    @apply flex flex-col gap-5 border-l-4 border-accent/30 pl-4;
+    animation: thread-entra 0.2s ease-out;
+  }
+
+  @keyframes thread-entra {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .thread {
+      animation: none;
+    }
+  }
+
   /* -------------------------------------------------------------------
    * Supressão de movimento nos controles — `RF-76`, `AC-113` (T-165).
    *

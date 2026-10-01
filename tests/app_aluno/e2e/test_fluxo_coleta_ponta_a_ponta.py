@@ -190,7 +190,8 @@ def test_fluxo_completo_da_coleta(cliente: TestClient) -> None:
     # 5. A próxima pergunta é a seguinte — nada já respondido reaparece.
     segunda = cliente.get(f"/caso/{_CASO_ID}/pergunta")
     assert segunda.json()["pergunta"]["ID"] == "Q_TAXA"
-    assert "Q_SALDO" not in segunda.text
+    # `T-309`: `Q_SALDO` só volta como `anterior` — o caminho para trás.
+    assert "Q_SALDO" not in segunda.text.replace('"anterior":{"ID":"Q_SALDO"', "")
 
     # 6. "não sei" é resposta de primeira classe (RF-11/RF-48).
     nao_sei = cliente.post(

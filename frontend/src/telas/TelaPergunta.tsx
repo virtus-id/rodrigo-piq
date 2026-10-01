@@ -35,11 +35,11 @@ import CampoPergunta from '../componentes/CampoPergunta'
 import Esqueleto from '../componentes/Esqueleto'
 import PainelFotografia from '../componentes/PainelFotografia'
 import Tela from '../componentes/Tela'
+import TrilhaDaColeta from '../componentes/TrilhaDaColeta'
 import {
   gravarResposta,
   obterPergunta,
   obterProximaPergunta,
-  obterRespostasDoCaso,
 } from '../services/api'
 import type { ConfirmacaoDeResposta, Pergunta } from '../tipos'
 
@@ -80,46 +80,14 @@ interface TelaPerguntaProps {
 }
 
 /**
- * A pergunta anterior já respondida — `RF-70`, `AC-105`.
+ * A pergunta anterior — `RF-70`, `AC-105`, `T-309`.
  *
- * **Por que o payload de `/respostas` e não uma ordem inventada aqui.** O
- * cliente não conhece o conjunto de perguntas exibíveis (`RF-45`): reconstruir
- * "qual vem antes" a partir do `ID` seria o cliente reimplementando a ordem do
- * questionário, com um grafo condicional que ele não tem. `/respostas` já
- * devolve, na ordem dos registros e por parte, exatamente as perguntas que o
- * aluno **respondeu** — que é o conjunto que `AC-105` pede ("pergunta anterior
- * já respondida"), e vem do servidor.
- *
- * A alternativa seria um histórico de navegação no cliente. Foi recusada: ela
- * mostra por onde o aluno PASSOU nesta sessão, não o que ele respondeu, e
- * `RF-10` promete retomada entre aparelhos — num celular aberto do zero o
- * histórico estaria vazio e o caminho para trás sumiria sem motivo visível.
- *
- * Devolve `null` quando a pergunta atual é a primeira respondida, ou quando
- * ainda não há nenhuma: é o segundo pé de `AC-105` — na primeira pergunta não
- * se oferece "anterior".
+ * Vem pronta do servidor em `pergunta.anterior`: a respondida logo antes
+ * desta **no percurso** (ficha item a item, condicionais avaliadas). Antes a
+ * tela montava a ordem a partir de `/respostas`, que é a ordem dos registros
+ * agrupada por parte — numa ficha com dois itens "anterior" saltava para o
+ * outro item. `null` na primeira pergunta: não se oferece "anterior".
  */
-interface Anterior {
-  ID: string
-  item_id: string | null
-}
-
-function anteriorNaLista(
-  linhas: readonly Anterior[],
-  atual: { ID: string; item_id: string | null } | null,
-): Anterior | null {
-  if (linhas.length === 0) return null
-  if (atual === null) return linhas[linhas.length - 1] ?? null
-
-  const indice = linhas.findIndex(
-    (linha) => linha.ID === atual.ID && linha.item_id === atual.item_id,
-  )
-  // A pergunta atual não está entre as respondidas (é a próxima pendente): a
-  // anterior é a última que o aluno respondeu.
-  if (indice === -1) return linhas[linhas.length - 1] ?? null
-  // Está entre elas e é a PRIMEIRA — `AC-105`: não há anterior a oferecer.
-  return indice === 0 ? null : (linhas[indice - 1] ?? null)
-}
 
 /**
  * O rótulo do item a partir do `item_id` — `D003` → `Dívida 3`.
@@ -194,6 +162,30 @@ function valorInicial(pergunta: Pergunta): string | string[] {
   return Array.isArray(atual) ? atual : String(atual)
 }
 
+/** O que o aluno preencheu numa pergunta da thread (`T-307`). */
+interface EstadoDaFilha {
+  valor: string | string[]
+  naoSei: boolean
+  erro: string | null
+  aviso: string | null
+}
+
+function chaveDa(pergunta: Pergunta): string {
+  return `${pergunta.ID}|${pergunta.item_id ?? ''}`
+}
+
+/**
+ * As perguntas que a opção escolhida abre — `T-307`, `RF-99`.
+ *
+ * Consulta à tabela que o servidor montou, pelo valor escolhido: nenhuma
+ * condição é avaliada aqui (`RF-45`). "Não sei" marcado não abre nada.
+ */
+function filhasAbertas(pergunta: Pergunta, valor: string | string[], naoSei: boolean): Pergunta[] {
+  if (naoSei || !pergunta.complementares) return []
+  const escolhida = Array.isArray(valor) ? (valor[0] ?? '') : valor
+  return pergunta.complementares[escolhida] ?? []
+}
+
 /** O avanço dentro da ficha, em pontos percentuais. `null` fora de ficha. */
 function percentualDaFicha(pergunta: Pergunta): number | null {
   const { posicao, total_na_ficha: total } = pergunta
@@ -228,8 +220,32 @@ export default function TelaPergunta({
   const [confirmacaoComAviso, setConfirmacaoComAviso] = useState<ConfirmacaoDeResposta | null>(
     null,
   )
-  /** As respondidas, em ordem — a fonte do caminho para trás (`RF-70`). */
-  const [respondidas, setRespondidas] = useState<readonly Anterior[]>([])
+  /**
+   * `T-307`: o que o aluno preencheu nas perguntas da thread, pela chave.
+   * Trocar de opção esconde as filhas e elas não são enviadas; voltar à
+   * opção mostra de novo o que tinha sido digitado.
+   */
+  const [filhas, setFilhas] = useState<Record<string, EstadoDaFilha>>({})
+
+  function estadoDa(filha: Pergunta): EstadoDaFilha {
+    return (
+      filhas[chaveDa(filha)] ?? {
+        valor: valorInicial(filha),
+        naoSei: filha.respondida_como_nao_sei,
+        erro: null,
+        aviso: null,
+      }
+    )
+  }
+
+  function mudarFilha(filha: Pergunta, mudanca: Partial<EstadoDaFilha>) {
+    // Mudou a resposta: o aviso anterior não vale mais — grava de novo.
+    setConfirmacaoComAviso(null)
+    setFilhas((atual) => ({
+      ...atual,
+      [chaveDa(filha)]: { ...estadoDa(filha), aviso: null, ...mudanca },
+    }))
+  }
 
   /**
    * **A correção é modo, não tela nova** (`RF-69`). Uma segunda tela de
@@ -262,6 +278,7 @@ export default function TelaPergunta({
         return
       }
       setPergunta(dados.pergunta)
+      setFilhas({})
       setPendencias(dados.total_pendencias ?? 0)
       // Reabre com o valor já respondido, quando houver (`AC-01`, `AC-102`).
       setValor(valorInicial(dados.pergunta))
@@ -277,32 +294,6 @@ export default function TelaPergunta({
     void carregar()
   }, [carregar])
 
-  /**
-   * Busca a ordem das respondidas — `RF-70`.
-   *
-   * Falha aqui **degrada, não quebra**: sem a lista o caminho para trás
-   * simplesmente não é oferecido, e a coleta segue. Um erro de carregamento de
-   * um atalho não pode impedir o aluno de responder a pergunta que está na
-   * tela.
-   */
-  useEffect(() => {
-    if (!abrirPergunta) return
-    let ativo = true
-    obterRespostasDoCaso(casoId)
-      .then((dados) => {
-        if (!ativo) return
-        setRespondidas(
-          dados.partes.flatMap((parte) =>
-            parte.respondidas.map((linha) => ({ ID: linha.ID, item_id: linha.item_id })),
-          ),
-        )
-      })
-      .catch(() => undefined)
-    return () => {
-      ativo = false
-    }
-  }, [casoId, abrirPergunta, idPergunta, itemId])
-
   async function aoResponder() {
     if (!pergunta) return
     if (confirmacaoComAviso) {
@@ -314,20 +305,58 @@ export default function TelaPergunta({
     setGravando(true)
     setErro(null)
     try {
-      const confirmacao = await gravarResposta(casoId, {
+      const daMae = await gravarResposta(casoId, {
         idPergunta: pergunta.ID,
         valor: naoSei ? undefined : valor,
         itemId: pergunta.item_id,
         naoSei,
       })
+      // `T-307` (RF-99): depois da mãe, as filhas abertas, uma a uma, pela
+      // MESMA rota (`RF-69`) — a mãe gravada primeiro é o que abre cada
+      // filha no servidor. Filha recusada mostra o erro junto dela; a mãe e
+      // as anteriores já estão gravadas, e reenviar regrava igual.
+      let confirmacao = daMae
+      const avisos = [...(daMae.avisos ?? [])]
+      const abrirFichas = [...(daMae.abrir_fichas ?? [])]
+      const estados: Record<string, EstadoDaFilha> = {}
+      for (const filha of filhasAbertas(pergunta, valor, naoSei)) {
+        const estado: EstadoDaFilha = { ...estadoDa(filha), erro: null, aviso: null }
+        estados[chaveDa(filha)] = estado
+        try {
+          confirmacao = await gravarResposta(casoId, {
+            idPergunta: filha.ID,
+            valor: estado.naoSei ? undefined : estado.valor,
+            itemId: filha.item_id,
+            naoSei: estado.naoSei,
+          })
+        } catch (falha) {
+          estado.erro = falha instanceof Error ? falha.message : 'Não foi possível salvar.'
+          setFilhas((atual) => ({ ...atual, ...estados }))
+          return
+        }
+        const avisosDaFilha = confirmacao.avisos ?? []
+        if (avisosDaFilha.length) {
+          estado.aviso = avisosDaFilha.map((aviso) => aviso.mensagem).join(' ')
+        }
+        avisos.push(...avisosDaFilha)
+        abrirFichas.push(...(confirmacao.abrir_fichas ?? []))
+      }
+      setFilhas((atual) => ({ ...atual, ...estados }))
+      confirmacao = {
+        ...confirmacao,
+        avisos,
+        abrir_fichas: [...new Set(abrirFichas)],
+      }
       // `T-240`: o aviso vai para o canal que o campo já anuncia
       // (`role="status"` ligado por `aria-describedby`, em `CampoPergunta`).
       // Nenhuma regra aqui: o texto e a decisão de avisar são do servidor.
-      if (confirmacao.avisos?.length) {
-        setPergunta({
-          ...pergunta,
-          aviso: confirmacao.avisos.map((aviso) => aviso.mensagem).join(' '),
-        })
+      if (avisos.length) {
+        if (daMae.avisos?.length) {
+          setPergunta({
+            ...pergunta,
+            aviso: daMae.avisos.map((aviso) => aviso.mensagem).join(' '),
+          })
+        }
         setConfirmacaoComAviso(confirmacao)
         return
       }
@@ -374,19 +403,19 @@ export default function TelaPergunta({
     }
     const proxima = confirmacao.proxima.pergunta
     setPergunta(proxima)
+    setFilhas({})
     setPendencias(confirmacao.total_pendencias)
     setValor(valorInicial(proxima))
     setNaoSei(proxima.respondida_como_nao_sei)
   }
 
-  const anterior = anteriorNaLista(
-    respondidas,
-    pergunta ? { ID: pergunta.ID, item_id: pergunta.item_id } : null,
-  )
+  const anterior = pergunta?.anterior ?? null
+  // `T-308`: na correção o "voltar" leva à revisão, não ao Início.
+  const rotuloVoltar = corrigindo ? '‹ Voltar' : undefined
 
   if (carregando) {
     return (
-      <Tela titulo="Sua coleta" voltar={voltar}>
+      <Tela titulo="Sua coleta" voltar={voltar} rotuloVoltar={rotuloVoltar}>
         <Esqueleto forma="pergunta" anuncio="Carregando a pergunta" />
       </Tela>
     )
@@ -394,7 +423,7 @@ export default function TelaPergunta({
 
   if (!pergunta) {
     return (
-      <Tela titulo="Sua coleta" voltar={voltar}>
+      <Tela titulo="Sua coleta" voltar={voltar} rotuloVoltar={rotuloVoltar}>
         <p role="alert" className="aviso-erro">
           {erro ?? 'Nada para responder agora.'}
         </p>
@@ -417,7 +446,10 @@ export default function TelaPergunta({
       chave={`${pergunta.ID}/${pergunta.item_id ?? ''}`}
       mostrarTitulo={false}
       voltar={voltar}
+      rotuloVoltar={rotuloVoltar}
       onde={localizador(pergunta, pendencias)}
+      // `T-310` (RF-100): a trilha das cinco partes, do servidor.
+      lateral={pergunta.trilha ? <TrilhaDaColeta trilha={pergunta.trilha} /> : undefined}
       acoes={
         <>
           <Botao onClick={() => void aoResponder()} disabled={gravando}>
@@ -474,6 +506,38 @@ export default function TelaPergunta({
         <p role="alert" className="aviso-erro">
           {erro}
         </p>
+      )}
+
+      {/* `T-307` (RF-99): a thread — as perguntas que a opção escolhida
+          abre, logo abaixo, na mesma tela. A `key` refaz a entrada (e a
+          transição) a cada troca de opção. */}
+      {filhasAbertas(pergunta, valor, naoSei).length > 0 && (
+        <div
+          key={Array.isArray(valor) ? valor[0] : valor}
+          role="group"
+          aria-label="Perguntas abertas pela sua resposta"
+          className="thread"
+        >
+          {filhasAbertas(pergunta, valor, naoSei).map((filha) => {
+            const estado = estadoDa(filha)
+            return (
+              <div key={chaveDa(filha)} className="flex flex-col gap-2">
+                <CampoPergunta
+                  pergunta={{ ...filha, aviso: estado.aviso ?? filha.aviso }}
+                  valor={estado.valor}
+                  naoSei={estado.naoSei}
+                  onValor={(novo) => mudarFilha(filha, { valor: novo, erro: null })}
+                  onNaoSei={(marcado) => mudarFilha(filha, { naoSei: marcado, erro: null })}
+                />
+                {estado.erro && (
+                  <p role="alert" className="aviso-erro">
+                    {estado.erro}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </Tela>
   )

@@ -36,6 +36,7 @@ from fastapi.responses import JSONResponse
 
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
+from app.http.jornada import PARTES
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
     _itens_e_rotulos,
@@ -54,23 +55,6 @@ from report.plano import formatar_dinheiro_br
 REGRAS: Final[tuple[str, ...]] = ("RF-68", "RF-10", "AC-100", "AC-101")
 
 roteador = APIRouter(prefix="/caso", tags=["respostas"])
-
-# As cinco partes da Etapa B, na linguagem do aluno — os mesmos rótulos do
-# protótipo validado (linhas 278–282) e da tela "Meu progresso". Aqui eles
-# ficam no SERVIDOR porque é ele que conhece o número do bloco de cada
-# registro; o cliente recebe a parte já nomeada e não precisa saber que
-# "Bloco 3" existe.
-#
-# `T-297`: o Bloco 9 (`B9.02`, `B9.04`) também é coleta inicial, e a spec só
-# prevê cinco partes (`RF-68`). Ele entra em "Seu compromisso" — as duas
-# perguntas são sobre perseverar no plano — depois do Bloco 1.
-_PARTES: Final[tuple[tuple[int, str, tuple[int, ...]], ...]] = (
-    (1, "Seu compromisso", (1, 9)),
-    (2, "Como você controla os gastos", (2,)),
-    (3, "O que entra e o que sai por mês", (3,)),
-    (4, "Salário, margem e o que você tem", (4,)),
-    (5, "Suas dívidas, uma por uma", (5,)),
-)
 
 # `T-295`: checklist respondido sem nada marcado grava `frozenset()`; o aluno
 # lê isto, nunca `"[]"`. Texto vazio vai como lista vazia ("Respondida." no
@@ -200,7 +184,7 @@ def respostas_do_caso(
     respostas = RespostasCaso(respostas=respostas_brutas)
 
     partes: list[dict[str, Any]] = []
-    for numero, rotulo, blocos in _PARTES:
+    for numero, rotulo, blocos in PARTES:
         do_bloco = [r for blc in blocos for r in colecao.registros if r.bloco == blc]
         linhas: list[dict[str, Any]] = []
         # `T-297`: o total conta na mesma unidade das respondidas — uma

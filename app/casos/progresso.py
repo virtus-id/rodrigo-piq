@@ -919,6 +919,19 @@ def contar_coleta(
     return ContagemDeColeta(respondidas=total - faltam, faltam=faltam, total=total)
 
 
+def percurso_da_coleta(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]] | None = None,
+) -> tuple[tuple[PendenciaObrigatoria, bool], ...]:
+    """`T-309`/`T-310` — o percurso da coleta inicial, em ordem, com o
+    sinalizador "em branco": a MESMA varredura da retomada e da contagem.
+    A pergunta anterior (`RF-70`) e a trilha por partes leem daqui, para que
+    "voltar" e a trilha sigam a ordem em que o aluno de fato as viu (ficha
+    item a item, `T-202`), nunca a ordem dos registros."""
+    return tuple(_ocorrencias_da_retomada(registros, respostas, itens_por_escopo))
+
+
 # ---------------------------------------------------------------------------
 # `T-91` — `transicionar_e_registrar`: o único caminho que transiciona o
 # `Caso` E grava o evento correspondente na trilha (`RF-31`, `AC-40`, `EC-14`).

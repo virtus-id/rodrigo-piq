@@ -37,9 +37,11 @@ from app.casos.progresso import (
     da_coleta_inicial,
     escopo_aberto,
     itens_em_aberto,
+    percurso_da_coleta,
 )
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
+from app.http.jornada import trilha_da_coleta
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
     _agrupar,
@@ -223,6 +225,14 @@ def listar_fichas(
             "escopo_pai": pai.value if pai else None,
             "escopos_filhos": sorted(filho.value for filho in filhos),
             "fichas": fichas,
+            # `T-310` (RF-100): a trilha por partes, na parte da ficha.
+            "trilha": trilha_da_coleta(
+                colecao.registros,
+                percurso_da_coleta(colecao.registros, respostas, agrupado),
+                cabeca.bloco,
+            )
+            if (cabeca := cabecas_das_fichas(colecao.registros).get(membro))
+            else None,
         }
     )
 

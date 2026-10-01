@@ -531,20 +531,21 @@ def test_t212_gatilho_aponta_a_ficha_e_o_item_criado_abre_a_cabeca(
     valor: str,
     escopos: list[str],
 ) -> None:
-    """Reproduz o bug: o aluno respondia "Sim" e a coleta seguia sem ficha."""
+    """Reproduz o bug: o aluno respondia "Sim" e a coleta seguia sem ficha.
+
+    `T-311` (decisão do produto, 2026-10-01): a ficha nasce com o primeiro
+    item e a próxima pergunta é a cabeça dele — sem a lista no meio."""
     cliente = _cliente_real(monkeypatch, tmp_path)
 
     resposta = _responder(cliente, gatilho, valor)
 
     assert resposta.status_code == 200, resposta.text
-    assert resposta.json()["abrir_fichas"] == escopos
+    assert resposta.json()["abrir_fichas"] == []
     for escopo in escopos:
-        criada = cliente.post(f"/caso/{_CASO_ID}/fichas/{escopo}")
-        item_id = criada.json()["ficha"]["item_id"]
-        cabeca = criada.json()["ficha"]["campos"][0]["ID"]
-        pergunta = cliente.get(f"/caso/{_CASO_ID}/pergunta", params={"item_id": item_id})
-        assert pergunta.json()["pergunta"]["ID"] == cabeca
-        assert pergunta.json()["pergunta"]["item_id"] == item_id
+        (ficha,) = _fichas(cliente, escopo)
+        proxima = resposta.json()["proxima"]["pergunta"]
+        assert proxima["ID"] == ficha["campos"][0]["ID"]
+        assert proxima["item_id"] == ficha["item_id"]
 
 
 @pytest.mark.parametrize(
@@ -577,8 +578,9 @@ def test_t212_resposta_fora_de_gatilho_nao_aponta_ficha(
     """`ITEM_DESPESA` e `DIVIDA_ID` não têm condição na cabeça: nada os abre."""
     cliente = _cliente_real(monkeypatch, tmp_path)
 
-    assert _responder(cliente, "B3.03", "SIM").json()["abrir_fichas"] == ["RENDA_ADICIONAL_ID"]
+    assert _responder(cliente, "B3.03", "SIM").json()["proxima"]["pergunta"]["item_id"]
     assert _responder(cliente, "B3.NM01", "NAO").json()["abrir_fichas"] == []
+    assert _fichas(cliente, "DESPESA_NAO_MENSAL_ID") == []
 
 
 def test_t212_escopos_informa_se_cada_um_esta_aberto(
@@ -631,12 +633,13 @@ def test_t212_fichas_de_um_escopo_nao_alteram_as_de_outro(
     """`AC-04` — criar, responder e remover no escopo de renda não toca a de
     despesa não mensal."""
     cliente = _cliente_real(monkeypatch, tmp_path)
+    # `T-311`: cada "Sim" já cria a primeira ficha do seu escopo.
     _responder(cliente, "B3.03", "SIM")
     _responder(cliente, "B3.NM01", "SIM")
-    despesa = cliente.post(f"/caso/{_CASO_ID}/fichas/DESPESA_NAO_MENSAL_ID").json()["ficha"]
+    (despesa,) = _fichas(cliente, "DESPESA_NAO_MENSAL_ID")
     antes = cliente.get(f"/caso/{_CASO_ID}/fichas/DESPESA_NAO_MENSAL_ID").json()
 
-    renda = cliente.post(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID").json()["ficha"]
+    (renda,) = _fichas(cliente, "RENDA_ADICIONAL_ID")
     assert _responder(cliente, "B3.03B", "2000", renda["item_id"]).status_code == 200
     cliente.delete(f"/caso/{_CASO_ID}/fichas/RENDA_ADICIONAL_ID/{renda['item_id']}")
 
@@ -732,7 +735,7 @@ def test_t256_vinculo_da_divida_so_para_consignado_com_os_vinculos_do_caso(
         "OUTRO-CASO", EscopoRepeticao.VINCULO_ID
     )
     _responder(cliente, "B3.S01", "SIM")
-    v1 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    v1 = _fichas(cliente, "VINCULO_ID")[0]["item_id"]  # `T-311`: nasce com o "Sim"
     v2 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
     v3 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
     cliente.delete(f"/caso/{_CASO_ID}/fichas/VINCULO_ID/{v3}")

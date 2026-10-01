@@ -12454,3 +12454,281 @@ cenário de apresentação (`ORDEM_VAZIA`, `ESTABILIZACAO`).
 - [ ] Gates: lint, build, test
 
 **Status:** `[ ] pendente`
+
+---
+
+### `T-307` — Perguntas complementares na mesma tela (thread)
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-290`
+- **Rastreia:** `RF-99`, `AC-157` (e `RF-45`, `RF-52`, `RF-69` preservados)
+- **Arquivos:** `app/http/rotas_coleta.py`, `frontend/src/tipos.ts`,
+  `frontend/src/telas/TelaPergunta.tsx`, `frontend/src/index.css`,
+  `tests/app_aluno/test_complementares.py`,
+  `frontend/tests/unit/componentes/TelaPerguntaThread.test.tsx`,
+  `specs/app-aluno.spec.md`, `specs/app-aluno.discovery.md`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+A opção que abre perguntas complementares as mostra logo abaixo, na mesma
+tela, em vez de em outra página. O servidor continua decidindo o que abre:
+`serializar_pergunta_do_caso` (`GET /pergunta` e `proxima` do `POST`) inclui
+`complementares` — por `valor_interno`, as filhas exibíveis com a mãe
+naquele valor, avaliadas com `_respostas_com_valor_provisorio` e a mesma
+`avaliar`. Resolve `OQ-46` para este caso.
+
+**Levantamento** — filha direta = vem logo depois da mãe, mesmo bloco e
+mesma ficha, condição lê a `VARIAVEL_GRAVADA` da mãe. O trecho contíguo
+termina na primeira pergunta que não lê a mãe nem uma filha, para não mudar
+a ordem da coleta. Tabela com estado vazio (as filhas com condição sobre
+outra coisa só entram quando ela já vale):
+
+| Mãe | Opção → filhas |
+| --- | --- |
+| `B1.02` | `SIM`, `TALVEZ` → `B1.03`, `B1.04`, `B1.05` |
+| `B1.03` | `OUTRA` → `B1.03A` |
+| `B1.06` | `SIM` → `B1.06A`, `B1.06B`, `B1.06C` |
+| `B1.10` | `MAIS_DE_UMA`, `UMA` → `B1.11` |
+| `B2.01` | `TUDO`, `MAIORIA`, `PARTE`, `RARAMENTE` → `B2.02`–`B2.05` |
+| `B2.05` | `QUASE_TOTAL`, `PARCIAL` → `B2.05A` |
+| `B2.07` | `ALGUMAS_MES`, `FREQUENTE` → `B2.08` |
+| `B2.09` | `SIM` → `B2.10`, `B2.10A` |
+| `B3.02` | `VARIAVEL` → `B3.02A`, `B3.02B` |
+| `B3.04` | `SIM` → `B3.04A` |
+| `B3.06` | `CONCRETA` → `B3.06A`, `B3.06B` |
+| `B3.C02` | `SOBRA` → `B3.C02A`; `FALTA` → `B3.C02B` |
+| `B3.S07` | `SIM` → `B3.S07A`, `B3.S07B` |
+| `B4.01` | `SIM` → `B4.01A` |
+| `B4.02` | `SIM`, `INFORMAL` → `B4.02A`, `B4.02B`, `B4.03` |
+| `B4.03` | `PARTE`, `GRANDE_PARTE`, `TALVEZ` → `B4.03A` |
+| `B4.04` | `SIM` → `B4.04A`, `B4.04B`, `B4.05`, `B4.06`, `B4.06B` |
+| `B4.06` | `SIM` → `B4.06A` |
+| `B4.I01` | `SIM` → `B4.I02`–`B4.I09` |
+| `B4.I04` / `B4.I05` | `SIM` → `B4.I04A` / `B4.I05A` |
+| `B4.V01` | `SIM` → `B4.V02`–`B4.V09` |
+| `B4.V04` | `SIM` → `B4.V04A` |
+| `B4.V08` | `SIM`, `TALVEZ` → `B4.V08A`, `B4.V08B` |
+| `B4.V08B` | `SIM` → `B4.V08C` |
+| `B4.O01` | `SIM` → `B4.O02`–`B4.O09` |
+| `B4.O04` | `SIM` → `B4.O04A` |
+| `B5.A05` | `SIM` → `B5.A05A` |
+| `B5.B05` | `SIM` → `B5.B05A`, `B5.B05B`; `EXPIROU` → `B5.B05A` |
+| `B5.C01` | `SIM` → `B5.C02`, `B5.C03`, `B5.C04`; `NAO`, `NAO_SEI` → `B5.C05` |
+| `B5.C05` | `SIM` → `B5.C05A` |
+| `B5.C06` | `VARIA` → `B5.C06A` |
+| `B5.C07` | `SIM`, `AS_VEZES` → `B5.C07A` |
+| `B5.D01` | `CONFIRMADA`, `ESTIMADA` → `B5.D01A`, `B5.D01B` (`B5.D02` também, quando `B5.I01` já marcou documento) |
+| `B5.D03` / `B5.D04` | `SIM` → `B5.D03A` / `B5.D04A` |
+| `B5.D05` | `SIM` → `B5.D05A`, `B5.D05B`, `B5.D05S` |
+| `B5.E01` | `VENCIDO`, `PARCIAL` → `B5.E02` |
+| `B5.F01` | `SIM` → `B5.F02`, `B5.F03` |
+
+Também entra `B5.A02` → `B5.A02V` (`CONSIGNADO`), quando há vínculo para
+escolher. Ficam fora: `B5.A02` → `B5.C07`/`B5.G03` (outros grupos da
+ficha), `B3.S01` → `B3.S07`/`B3.S08` (a ficha de vínculo fica no meio),
+`B5.I01` (`SELECAO_MULTIPLA`) e `B5.H01` (`ESCALA_0_10`), onde o valor não é
+uma opção só. `B5.B01`, `B5.G01` e `B3.03` não têm filhas condicionais no
+mesmo trecho: `B5.B01` abre campo R$ na própria opção (`T-294`) e `B3.03`
+abre ficha (`abrir_fichas`, `T-212`). Netas (`B4.06A`, `B5.D05V`/`P`,
+`B5.D05R`) não entram (profundidade 1): aparecem na tela seguinte.
+
+**Gravação.** Sequencial no cliente, pela mesma rota (`RF-69`): mãe, depois
+cada filha visível. Filha recusada mostra o erro junto dela; a mãe e as
+anteriores ficam gravadas; "Continuar" reenvia tudo (regravar é
+idempotente). Avisos e `abrir_fichas` de todas as gravações são somados; a
+próxima é a da última confirmação, que já pula as respondidas.
+
+**Critérios de aceite**
+
+- [x] `complementares` por opção, calculado no servidor, filhas com
+      `item_id`, sem thread própria (`test_ac157_mae_traz_as_filhas_de_cada_opcao`
+      para `B3.02`, `B2.09`, `B5.D05`, `B5.C01`)
+- [x] Filha fora do trecho contíguo não entra; pergunta sem filhas não
+      ganha a chave (`test_ac157_filha_longe_da_mae_nao_entra_na_thread`,
+      `test_ac157_pergunta_sem_filhas_mantem_o_contrato`)
+- [x] Mãe antes das filhas; filha recusada não desfaz a mãe; próxima pula
+      as respondidas
+      (`test_ac157_mae_e_filhas_gravadas_em_ordem_e_proxima_pula_as_respondidas`)
+- [x] Componente: opção mostra/esconde filhas; ordem dos `POST`; opção sem
+      filhas não envia nada; erro junto da filha (`TelaPerguntaThread.test.tsx`)
+- [x] `AC-73` continua passando (nenhum nome de condicional no cliente)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — aprovados pelo produto em 2026-10-01: rótulo acessível
+do grupo da thread "Perguntas abertas pela sua resposta".
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-308` — "‹ Voltar" que leva ao Início passa a dizer "‹ Início"
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-149`
+- **Rastreia:** `RF-57`, `AC-160`
+- **Arquivos:** `frontend/src/componentes/Tela.tsx`,
+  `frontend/src/telas/TelaPergunta.tsx`, `frontend/src/telas/TelaAcao.tsx`,
+  `frontend/tests/e2e/navegacao.spec.ts`, `frontend/tests/e2e/apoio/navegacao.ts`,
+  `frontend/tests/unit/componentes/TelaPergunta.test.tsx`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01, após teste no
+sistema)
+
+O "‹ Voltar" do topo da pergunta levava ao Início, e o aluno esperava a
+pergunta anterior. O rótulo diz para onde leva: `Tela` ganha `rotuloVoltar`,
+com padrão "‹ Início" nas telas do aluno (todas voltam ao Início) e "‹ Voltar"
+nas da equipe (voltam à fila). Passam "‹ Voltar": a correção de resposta
+(volta à revisão) e a ação (volta à lista de ações).
+
+**Critérios de aceite**
+
+- [x] Pergunta, fichas e demais telas do aluno que voltam ao Início: "‹ Início"
+- [x] Correção (`#respostas/{ID}`) e `TelaAcao`: "‹ Voltar"; equipe inalterada
+- [x] Playwright "T-308" (pergunta → `#inicio`; correção → `#respostas`) e vitest
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — aprovados pelo produto em 2026-10-01: "‹ Início".
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-309` — "‹ Pergunta anterior" volta mais de uma pergunta
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-160`, `T-202`
+- **Rastreia:** `RF-70`, `AC-105`, `AC-161`
+- **Arquivos:** `app/casos/progresso.py`, `app/http/jornada.py` (novo),
+  `app/http/rotas_coleta.py`, `app/http/rotas_pergunta.py`,
+  `app/http/rotas_respostas.py`, `frontend/src/tipos.ts`,
+  `frontend/src/telas/TelaPergunta.tsx`,
+  `tests/app_aluno/test_t309_t311_percurso_e_fichas.py`,
+  `tests/app_aluno/e2e/test_fluxo_coleta_ponta_a_ponta.py`,
+  `frontend/tests/e2e/navegacao.spec.ts`,
+  `frontend/tests/unit/componentes/TelaPergunta.test.tsx`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+**Causa.** `TelaPergunta` montava a ordem a partir de `/respostas`: ordem dos
+registros (registro → item) agrupada por parte. O percurso real é item →
+registro (`T-202`) e o Bloco 9 vem depois do Bloco 5. Numa ficha com dois
+itens, `B3.05A@EXT002` voltava para `B3.05A@EXT001`; e na pendente (fora da
+lista) caía na "última da lista", não na última do percurso
+(`B3.05B@EXT002` → `B3.05D@EXT001`).
+
+**Correção.** O servidor nomeia `anterior` no payload da pergunta (`GET
+/pergunta`, `GET /pergunta/{ID}` e `proxima` do `POST`): a última respondida
+antes desta em `progresso.py::percurso_da_coleta` — a mesma varredura da
+retomada. O cliente deixa de chamar `/respostas` para isso. `_PARTES` saiu de
+`rotas_respostas.py` para `app/http/jornada.py::PARTES` (uma fonte só).
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz falha antes e passa depois — duas fichas `EXT` com a
+      condicional Férias/abono: cada pergunta exibida aponta como `anterior`
+      a exibida logo antes, com o `item_id`
+      (`test_t309_t311_anterior_e_a_pergunta_exibida_logo_antes_no_percurso`)
+- [x] vitest: o botão usa `pergunta.anterior` e não chama `/respostas`;
+      sem `anterior` não há botão. Playwright `AC-105` atualizado
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-310` — Trilha lateral da coleta em cinco partes
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-161`, `T-166`, `T-293`, `T-297`
+- **Rastreia:** `RF-100`, `AC-162` (e `RF-45`, `RF-67`, `RF-71`, `AC-115`)
+- **Arquivos:** `app/http/jornada.py`, `app/http/rotas_coleta.py`,
+  `app/http/rotas_pergunta.py`, `app/http/rotas_fichas.py`,
+  `frontend/src/componentes/TrilhaDaColeta.tsx` (novo), `frontend/src/tipos.ts`,
+  `frontend/src/telas/TelaPergunta.tsx`, `frontend/src/telas/TelaFichas.tsx`,
+  testes
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+O payload da pergunta e o de `GET /fichas/{escopo}` trazem `trilha`: as cinco
+partes de `/respostas` com `estado` `concluida`/`atual`/`proxima`, decidido no
+servidor (`trilha_da_coleta`). Concluída = começa antes da frente da coleta
+(primeira em branco do percurso) e não é a parte da frente — assim o Bloco 9,
+no fim do percurso, não tira "Seu compromisso" de concluída. A barra conta
+**partes** concluídas (`T-293`: o total de perguntas cresce com as fichas).
+`TrilhaDaColeta` reaproveita as classes da trilha da jornada (`.trilha`,
+`.degrau`, `.marca`, `.bar`), não o componente (que lê `/inicio`). Desktop:
+coluna lateral (`lateral` da casca); celular: barra + "Parte N de 5 · rótulo".
+Não navegável; `aria-current="step"`, `role="progressbar"`.
+
+**Critérios de aceite**
+
+- [x] Servidor: `test_t310_trilha_por_partes_com_o_bloco_9_no_fim_do_percurso`,
+      `test_t310_pergunta_e_lista_de_fichas_trazem_a_trilha`
+- [x] vitest (parte atual, barra em partes, resumo) e Playwright "T-310" nos
+      dois viewports (desktop: lista com `aria-current`; 360px: resumo, lista
+      oculta)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — redação da equipe técnica, aprovada pelo produto em
+2026-10-01: "Parte N de 5 · {parte}"; rótulos acessíveis "Partes da coleta",
+"Progresso da coleta", "N de 5 partes concluídas", "(concluída)".
+
+**Fora do escopo.** A tela de correção (`#respostas/{ID}`) também mostra a
+trilha, porque usa a mesma `TelaPergunta`.
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-311` — Declarar algo que abre fichas cria o primeiro item
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-212`, `T-217`, `T-291`
+- **Rastreia:** `RF-101`, `AC-163` (e `RF-04`, `RF-53`, `RF-45`)
+- **Arquivos:** `app/http/rotas_coleta.py`, `frontend/src/telas/TelaFichas.tsx`,
+  `tests/app_aluno/test_t309_t311_percurso_e_fichas.py`,
+  `tests/app_aluno/test_ficha_repetivel.py`,
+  `tests/app_aluno/test_coleta_fichas_de_divida.py`,
+  `tests/app_aluno/test_montagem_extraordinarios.py`,
+  `tests/app_aluno/test_vinculos.py`, `frontend/tests/e2e/coleta.spec.ts`,
+  `frontend/tests/e2e/navegacao.spec.ts`,
+  `frontend/tests/unit/componentes/TelaFichas.test.tsx`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+`POST /resposta` (`_primeiro_item_ou_lista`): (a) escopo aberto pela resposta
+e ainda sem item — `RENDA_ADICIONAL_ID`, `VINCULO_ID`,
+`DESPESA_NAO_MENSAL_ID`, `RECURSO_EXTRAORDINARIO_ID`, `DIVIDA_ID` — nasce com
+o primeiro item, sai de `abrir_fichas` e `proxima` passa a ser a primeira
+pergunta dele; (b) resposta que fecha um item desses escopos (nenhuma
+pergunta aberta em branco nele) põe o escopo em `abrir_fichas`, e a lista
+reabre com "+ Adicionar outro(a) …" e "Continuar". Na lista, adicionar abre
+direto a primeira pergunta do item novo (a despesa não listada, que pede
+nome, continua na lista). `ITEM_DESPESA` (checklist, `T-217`) e `MARGEM_ID`
+(nasce no vínculo) ficam como estavam. O cliente (`TelaPergunta`/`App.tsx`)
+não mudou: já seguia `proxima` e `abrir_fichas`.
+
+**Critérios de aceite**
+
+- [x] Testes que reproduzem: `B3.05 = Sim` → `EXT001` e `proxima` nele, sem
+      lista; fim do item → `abrir_fichas = [RECURSO_EXTRAORDINARIO_ID]`;
+      gatilho repetido não duplica (`test_t311_*`, `test_t212_gatilho_*`,
+      `test_t291_b5_00a_*`)
+- [x] Testes antigos que fixavam "a lista abre vazia" atualizados para a
+      decisão (`T-212`, `T-254`/`T-256`, `T-260`, `T-270`, `AC-123`, `AC-151`)
+- [x] vitest e Playwright: "+ Adicionar outra dívida" abre a pergunta do
+      item novo; "Continuar" presente
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — aprovados pelo produto em 2026-10-01: "+ Adicionar outra
+{dívida | renda adicional | despesa não mensal | despesa}" e
+"+ Adicionar outro {vínculo | valor extraordinário}" (com a primeira já
+cadastrada; sem nenhuma, "+ Adicionar {item}" como antes).
+
+**Limite conhecido.** Dentro do item, a `proxima` do `POST` continua sendo a
+primeira em branco da coleta inteira (`RF-45`); no fluxo normal é a do item,
+porque tudo antes já foi respondido. Quem abre uma ficha pela lista com
+perguntas anteriores em branco é levado a elas — comportamento anterior,
+mantido.
+
+**Status:** `[x] concluída (2026-10-01)`

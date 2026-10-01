@@ -182,3 +182,81 @@ describe('T-240: aviso na gravação', () => {
     expect(await screen.findByLabelText(/Pergunta seguinte/)).toBeInTheDocument()
   })
 })
+
+describe('T-308/T-309/T-310: topo, anterior e trilha vêm do servidor', () => {
+  it('"‹ Início" na coleta e "‹ Voltar" na correção', async () => {
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({
+      pergunta: fabricar('TEXTO_CURTO'),
+      total_pendencias: 0,
+    })
+    const { unmount } = render(
+      <TelaPergunta casoId="CASO-1" voltar={vi.fn()} onColetaCompleta={vi.fn()} />,
+    )
+    expect(await screen.findByRole('button', { name: '‹ Início' })).toBeInTheDocument()
+    unmount()
+
+    vi.spyOn(api, 'obterPergunta').mockResolvedValue({
+      pergunta: fabricar('TEXTO_CURTO'),
+      total_pendencias: 0,
+    })
+    render(
+      <TelaPergunta
+        casoId="CASO-1"
+        voltar={vi.fn()}
+        onColetaCompleta={vi.fn()}
+        idPergunta="Q1"
+        aoCorrigir={vi.fn()}
+      />,
+    )
+    expect(await screen.findByRole('button', { name: '‹ Voltar' })).toBeInTheDocument()
+  })
+
+  it('"‹ Pergunta anterior" abre exatamente a que o servidor nomeia, com o item', async () => {
+    const abrirPergunta = vi.fn()
+    const respostas = vi.spyOn(api, 'obterRespostasDoCaso')
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({
+      pergunta: fabricar('TEXTO_CURTO', { anterior: { ID: 'B3.05D', item_id: 'EXT001' } }),
+      total_pendencias: 0,
+    })
+    render(
+      <TelaPergunta casoId="CASO-1" onColetaCompleta={vi.fn()} abrirPergunta={abrirPergunta} />,
+    )
+
+    await userEvent.click(await screen.findByRole('button', { name: '‹ Pergunta anterior' }))
+
+    expect(abrirPergunta).toHaveBeenCalledWith('B3.05D', 'EXT001')
+    // A ordem não é mais remontada de `/respostas` no cliente.
+    expect(respostas).not.toHaveBeenCalled()
+  })
+
+  it('sem `anterior` não há botão', async () => {
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({
+      pergunta: fabricar('TEXTO_CURTO', { anterior: null }),
+      total_pendencias: 0,
+    })
+    render(<TelaPergunta casoId="CASO-1" onColetaCompleta={vi.fn()} abrirPergunta={vi.fn()} />)
+
+    await screen.findByText(/Campo de teste/, { selector: 'label, legend' })
+    expect(screen.queryByRole('button', { name: /Pergunta anterior/ })).not.toBeInTheDocument()
+  })
+
+  it('a trilha marca a parte atual e a barra conta partes concluídas', async () => {
+    abrir(
+      fabricar('TEXTO_CURTO', {
+        trilha: [
+          { numero: 1, rotulo: 'Seu compromisso', estado: 'concluida' },
+          { numero: 2, rotulo: 'Como você controla os gastos', estado: 'atual' },
+          { numero: 3, rotulo: 'O que entra e o que sai por mês', estado: 'proxima' },
+        ],
+      }),
+    )
+
+    const barra = await screen.findByRole('progressbar', { name: 'Progresso da coleta' })
+    expect(barra).toHaveAttribute('aria-valuenow', '1')
+    expect(barra).toHaveAttribute('aria-valuemax', '3')
+    expect(document.querySelector('[aria-current="step"]')).toHaveTextContent(
+      'Como você controla os gastos',
+    )
+    expect(screen.getByText(/Parte 2 de 3/)).toBeInTheDocument()
+  })
+})

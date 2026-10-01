@@ -122,14 +122,17 @@ from app.casos.itens_despesa import (
 from app.casos.maquina import ErroConsentimentoNaoRegistrado
 from app.casos.progresso import (
     PendenciaObrigatoria,
+    _variaveis_da_condicao,
     em_branco_no_item,
     escopos_abertos_pela_resposta,
     pendencias_obrigatorias,
     posicao_na_ficha,
+    proxima_pergunta_do_item,
     proxima_pergunta_nao_respondida,
 )
 from app.concorrencia import duas_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao
+from app.http.jornada import anexar_ao_payload
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_calculo import _respostas_do_calculo
 from app.http.serializacao import serializar_painel, serializar_pergunta, serializar_valor
@@ -763,6 +766,24 @@ def responder_pergunta(
     ):
         abrir_fichas = (*abrir_fichas, EscopoRepeticao.DIVIDA_ID)
 
+    # `T-311` (RF-101): a ficha aberta ainda vazia nasce com o primeiro item,
+    # e a coleta segue direto para a primeira pergunta dele; terminado um
+    # item, a lista do escopo reabre ("Adicionar outro" / "Continuar").
+    try:
+        abrir_fichas, proxima = _primeiro_item_ou_lista(
+            CASO_ID,
+            colecao,
+            registro,
+            item_id,
+            abrir_fichas,
+            proxima,
+            respostas_apos_gravar,
+            itens_por_escopo,
+            repositorio_itens,
+        )
+    except (ErroGravacaoItem, ErroGravacaoItemArquivo):
+        return _resposta_de_erro(request, _MENSAGEM_FALHA_SALVAR, 503)
+
     # T-144: a resposta é sempre JSON — a tela é React. Os sete passos
     # acima correram idênticos ao que sempre correram; só a montagem da
     # resposta mudou de formato.
@@ -788,6 +809,71 @@ def responder_pergunta(
 
 def _agora() -> datetime:
     return datetime.now(UTC)
+
+
+# `T-311` — as fichas que nascem com o primeiro item ao serem declaradas
+# (decisão do produto, 2026-10-01). `ITEM_DESPESA` fica de fora: as do
+# checklist já nascem dele (`T-217`), e a não listada pede nome na lista;
+# `MARGEM_ID` nasce dentro do vínculo.
+_FICHAS_QUE_NASCEM_COM_ITEM: Final[frozenset[EscopoRepeticao]] = frozenset(
+    {
+        EscopoRepeticao.DIVIDA_ID,
+        EscopoRepeticao.RENDA_ADICIONAL_ID,
+        EscopoRepeticao.VINCULO_ID,
+        EscopoRepeticao.DESPESA_NAO_MENSAL_ID,
+        EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID,
+    }
+)
+
+
+def _primeiro_item_ou_lista(
+    CASO_ID: str,
+    colecao: ColecaoDeRegistros,
+    registro: RegistroPergunta,
+    item_id: str | None,
+    abrir_fichas: tuple[EscopoRepeticao, ...],
+    proxima: dict[str, object],
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    repositorio_itens: RepositorioItens,
+) -> tuple[tuple[EscopoRepeticao, ...], dict[str, object]]:
+    """`T-311` (RF-101) — o destino depois de gravar, nas fichas.
+
+    (a) Escopo aberto pela resposta e ainda sem item: cria o primeiro e a
+    `proxima` passa a ser a primeira pergunta dele — sem a lista no meio.
+    (b) Resposta que fecha um item (nenhuma pergunta aberta em branco nele):
+    a lista do escopo entra em `abrir_fichas`, para o aluno adicionar outro
+    ou continuar. Quem decide as duas coisas é o servidor (`RF-45`)."""
+    criar = [e for e in abrir_fichas if e in _FICHAS_QUE_NASCEM_COM_ITEM]
+    if criar:
+        novos = [repositorio_itens.proximo_identificador(CASO_ID, e) for e in criar]
+        itens_por_escopo, rotulos = _itens_e_rotulos(repositorio_itens, CASO_ID, colecao)
+        primeira = proxima_pergunta_do_item(
+            colecao.registros, respostas, itens_por_escopo, novos[0]
+        )
+        restantes = tuple(e for e in abrir_fichas if e not in criar)
+        if primeira is None:  # pragma: no cover — defensivo: ficha sem pergunta aberta
+            return restantes, proxima
+        pergunta = serializar_pergunta_do_caso(
+            CASO_ID,
+            _localizar_registro(colecao, primeira.ID),
+            respostas,
+            colecao,
+            itens_por_escopo,
+            novos[0],
+            rotulos,
+        )
+        anexar_ao_payload(pergunta, colecao.registros, respostas, itens_por_escopo)
+        return restantes, {"pergunta": pergunta, "coleta_completa": False}
+
+    if (
+        item_id is not None
+        and registro.escopo_repeticao in _FICHAS_QUE_NASCEM_COM_ITEM
+        and registro.escopo_repeticao not in abrir_fichas
+    ):
+        if not em_branco_no_item(colecao.registros, respostas, itens_por_escopo, item_id):
+            return (*abrir_fichas, registro.escopo_repeticao), proxima
+    return abrir_fichas, proxima
 
 
 # `T-292` — a variável da confirmação da ficha (`B5.CHECK`) e o valor que a
@@ -1020,18 +1106,18 @@ def _serializar_proxima(
         return {"pergunta": None, "coleta_completa": True}
 
     registro, pendencia = encontrada
-    return {
-        "pergunta": serializar_pergunta_do_caso(
-            CASO_ID,
-            registro,
-            respostas,
-            colecao,
-            itens_por_escopo,
-            pendencia.item_id,
-            rotulos or {},
-        ),
-        "coleta_completa": False,
-    }
+    pergunta = serializar_pergunta_do_caso(
+        CASO_ID,
+        registro,
+        respostas,
+        colecao,
+        itens_por_escopo,
+        pendencia.item_id,
+        rotulos or {},
+    )
+    # `T-309`/`T-310`: a anterior no percurso e a trilha por partes.
+    anexar_ao_payload(pergunta, colecao.registros, respostas, itens_por_escopo)
+    return {"pergunta": pergunta, "coleta_completa": False}
 
 
 def serializar_pergunta_do_caso(
@@ -1042,10 +1128,14 @@ def serializar_pergunta_do_caso(
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
     item_id: str | None,
     rotulos: Mapping[str, str],
+    com_complementares: bool = True,
 ) -> dict[str, object]:
     """A pergunta como o cliente a recebe — UMA função para `GET
     /pergunta` e para `proxima` do `POST` (`T-290`): antes eram duas
     montagens, e a do `POST` esquecia o `painel` de `B3.C00`.
+
+    `com_complementares` (`T-307`): `False` ao serializar uma filha — a
+    thread tem profundidade 1.
 
     `ErroPerguntaNaoExibivel` sobe para quem chama (`404` no `GET`)."""
     contexto = montar_contexto_pergunta(
@@ -1098,7 +1188,98 @@ def serializar_pergunta_do_caso(
             colecao.registros,
             dict(rotulos),
         )
+    # `T-307` (RF-99): as filhas abertas por cada opção, na mesma tela.
+    if com_complementares:
+        complementares = _complementares(
+            CASO_ID, registro, respostas, colecao, itens_por_escopo, item_id, rotulos
+        )
+        if complementares:
+            pergunta["complementares"] = complementares
     return pergunta
+
+
+def _complementares(
+    CASO_ID: str,
+    registro: RegistroPergunta,
+    respostas: RespostasCaso,
+    colecao: ColecaoDeRegistros,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    item_id: str | None,
+    rotulos: Mapping[str, str],
+) -> dict[str, list[dict[str, object]]]:
+    """`T-307` (RF-99, AC-157) — para cada opção da mãe que abre algo, as
+    filhas que ficariam exibíveis se a mãe recebesse aquele valor.
+
+    Filha direta: vem logo depois da mãe, no mesmo bloco e escopo (mesma
+    ficha), e sua condição lê a variável da mãe. Quem decide se ela abre é a MESMA
+    `avaliar` de sempre (via `montar_contexto_pergunta`), sobre as respostas
+    gravadas mais o valor provisório da mãe — o cliente só consulta a tabela
+    pelo valor escolhido e nunca avalia condição (`RF-45`). Condição que
+    depende de outra coisa além da mãe entra só se já vale com o estado
+    atual. `SELECAO_MULTIPLA` e `ESCALA_0_10` ficam fora: o valor provisório
+    não é uma opção só."""
+    variavel = registro.VARIAVEL_GRAVADA
+    if variavel is None:
+        return {}
+    if registro.tipo in _TIPOS_DE_VALOR:
+        valores: tuple[str, ...] = tuple(
+            o.valor_interno
+            for o in registro.opcoes
+            if o.valor_interno in _codigos_alternativos(registro)
+        )
+    elif registro.tipo in (TipoResposta.SELECAO_UNICA, TipoResposta.SIM_NAO_TALVEZ):
+        valores = tuple(
+            o.valor_interno
+            for o in registro.opcoes
+            if o.valor_interno is not None and o.abre_campo is not TipoResposta.DATA
+        )
+    else:
+        return {}
+    # A thread é o trecho CONTÍGUO depois da mãe que lê a variável dela (ou a
+    # de uma filha): a primeira pergunta fora dele encerra a varredura, para
+    # que a ordem da coleta não mude (`B5.A02` não puxa `B5.G03`).
+    posicao = next(i for i, r in enumerate(colecao.registros) if r is registro)
+    lidas = frozenset({variavel})
+    filhas: list[RegistroPergunta] = []
+    for seguinte in colecao.registros[posicao + 1 :]:
+        variaveis = (
+            _variaveis_da_condicao(seguinte.condicao_exibicao)
+            if seguinte.condicao_exibicao is not None
+            else frozenset()
+        )
+        if not variaveis & lidas:
+            break
+        if seguinte.VARIAVEL_GRAVADA is not None:
+            lidas = lidas | {seguinte.VARIAVEL_GRAVADA}
+        if (
+            variavel in variaveis
+            and seguinte.bloco == registro.bloco
+            and seguinte.escopo_repeticao is registro.escopo_repeticao
+        ):
+            filhas.append(seguinte)
+    resultado: dict[str, list[dict[str, object]]] = {}
+    for valor in valores if filhas else ():
+        provisorias = _respostas_com_valor_provisorio(respostas, registro, item_id, valor)
+        abertas: list[dict[str, object]] = []
+        for filha in filhas:
+            try:
+                abertas.append(
+                    serializar_pergunta_do_caso(
+                        CASO_ID,
+                        filha,
+                        provisorias,
+                        colecao,
+                        itens_por_escopo,
+                        item_id,
+                        rotulos,
+                        com_complementares=False,
+                    )
+                )
+            except ErroPerguntaNaoExibivel:
+                continue
+        if abertas:
+            resultado[valor] = abertas
+    return resultado
 
 
 def _respostas_com_valor_provisorio(

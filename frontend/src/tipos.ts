@@ -72,6 +72,26 @@ export interface Pergunta {
    * cujo registro o declara. Ausente em todas as outras.
    */
   painel?: PainelFotografia
+  /**
+   * `T-307` (`RF-99`): por `valor_interno` da opção, as perguntas que ela
+   * abre — já decididas pelo servidor. O cliente só consulta pelo valor
+   * escolhido (`RF-45`). Ausente quando nenhuma opção abre nada.
+   */
+  complementares?: Record<string, Pergunta[]>
+  /**
+   * `T-309` (`RF-70`): a pergunta respondida logo antes desta no percurso —
+   * decidida pelo servidor. `null` na primeira; ausente fora da coleta.
+   */
+  anterior?: { ID: string; item_id: string | null } | null
+  /** `T-310` (`RF-100`): as cinco partes e o estado de cada uma. */
+  trilha?: ParteDaTrilha[] | null
+}
+
+/** Uma parte da trilha da coleta — `T-310`. O estado vem do servidor. */
+export interface ParteDaTrilha {
+  numero: number
+  rotulo: string
+  estado: 'concluida' | 'atual' | 'proxima'
 }
 
 /** Uma linha das decomposições da fotografia — valor e destino da correção. */
@@ -130,6 +150,8 @@ export interface ListaDeFichas {
   /** Os escopos criados dentro de cada ficha deste (`T-254`). */
   escopos_filhos?: string[]
   fichas: Ficha[]
+  /** `T-310`: a trilha da coleta, na parte desta ficha. */
+  trilha?: ParteDaTrilha[] | null
 }
 
 /** `GET /caso/{id}/escopos` — se cada escopo está aberto para o caso (`T-212`). */

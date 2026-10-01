@@ -139,7 +139,7 @@ def test_ac136_dois_vinculos_independentes(
 ) -> None:
     cliente = _cliente_real(monkeypatch, tmp_path)
     _responder(cliente, "B3.S01", "SIM")
-    v1 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
+    v1 = _fichas(cliente, "VINCULO_ID")[0]["item_id"]  # `T-311`: nasce com o "Sim"
     v2 = _criar_em(cliente, "VINCULO_ID").json()["ficha"]["item_id"]
     assert v1 != v2
     for ID, valor in (("B3.S03", "Prefeitura"), ("B3.S04", "5000"), ("B3.S04L", "4000")):

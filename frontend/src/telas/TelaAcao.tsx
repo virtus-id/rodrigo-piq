@@ -90,7 +90,7 @@ export default function TelaAcao({ casoId, acaoId, voltar }: TelaAcaoProps) {
 
   if (carregando) {
     return (
-      <Tela titulo="Sobre uma ação" voltar={voltar}>
+      <Tela titulo="Sobre uma ação" voltar={voltar} rotuloVoltar="‹ Voltar">
         <Esqueleto forma="pergunta" anuncio="Carregando a ação" />
       </Tela>
     )
@@ -101,6 +101,7 @@ export default function TelaAcao({ casoId, acaoId, voltar }: TelaAcaoProps) {
       <Tela
         titulo="Esta ação não está mais pendente"
         voltar={voltar}
+        rotuloVoltar="‹ Voltar"
         acoes={<Botao onClick={voltar}>Ver o que fazer agora</Botao>}
       >
         {/* Não é erro: uma ação some da lista quando o recálculo a resolve.
@@ -119,6 +120,7 @@ export default function TelaAcao({ casoId, acaoId, voltar }: TelaAcaoProps) {
     <Tela
       titulo={acao.descricao}
       voltar={voltar}
+      rotuloVoltar="‹ Voltar"
       onde={acao.DIVIDA_ID ?? acao.TIPO_ACAO}
       acoes={
         terminou ? (

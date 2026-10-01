@@ -74,6 +74,22 @@ class _Itens:
     ) -> tuple[ItemRepetido, ...]:
         return self.itens
 
+    def proximo_identificador(
+        self,
+        CASO_ID: str,
+        escopo: EscopoRepeticao,
+        origem: str | None = None,
+        item_pai_id: str | None = None,
+    ) -> str:
+        item_id = f"D{len(self.itens) + 1:03d}"
+        self.itens = (
+            *self.itens,
+            ItemRepetido(
+                item_id=item_id, CASO_ID=CASO_ID, escopo=escopo, removido_em=None, criado_em=_AGORA
+            ),
+        )
+        return item_id
+
 
 class _Casos:
     def buscar(self, caso_id: str) -> Caso | None:
@@ -145,6 +161,8 @@ def _cliente(
 def test_t291_b5_00a_com_duas_dividas_declaradas_abre_a_lista_de_dividas(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """`T-311` (decisão do produto, 2026-10-01): em vez da lista, a primeira
+    ficha nasce e a próxima pergunta é a dela."""
     cliente, _ = _cliente(monkeypatch, (_resposta("QUANTIDADE_DIVIDAS_DECLARADA_INICIAL", 2),))
 
     gravada = cliente.post(
@@ -152,7 +170,8 @@ def test_t291_b5_00a_com_duas_dividas_declaradas_abre_a_lista_de_dividas(
     )
 
     assert gravada.status_code == 200, gravada.text
-    assert "DIVIDA_ID" in gravada.json()["abrir_fichas"]
+    assert "DIVIDA_ID" not in gravada.json()["abrir_fichas"]
+    assert gravada.json()["proxima"]["pergunta"]["item_id"] == "D001"
 
 
 def test_t291_b5_00_sozinha_nao_pula_a_b5_00a(monkeypatch: pytest.MonkeyPatch) -> None:
