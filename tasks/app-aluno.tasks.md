@@ -12752,3 +12752,21 @@ de tela, usado após o consentimento e ao fim do cálculo; o botão segue em
 - [x] Gates: tsc, vitest, playwright
 
 **Status:** `[x] concluída` (2026-10-01)
+
+---
+
+### `T-313` — "Continuar de onde parou" para quem ainda não começou
+
+- **Tipo:** `BUGFIX` · **Dependências:** — · **Rastreia:** `RF-58`, `RF-65`
+- **Arquivos:** `frontend/src/telas/TelaInicio.tsx`, `frontend/src/telas/TelaProgresso.tsx`,
+  `frontend/tests/unit/componentes/TelaInicioComeco.test.tsx`
+
+Relato do produto (2026-10-01): sem nenhuma resposta, o Início e "Onde você
+está" ofereciam "Continuar de onde você parou". Com `progresso.respondidas = 0`
+(dado do servidor) o botão passa a ser "Começar o questionário"; com respostas,
+segue "Continuar". Texto aprovado pelo produto.
+
+- [x] Teste reproduz (falha sem a correção, passa com ela)
+- [x] Gates: tsc, vitest, playwright
+
+**Status:** `[x] concluída` (2026-10-01)

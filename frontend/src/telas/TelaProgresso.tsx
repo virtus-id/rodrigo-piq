@@ -112,7 +112,12 @@ export default function TelaProgresso({
       voltar={voltar}
       acoes={
         <>
-          <Botao onClick={continuar}>Continuar de onde parei</Botao>
+          {/* `T-313`: sem nenhuma resposta, não há de onde continuar. */}
+          <Botao onClick={continuar}>
+            {progresso && progresso.respondidas === 0
+              ? 'Começar o questionário'
+              : 'Continuar de onde parei'}
+          </Botao>
           {verFichas && (
             <Botao variante="discreto" onClick={() => verFichas('DIVIDA_ID')}>
               Ver e editar minhas dívidas

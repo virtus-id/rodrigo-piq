@@ -128,6 +128,12 @@ function rotaDoDestino(inicio: Inicio): Rota {
  * `Record` sobre a união fechada `DestinoDaEtapa`: um destino novo sem texto
  * aqui não compila.
  */
+/** A etapa `pergunta` quando o aluno ainda não respondeu nada — `T-313`. */
+const TEXTO_DO_COMECO = {
+  rotulo: 'Começar o questionário',
+  detalhe: 'Você pode parar quando quiser: tudo fica guardado.',
+} as const
+
 const TEXTO_DA_ETAPA: Readonly<
   Record<DestinoDaEtapa, { rotulo: string; detalhe: string }>
 > = {
@@ -207,7 +213,12 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
   // derrubando a aplicação inteira, já que não há `ErrorBoundary`. O
   // fallback é o texto de "ver o plano", coerente com `rotaDoDestino`, que
   // manda para lá pelo mesmo motivo.
-  const texto = TEXTO_DA_ETAPA[etapa.destino] ?? TEXTO_DA_ETAPA.plano
+  // `T-313`: "continuar" pressupõe que algo foi começado. Com zero respostas
+  // gravadas (dado do servidor, `progresso.respondidas`) a etapa é o começo.
+  const texto =
+    etapa.destino === 'pergunta' && inicio.progresso.respondidas === 0
+      ? TEXTO_DO_COMECO
+      : (TEXTO_DA_ETAPA[etapa.destino] ?? TEXTO_DA_ETAPA.plano)
 
   // O valor vem SEPARADO do rótulo (`AC-88`) e é composto AQUI. O servidor
   // manda "Decidir sobre o dinheiro que você tem disponível" + "3000.00";
