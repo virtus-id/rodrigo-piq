@@ -24,7 +24,8 @@ const TITULO_PROVISORIO = 'Consentimento'
 interface TelaConsentimentoProps {
   casoId: string
   voltar?: () => void
-  onAceito: () => void
+  /** Pode ser assíncrono: o botão segue em "Registrando…" até a troca de tela. */
+  onAceito: () => void | Promise<void>
 }
 
 export default function TelaConsentimento({
@@ -84,7 +85,7 @@ export default function TelaConsentimento({
     setErro(null)
     try {
       await registrarConsentimento(casoId, true)
-      onAceito()
+      await onAceito()
     } catch (falha) {
       setErro(falha instanceof Error ? falha.message : 'Não foi possível registrar.')
     } finally {

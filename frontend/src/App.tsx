@@ -296,6 +296,28 @@ export default function App() {
   const voltarAoInicio = useCallback(() => irPara({ tela: 'inicio' }), [irPara])
 
   /**
+   * Volta ao Início **depois** de uma ação que muda o estado do caso
+   * (consentimento aceito, cálculo terminado).
+   *
+   * `voltarAoInicio` desenha o Início com o `inicio` em memória e só então o
+   * efeito acima busca o novo: por um instante o aluno via a etapa ANTERIOR
+   * ("Registrar o seu consentimento" logo depois de registrá-lo). Aqui o dado
+   * novo chega antes da troca de tela; enquanto isso a tela de origem segue
+   * mostrando o próprio estado de envio. Falha na busca não prende o aluno: o
+   * Início busca de novo ao montar.
+   */
+  const voltarAoInicioAtualizado = useCallback(async () => {
+    if (casoId) {
+      try {
+        setInicio(await obterInicio(casoId))
+      } catch {
+        /* o efeito de `rota.tela` tenta de novo no Início */
+      }
+    }
+    irPara({ tela: 'inicio' })
+  }, [casoId, irPara])
+
+  /**
    * Encerra a sessão e volta à entrada.
    *
    * `.finally`, não `.then`: mesmo que `sair()` falhe na rede, o estado
@@ -445,7 +467,7 @@ export default function App() {
         <TelaConsentimento
           casoId={casoId}
           voltar={voltarAoInicio}
-          onAceito={voltarAoInicio}
+          onAceito={voltarAoInicioAtualizado}
         />
       )
 
@@ -590,7 +612,7 @@ export default function App() {
         <TelaCalculando
           casoId={casoId}
           voltar={voltarAoInicio}
-          onTerminou={voltarAoInicio}
+          onTerminou={voltarAoInicioAtualizado}
           onAbrirPergunta={(idPergunta, itemId) =>
             irPara({ tela: 'pergunta', idPergunta, itemId: itemId ?? undefined })
           }

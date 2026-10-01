@@ -12732,3 +12732,23 @@ perguntas anteriores em branco é levado a elas — comportamento anterior,
 mantido.
 
 **Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-312` — Início mostrava a etapa antiga logo após o consentimento
+
+- **Tipo:** `BUGFIX` · **Dependências:** — · **Rastreia:** `RF-58`, `RF-64`
+- **Arquivos:** `frontend/src/App.tsx`, `frontend/src/telas/TelaConsentimento.tsx`,
+  `frontend/tests/e2e/consentimento.spec.ts`
+
+Relato do produto (2026-10-01): ao aceitar o consentimento, o Início aparecia
+por um instante oferecendo "Registrar o seu consentimento" de novo. Causa: a
+navegação desenhava o Início com o `/inicio` em memória e só depois buscava o
+novo. Correção: `voltarAoInicioAtualizado` busca o `/inicio` antes de trocar
+de tela, usado após o consentimento e ao fim do cálculo; o botão segue em
+"Registrando…" até a troca.
+
+- [x] E2E reproduz (falha sem a correção, passa com ela)
+- [x] Gates: tsc, vitest, playwright
+
+**Status:** `[x] concluída` (2026-10-01)
