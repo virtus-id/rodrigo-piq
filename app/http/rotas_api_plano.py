@@ -176,14 +176,21 @@ def plano_do_aluno(
         lambda: repositorio_respostas.listar_do_caso(CASO_ID),
         lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
     )
-    niveis = niveis_por_ficha(
-        colecao.registros, RespostasCaso(respostas=respostas), itens_por_escopo
-    )
+    respostas_do_caso = RespostasCaso(respostas=respostas)
+    niveis = niveis_por_ficha(colecao.registros, respostas_do_caso, itens_por_escopo)
+    # `T-245` (`RF-82`): orientação só na dívida com seguro prestamista.
+    orientacoes_seguro = {
+        posicao.DIVIDA_ID: textos.orientacao_seguro_prestamista
+        for posicao in contexto.ordem
+        if respostas_do_caso.valor_no_item(posicao.DIVIDA_ID, "SEGURO_PRESTAMISTA") == "SIM"
+    }
     return JSONResponse(
         {
             "CASO_ID": CASO_ID,
             "estado": caso.estado.value,
-            "plano": serializar_plano(contexto, fontes_por_divida(niveis, textos)),
+            "plano": serializar_plano(
+                contexto, fontes_por_divida(niveis, textos), orientacoes_seguro
+            ),
         }
     )
 

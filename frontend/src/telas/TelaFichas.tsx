@@ -39,7 +39,7 @@ export const TITULOS_POR_ESCOPO: Readonly<
   DIVIDA_ID: { titulo: 'Dívida', tituloPlural: 'Dívidas' },
   RENDA_ADICIONAL_ID: { titulo: 'Renda adicional', tituloPlural: 'Rendas adicionais' },
   DESPESA_NAO_MENSAL_ID: { titulo: 'Despesa não mensal', tituloPlural: 'Despesas não mensais' },
-  // `T-270` (RF-98): redação proposta — aprovação do produto (`OQ-67`).
+  // `T-270` (RF-98): redação aprovada pelo produto (`T-289`, 2026-09-30).
   RECURSO_EXTRAORDINARIO_ID: {
     titulo: 'Valor extraordinário',
     tituloPlural: 'Valores extraordinários',

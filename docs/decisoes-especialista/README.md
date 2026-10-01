@@ -106,6 +106,11 @@ inventar.
 - Exceção: dado **indispensável** cuja incerteza impede resultado
   confiável → a pendência é apontada **antes de homologar** o resultado
   final (conferência da equipe).
+- Confirmado em 30/09: taxa de juros informada como **estimada** não
+  bloqueia a liberação — só reduz a confiança; **periodicidade da taxa**
+  (B5.D01B) respondida "não sei" é pendência de dado indispensável e
+  bloqueia a liberação pelo revisor até ser confirmada (sem ela a taxa não
+  pode ser interpretada). Não bloqueia o cálculo. (`T-287`)
 
 ## DE-07 — Proposta do credor (B7.05, B7.08, B7.09) · `q7_1`
 

@@ -426,3 +426,24 @@ def test_t286_b305_nao_segue_fechando_o_item_declarado_pelo_aluno() -> None:
     )
 
     assert _recursos_extraordinarios(_respostas_do_calculo(_registros(), respostas)) == ()
+
+
+@pytest.mark.parametrize(("b305", "avisa"), [("NAO", True), ("SIM", False), ("TALVEZ", False)])
+def test_t288_restituicao_com_b305_nao_avisa_por_que_a_ficha_apareceu(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, b305: str, avisa: bool
+) -> None:
+    """`T-288` (decisão do produto, 2026-09-30): com `B3.05 = Não`, a
+    restituição confirmada cria a ficha do recurso e o aluno lê, ao
+    confirmar, por que ela apareceu. Com `Sim`/`Talvez` a ficha já era
+    esperada — nenhum aviso."""
+    cliente = _cliente_real(monkeypatch, tmp_path)
+    _responder(cliente, "B3.05", b305)
+    divida = _divida_com_seguro_cancelado(cliente)
+
+    avisos = _responder(cliente, "B5.D05R", "300", divida).json()["avisos"]
+
+    codigos = [aviso["codigo"] for aviso in avisos]
+    assert codigos == (["RESTITUICAO_SEGURO_EXTRAORDINARIO"] if avisa else [])
+    # "Ainda não foi confirmada" não cria ficha — nada a explicar.
+    nao_confirmada = _responder(cliente, "B5.D05R", "NAO_SEI", divida).json()["avisos"]
+    assert nao_confirmada == []

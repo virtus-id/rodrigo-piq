@@ -297,7 +297,10 @@ perguntas:
 
   # v1.0.3 (`E-12`, `DE-03`; T-237): os cinco campos do desconto, guardados
   # separados. A base é o "valor atual de quitação antes do desconto" —
-  # nunca "saldo devedor". Enunciados: redação proposta (`OQ-67`).
+  # nunca "saldo devedor". Textos aprovados pelo produto (T-289,
+  # 2026-09-30), exceto o enunciado de B7.13B e a mensagem de B7.13C
+  # (valor de quitação antes do desconto): aplicados, pendentes de
+  # validação do especialista.
 
   - ID: B7.13B
     bloco: 7

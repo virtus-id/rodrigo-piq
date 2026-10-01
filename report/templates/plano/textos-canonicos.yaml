@@ -110,7 +110,7 @@ rotulos_de_pendencia:
 #
 # Os três níveis são a redação de `DE-06` (`q6_1`). "Não informado" é a
 # fonte ainda sem resposta e o seguro "não sei" (`EC-39`) — redação
-# proposta, aprovação do produto (`OQ-67`). As chaves são
+# aprovada pelo produto (`T-289`, 2026-09-30). As chaves são
 # `collection.registro.NIVEL_COMPROVACAO`.
 rotulos_de_comprovacao:
   COMPROVADO: "Comprovado por documento/registro"
@@ -123,10 +123,26 @@ rotulos_de_comprovacao:
 #
 # Segunda projeção do motor, com os recursos extraordinários "prováveis" e
 # "possíveis". Aparece em seção própria, abaixo do plano, e nunca altera os
-# números dele. Redação proposta — aprovação do produto (OQ-67).
+# números dele. Título aprovado pelo produto (`T-289`, 2026-09-30); a
+# explicação está aplicada e pendente de validação do especialista.
 cenario_adicional:
   titulo: "Cenário adicional: se os valores incertos chegarem"
   explicacao: >-
     Esta projeção inclui os valores extraordinários que você marcou como
     prováveis ou possíveis. Eles não fazem parte do seu plano: só passam a
     contar quando forem efetivamente recebidos.
+
+# ---------------------------------------------------------------------------
+# Seguro prestamista — RF-82 (T-245, DE-03, `E-11`: "orientar o aluno sobre
+# apólice e cancelamento").
+#
+# Exibida no plano em cada dívida com `SEGURO_PRESTAMISTA = SIM`. Aplicada,
+# pendente de validação do especialista (`T-289`): restituição proporcional
+# nunca é prometida.
+orientacao_seguro_prestamista: >-
+  Esta dívida tem seguro prestamista. Confira na apólice ou no certificado:
+  o valor total do prêmio, a forma de cobrança (junto da parcela ou à parte)
+  e se a contratação era facultativa. Se não quiser mais o seguro e o
+  contrato permitir, peça o cancelamento das cobranças futuras e pergunte
+  sobre a restituição proporcional do período não usado — ela depende das
+  condições da apólice e não é garantida.

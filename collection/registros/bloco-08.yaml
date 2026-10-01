@@ -296,7 +296,7 @@ perguntas:
 
   # v1.0.3 (`E-13`, `DE-03`; T-235): valor e meses do custo do seguro da
   # nova operação; `B8.12A` continua gravando a base (MENSAL/TOTAL).
-  # Enunciados: redação proposta (`OQ-67`).
+  # Enunciados: aplicado; pendente de validação do especialista (T-289).
   - ID: B8.12V
     bloco: 8
     enunciado: Qual é o valor desse seguro?
@@ -321,7 +321,7 @@ perguntas:
     bloco: 8
     enunciado: >-
       Por quantos meses esse seguro é cobrado? (No total: o período de
-      cobertura; por mês: quantos meses restam.)
+      cobertura; por mês: quantos meses ainda faltam.)
     tipo: NUMERO
     obrigatoriedade: [COND]
     escopo_repeticao: DIVIDA_ID

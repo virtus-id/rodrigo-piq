@@ -192,6 +192,10 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
                       Fonte de comprovação: {posicao.fonte}
                     </p>
                   )}
+                  {/* `RF-82` (T-245): só na dívida com seguro prestamista. */}
+                  {posicao.orientacao_seguro && (
+                    <p className="text-muted">{posicao.orientacao_seguro}</p>
+                  )}
                 </div>
               </div>
               {posicao.valores_de_apoio.length > 0 && (

@@ -159,7 +159,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         </p>
       )}
 
-      {/* `T-266` — redação proposta, aprovação do produto (`OQ-67`). */}
+      {/* `T-266` — redação aprovada pelo produto (`T-289`, 2026-09-30). */}
       {pendencias.length > 0 && (
         <div role="alert" className="aviso-erro">
           <p className="font-bold">

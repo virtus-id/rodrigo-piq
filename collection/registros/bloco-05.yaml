@@ -104,8 +104,8 @@ perguntas:
       de B5.G03 (modalidades portáveis).
 
   # RF-90, AC-139 (parte CONSIGNADO), DE-05, canônica v1.0.2 E-09 — T-256.
-  # Nome técnico a critério do plano (OQ-59); enunciado: redação proposta,
-  # aprovação do produto (OQ-67). Cartão consignado/benefício NÃO entra
+  # Nome técnico a critério do plano (OQ-59); enunciado: aprovado pelo
+  # produto (T-289, 2026-09-30). Cartão consignado/benefício NÃO entra
   # nesta rodada (decisão do produto R9-4, 2026-09-30 — T-279).
   - ID: B5.A02V
     bloco: 5
@@ -625,6 +625,9 @@ perguntas:
       - {rotulo: outra periodicidade, valor_interno: OUTRA}
       - {rotulo: não sei, valor_interno: NAO_SEI, admite_nao_sei: true}
     VARIAVEL_GRAVADA: PERIODICIDADE_TAXA
+    # RF-93/DE-06 (`T-287`, Rodrigo, 2026-09-30): sem a periodicidade a taxa
+    # não se interpreta — "não sei" pende como AUSENTE e bloqueia a liberação.
+    indispensavel: true
     condicao_exibicao:
       tipo: NAO
       termo: {tipo: IGUAL, variavel: QUALIDADE_TAXA_INFORMADA, valor: DESCONHECIDA}
@@ -799,7 +802,7 @@ perguntas:
 
   # v1.0.3 (`E-11`, `E-13`, `DE-03`; T-230): situação do seguro, valor,
   # período e restituição. `B5.D05A` continua gravando a base
-  # (MENSAL/TOTAL/NAO_SEI). Enunciados: redação proposta (`OQ-67`).
+  # (MENSAL/TOTAL/NAO_SEI). Enunciados: aplicado; pendente de validação do especialista (T-289).
   - ID: B5.D05S
     bloco: 5
     enunciado: Qual é a situação desse seguro hoje?

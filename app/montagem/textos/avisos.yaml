@@ -2,9 +2,12 @@
 #
 # ÚNICO arquivo onde esta redação vive (`AC-37`: texto ao aluno é dado).
 # Um aviso NÃO recusa: a resposta já foi gravada; ele só sinaliza, ao aluno
-# e ao revisor, algo a conferir. Chave = `codigo` do aviso. REDAÇÃO
-# PROPOSTA, para aprovação do produto (`OQ-67`). `T-258`: o aviso da renda
-# dos vínculos, pelo mesmo canal.
+# e ao revisor, algo a conferir. Chave = `codigo` do aviso. Redação
+# aprovada pelo produto (`T-289`, 2026-09-30). `T-258`: o aviso da renda
+# dos vínculos, pelo mesmo canal. `T-288`: a restituição de seguro confirmada
+# com `B3.05 = Não` (redação da equipe técnica, aprovada pelo produto em
+# 2026-09-30).
 
 DIVERGENCIA_DESCONTO: "O desconto em reais não bate com o percentual informado. Os dois valores foram guardados; confira com o credor qual está certo."
 DIVERGENCIA_RENDA_VINCULOS: "A soma das rendas líquidas dos seus vínculos não bate com a renda total informada. Nada foi somado de novo: o plano usa a renda total; confira qual valor está certo."
+RESTITUICAO_SEGURO_EXTRAORDINARIO: "A restituição confirmada do seguro será considerada como valor extraordinário. Por isso ela aparece nas suas fichas, mesmo que você tenha respondido que não espera valores extraordinários."

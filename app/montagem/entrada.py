@@ -283,7 +283,9 @@ def avisos_da_gravacao(
 ) -> tuple[Aviso, ...]:
     """RF-84 (`AC-129`) — os avisos que a resposta recém-gravada levanta,
     sobre as respostas JÁ com ela: divergência R$ × % do desconto e, `T-258`
-    (`EC-41`), da renda dos vínculos com a do Bloco 3."""
+    (`EC-41`), da renda dos vínculos com a do Bloco 3. `T-288` (decisão do
+    produto): restituição de seguro confirmada com `B3.05 = Não` explica
+    por que a ficha do recurso extraordinário apareceu (`T-286`)."""
     codigos: list[str] = []
     if (
         VARIAVEL_GRAVADA in VARIAVEIS_DO_DESCONTO
@@ -295,4 +297,11 @@ def avisos_da_gravacao(
         conferencia = conferir_renda_dos_vinculos(respostas)
         if conferencia is not None and conferencia.divergente:
             codigos.append("DIVERGENCIA_RENDA_VINCULOS")
+    if (
+        VARIAVEL_GRAVADA == "RESTITUICAO_SEGURO_CONFIRMADA"
+        and item_id
+        and isinstance(respostas.valor_no_item(item_id, VARIAVEL_GRAVADA), Decimal)
+        and respostas.valor("RECURSOS_EXTRAORDINARIOS_EXISTE") == "NAO"
+    ):
+        codigos.append("RESTITUICAO_SEGURO_EXTRAORDINARIO")
     return tuple(Aviso(codigo=c, mensagem=_textos_de_aviso()[c]) for c in codigos)

@@ -162,6 +162,8 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "rotulos_de_comprovacao",
         # `T-276` (RF-98): rótulo da seção do cenário adicional, não da ordem.
         "cenario_adicional",
+        # `T-245` (RF-82): orientação por dívida com seguro, não da ordem.
+        "orientacao_seguro_prestamista",
     }
     # A ordem continua sem rótulo paralelo: nenhuma chave de apoio fala
     # sobre a ORDEM, só sobre campos de uma dívida.

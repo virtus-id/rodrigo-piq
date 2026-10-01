@@ -1,6 +1,6 @@
-# PIQ v1.0.3 — Especificação Canônica Consolidada
+# PIQ v1.0.4 — Especificação Canônica Consolidada
 
-**Plano Inteligente de Quitação · Servidor Sem Dívidas** · **Registro de alteração — v1.0.2 · 2026-09-30 · fonte: decisão do especialista — [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) `DE-02`/`DE-05`.** Muda: `DE-02` — recursos extraordinários `CONFIRMADO` entram na projeção no mês previsto (B3.05, B3.05B, B3.05D; errata `E-10`); `DE-05` — vínculo passa a repetível e a margem pertence ao vínculo (B3.S02–B3.S06A, B5.A02, §12; errata `E-09`). **v1.0.3 · 2026-09-30 · fonte: decisão do especialista `DE-03`/`DE-06`/`DE-07` e decisão da equipe técnica sobre os pontos que elas não fixavam (`specs/app-aluno.spec.md` §10, `OQ-52`–`OQ-67`).** Muda registros da §11: seguro (B5.D05A, `E-11`), desconto (B7.13A, `E-12`), custo mensal × total (B8.12A, `E-13`), Fonte de comprovação (B5.I02, B7.16, B8.15, §12, `E-14`), proposta do credor (B7.04–B7.09, `E-15`). Detalhe no [Registro de alterações](#sec-rev), ao final. Tudo o que não está listado ali permanece com a redação da v1.0.1 — inclusive as referências a "v1.0.1" no corpo.
+**Plano Inteligente de Quitação · Servidor Sem Dívidas** · **Registro de alteração — v1.0.2 · 2026-09-30 · fonte: decisão do especialista — [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) `DE-02`/`DE-05`.** Muda: `DE-02` — recursos extraordinários `CONFIRMADO` entram na projeção no mês previsto (B3.05, B3.05B, B3.05D; errata `E-10`); `DE-05` — vínculo passa a repetível e a margem pertence ao vínculo (B3.S02–B3.S06A, B5.A02, §12; errata `E-09`). **v1.0.3 · 2026-09-30 · fonte: decisão do especialista `DE-03`/`DE-06`/`DE-07` e decisão da equipe técnica sobre os pontos que elas não fixavam (`specs/app-aluno.spec.md` §10, `OQ-52`–`OQ-67`).** Muda registros da §11: seguro (B5.D05A, `E-11`), desconto (B7.13A, `E-12`), custo mensal × total (B8.12A, `E-13`), Fonte de comprovação (B5.I02, B7.16, B8.15, §12, `E-14`), proposta do credor (B7.04–B7.09, `E-15`). **v1.0.4 · 2026-09-30 · fonte: ratificação técnica (`specs/app-aluno.spec.md` `RF-98`, tarefa `T-288`), sem mudança de regra.** Nomeia a marca de origem do recurso extraordinário criado pela restituição de seguro confirmada (B5.D05R → B3.05A–D, `E-16`). Detalhe no [Registro de alterações](#sec-rev), ao final. Tudo o que não está listado ali permanece com a redação da v1.0.1 — inclusive as referências a "v1.0.1" no corpo.
 
 > Fonte direta para desenvolvimento. Substitui, nos temas aqui tratados, todas as redações anteriores da Matriz Canônica, do Questionário Canônico e das devolutivas intermediárias. Os PDFs permanecem como documentação metodológica e histórica.
 
@@ -5375,6 +5375,7 @@ Nenhuma dessas decisões fica a critério do desenvolvedor. Qualquer alteração
 | v1.0.1 | — | Matriz Canônica v1.0, Questionário Canônico v1.0, devolutivas do especialista | Versão-base (errata `E-01` a `E-08`) |
 | v1.0.2 | 2026-09-30 | Decisão do especialista — [`docs/decisoes-especialista/README.md`](../docs/decisoes-especialista/README.md) `DE-02`/`DE-05` (respostas brutas `q2_1`–`q2_3`, `q5_1`, `q5_2`) | `E-09` (vínculos e margem) · `E-10` (projeção de extraordinários) |
 | v1.0.3 | 2026-09-30 | Decisão do especialista `DE-03`/`DE-06`/`DE-07` (`q3_1`–`q3_3`, `q6_1`, `q7_1`) + decisão da equipe técnica (responsável do produto) sobre o que elas não fixavam — `specs/app-aluno.spec.md` §10 `OQ-52`–`OQ-67` e `specs/motor-calculo.spec.md` §10 `OQ-46`–`OQ-50`, com base nas observações do especialista | `E-11` a `E-15` (edições de registro da §11) · precisões em `E-09` e `E-10` |
+| v1.0.4 | 2026-09-30 | Ratificação técnica do nome de uma variável já em uso (`specs/app-aluno.spec.md` `RF-98`, tarefa `T-288` de `app-aluno`); nenhuma regra muda | `E-16` (origem do recurso extraordinário) |
 
 ### `E-09` — Vínculo repetível e margem por vínculo · B3.S02–B3.S06A · B5.A02 · §12
 
@@ -5452,7 +5453,15 @@ pelo produto em nome do especialista em 30/09/2026, superando o `obs` de
 | ✅ Vigente v1.0.3 | Existe proposta? (B7.04) Não → salta todo o bloco. Sim → tipo: à vista, parcelada ou ambas. À vista → valor para quitação à vista + validade; parcelada → nº de parcelas, valor da parcela, prazo do parcelamento (B7.09) + validade; ambas → os dois conjuntos. Validade (B7.15) em qualquer tipo. Campos não aplicáveis não aparecem nem contam como ausentes |
 | Origem | `DE-07` (`q7_1`) · equipe técnica `OQ-65` |
 
-### O que a v1.0.2 e a v1.0.3 **não** alteram
+### `E-16` — Origem do recurso extraordinário · B5.D05R · B3.05A–D
+
+| | |
+|---|---|
+| ❌ Revogado | Sem nome canônico para a marca que liga o item de recurso extraordinário à pergunta que o criou (a implementação usava `ORIGEM_RECURSO_EXTRAORDINARIO` sem registro na Matriz) |
+| ✅ Vigente v1.0.4 | `ORIGEM_RECURSO_EXTRAORDINARIO` — REP por `RECURSO_EXTRAORDINARIO_ID`, gravada pelo sistema (não é pergunta ao aluno); valor = `ID` da pergunta de origem. Hoje o único valor é `B5.D05R`: restituição de seguro confirmada cria o item com essa marca, e a marca abre B3.05A–D para ele mesmo com B3.05 = Não (restituição efetiva é extraordinário, `E-11`/`DE-03`). Item declarado pelo aluno não tem a marca, e para ele a regra de B3.05 não muda |
+| Origem | Ratificação técnica (`T-288`) do comportamento já decidido em `DE-03`/`q3_1` (`T-286` de `app-aluno`) — nome técnico, sem mudança de regra |
+
+### O que a v1.0.2, a v1.0.3 e a v1.0.4 **não** alteram
 
 - `specs/motor-calculo.spec.md` §13 inteira, inclusive §13.3 (`ATAQUE_IMEDIATO_RECOMENDADO`) e §13.6 (só `ATAQUE_IMEDIATO_APROVADO` entra no cronograma como ataque imediato).
 - Parâmetros da §8, gabaritos da §10 e regras da §9.

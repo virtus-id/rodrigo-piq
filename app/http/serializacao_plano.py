@@ -55,7 +55,9 @@ def fontes_por_divida(
 
 
 def serializar_plano(
-    contexto: ContextoPlano, fontes: Mapping[str, str] | None = None
+    contexto: ContextoPlano,
+    fontes: Mapping[str, str] | None = None,
+    orientacoes_seguro: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """`ContextoPlano` → JSON, campo a campo.
 
@@ -70,8 +72,12 @@ def serializar_plano(
     `fontes` (`T-267`, `RF-92`): `DIVIDA_ID` → rótulo da fonte de
     comprovação, derivado das respostas (não do snapshot); `None` quando a
     dívida não tem ficha ativa.
+
+    `orientacoes_seguro` (`T-245`, `RF-82`): `DIVIDA_ID` → orientação sobre
+    o seguro prestamista, só para dívida com seguro; `None` nas demais.
     """
     fontes = fontes or {}
+    orientacoes_seguro = orientacoes_seguro or {}
     return {
         "titulo": contexto.titulo,
         "corpo": contexto.corpo,
@@ -88,6 +94,7 @@ def serializar_plano(
                 "JUSTIFICATIVA_POSICAO": posicao.JUSTIFICATIVA_POSICAO,
                 "explicacao": posicao.explicacao,
                 "fonte": fontes.get(posicao.DIVIDA_ID),
+                "orientacao_seguro": orientacoes_seguro.get(posicao.DIVIDA_ID),
                 "valores_de_apoio": [
                     {"rotulo": rotulo, "valor": valor}
                     for rotulo, valor in posicao.valores_de_apoio

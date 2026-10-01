@@ -9,8 +9,10 @@
 ## Progresso
 
 > **2026-09-30 — Rodada 9 e correções pós-Rodada 9 verificadas (`T-281`).**
-> Em aberto: `T-159`, `T-184`, `T-236` (bloqueada), `T-245` (pulada,
-> redação), `T-287`, `T-288`.
+> Em aberto: `T-159`, `T-184`, `T-236` (bloqueada — falta decisão de
+> produto sobre registrar a contratação da troca). `T-245`, `T-287`
+> (decisão do especialista), `T-288` e `T-289` (textos aprovados)
+> concluídas em 2026-09-30.
 
 `143/143 tarefas concluídas` — `107/107` da **Rodada 1** (fechada), `14/14`
 da **Rodada 2, fatia 2A** (`T-108` a `T-120`), `9/9` da **Rodada 3**
@@ -10131,7 +10133,7 @@ nunca reaproveita existente.
 - [x] `valor_interno` preenchido em toda opção de escolha nova
 - [x] Gates: lint, build, test
 
-**Status:** `[x] concluída (2026-09-30)` — enunciados = redação proposta (`OQ-67`); testes `test_t230_*` em `tests/app_aluno/test_montagem_seguro.py`. A ficha de recurso extraordinário criada pela restituição confirmada (`R9.4`, `AC-123`) depende do escopo `RECURSO_EXTRAORDINARIO_ID` (fatia 9.5) — fora desta tarefa
+**Status:** `[x] concluída (2026-09-30)` — enunciados aplicados, pendentes de validação do especialista (`T-289`); testes `test_t230_*` em `tests/app_aluno/test_montagem_seguro.py`. A ficha de recurso extraordinário criada pela restituição confirmada (`R9.4`, `AC-123`) depende do escopo `RECURSO_EXTRAORDINARIO_ID` (fatia 9.5) — fora desta tarefa
 
 ---
 
@@ -10267,7 +10269,7 @@ rotulado "rateio".
 - [x] Carga e visibilidade testadas sobre o registro real
 - [x] Gates: lint, build, test
 
-**Status:** `[x] concluída (2026-09-30)` — teste `test_t235_*` em `test_montagem_seguro.py`; enunciados = redação proposta
+**Status:** `[x] concluída (2026-09-30)` — teste `test_t235_*` em `test_montagem_seguro.py`; enunciados aplicados, pendentes de validação do especialista (`T-289`)
 
 ---
 
@@ -10320,6 +10322,27 @@ incide). Nova tarefa sugerida: "registrar a contratação da troca (Bloco 11)
 e o evento `TROCA_EXECUTADA`"; depois dela, a soma segue o mesmo caminho de
 `_seguros_mensais_a_parte` (`T-232`) e `B8.12B = Sim` não soma (`AC-132`)
 
+> **Investigação (2026-09-30, pedido do responsável do produto): lacuna
+> confirmada — não implementado; exige decisão de produto.** Procurado, no
+> que já existe, um dado que signifique "troca contratada/executada":
+> (1) `B11.03-TRO` (`RESULTADO_ACAO_TROCA`) pergunta "Você recebeu uma
+> proposta concreta de troca/portabilidade?" — `SIM` é **proposta
+> recebida** e abre o Bloco 8 para descrevê-la (canônica §11, salto "Sim →
+> abrir Bloco 8"); (2) `B11.01 = CONCLUIDA` numa ação `TROCA` significa a
+> ação concluída, e a ação que leva a `B11.03-TRO` é obter a proposta — ler
+> "concluí" como "contratei" seria inventar regra; (3) `B11.02`, `B11.04`,
+> `B11.05` não foram transcritas (`bloco-11.yaml`, `T-18`) e nenhuma delas
+> pergunta contratação; `TIPO_ACAO` ainda não existe no contrato do motor
+> (`OQ-13`/`OQ-14`); (4) o Bloco 8 inteiro descreve a proposta (`B8.14`:
+> validade, `B8.15`: fonte) — nenhuma pergunta registra aceite; (5)
+> `app/eventos/mapeamento.py` mapeia só `STATUS_QUITACAO_REAL = QUITADA`;
+> `TROCA_EXECUTADA` segue sem origem. **Decisão de produto necessária:**
+> criar a pergunta (Bloco 11, por `ACAO_ID`/dívida) que registre a
+> contratação da troca — enunciado, opções, `VARIAVEL_GRAVADA` e em qual
+> dívida incide —, que exige versão da canônica (§11, registro novo) e
+> passa a ser a origem de `TROCA_EXECUTADA`. Com ela, a soma de `B8.12` a
+> partir da contratação segue o caminho descrito acima. Status inalterado.
+
 ---
 
 ### `T-237` — Registros do desconto: `B7.13B`–`B7.13E` e opções de `B7.13A`
@@ -10343,7 +10366,7 @@ desconto, **em qualquer tipo de proposta** (decisão `R9-3`, ver `T-242`).
 - [x] Carga aceita; nenhum enunciado contém "saldo devedor"
 - [x] Gates: lint, build, test
 
-**Status:** `[x] concluída (2026-09-30)` — `B7.13A`: `valor_interno` `O_CREDOR_INFORMOU_APENAS_QUE_EXISTE_DESCONTO_SEM_DETALHAR` → `SEM_DETALHE` (`R9.4`); `B7.13C`/`D` abrem só pelo tipo informado (`RF-95`); validação cruzada declarada nos dois sentidos (`B7.13B` e `B7.13C`); enunciados = redação proposta; teste `test_t237_*` em `test_entrada_desconto.py`
+**Status:** `[x] concluída (2026-09-30)` — `B7.13A`: `valor_interno` `O_CREDOR_INFORMOU_APENAS_QUE_EXISTE_DESCONTO_SEM_DETALHAR` → `SEM_DETALHE` (`R9.4`); `B7.13C`/`D` abrem só pelo tipo informado (`RF-95`); validação cruzada declarada nos dois sentidos (`B7.13B` e `B7.13C`); enunciados aprovados pelo produto (`T-289`) — `B7.13B` e a mensagem de `B7.13C` pendentes de validação do especialista; teste `test_t237_*` em `test_entrada_desconto.py`
 
 ---
 
@@ -10414,7 +10437,7 @@ Divergência é aviso, não recusa: a resposta é gravada. O cliente anuncia em
 - [x] `AC-37` verde
 - [x] Gates: lint, build, test
 
-**Status:** `[x] concluída (2026-09-30)` — `avisos_da_gravacao` (`entrada.py`) + `app/montagem/textos/avisos.yaml` (redação proposta); `POST /resposta` devolve `avisos`; `TelaPergunta` para na mesma pergunta e anuncia pelo `role="status"` já ligado ao campo (`aria-describedby` de `CampoPergunta`), e o próximo "Continuar" segue sem regravar; teste em `tests/unit/componentes/TelaPergunta.test.tsx`
+**Status:** `[x] concluída (2026-09-30)` — `avisos_da_gravacao` (`entrada.py`) + `app/montagem/textos/avisos.yaml` (redação aprovada pelo produto, `T-289`); `POST /resposta` devolve `avisos`; `TelaPergunta` para na mesma pergunta e anuncia pelo `role="status"` já ligado ao campo (`aria-describedby` de `CampoPergunta`), e o próximo "Continuar" segue sem regravar; teste em `tests/unit/componentes/TelaPergunta.test.tsx`
 
 ---
 
@@ -10545,23 +10568,21 @@ facultativa, cancelamento, restituição proporcional **não garantida**) em
 
 **Critérios de aceite**
 
-- [ ] Texto só no YAML; exibido só para dívida com `SEGURO_PRESTAMISTA = SIM`
-- [ ] Aprovação do produto registrada aqui (ou a tarefa fica pendente)
-- [ ] Gates: lint, build, test
+- [x] Texto só no YAML; exibido só para dívida com `SEGURO_PRESTAMISTA = SIM`
+- [x] Aprovação do produto registrada aqui (ou a tarefa fica pendente)
+- [x] Gates: lint, build, test
 
-**Status:** `[ ] pendente — pulada (2026-09-30)`. Motivo: a redação é
-decisão de produto (`OQ-67`) e não há aprovação registrada; o próprio
-critério manda a tarefa ficar pendente sem ela, e o texto iria para
-`textos-canonicos.yaml`, que é redação canônica. **Texto proposto para
-aprovação:** "Esta dívida tem seguro prestamista. Confira na apólice ou no
-certificado: o valor total do prêmio, a forma de cobrança (junto da parcela
-ou à parte) e se a contratação era facultativa. Se não quiser mais o
-seguro e o contrato permitir, peça o cancelamento das cobranças futuras e
-pergunte sobre a restituição proporcional do período não usado — ela
-depende das condições da apólice e não é garantida." Aprovado o texto, a
-implementação é: chave em `textos-canonicos.yaml`, leitura em
-`report/plano.py` por dívida com `SEGURO_PRESTAMISTA = SIM`, exibição em
-`TelaPlano.tsx`
+**Status:** `[x] concluída (2026-09-30)` — texto aprovado pelo produto como
+proposto (`T-289`), **aplicado e pendente de validação do especialista**
+(conteúdo financeiro: restituição proporcional não garantida). Chave
+`orientacao_seguro_prestamista` em `textos-canonicos.yaml`, lida por
+`carregar_textos_canonicos` (`TextosCanonicosPlano`); `GET
+/caso/{id}/api/plano` a envia em `ordem[].orientacao_seguro` para as
+dívidas com `SEGURO_PRESTAMISTA = SIM` nas respostas atuais (mesmo caminho
+da `fonte` de `T-267` — o snapshot não carrega `SEGURO_PRESTAMISTA`);
+`TelaPlano.tsx` exibe na dívida. Testes `test_t245_*` em
+`tests/app_aluno/test_rotas_plano.py` e `TelaPlano.test.tsx`. O PDF
+(`plano.html`) não exibe a orientação — fora dos arquivos da tarefa.
 
 ---
 
@@ -10581,14 +10602,14 @@ Função pura de `R9.5` com os seis `TIPO_PENDENCIA_INVENTARIO`. "Cadastrado" =
 item ativo com ao menos uma resposta. Só "Sim" em `B3.03`/`B3.S01`/`B3.NM01`
 exige item (`EC-34`). `ID_PARA_CORRIGIR` resolvido pela `VARIAVEL_GRAVADA` no
 registro. Mensagem de `RF-87` literal; singular e "acima do declarado" são
-redação proposta (aprovação do produto, `OQ-67`).
+redação aprovada pelo produto (`T-289`).
 
 **Critérios de aceite**
 
 - [x] Nenhum `ID` de pergunta nem texto em `.py` (`AC-37`)
 - [x] Gates: lint, build, test
 
-**Status:** `[x] concluída (2026-09-30)` — `app/casos/inventario.py` + `app/casos/textos/inventario.yaml`; `ID_PARA_CORRIGIR` é sempre a pergunta da declaração (`B5.00`, `B3.03`, `B3.S01`, `B3.NM01`) e `escopo` indica as fichas a cadastrar; declaração ausente do questionário não gera pendência. Singular, "acima", "sem confirmação", renda extra e vínculo são **redação proposta** — aprovação do produto pendente (`OQ-57`/`OQ-67`)
+**Status:** `[x] concluída (2026-09-30)` — `app/casos/inventario.py` + `app/casos/textos/inventario.yaml`; `ID_PARA_CORRIGIR` é sempre a pergunta da declaração (`B5.00`, `B3.03`, `B3.S01`, `B3.NM01`) e `escopo` indica as fichas a cadastrar; declaração ausente do questionário não gera pendência. Singular, "acima", "sem confirmação", renda extra e vínculo são redação aprovada pelo produto (`T-289`, 2026-09-30)
 
 ---
 
@@ -10791,7 +10812,7 @@ troca "Calcular meu plano" pela pendência quando houver.
 
 **Status:** `[x] concluída`
 
-> Nota de implementação (2026-09-30): `B3.S04L` após `B3.S04`, `B3.S05C` após `B3.S05`, mesma condição da ficha do vínculo (`NAO(VINCULO_CONSIGNAVEL = NAO)`), `[COND]`. Enunciados: redação proposta (`OQ-67`). Coleção de coleta: 258 → 260 (`test_contagem_de_coleta.py`). Testes em `tests/app_aluno/test_vinculos.py`.
+> Nota de implementação (2026-09-30): `B3.S04L` após `B3.S04`, `B3.S05C` após `B3.S05`, mesma condição da ficha do vínculo (`NAO(VINCULO_CONSIGNAVEL = NAO)`), `[COND]`. Enunciados aprovados pelo produto (`T-289`). Coleção de coleta: 258 → 260 (`test_contagem_de_coleta.py`). Testes em `tests/app_aluno/test_vinculos.py`.
 
 ---
 
@@ -10822,7 +10843,7 @@ fica coberto só na parte `CONSIGNADO`.
 
 **Status:** `[x] concluída`
 
-> Nota de implementação (2026-09-30): `OrigemOpcoes.variavel_rotulo` (YAML: `ORGAO_FONTE_PAGADORA`) em vez do nome da variável no código. Enunciado de `B5.A02V`: redação proposta (`OQ-67`). Sem vínculo cadastrado, a pergunta sai sem opções e a ficha fica com pendência.
+> Nota de implementação (2026-09-30): `OrigemOpcoes.variavel_rotulo` (YAML: `ORGAO_FONTE_PAGADORA`) em vez do nome da variável no código. Enunciado de `B5.A02V`: aprovado pelo produto (`T-289`). Sem vínculo cadastrado, a pergunta sai sem opções e a ficha fica com pendência.
 
 ---
 
@@ -10867,7 +10888,7 @@ Divergência vira `aviso` (canal de `T-240`) e item do contexto do revisor
 
 **Status:** `[x] concluída`
 
-> Nota de implementação (2026-09-30): `conferir_renda_dos_vinculos` + aviso `DIVERGENCIA_RENDA_VINCULOS` em `app/montagem/entrada.py` (`avisos_da_gravacao`, reconferido ao gravar `RENDA_LIQUIDA_VINCULO`, `RENDA_PRINCIPAL` ou `RENDA_RECORRENTE_ADICIONAL`); texto em `app/montagem/textos/avisos.yaml` (redação proposta, `OQ-67`). `rotas_coleta.py` sem mudança — já repassa `avisos`. Renda do Bloco 3 desconhecida → sem conferência. O item do contexto do revisor fica com `T-266`.
+> Nota de implementação (2026-09-30): `conferir_renda_dos_vinculos` + aviso `DIVERGENCIA_RENDA_VINCULOS` em `app/montagem/entrada.py` (`avisos_da_gravacao`, reconferido ao gravar `RENDA_LIQUIDA_VINCULO`, `RENDA_PRINCIPAL` ou `RENDA_RECORRENTE_ADICIONAL`); texto em `app/montagem/textos/avisos.yaml` (aprovada pelo produto, `T-289`). `rotas_coleta.py` sem mudança — já repassa `avisos`. Renda do Bloco 3 desconhecida → sem conferência. O item do contexto do revisor fica com `T-266`.
 
 ---
 
@@ -11023,7 +11044,7 @@ aponta todo chamador); não vazio → `ErroHomologacaoBloqueada` antes de gravar
 
 **Status:** `[x] concluída (2026-09-30)`
 
-> Nota de implementação (2026-09-30): `liberar(..., pendencias_homologacao)` obrigatório → `ErroHomologacaoBloqueada` antes de gravar. Rota: dependência `pendencias_homologacao_do_caso` (respostas ATUAIS, `R9-12`), `409 {mensagem, pendencias_homologacao: [{item_id, ID_PERGUNTA, enunciado, motivo}]}`. `mensagem` "Não pode ser homologado ainda." é **redação proposta (`OQ-67`)**. Chamadores em teste passam `()`; testes de rota da decisão sobrescrevem a dependência (a recusa tem suíte própria).
+> Nota de implementação (2026-09-30): `liberar(..., pendencias_homologacao)` obrigatório → `ErroHomologacaoBloqueada` antes de gravar. Rota: dependência `pendencias_homologacao_do_caso` (respostas ATUAIS, `R9-12`), `409 {mensagem, pendencias_homologacao: [{item_id, ID_PERGUNTA, enunciado, motivo}]}`. `mensagem` "Não pode ser homologado ainda." é redação aprovada pelo produto (`T-289`). Chamadores em teste passam `()`; testes de rota da decisão sobrescrevem a dependência (a recusa tem suíte própria).
 
 ---
 
@@ -11078,7 +11099,7 @@ Contexto de `GET /revisao/caso/{id}/decisao` ganha `fontes`,
 
 **Status:** `[x] concluída (2026-09-30)`
 
-> Nota de implementação (2026-09-30): `GET .../decisao` ganha `fontes`, `seguros_nao_informados` (+ `rotulo_nao_informado`), `divergencias` (`DESCONTO` via `conferir_desconto`; `RENDA_VINCULOS` via `conferir_renda_dos_vinculos` de `T-258`), `rateios` (`rateio_mensal` de custo "no total" do seguro e do novo seguro) e `pendencias_homologacao`. A tela é `TelaEquipeCaso.tsx` (onde fica "Liberar"), não `TelaRevisao.tsx` (a fila); tipos em `services/api.ts`, junto de `CasoParaRevisao`. Rótulos dos níveis em `rotulos_de_comprovacao` de `textos-canonicos.yaml` (os três de `DE-06`; "Não informado" é **redação proposta, `OQ-67`**). Textos novos da tela (cabeçalho das pendências, "desconto: valor em R$ e percentual não conferem", "rateio mensal (só análise)") são **redação proposta (`OQ-67`)**. Testes: `test_t266_*` em `test_liberacao_homologacao.py`; `frontend/tests/unit/componentes/TelaEquipeCaso.test.tsx`.
+> Nota de implementação (2026-09-30): `GET .../decisao` ganha `fontes`, `seguros_nao_informados` (+ `rotulo_nao_informado`), `divergencias` (`DESCONTO` via `conferir_desconto`; `RENDA_VINCULOS` via `conferir_renda_dos_vinculos` de `T-258`), `rateios` (`rateio_mensal` de custo "no total" do seguro e do novo seguro) e `pendencias_homologacao`. A tela é `TelaEquipeCaso.tsx` (onde fica "Liberar"), não `TelaRevisao.tsx` (a fila); tipos em `services/api.ts`, junto de `CasoParaRevisao`. Rótulos dos níveis em `rotulos_de_comprovacao` de `textos-canonicos.yaml` (os três de `DE-06`; "Não informado" é redação aprovada pelo produto, `T-289`). Textos novos da tela (cabeçalho das pendências, "desconto: valor em R$ e percentual não conferem", "rateio mensal (só análise)") são redação aprovada pelo produto (`T-289`). Testes: `test_t266_*` em `test_liberacao_homologacao.py`; `frontend/tests/unit/componentes/TelaEquipeCaso.test.tsx`.
 
 ---
 
@@ -11237,8 +11258,8 @@ confirmada/corrigida e não bloqueia o cálculo.
 
 `EscopoRepeticao.RECURSO_EXTRAORDINARIO_ID` (prefixo `EXT`); `B3.05A`–`D` no
 escopo; `B3.05B` com condição `≠ FERIAS_ABONO`; `B3.05BF` (mesma
-`VARIAVEL_GRAVADA`, enunciado "só o acréscimo (1/3)", redação proposta ao
-produto). A ficha fica alcançável pelo mecanismo de `T-212`.
+`VARIAVEL_GRAVADA`, enunciado "só o acréscimo (1/3)", pendente de validação
+do especialista — `T-289`). A ficha fica alcançável pelo mecanismo de `T-212`.
 
 **Critérios de aceite**
 
@@ -11249,7 +11270,7 @@ produto). A ficha fica alcançável pelo mecanismo de `T-212`.
 
 **Status:** `[x] concluída (2026-09-30)`
 
-Nota (2026-09-30): escopo em `collection/registro.py`, prefixo `EXT` em `repeticao.py`, enum em `esquema-registros.json` (3 lugares). `B3.05B` com `E(OU(SIM,TALVEZ), NAO(TIPO = FERIAS_ABONO))`; `B3.05BF` com a mesma `VARIAVEL_GRAVADA`. **Redação proposta — aprovação do produto pendente (`OQ-67`):** enunciado de `B3.05BF` ("Quanto você espera receber só do acréscimo de férias (o 1/3)? …") e títulos da lista em `TelaFichas.tsx` ("Valor extraordinário"/"Valores extraordinários"). Coleção real passa a 261 registros (`test_contagem_de_coleta.py`). Testes: `test_montagem_extraordinarios.py::test_t270_*`, `test_ac151_*`.
+Nota (2026-09-30): escopo em `collection/registro.py`, prefixo `EXT` em `repeticao.py`, enum em `esquema-registros.json` (3 lugares). `B3.05B` com `E(OU(SIM,TALVEZ), NAO(TIPO = FERIAS_ABONO))`; `B3.05BF` com a mesma `VARIAVEL_GRAVADA`. Textos (`T-289`, 2026-09-30): títulos da lista em `TelaFichas.tsx` ("Valor extraordinário"/"Valores extraordinários") aprovados pelo produto; enunciado de `B3.05BF` ("Quanto você espera receber só do acréscimo de férias (o 1/3)? …") aplicado, pendente de validação do especialista. Coleção real passa a 261 registros (`test_contagem_de_coleta.py`). Testes: `test_montagem_extraordinarios.py::test_t270_*`, `test_ac151_*`.
 
 ---
 
@@ -11385,7 +11406,8 @@ Nota (2026-09-30): `tests/app_aluno/test_montagem_extraordinarios.py` — 17 tes
 `cenario_adicional: {prazo_total, custo_futuro_total, ordem[], itens[]} |
 null` e `nao_projetados[]`, lidos de `snapshot.projecao_extraordinarios`
 (nenhuma aritmética). Rótulo do cenário adicional em `textos-canonicos.yaml`
-(redação proposta, aprovação do produto). Campos do plano principal
+(título aprovado pelo produto; explicação pendente de validação do
+especialista — `T-289`). Campos do plano principal
 continuam lidos só do cenário recomendado.
 
 **Critérios de aceite**
@@ -11395,7 +11417,7 @@ continuam lidos só do cenário recomendado.
 
 **Status:** `[x] concluída (2026-09-30)`
 
-Nota (2026-09-30): `report/plano.py::_cenario_adicional` + `ContextoPlano.cenario_adicional`/`nao_projetados` (padrão `None`/`()`); `serializar_plano` transporta `{rotulo, explicacao, PRAZO_TOTAL, CUSTO_FUTURO_TOTAL, ordem[], itens[{ITEM_ID, mes, valor}]}` e `nao_projetados[{ITEM_ID, motivo}]`. `nao_projetados` é o da projeção-base: item `PROVAVEL`/`POSSIVEL` aparece lá como `CERTEZA_FORA_DO_CONJUNTO` (é o que o motor grava). **Redação proposta — aprovação do produto pendente (`OQ-67`):** `cenario_adicional.titulo`/`explicacao` em `textos-canonicos.yaml`. PDF (`plano.html`) não exibe o cenário adicional — fora do escopo da tarefa.
+Nota (2026-09-30): `report/plano.py::_cenario_adicional` + `ContextoPlano.cenario_adicional`/`nao_projetados` (padrão `None`/`()`); `serializar_plano` transporta `{rotulo, explicacao, PRAZO_TOTAL, CUSTO_FUTURO_TOTAL, ordem[], itens[{ITEM_ID, mes, valor}]}` e `nao_projetados[{ITEM_ID, motivo}]`. `nao_projetados` é o da projeção-base: item `PROVAVEL`/`POSSIVEL` aparece lá como `CERTEZA_FORA_DO_CONJUNTO` (é o que o motor grava). Textos (`T-289`): `cenario_adicional.titulo` aprovado pelo produto; `explicacao` aplicada, pendente de validação do especialista. PDF (`plano.html`) não exibe o cenário adicional — fora do escopo da tarefa.
 
 ---
 
@@ -11414,7 +11436,7 @@ Nota (2026-09-30): `report/plano.py::_cenario_adicional` + `ContextoPlano.cenari
 
 **Status:** `[x] concluída (2026-09-30)`
 
-Nota (2026-09-30): `<section aria-labelledby>` abaixo da ordem; campos novos opcionais em `tipos.ts` (planos montados à mão em testes de outras telas continuam compilando). Rótulos fixos da seção ("até a última quitação", "de custo futuro", "ordem", "no mês") repetem os do resumo — redação proposta (`OQ-67`). `frontend/tests/unit/componentes/TelaPlano.test.tsx` (3 testes).
+Nota (2026-09-30): `<section aria-labelledby>` abaixo da ordem; campos novos opcionais em `tipos.ts` (planos montados à mão em testes de outras telas continuam compilando). Rótulos fixos da seção ("até a última quitação", "de custo futuro", "ordem", "no mês") repetem os do resumo — aprovados pelo produto (`T-289`). `frontend/tests/unit/componentes/TelaPlano.test.tsx` (3 testes).
 
 ---
 
@@ -11584,7 +11606,7 @@ cadastrar vínculo, bloqueando só o cálculo final (mecanismo da Fatia 9.2).
 - [x] Nenhum `ID` de pergunta nem texto em `.py` (`AC-37`)
 - [x] Gates: lint, build, test
 
-**Status:** `[x] concluída (2026-09-30)` — regra única `sem_itens_para_escolher` (em `collection/opcoes_do_motor.py`) aplicada na varredura única de `progresso.py` (retomada, contagem, fichas em aberto, pendências) e em `montar_contexto_pergunta` (quando recebe `itens_por_escopo`). Pendência derivada do próprio registro (`B5.A02V` e sua condição), só o mapa escopo → tipo/declaração no código. Mensagem: redação proposta — aprovação do produto pendente (`OQ-67`). `test_t257…` (`test_ficha_repetivel.py`) passou a manter um segundo vínculo ativo: sem nenhum, a dívida já não fica em aberto. Limite conhecido: `posicao_na_ficha` ainda conta `B5.A02V` no denominador ("pergunta X de Y") quando não há vínculo — não recebe `itens_por_escopo`
+**Status:** `[x] concluída (2026-09-30)` — regra única `sem_itens_para_escolher` (em `collection/opcoes_do_motor.py`) aplicada na varredura única de `progresso.py` (retomada, contagem, fichas em aberto, pendências) e em `montar_contexto_pergunta` (quando recebe `itens_por_escopo`). Pendência derivada do próprio registro (`B5.A02V` e sua condição), só o mapa escopo → tipo/declaração no código. Mensagem: aprovada pelo produto (`T-289`). `test_t257…` (`test_ficha_repetivel.py`) passou a manter um segundo vínculo ativo: sem nenhum, a dívida já não fica em aberto. Limite conhecido: `posicao_na_ficha` ainda conta `B5.A02V` no denominador ("pergunta X de Y") quando não há vínculo — não recebe `itens_por_escopo`
 
 ---
 
@@ -11668,7 +11690,22 @@ embora a periodicidade mude a taxa que o motor lê. Decidir com o produto se
 algum dos dois é pendência de dado indispensável (marca YAML; a regra de
 `_ausente` já cobre a opção "não sei" de `B5.D01B`).
 
-**Status:** `[ ] pendente`
+**Decisão** (especialista, Rodrigo, confirmada em 2026-09-30 — `docs/decisoes-especialista/README.md`, `DE-06`):
+(1) taxa `ESTIMADA` não bloqueia a liberação — só reduz a confiança
+(sinalizada como hoje); (2) `B5.D01B` "não sei" é pendência de dado
+indispensável (`AUSENTE`): bloqueia a liberação pelo revisor até ser
+confirmada; não bloqueia o cálculo.
+
+**Critérios de aceite**
+
+- [x] `B5.D01B` = "não sei": cálculo roda, liberação `409` com
+  `("B5.D01B", "AUSENTE")`; informada a periodicidade, `200`.
+- [x] `B5.D01 = ESTIMADA` com `B5.D01A` e `B5.D01B` informadas: liberação `200`.
+- [x] Plano (`R9-8`, tabela da Rodada 9), spec (`RF-93`, `AC-149`, `OQ-62`) e `DE-06` atualizados.
+
+**Status:** `[x] concluída`
+
+> Nota de implementação (2026-09-30): só a marca `indispensavel: true` em `B5.D01B` (YAML); `app/revisao/comprovacao.py` intacto — `_ausente` já trata a opção "não sei". Seleção: nunca `PENDENTE_DE_CONFIRMACAO` pela fonte. Em branco também pende (regra genérica de indispensável); as fixtures `_DIVIDA_COMPLETA` de `test_comprovacao.py`/`test_liberacao_homologacao.py` ganharam `PERIODICIDADE_TAXA = MENSAL`. Testes `test_t287_*`.
 
 ---
 
@@ -11691,4 +11728,75 @@ algum dos dois é pendência de dado indispensável (marca YAML; a regra de
    `indispensavel` só em `B5.B03`, `B5.C02`, `B5.D01A`; após `T-283`,
    `B5.D01` também.
 
-**Status:** `[ ] pendente`
+**Critérios de aceite**
+
+- [x] (1) `ORIGEM_RECURSO_EXTRAORDINARIO` ratificado como nome técnico,
+      sem mudança de regra: `specs/app-aluno.spec.md` `RF-98` e canônica
+      `specs/piq-app-spec.md` **v1.0.4**, errata `E-16` (cabeçalho, tabela
+      do Registro de alterações e seção `E-16`, no padrão de `E-09`–`E-15`)
+- [x] (2) Decisão do produto (2026-09-30): com `B3.05 = Não`, confirmar a
+      restituição em `B5.D05R` devolve o aviso
+      `RESTITUICAO_SEGURO_EXTRAORDINARIO` — "A restituição confirmada do
+      seguro será considerada como valor extraordinário. Por isso ela
+      aparece nas suas fichas, mesmo que você tenha respondido que não
+      espera valores extraordinários." (redação da equipe técnica, aprovada
+      pelo produto neste lote, `T-289`); `Sim`/`Talvez` ou "ainda não
+      confirmada" → nenhum aviso
+- [x] (3) Plano: tabela de arquivos da Rodada 9, tabela de registros e
+      `R9-8` listam `B5.D01` entre os indispensáveis; linha de `B5.D05R`
+      cita a marca e o aviso
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — aviso em
+`app/montagem/entrada.py::avisos_da_gravacao` (mesmo canal de `T-240`/
+`T-258`; texto em `app/montagem/textos/avisos.yaml`); a `TelaPergunta` já
+exibe qualquer `avisos[]`. Teste `test_t288_*` em
+`tests/app_aluno/test_montagem_extraordinarios.py`.
+
+---
+
+### `T-289` — Aplicar os textos aprovados da Rodada 9 (`OQ-67`)
+
+- **Tipo:** `Docs`
+- **Dependências:** `T-245`, `T-288`
+- **Rastreia:** `RF-82`, `RF-87`, `RF-88`, `RF-98`, `AC-135`, `OQ-67`
+- **Arquivos:** `docs/textos-para-aprovacao.md` e os arquivos da seção
+  "Origem técnica" do documento
+
+**Descrição**
+
+O responsável do produto aprovou os 62 textos de
+`docs/textos-para-aprovacao.md` **como estão**, com um único ajuste de
+consistência: pontuação final igual em mensagens equivalentes (ponto final
+em frase completa) e "faltam" no lugar de "restam". Textos com conteúdo
+financeiro/metodológico ficam aplicados como estão, mas **pendentes de
+validação do especialista**: orientação do seguro prestamista (62,
+`T-245`), explicação do cenário adicional (58), enunciado de `B3.05BF` (1),
+textos de `B7.13*` sobre o valor de quitação antes do desconto (12 —
+`B7.13B`; 16 — mensagem de `B7.13B`/`B7.13C`), `B5.D05S/V/P/R` (5–8) e
+`B8.12V/P` (19, 20).
+
+**Critérios de aceite**
+
+- [x] Ajuste aplicado na origem: `B8.12P` "quantos meses restam" →
+      "quantos meses ainda faltam" (igual a `B5.D05P`); ponto final em
+      `RENDA_EXTRA_SEM_ITEM`, `VINCULO_SEM_ITEM`, `CONSIGNADO_SEM_VINCULO`
+      e, por ser a mensagem equivalente, `NAO_MENSAL_SEM_ITEM`
+      (`app/casos/textos/inventario.yaml`; literal de `AC-135` ajustado na
+      spec e no teste). Nenhum outro texto mudou: rótulos curtos (opções
+      "Em reais (R$)", "não informado", linhas do revisor, "Cálculo
+      bloqueado: inventário incompleto") não são frase completa
+- [x] Documento: cada item marcado "[x] aprovado (2026-09-30)"; os 11
+      itens acima com "pendente de validação do especialista"; resultado
+      no topo; decisão da seção 7 registrada com o texto de `T-288`
+- [x] Marcação "redação proposta / `OQ-67`" retirada dos comentários
+      (`bloco-03/05/07/08.yaml`, `inventario.yaml`, `inventario.py`,
+      `avisos.yaml`, `textos-canonicos.yaml`, `report/plano.py`,
+      `rotas_revisao.py`, `TelaFichas.tsx`, `TelaEquipeCaso.tsx`) e das
+      notas das tarefas; nos pendentes, trocada por "pendente de validação
+      do especialista"
+- [x] Gates: lint, build, test
+
+**Status:** `[x] concluída (2026-09-30)` — sem mudança de regra. Números de
+linha da "Origem técnica" do documento são anteriores ao ajuste; o `ID` é a
+referência estável.

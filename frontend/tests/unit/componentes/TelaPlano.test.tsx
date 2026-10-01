@@ -26,7 +26,10 @@ const ADICIONAL: CenarioAdicional = {
   itens: [{ ITEM_ID: 'EXT001', mes: 3, valor: 'R$ 2.000,00' }],
 }
 
-function plano(cenario_adicional: CenarioAdicional | null): Plano {
+function plano(
+  cenario_adicional: CenarioAdicional | null,
+  orientacao_seguro: string | null = null,
+): Plano {
   return {
     titulo: 'Sua ordem projetada de quitação',
     corpo: 'corpo',
@@ -39,6 +42,7 @@ function plano(cenario_adicional: CenarioAdicional | null): Plano {
         JUSTIFICATIVA_POSICAO: 'j',
         explicacao: 'e',
         fonte: null,
+        orientacao_seguro,
         valores_de_apoio: [],
       },
     ],
@@ -94,5 +98,25 @@ describe('TelaPlano — cenário adicional (AC-152)', () => {
 
     await screen.findByText('14 meses')
     expect(screen.queryByText(/Cenário adicional/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TelaPlano — orientação do seguro prestamista (RF-82, T-245)', () => {
+  it('aparece na dívida quando o servidor manda o texto', async () => {
+    vi.spyOn(api, 'obterPlano').mockResolvedValue({
+      CASO_ID: 'CASO-1',
+      estado: 'LIBERADO',
+      plano: plano(null, 'Esta dívida tem seguro prestamista.'),
+    })
+    render(<TelaPlano casoId="CASO-1" />)
+
+    expect(await screen.findByText('Esta dívida tem seguro prestamista.')).toBeInTheDocument()
+  })
+
+  it('ausente quando null', async () => {
+    mostrar(null)
+
+    await screen.findByText('14 meses')
+    expect(screen.queryByText(/seguro prestamista/)).not.toBeInTheDocument()
   })
 })

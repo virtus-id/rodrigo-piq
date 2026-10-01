@@ -256,7 +256,8 @@ def exigir_inventario_completo(
 
 def mensagem_da_pendencia(pendencia: PendenciaInventario) -> str:
     """A mensagem ao aluno, de `textos/inventario.yaml` — `RF-87` literal
-    para dívidas faltando (`AC-133`); singular é redação proposta."""
+    para dívidas faltando (`AC-133`); as demais, redação aprovada pelo
+    produto (`T-289`)."""
     textos = _textos()
     chave = pendencia.tipo.value
     if pendencia.tipo is TIPO_PENDENCIA_INVENTARIO.DIVIDAS_FALTANDO:

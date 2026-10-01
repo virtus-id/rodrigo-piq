@@ -209,6 +209,11 @@ export interface PosicaoDaOrdem {
    * `null` quando a dívida não tem ficha ativa.
    */
   fonte?: string | null
+  /**
+   * Orientação sobre o seguro prestamista — `RF-82`, `T-245`. Texto pronto
+   * do servidor (`textos-canonicos.yaml`); `null` na dívida sem seguro.
+   */
+  orientacao_seguro?: string | null
   valores_de_apoio: ValorDeApoio[]
 }
 

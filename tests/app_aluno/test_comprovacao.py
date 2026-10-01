@@ -101,10 +101,11 @@ def test_t261_classificacao_de_t218_segue_igual_nas_seis_opcoes() -> None:
 
 
 def test_t261_indispensaveis_sao_os_que_o_motor_le() -> None:
-    """`R9-8`: saldo, parcela, taxa e renda — o motor não lê prazo."""
+    """`R9-8`: saldo, parcela, taxa (e sua periodicidade, `T-287`) e renda —
+    o motor não lê prazo."""
     indispensaveis = {r.ID for r in _registros() if r.indispensavel}
 
-    assert indispensaveis == {"B3.01", "B5.B03", "B5.C02", "B5.D01", "B5.D01A"}
+    assert indispensaveis == {"B3.01", "B5.B03", "B5.C02", "B5.D01", "B5.D01A", "B5.D01B"}
 
 
 # ---------------------------------------------------------------------------
@@ -128,6 +129,7 @@ _DIVIDA_COMPLETA: dict[str, object] = {
     "PARCELA_CONTRATUAL (= PAGAMENTO_MENSAL_DEVIDO_VIGENTE)": "100",
     "QUALIDADE_TAXA_INFORMADA": "CONFIRMADA",
     "TAXA_INFORMADA": "2",
+    "PERIODICIDADE_TAXA": "MENSAL",
 }
 
 
@@ -284,3 +286,11 @@ def test_t283_b5_d01_em_branco_e_ausente_e_nao_duplica_confirmacao() -> None:
 
     assert _pendencias(sem_qualidade) == {("B5.D01", "AUSENTE")}
     assert ("B5.D01", "PENDENTE_DE_CONFIRMACAO") not in _pendencias(nivel_3)
+
+
+def test_t287_periodicidade_nao_sei_e_ausente_e_taxa_estimada_nao_pende() -> None:
+    """`T-287`/`DE-06` (Rodrigo, 2026-09-30)."""
+    assert _pendencias({**_DIVIDA_COMPLETA, "PERIODICIDADE_TAXA": "NAO_SEI"}) == {
+        ("B5.D01B", "AUSENTE")
+    }
+    assert _pendencias({**_DIVIDA_COMPLETA, "QUALIDADE_TAXA_INFORMADA": "ESTIMADA"}) == set()

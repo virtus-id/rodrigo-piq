@@ -186,8 +186,11 @@ class TextosCanonicosPlano:
     #: Por `NIVEL_COMPROVACAO` (+ `NAO_INFORMADO`) — `RF-91`, `T-267`.
     rotulos_de_comprovacao: Mapping[str, str] = field(default_factory=dict)
     #: `titulo`/`explicacao` da seção do cenário adicional — `RF-98`,
-    #: `T-276`; redação proposta, aprovação do produto (`OQ-67`).
+    #: `T-276`; aplicada, pendente de validação do especialista (`T-289`).
     cenario_adicional: Mapping[str, str] = field(default_factory=dict)
+    #: `RF-82` (`T-245`) — orientação por dívida com seguro prestamista;
+    #: aplicada, pendente de validação do especialista (`T-289`).
+    orientacao_seguro_prestamista: str = ""
 
 
 def carregar_textos_canonicos(
@@ -222,6 +225,7 @@ def carregar_textos_canonicos(
         rotulos_de_pendencia=_mapa("rotulos_de_pendencia"),
         rotulos_de_comprovacao=_mapa("rotulos_de_comprovacao"),
         cenario_adicional=_mapa("cenario_adicional"),
+        orientacao_seguro_prestamista=str(bruto.get("orientacao_seguro_prestamista") or ""),
     )
 
 

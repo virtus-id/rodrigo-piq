@@ -287,7 +287,7 @@ perguntas:
   # T-270 (RF-98, AC-151, DE-02): em Férias/abono só o acréscimo (1/3) é
   # extraordinário — a remuneração normal já é renda mensal. Mesma
   # VARIAVEL_GRAVADA de B3.05B: a aplicação grava o valor informado, nunca
-  # calcula o 1/3. Enunciado: redação proposta, aprovação do produto (OQ-67).
+  # calcula o 1/3. Enunciado: aplicado; pendente de validação do especialista (T-289).
   - ID: B3.05BF
     bloco: 3
     enunciado: >-
@@ -1038,7 +1038,7 @@ perguntas:
   # RF-89 (T-255, DE-05/q5_1, OQ-58): renda líquida por vínculo — só
   # conferência contra a renda do Bloco 3 (`conferir_renda_dos_vinculos`),
   # nunca entrada do motor. Nome técnico a critério do plano (OQ-59);
-  # enunciado: redação proposta, aprovação do produto (OQ-67).
+  # enunciado: aprovado pelo produto (T-289, 2026-09-30).
   - ID: B3.S04L
     bloco: 3
     enunciado: Qual é a sua renda líquida nesse vínculo?
@@ -1083,8 +1083,7 @@ perguntas:
       DESCONHECIDOS.
 
   # RF-89 (T-255, DE-05/q5_1): existência de consignação por vínculo.
-  # Nome técnico a critério do plano (OQ-59); enunciado: redação proposta
-  # (OQ-67).
+  # Nome técnico a critério do plano (OQ-59); enunciado: aprovado pelo produto (T-289, 2026-09-30).
   - ID: B3.S05C
     bloco: 3
     enunciado: Há algum desconto consignado neste vínculo?

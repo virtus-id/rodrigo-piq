@@ -140,7 +140,7 @@ def test_ac153_nao_tenho_certeza_nao_confirma() -> None:
             EscopoRepeticao.DESPESA_NAO_MENSAL_ID,
             _T.NAO_MENSAL_SEM_ITEM,
             "B3.NM01",
-            "Você informou que possui despesa não mensal, mas ainda não cadastrou nenhuma",
+            "Você informou que possui despesa não mensal, mas ainda não cadastrou nenhuma.",
         ),
         (
             "RENDA_RECORRENTE_ADICIONAL_EXISTE",

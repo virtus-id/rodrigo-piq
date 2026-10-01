@@ -508,3 +508,59 @@ def test_t267_ac141_fonte_de_comprovacao_por_divida_no_plano(
     assert [p["fonte"] for p in ordem if p["DIVIDA_ID"] == divida_id] == [
         carregar_textos_canonicos().rotulos_de_comprovacao["PENDENTE_DE_CONFIRMACAO"]
     ]
+
+
+@pytest.mark.parametrize("seguro", ["SIM", "NAO"])
+def test_t245_orientacao_do_seguro_so_para_divida_com_seguro(
+    monkeypatch: pytest.MonkeyPatch, seguro: str
+) -> None:
+    """`RF-82` (`T-245`, `DE-03`): a orientação sobre o seguro prestamista,
+    de `textos-canonicos.yaml`, aparece só na dívida com
+    `SEGURO_PRESTAMISTA = SIM` — lida das respostas, como a fonte."""
+    snapshot = _snapshot_real()
+    caso = _caso_fabricado(snapshot_liberado_id=snapshot.SNAPSHOT_ID)
+    divida_id = caso_completo().DIVIDA_ID
+    resposta = Resposta(
+        CASO_ID=caso.CASO_ID,
+        ID_PERGUNTA="SEGURO_PRESTAMISTA",
+        item_id=divida_id,
+        valor=seguro,
+        QUESTIONARIO_VERSION="1.0.3",
+        respondida_em=datetime(2026, 9, 30, tzinfo=UTC),
+    )
+
+    class _Respostas:
+        def listar_do_caso(self, _caso_id: str) -> tuple[Resposta, ...]:
+            return (resposta,)
+
+    class _Itens:
+        def listar_do_caso(
+            self, _caso_id: str, incluir_removidos: bool = False
+        ) -> tuple[ItemRepetido, ...]:
+            return (
+                ItemRepetido(
+                    item_id=divida_id,
+                    CASO_ID=caso.CASO_ID,
+                    escopo=EscopoRepeticao.DIVIDA_ID,
+                    removido_em=None,
+                    criado_em=datetime(2026, 9, 30, tzinfo=UTC),
+                ),
+            )
+
+    cliente = _montar_cliente(
+        monkeypatch,
+        repositorio_casos=_RepositorioCasosDublê(caso, "CONTA-PDF-ROTA-1"),
+        repositorio_snapshots=_RepositorioSnapshotsDublê(snapshot),
+    )
+    aplicacao = cliente.app
+    assert isinstance(aplicacao, FastAPI)
+    aplicacao.dependency_overrides[obter_repositorio_respostas] = _Respostas
+    aplicacao.dependency_overrides[obter_repositorio_itens] = _Itens
+
+    ordem = cliente.get(f"/caso/{caso.CASO_ID}/api/plano").json()["plano"]["ordem"]
+
+    orientacao = carregar_textos_canonicos().orientacao_seguro_prestamista
+    assert orientacao.startswith("Esta dívida tem seguro prestamista.")
+    esperado = orientacao if seguro == "SIM" else None
+    assert {p["DIVIDA_ID"]: p["orientacao_seguro"] for p in ordem}[divida_id] == esperado
+    assert all(p["orientacao_seguro"] is None for p in ordem if p["DIVIDA_ID"] != divida_id)

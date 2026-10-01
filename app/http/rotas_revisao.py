@@ -249,7 +249,7 @@ REGRAS: Final[tuple[str, ...]] = (
 _MENSAGEM_CASO_SEM_SNAPSHOT: Final[str] = "Caso sem snapshot para comparar."
 _MENSAGEM_DECISAO_INVALIDA: Final[str] = "Decisão inválida: LIBERAR/REPROVAR."
 _MENSAGEM_CLASSIFICACAO_INVALIDA: Final[str] = "Classificação de erro inválida."
-# `T-264` (RF-97) — redação proposta, aprovação do produto (`OQ-67`).
+# `T-264` (RF-97) — redação aprovada pelo produto (`T-289`, 2026-09-30).
 _MENSAGEM_HOMOLOGACAO_BLOQUEADA: Final[str] = "Não pode ser homologado ainda."
 
 roteador = APIRouter(prefix="/revisao", tags=["revisao"])
