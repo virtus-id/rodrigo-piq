@@ -90,6 +90,20 @@ export interface Pergunta {
   seguinte?: { ID: string; item_id: string | null } | null
   /** `T-310` (`RF-100`): as cinco partes e o estado de cada uma. */
   trilha?: ParteDaTrilha[] | null
+  /**
+   * `T-319` (`RF-106`): por `valor_interno` da opção que abre uma ficha curta
+   * ainda sem item, as perguntas que o primeiro item exibiria — decididas
+   * pelo servidor. Vêm com `item_id` provisório; gravam no item que a mãe
+   * criar. Ausente quando nenhuma opção abre ficha nova.
+   */
+  ficha_nova?: Record<string, FichaNova>
+}
+
+/** O formulário do item que a pergunta-gatilho vai criar — `T-319`. */
+export interface FichaNova {
+  escopo: string
+  pede_nome: boolean
+  perguntas: Pergunta[]
 }
 
 /** Uma parte da trilha da coleta — `T-310`. O estado vem do servidor. */

@@ -11,18 +11,33 @@
  * de `T-307` — trocar de opção só consulta essa tabela, como na thread da
  * pergunta. Gravar é pela rota de sempre (`RF-69`), uma a uma, mãe antes das
  * filhas; o erro de cada uma fica junto dela e as demais seguem gravadas.
+ *
+ * `T-320` (`RF-107`): nada em branco — o campo sem resposta nem "Não sei" é
+ * destacado e nada é gravado; o servidor confirma ao concluir
+ * (`POST /caso/{id}/concluir/{escopo}/{item_id}`, `400` com o que falta).
+ * `T-321` (`RF-108`): concluído, o servidor nomeia o próximo item pendente
+ * do escopo, que abre em seguida; só sem nenhum a lista reabre.
  */
 import { useCallback, useEffect, useState } from 'react'
 
 import Botao from '../componentes/Botao'
-import CampoPergunta from '../componentes/CampoPergunta'
+import CamposDoItem, {
+  CampoNome,
+  chaveDa,
+  emBranco,
+  type EstadoDaFilha,
+  gravarEmSequencia,
+  MENSAGEM_CAMPO_EM_BRANCO,
+  MENSAGEM_FALTAM_CAMPOS,
+  MENSAGEM_SEM_NOME,
+  valorInicial,
+} from '../componentes/CamposDoItem'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
 import TrilhaDaColeta from '../componentes/TrilhaDaColeta'
-import { gravarResposta, nomearFicha, obterFormulario } from '../services/api'
+import { concluirItem, ErroHttp, nomearFicha, obterFormulario } from '../services/api'
 import type { FormularioDoItem, Pergunta } from '../tipos'
 import { avisoDeUmPorVez, type TitulosDoEscopo } from './TelaFichas'
-import { chaveDa, type EstadoDaFilha, filhasAbertas, valorInicial } from './TelaPergunta'
 
 interface TelaFormularioProps {
   casoId: string
@@ -32,6 +47,8 @@ interface TelaFormularioProps {
   voltar?: () => void
   /** Item concluído: volta à lista do escopo (o do pai, na margem). */
   onConcluir: (escopoDaLista: string) => void
+  /** `T-321`: concluído, abre o próximo item pendente do mesmo escopo. */
+  onAbrirItem?: (itemId: string) => void
 }
 
 function mensagem(falha: unknown): string {
@@ -45,6 +62,7 @@ export default function TelaFormulario({
   titulos,
   voltar,
   onConcluir,
+  onAbrirItem,
 }: TelaFormularioProps) {
   const [formulario, setFormulario] = useState<FormularioDoItem | null>(null)
   const [estados, setEstados] = useState<Record<string, EstadoDaFilha>>({})
@@ -106,22 +124,63 @@ export default function TelaFormulario({
     }))
   }
 
-  /** Relê o item: concluído volta à lista; senão mostra o que abriu. */
+  /**
+   * `T-320`/`T-321`: o servidor confirma que nada falta e nomeia o próximo
+   * item pendente. Faltando algo (uma pergunta que a resposta abriu e ainda
+   * não estava na tela), relê o item e destaca o que falta.
+   */
   async function concluir(dados: FormularioDoItem) {
-    const novo = await obterFormulario(casoId, escopo, itemId)
-    if (novo.completa) {
-      onConcluir(dados.escopo_pai ?? escopo)
-      return
+    try {
+      const { proximo_item: proximo } = await concluirItem(casoId, escopo, itemId)
+      if (proximo && onAbrirItem) onAbrirItem(proximo)
+      else onConcluir(dados.escopo_pai ?? escopo)
+    } catch (falha) {
+      if (!(falha instanceof ErroHttp) || falha.status !== 400) throw falha
+      const visiveis = new Set(dados.perguntas.map(chaveDa))
+      const novo = await obterFormulario(casoId, escopo, itemId)
+      mostrar(novo)
+      setEstados(
+        Object.fromEntries(
+          falha.pendencias
+            .filter((pendencia) => pendencia.ID)
+            .map((pendencia) => [
+              `${pendencia.ID}|${pendencia.item_id ?? ''}`,
+              {
+                valor: '',
+                naoSei: false,
+                aviso: null,
+                erro: MENSAGEM_CAMPO_EM_BRANCO,
+              },
+            ]),
+        ),
+      )
+      setAbriuMais(
+        falha.pendencias.some((p) => p.ID && !visiveis.has(`${p.ID}|${p.item_id ?? ''}`)),
+      )
+      if (!falha.pendencias.every((p) => p.ID)) setErroNome(MENSAGEM_SEM_NOME)
+      setErro(falha.detalhe)
     }
-    mostrar(novo)
-    setAbriuMais(true)
   }
 
   async function salvar() {
     if (!formulario) return
-    setGravando(true)
     setErro(null)
     setAbriuMais(false)
+    // `T-320`: nada em branco. Destaca e não grava nada.
+    const faltam = emBranco(formulario.perguntas, estadoDe)
+    const semNome = formulario.pede_nome && !nome.trim()
+    if (faltam.length || semNome) {
+      setEstados((atual) => ({
+        ...atual,
+        ...Object.fromEntries(
+          faltam.map((p) => [chaveDa(p), { ...estadoDe(p), erro: MENSAGEM_CAMPO_EM_BRANCO }]),
+        ),
+      }))
+      setErroNome(semNome ? MENSAGEM_SEM_NOME : null)
+      setErro(MENSAGEM_FALTAM_CAMPOS)
+      return
+    }
+    setGravando(true)
     try {
       if (comAviso) {
         setComAviso(false)
@@ -138,46 +197,10 @@ export default function TelaFormulario({
           falhou = true
         }
       }
-      // Mãe antes das filhas (`T-307`): é a mãe gravada que abre cada filha
-      // no servidor. Um erro não interrompe as outras perguntas.
-      const novos: Record<string, EstadoDaFilha> = {}
-      let avisou = false
-      async function gravar(pergunta: Pergunta): Promise<boolean> {
-        const estado: EstadoDaFilha = {
-          ...estadoDe(pergunta),
-          erro: null,
-          aviso: null,
-        }
-        novos[chaveDa(pergunta)] = estado
-        try {
-          const confirmacao = await gravarResposta(casoId, {
-            idPergunta: pergunta.ID,
-            valor: estado.naoSei ? undefined : estado.valor,
-            itemId: pergunta.item_id,
-            naoSei: estado.naoSei,
-          })
-          const avisos = confirmacao.avisos ?? []
-          if (avisos.length) {
-            estado.aviso = avisos.map((aviso) => aviso.mensagem).join(' ')
-            avisou = true
-          }
-          return true
-        } catch (falha) {
-          estado.erro = mensagem(falha)
-          falhou = true
-          return false
-        }
-      }
-      for (const pergunta of formulario.perguntas) {
-        const estado = estadoDe(pergunta)
-        if (!(await gravar(pergunta))) continue
-        for (const filha of filhasAbertas(pergunta, estado.valor, estado.naoSei)) {
-          await gravar(filha)
-        }
-      }
-      setEstados((atual) => ({ ...atual, ...novos }))
-      if (falhou) return
-      if (avisou) {
+      const gravacao = await gravarEmSequencia(casoId, formulario.perguntas, estadoDe)
+      setEstados((atual) => ({ ...atual, ...gravacao.estados }))
+      if (falhou || gravacao.falhou) return
+      if (gravacao.avisou) {
         setComAviso(true)
         return
       }
@@ -242,53 +265,18 @@ export default function TelaFormulario({
       <p className="nota">{avisoDeUmPorVez(titulos)}</p>
 
       {formulario.pede_nome && (
-        <div className="flex flex-col gap-2">
-          <label htmlFor={`nome-${itemId}`}>Nome da despesa</label>
-          <input
-            id={`nome-${itemId}`}
-            className="campo-texto"
-            maxLength={60}
-            value={nome}
-            aria-invalid={erroNome ? true : undefined}
-            onChange={(evento) => {
-              setComAviso(false)
-              setNome(evento.target.value)
-            }}
-          />
-          {erroNome && (
-            <p role="alert" className="aviso-erro">
-              {erroNome}
-            </p>
-          )}
-        </div>
+        <CampoNome
+          id={`nome-${itemId}`}
+          valor={nome}
+          erro={erroNome}
+          onMudar={(novo) => {
+            setComAviso(false)
+            setNome(novo)
+          }}
+        />
       )}
 
-      {formulario.perguntas.map((pergunta) => {
-        const estado = estadoDe(pergunta)
-        const filhas = filhasAbertas(pergunta, estado.valor, estado.naoSei)
-        return (
-          <div key={chaveDa(pergunta)} className="flex flex-col gap-2">
-            <Campo pergunta={pergunta} estado={estado} mudar={mudar} />
-            {filhas.length > 0 && (
-              <div
-                key={Array.isArray(estado.valor) ? estado.valor[0] : estado.valor}
-                role="group"
-                aria-label="Perguntas abertas pela sua resposta"
-                className="thread"
-              >
-                {filhas.map((filha) => (
-                  <Campo
-                    key={chaveDa(filha)}
-                    pergunta={filha}
-                    estado={estadoDe(filha)}
-                    mudar={mudar}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
+      <CamposDoItem perguntas={formulario.perguntas} estadoDe={estadoDe} mudar={mudar} />
 
       {abriuMais && (
         <p role="status" className="nota">
@@ -302,32 +290,5 @@ export default function TelaFormulario({
         </p>
       )}
     </Tela>
-  )
-}
-
-function Campo({
-  pergunta,
-  estado,
-  mudar,
-}: {
-  pergunta: Pergunta
-  estado: EstadoDaFilha
-  mudar: (pergunta: Pergunta, mudanca: Partial<EstadoDaFilha>) => void
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <CampoPergunta
-        pergunta={{ ...pergunta, aviso: estado.aviso ?? pergunta.aviso }}
-        valor={estado.valor}
-        naoSei={estado.naoSei}
-        onValor={(novo) => mudar(pergunta, { valor: novo })}
-        onNaoSei={(marcado) => mudar(pergunta, { naoSei: marcado })}
-      />
-      {estado.erro && (
-        <p role="alert" className="aviso-erro">
-          {estado.erro}
-        </p>
-      )}
-    </div>
   )
 }

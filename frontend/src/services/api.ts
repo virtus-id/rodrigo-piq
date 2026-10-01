@@ -179,6 +179,19 @@ export function obterFormulario(
   return pedir<FormularioDoItem>(`/caso/${casoId}/formulario/${escopo}/${itemId}`)
 }
 
+/**
+ * Fecha o formulário da ficha curta — `T-320`/`T-321`. Faltando resposta, o
+ * servidor recusa com `400` e as `pendencias`; concluído, nomeia o próximo
+ * item pendente do escopo (`null` quando não há).
+ */
+export function concluirItem(
+  casoId: string,
+  escopo: string,
+  itemId: string,
+): Promise<{ proximo_item: string | null }> {
+  return pedir(`/caso/${casoId}/concluir/${escopo}/${itemId}`, { method: 'POST' })
+}
+
 /** `itemPaiId`: o item dentro do qual a ficha nasce — a margem no vínculo (`T-254`). */
 export function criarFicha(
   casoId: string,

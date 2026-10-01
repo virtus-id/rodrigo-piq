@@ -12979,3 +12979,190 @@ rótulo acessível "{Itens} concluídos/concluídas", "N de M concluídos/
 concluídas".
 
 **Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-319` — Ficha curta abre na mesma tela da pergunta-gatilho
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-307`, `T-311`, `T-314`, `T-316`
+- **Rastreia:** `RF-106`, `AC-168` (e `RF-45`, `RF-69`, `RF-99`, `RF-101`, `RF-102`)
+- **Arquivos:** `app/http/rotas_coleta.py`, `app/http/rotas_fichas.py`,
+  `frontend/src/componentes/CamposDoItem.tsx` (novo), `frontend/src/telas/TelaPergunta.tsx`,
+  `frontend/src/telas/TelaFormulario.tsx`, `frontend/src/tipos.ts`,
+  `frontend/src/services/api.ts`, `tests/app_aluno/test_t319_t322_fichas_em_sequencia.py`,
+  `frontend/tests/unit/componentes/TelaFormulario.test.tsx`, `frontend/tests/e2e/coleta.spec.ts`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01, após teste no
+sistema)
+
+"Sim" em `B3.03` levava a outra tela (o formulário da renda). Agora os campos
+do primeiro item aparecem logo abaixo, como a thread de `T-307`, em `B3.03`,
+`B3.05`, `B3.NM01`, `B3.S01` e `B3.D11`.
+
+**Servidor.** `serializar_pergunta_do_caso` (`GET /pergunta`, `GET
+/pergunta/{ID}`, `proxima` do `POST`) anexa `ficha_nova` à pergunta sem
+escopo: por `valor_interno`, `{escopo, pede_nome, perguntas}`. O escopo vem
+de `escopos_abertos_pela_resposta` sobre as respostas com a mãe provisória
+(`_respostas_com_valor_provisorio`), restrito às fichas que nascem com item
+(`T-311`) menos a dívida; em `B3.D11`, de `sincronizar` (o item da não
+listada existe exatamente quando "Sim" já está gravado). As perguntas são as
+de `perguntas_do_formulario` — o laço de `GET /formulario` (`T-314`), que
+saiu de `rotas_fichas.py` para `rotas_coleta.py` — com o `item_id`
+provisório `NOVO` (rótulo "sua despesa" no `[despesa]` de `B3.DF01`).
+Escopo que já tem item não ganha a chave (segue `T-311`).
+
+**Cliente.** `TelaPergunta` (fora da correção) consulta `ficha_nova` pela
+opção escolhida e desenha o aviso de `T-315`, o nome (despesa não listada) e
+os campos (`CamposDoItem`, extraído de `TelaFormulario` com
+`valorInicial`/`chaveDa`/`filhasAbertas`, re-exportados por `TelaPergunta`).
+"Continuar": valida (`T-320`) → grava a mãe → o item criado é o da `proxima`
+(`T-311`/`T-316`), guardado para reenvio → nome → campos naquele `item_id`
+→ `POST /caso/{id}/concluir/{escopo}/{item_id}` (`T-320`) → lista do
+escopo ("+ Adicionar outra renda adicional" e "Continuar"). Recusa na conclusão (pergunta aberta fora da
+tela) leva ao formulário do item.
+
+**Escolha registrada.** Não se trocou a ordem (a pergunta-gatilho como
+cabeçalho do formulário): a ordem pedida já reaproveita, sem rota nova de
+criação, o mecanismo de `T-311` — a mãe cria o item e a `proxima` o nomeia.
+Nenhuma condição é avaliada no cliente (`RF-45`).
+
+**Critérios de aceite**
+
+- [x] Testes que reproduzem (falhavam com `KeyError: 'ficha_nova'`):
+      `test_ac168_gatilho_traz_o_formulario_do_item_novo` (seis casos),
+      `test_ac168_com_item_ja_criado_a_pergunta_nao_traz_ficha_nova`,
+      `test_ac168_mae_cria_o_item_e_os_campos_vao_para_ele`
+- [x] vitest: "Sim" mostra, "Não" esconde; em branco não grava; ordem
+      `B3.03` → `B3.03B@REND001`; conclui e abre a lista
+- [x] Playwright "T-319" (desktop e 360px), sem rolagem horizontal
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — redação da equipe técnica, aprovada pelo produto em
+2026-10-01: "sua despesa" (no `[despesa]` do item ainda sem nome). Rótulo
+do grupo e aviso reaproveitados de `T-307`/`T-315`.
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-320` — Obrigatoriedade nos formulários de ficha curta
+
+- **Tipo:** `BUGFIX`
+- **Dependências:** `T-201`, `T-314`
+- **Rastreia:** `RF-107`, `AC-169` (e `RF-11`, `RF-102`)
+- **Arquivos:** `app/casos/progresso.py`, `app/http/rotas_fichas.py`,
+  `frontend/src/componentes/CamposDoItem.tsx`, `frontend/src/telas/TelaFormulario.tsx`,
+  `frontend/src/telas/TelaPergunta.tsx`, `frontend/src/services/api.ts`, testes de `T-319`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+**Causa.** "Salvar" enviava todo campo, inclusive o vazio. Seleção e texto em
+branco eram gravados como `""` (`_resolver_selecao_unica` devolve a string
+crua), e `""` contava como resposta: a despesa saía "Completa" com
+`B3.DF02`–`DF04` vazios.
+
+**Correção.** (1) `progresso.py::_em_branco_no_item`: `""` é em branco —
+um lugar só, que `itens_em_aberto`, `em_branco_no_item`, a pendência `REP` e
+a retomada leem. (2) `POST /caso/{id}/concluir/{escopo}/{item_id}`
+(novo; caminho curto pelo limiar de 40 caracteres de `AC-37`):
+`em_branco_no_item` sobre as perguntas da ficha (os predicados de `T-201`) e, na despesa que pede nome, o nome; faltando algo, `400` com
+"Antes de salvar, responda nesta ficha: …" (a mensagem de `T-292`, com os
+enunciados ao aluno) e `pendencias` (`{ID, item_id, enunciado}`). (3)
+Cliente: antes de gravar, `emBranco` (sem valor e sem "Não sei", filhas
+abertas inclusive) destaca cada campo e não grava nada; com recusa do
+servidor, relê o item e destaca as `pendencias`. Vale para criar e revisar.
+
+**Critérios de aceite**
+
+- [x] Testes que reproduzem: `test_ac169_resposta_em_branco_nao_conta_como_respondida`
+      (falhava: `completa` era `True`), `test_ac169_concluir_*`
+      (falhavam com `404`), `test_ac169_despesa_sem_nome_nao_conclui`
+- [x] vitest: destaque sem gravar; "Não sei" conta; nome exigido; recusa do
+      servidor relida e destacada
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — redação da equipe técnica, aprovada pelo produto em
+2026-10-01: "Responda esta pergunta.", "Responda as perguntas destacadas
+antes de salvar.", "Informe o nome da despesa.".
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-321` — Despesas em sequência
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-317`, `T-320`
+- **Rastreia:** `RF-108`, `AC-170` (e `RF-101`, `RF-105`)
+- **Arquivos:** `app/http/rotas_fichas.py`, `frontend/src/telas/TelaFormulario.tsx`,
+  `frontend/src/App.tsx`, testes de `T-319`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+Com 20 despesas do checklist, concluir uma voltava à lista. A conclusão
+(`T-320`) devolve `proximo_item`: o próximo item em aberto
+(`itens_em_aberto`) entre os do escopo com o mesmo pai — depois do atual,
+senão o primeiro antes —, ou `null`. `TelaFormulario` abre o formulário dele
+(`onAbrirItem`, `App.tsx`; o localizador mostra "Despesa 4 de 20", `T-317`);
+com `null`, a lista com "+ Adicionar outra" e "Continuar". Vale para toda
+ficha curta.
+
+**Critérios de aceite**
+
+- [x] `test_ac170_concluir_aponta_o_proximo_item_pendente_do_escopo`
+      (2ª → 3ª → 1ª → `null`; falhava com `404`)
+- [x] vitest: concluído com `proximo_item` chama `onAbrirItem`, não a lista;
+      Playwright "T-321": "Despesa 1 de 3" → "Despesa 2 de 3" (campo vazio)
+      → lista
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-322` — Investigar: "nas despesas … está puxando o campo … do banco"
+
+- **Tipo:** `SPIKE`
+- **Dependências:** `T-314`, `T-317`
+- **Rastreia:** `AC-171` (e `RF-102`)
+- **Arquivos:** `tests/app_aluno/test_t319_t322_fichas_em_sequencia.py`,
+  `frontend/tests/unit/componentes/TelaFormulario.test.tsx`,
+  `frontend/tests/e2e/coleta.spec.ts`
+
+**Relato** (produto, 2026-10-01): "nas despesas, quando cadastro uma despesa
+ele está puxando o campo para cadastrar com o campo do banco".
+
+**Hipótese (a) — formulário pré-preenchido com valores de outro item: não
+se confirmou.** Servidor: com `DESP001` preenchido, os formulários de
+`DESP002` e de um item criado pela lista vêm com `valor_atual = None` em
+todas as perguntas, `item_id` próprio e `[despesa]` do próprio item
+(`test_ac171_item_seguinte_e_item_novo_abrem_sem_valores_de_outro_item`).
+Cliente: `TelaFormulario` trocando de item **sem remontar** (pior caso —
+`App.tsx` já remonta pela `key`) não leva o valor digitado (vitest "T-322");
+e o Playwright "T-321" confere o campo vazio na despesa seguinte. O estado
+é por `ID|item_id`, e `mostrar` zera estados e nome a cada leitura.
+
+**Hipótese (b) — campo de dívida (credor/banco, `B5.A01`) no formulário de
+despesa: não se confirmou.** `perguntas_da_ficha(ITEM_DESPESA)` é só
+`B3.DF01`–`DF04`; nenhum formulário de ficha curta (despesa, renda,
+despesa não mensal, extraordinário, vínculo), com dívidas cadastradas no
+caso, traz pergunta de outro escopo nem de `B5`, nas perguntas ou nas
+complementares (`test_ac171_formulario_de_ficha_curta_so_tem_perguntas_do_proprio_escopo`).
+
+**O que se confirmou no caminho** (corrigido em `T-320`): seleção em branco
+era gravada como `""` e contava como resposta — a despesa ficava "Completa"
+sem os campos. **Não verificado** (sem acesso ao navegador do relato): o
+preenchimento automático do navegador. `CampoPergunta` usa `id="campo-{ID}"`,
+igual em todo item, e nenhum campo tem `autocomplete="off"` — o histórico
+de formulários do navegador pode sugerir valores digitados em outro item.
+Fica como pergunta ao produto: pedir um print ou o passo a passo do relato
+antes de mexer nos atributos.
+
+**Critérios de aceite**
+
+- [x] As duas hipóteses testadas, com teste que reproduziria cada uma
+- [x] Resultado registrado (nenhuma confirmada; o achado de `""` foi a
+      `T-320`)
+
+**Status:** `[x] concluída (2026-10-01)`

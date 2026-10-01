@@ -123,6 +123,7 @@ from app.casos.maquina import ErroConsentimentoNaoRegistrado
 from app.casos.progresso import (
     PendenciaObrigatoria,
     _variaveis_da_condicao,
+    da_coleta_inicial,
     em_branco_no_item,
     escopos_abertos_pela_resposta,
     pendencias_obrigatorias,
@@ -146,6 +147,7 @@ from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.condicoes import avaliar
 from collection.materialidade import AvisoMaterialidade, avaliar_ao_responder
 from collection.registro import EscopoRepeticao, Obrigatoriedade, RegistroPergunta, TipoResposta
+from collection.repeticao import perguntas_da_ficha
 from collection.respostas import NAO_SEI, Resposta, RespostasCaso, ValorResposta
 from collection.validacao import validar_cruzada
 from persistencia.app_aluno.arquivo import ErroGravacaoItem as ErroGravacaoItemArquivo
@@ -1219,7 +1221,127 @@ def serializar_pergunta_do_caso(
         )
         if complementares:
             pergunta["complementares"] = complementares
+        # `T-319` (RF-106): a ficha curta que a opção abre, na mesma tela.
+        ficha_nova = _ficha_nova(CASO_ID, registro, respostas, colecao, itens_por_escopo, rotulos)
+        if ficha_nova:
+            pergunta["ficha_nova"] = ficha_nova
     return pergunta
+
+
+def perguntas_da_ficha_inicial(
+    colecao: ColecaoDeRegistros, escopo: EscopoRepeticao
+) -> tuple[RegistroPergunta, ...]:
+    """As perguntas da ficha do escopo na coleta inicial (`T-200`); escopo
+    todo pós-plano (o do Bloco 11) fica com as suas (`T-211`)."""
+    da_ficha = perguntas_da_ficha(colecao.registros, escopo)
+    return da_coleta_inicial(da_ficha) or da_ficha
+
+
+def perguntas_do_formulario(
+    CASO_ID: str,
+    colecao: ColecaoDeRegistros,
+    escopo: EscopoRepeticao,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    item_id: str,
+    rotulos: Mapping[str, str],
+) -> list[dict[str, object]]:
+    """`T-314` (RF-102) — as perguntas exibíveis DO ITEM, serializadas como
+    na coleta. A filha que uma opção abre vem só sob a mãe, nunca de novo na
+    lista — o cliente a mostra pela tabela, sem avaliar condição (`RF-45`)."""
+    perguntas: list[dict[str, object]] = []
+    abertas_por_opcao: set[str] = set()
+    for registro in perguntas_da_ficha_inicial(colecao, escopo):
+        if registro.ID in abertas_por_opcao:
+            continue
+        try:
+            pergunta = serializar_pergunta_do_caso(
+                CASO_ID, registro, respostas, colecao, itens_por_escopo, item_id, rotulos
+            )
+        except ErroPerguntaNaoExibivel:
+            continue
+        complementares = pergunta.get("complementares")
+        if isinstance(complementares, dict):
+            abertas_por_opcao |= {
+                str(filha["ID"]) for filhas in complementares.values() for filha in filhas
+            }
+        perguntas.append(pergunta)
+    return perguntas
+
+
+# `T-319` (RF-106) — o item ainda não existe quando a pergunta-gatilho é
+# servida: as perguntas dele saem com este `item_id`, e o cliente grava no
+# que a mãe criar (a `proxima` do `POST`, `T-311`/`T-316`).
+ITEM_NOVO: Final[str] = "NOVO"
+# Sem nome ainda, `[despesa]` (`B3.DF01`) diria "NOVO". Redação aprovada pelo
+# produto (2026-10-01).
+_ROTULO_DO_ITEM_NOVO: Final[str] = "sua despesa"
+
+
+def _ficha_nova(
+    CASO_ID: str,
+    registro: RegistroPergunta,
+    respostas: RespostasCaso,
+    colecao: ColecaoDeRegistros,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    rotulos: Mapping[str, str],
+) -> dict[str, dict[str, object]]:
+    """`T-319` (RF-106, AC-168) — por opção da pergunta-gatilho que abre uma
+    ficha curta ainda sem item, o formulário que o primeiro item exibiria:
+    `perguntas_do_formulario` sobre as respostas com a mãe provisória. Quem
+    decide o que abre é o mesmo de `T-311`: `escopos_abertos_pela_resposta`
+    (e, em `B3.D11`, `sincronizar`). A dívida segue pergunta a pergunta."""
+    variavel = registro.VARIAVEL_GRAVADA
+    if (
+        variavel is None
+        or registro.escopo_repeticao is not EscopoRepeticao.NENHUM
+        or registro.tipo not in (TipoResposta.SELECAO_UNICA, TipoResposta.SIM_NAO_TALVEZ)
+    ):
+        return {}
+
+    def cria_despesa(valor: ValorResposta | None) -> bool:
+        return bool(sincronizar(registro, valor or "", ()).criar)
+
+    resultado: dict[str, dict[str, object]] = {}
+    for opcao in registro.opcoes:
+        valor = opcao.valor_interno
+        if valor is None:
+            continue
+        provisorias = _respostas_com_valor_provisorio(respostas, registro, None, valor)
+        if registro.ID == DESPESA_NAO_LISTADA:
+            # O item da não listada existe exatamente quando "Sim" já está
+            # gravado (`sincronizar` cria no "Sim" e remove no resto).
+            escopos: tuple[EscopoRepeticao, ...] = (
+                (EscopoRepeticao.ITEM_DESPESA,)
+                if cria_despesa(valor) and not cria_despesa(respostas.valor(variavel))
+                else ()
+            )
+        else:
+            escopos = tuple(
+                escopo
+                for escopo in escopos_abertos_pela_resposta(
+                    colecao.registros, variavel, provisorias, itens_por_escopo
+                )
+                if escopo in _FICHAS_QUE_NASCEM_COM_ITEM
+                and escopo is not EscopoRepeticao.DIVIDA_ID
+            )
+        if not escopos:
+            continue
+        escopo = escopos[0]
+        resultado[valor] = {
+            "escopo": escopo.value,
+            "pede_nome": escopo is EscopoRepeticao.ITEM_DESPESA,
+            "perguntas": perguntas_do_formulario(
+                CASO_ID,
+                colecao,
+                escopo,
+                provisorias,
+                {**itens_por_escopo, escopo: (ITEM_NOVO,)},
+                ITEM_NOVO,
+                {**rotulos, ITEM_NOVO: _ROTULO_DO_ITEM_NOVO},
+            ),
+        }
+    return resultado
 
 
 def _complementares(

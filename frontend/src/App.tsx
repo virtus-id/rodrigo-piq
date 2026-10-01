@@ -570,6 +570,8 @@ export default function App() {
           // `T-314`: item concluído → a lista, com "+ Adicionar outro" e
           // "Continuar" (`T-311`).
           onConcluir={(escopo) => irPara({ tela: 'fichas', escopo })}
+          // `T-321` (RF-108): o próximo item pendente, decidido pelo servidor.
+          onAbrirItem={(itemId) => irPara({ tela: 'formulario', escopo: rota.escopo, itemId })}
         />
       )
     }

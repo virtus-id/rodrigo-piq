@@ -249,6 +249,13 @@ test.describe('ficha curta em uma tela', () => {
         },
       })
     })
+    // `T-320`/`T-321`: o servidor confirma a conclusão; sem próximo pendente.
+    await page.route(
+      `**/caso/${CASO}/concluir/RECURSO_EXTRAORDINARIO_ID/EXT002`,
+      async (rota) => {
+        await rota.fulfill({ json: { proximo_item: null } })
+      },
+    )
 
     await abrirTela(page, CASO, 'pergunta')
 
@@ -265,6 +272,165 @@ test.describe('ficha curta em uma tela', () => {
     expect(gravadas).toEqual(['B3.05A', 'B3.05AO'])
     const larguraDoDocumento = await page.evaluate(() => document.documentElement.scrollWidth)
     expect(larguraDoDocumento).toBeLessThanOrEqual(largura)
+  })
+})
+
+/**
+ * `T-319`–`T-321` (`AC-168`–`AC-170`): a ficha curta abre na tela da
+ * pergunta-gatilho; nada em branco; e, concluído um item, o próximo
+ * pendente abre sozinho até a lista.
+ */
+test.describe('fichas curtas: na mesma tela e em sequência', () => {
+  const respostaVazia = {
+    ID_PERGUNTA: 'x',
+    aviso: null,
+    avanco_permitido: false,
+    total_pendencias: 1,
+    proxima: { pergunta: null },
+    abrir_fichas: [],
+    avisos: [],
+  }
+
+  test('T-319: "Sim" em B3.03 mostra a renda logo abaixo e salva no item criado', async ({
+    page,
+  }) => {
+    const largura = page.viewportSize()?.width ?? 0
+    const valor = {
+      ...PERGUNTA_MOEDA.pergunta,
+      ID: 'B3.03B',
+      bloco: 3,
+      enunciado: 'Quanto essa renda acrescenta, em média, por mês?',
+      escopo_repeticao: 'RENDA_ADICIONAL_ID',
+      item_id: 'NOVO',
+      admite_nao_sei: true,
+    }
+    const gatilho = {
+      ...PERGUNTA_MOEDA.pergunta,
+      ID: 'B3.03',
+      bloco: 3,
+      tipo: 'SIM_NAO_TALVEZ',
+      enunciado: 'Além da sua renda principal, você recebe algum outro valor de forma recorrente?',
+      escopo_repeticao: 'NENHUM',
+      item_id: null,
+      admite_nao_sei: false,
+      opcoes: [
+        { rotulo: 'Sim', valor_interno: 'SIM', admite_nao_sei: false },
+        { rotulo: 'Não', valor_interno: 'NAO', admite_nao_sei: false },
+      ],
+      ficha_nova: {
+        SIM: { escopo: 'RENDA_ADICIONAL_ID', pede_nome: false, perguntas: [valor] },
+      },
+    }
+    const gravadas: string[][] = []
+    await interceptarBase(page, CASO)
+    await page.route(`**/caso/${CASO}/pergunta`, async (rota) => {
+      await rota.fulfill({ json: { ...PERGUNTA_MOEDA, pergunta: gatilho } })
+    })
+    await page.route(`**/caso/${CASO}/resposta`, async (rota) => {
+      const corpo = new URLSearchParams(rota.request().postData() ?? '')
+      gravadas.push([corpo.get('ID_PERGUNTA') ?? '', corpo.get('item_id') ?? ''])
+      await rota.fulfill({
+        json: {
+          ...respostaVazia,
+          // `T-311`: a mãe criou `REND001` e a próxima é a primeira dele.
+          proxima: { pergunta: { ...valor, ID: 'B3.03A', item_id: 'REND001' } },
+        },
+      })
+    })
+    await page.route(
+      `**/caso/${CASO}/concluir/RENDA_ADICIONAL_ID/REND001`,
+      async (rota) => {
+        await rota.fulfill({ json: { proximo_item: null } })
+      },
+    )
+    await page.route(`**/caso/${CASO}/fichas/RENDA_ADICIONAL_ID`, async (rota) => {
+      await rota.fulfill({
+        json: {
+          CASO_ID: CASO,
+          escopo: 'RENDA_ADICIONAL_ID',
+          fichas: [{ item_id: 'REND001', completa: true, campos: [] }],
+        },
+      })
+    })
+
+    await abrirTela(page, CASO, 'pergunta')
+    await page.getByRole('radio', { name: 'Sim' }).click()
+    await expect(page).toHaveURL(/#pergunta/)
+    const campo = page.getByLabel('Quanto essa renda acrescenta, em média, por mês?')
+    await expect(campo).toBeVisible()
+
+    await acaoPrincipal(page, 'Continuar').click()
+    await expect(page.getByText('Responda esta pergunta.')).toBeVisible()
+    expect(gravadas).toEqual([])
+
+    await campo.pressSequentially('80000')
+    await acaoPrincipal(page, 'Continuar').click()
+
+    await expect(page).toHaveURL(/#fichas\/RENDA_ADICIONAL_ID/)
+    await expect(acaoPrincipal(page, /Adicionar outra renda adicional/)).toBeVisible()
+    expect(gravadas).toEqual([
+      ['B3.03', ''],
+      ['B3.03B', 'REND001'],
+    ])
+    const larguraDoDocumento = await page.evaluate(() => document.documentElement.scrollWidth)
+    expect(larguraDoDocumento).toBeLessThanOrEqual(largura)
+  })
+
+  test('T-321: concluir uma despesa abre a próxima pendente, "Despesa 2 de 3"', async ({
+    page,
+  }) => {
+    const formulario = (item: string, posicao: number) => ({
+      CASO_ID: CASO,
+      escopo: 'ITEM_DESPESA',
+      escopo_pai: null,
+      item_id: item,
+      rotulo: null,
+      pede_nome: false,
+      completa: false,
+      perguntas: [
+        {
+          ...PERGUNTA_MOEDA.pergunta,
+          ID: 'B3.DF01',
+          bloco: 3,
+          enunciado: 'Qual é o valor mensal?',
+          escopo_repeticao: 'ITEM_DESPESA',
+          item_id: item,
+        },
+      ],
+      posicao_do_item: posicao,
+      total_de_itens: 3,
+      itens_concluidos: posicao - 1,
+      trilha: null,
+    })
+    await interceptarBase(page, CASO)
+    const item = (url: string) => /DESP00\d/.exec(url)?.[0] ?? ''
+    await page.route(`**/caso/${CASO}/formulario/ITEM_DESPESA/*`, async (rota) => {
+      const id = item(rota.request().url())
+      await rota.fulfill({ json: formulario(id, Number(id.slice(-1))) })
+    })
+    await page.route(`**/caso/${CASO}/concluir/ITEM_DESPESA/*`, async (rota) => {
+      const id = item(rota.request().url())
+      await rota.fulfill({ json: { proximo_item: id === 'DESP001' ? 'DESP002' : null } })
+    })
+    await page.route(`**/caso/${CASO}/resposta`, async (rota) => {
+      await rota.fulfill({ json: respostaVazia })
+    })
+    await page.route(`**/caso/${CASO}/fichas/ITEM_DESPESA`, async (rota) => {
+      await rota.fulfill({ json: { CASO_ID: CASO, escopo: 'ITEM_DESPESA', fichas: [] } })
+    })
+
+    await abrirTela(page, CASO, 'formulario/ITEM_DESPESA/DESP001')
+    await expect(page.getByText('Despesa 1 de 3')).toBeVisible()
+    await page.getByLabel('Qual é o valor mensal?').pressSequentially('5000')
+    await acaoPrincipal(page, 'Salvar').click()
+
+    await expect(page).toHaveURL(/#formulario\/ITEM_DESPESA\/DESP002/)
+    await expect(page.getByText('Despesa 2 de 3')).toBeVisible()
+    await expect(page.getByLabel('Qual é o valor mensal?')).toHaveValue('')
+    await page.getByLabel('Qual é o valor mensal?').pressSequentially('3000')
+    await acaoPrincipal(page, 'Salvar').click()
+
+    await expect(page).toHaveURL(/#fichas\/ITEM_DESPESA/)
   })
 })
 

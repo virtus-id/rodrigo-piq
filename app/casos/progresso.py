@@ -468,7 +468,9 @@ def _em_branco_no_item(
     `ITENS_DO_ESCOPO`: a dívida cujo vínculo foi removido). A resposta
     continua gravada (auditoria); só volta a contar como em aberto."""
     valor = respostas.valor_no_item(item_id, _variavel(registro))
-    if valor is None:
+    # `T-320` (RF-107): `""` (seleção ou texto enviado em branco) não é
+    # resposta — antes contava, e a ficha saía "Completa" com campo vazio.
+    if valor is None or valor == "":
         return True
     origem = registro.origem_opcoes
     return (

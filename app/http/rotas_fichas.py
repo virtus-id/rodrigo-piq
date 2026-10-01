@@ -34,7 +34,7 @@ from fastapi.responses import JSONResponse
 from app.casos.itens_despesa import DESPESA_NAO_LISTADA, pede_nome, rotulos_dos_itens
 from app.casos.progresso import (
     cabecas_das_fichas,
-    da_coleta_inicial,
+    em_branco_no_item,
     escopo_aberto,
     itens_em_aberto,
     percurso_da_coleta,
@@ -44,17 +44,19 @@ from app.http.isolamento import exigir_caso_da_sessao
 from app.http.jornada import trilha_da_coleta
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
+    _MENSAGEM_FICHA_INCOMPLETA,
     _agrupar,
     _ler_formulario,
     obter_colecao_de_registros,
     obter_repositorio_itens,
     obter_repositorio_respostas,
-    serializar_pergunta_do_caso,
+    perguntas_da_ficha_inicial,
+    perguntas_do_formulario,
 )
 from app.http.serializacao import serializar_pergunta
 from collection.carga import ColecaoDeRegistros
 from collection.registro import EscopoRepeticao, RegistroPergunta
-from collection.repeticao import escopo_pai, perguntas_da_ficha
+from collection.repeticao import escopo_pai
 from collection.respostas import RespostasCaso
 from persistencia.app_aluno.itens import ItemRepetido, RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
@@ -88,8 +90,7 @@ def _perguntas_da_ficha(
     colecao: ColecaoDeRegistros, escopo: EscopoRepeticao
 ) -> tuple[RegistroPergunta, ...]:
     """As perguntas da ficha do escopo — ver `_campos_da_ficha`."""
-    da_ficha = perguntas_da_ficha(colecao.registros, escopo)
-    return da_coleta_inicial(da_ficha) or da_ficha
+    return perguntas_da_ficha_inicial(colecao, escopo)
 
 
 def _campos_da_ficha(
@@ -270,23 +271,9 @@ def formulario_do_item(
     respostas = RespostasCaso(respostas=respostas_brutas)
     agrupado = _agrupar(itens)
     rotulos = rotulos_dos_itens(itens, colecao.registros)
-    perguntas: list[dict[str, Any]] = []
-    abertas_por_opcao: set[str] = set()
-    for registro in _perguntas_da_ficha(colecao, membro):
-        if registro.ID in abertas_por_opcao:
-            continue
-        try:
-            pergunta = serializar_pergunta_do_caso(
-                CASO_ID, registro, respostas, colecao, agrupado, item_id, rotulos
-            )
-        except ErroPerguntaNaoExibivel:
-            continue
-        complementares = pergunta.get("complementares")
-        if isinstance(complementares, dict):
-            abertas_por_opcao |= {
-                str(filha["ID"]) for filhas in complementares.values() for filha in filhas
-            }
-        perguntas.append(pergunta)
+    perguntas = perguntas_do_formulario(
+        CASO_ID, colecao, membro, respostas, agrupado, item_id, rotulos
+    )
 
     irmaos = [i for i in itens if i.escopo is membro and i.item_pai_id == item.item_pai_id]
     em_aberto = itens_em_aberto(
@@ -318,6 +305,80 @@ def formulario_do_item(
             if cabeca
             else None,
         }
+    )
+
+
+@roteador.post("/{CASO_ID}/concluir/{escopo}/{item_id}")
+def concluir_item(
+    CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
+    escopo: str,
+    item_id: str,
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
+    repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
+    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+) -> JSONResponse:
+    """`T-320` (RF-107, AC-169) — fecha o formulário da ficha curta: toda
+    pergunta aberta do item precisa de resposta ou "Não sei" — os predicados
+    de `itens_em_aberto`/`em_branco_no_item` (`T-201`), não uma lista nova.
+    Faltando algo, `400` com a mensagem e as `pendencias` (nada é gravado:
+    as respostas já foram, uma a uma, pela rota de `RF-69`). A despesa que
+    pede nome também precisa dele.
+
+    `T-321` (RF-108, AC-170): concluído, `proximo_item` é o próximo item
+    pendente do escopo (mesmo pai) — depois deste, senão o primeiro antes —,
+    ou `None` quando todos estão concluídos e a lista reabre."""
+    membro = _escopo_valido(escopo)
+    if membro is None:
+        return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
+
+    respostas_brutas, itens = duas_em_paralelo(
+        lambda: repositorio.listar_do_caso(CASO_ID),
+        lambda: repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False),
+    )
+    item = next((i for i in itens if i.escopo is membro and i.item_id == item_id), None)
+    if item is None:
+        return JSONResponse({"erro": _MENSAGEM_ITEM_INEXISTENTE}, status_code=404)
+
+    respostas = RespostasCaso(respostas=respostas_brutas)
+    agrupado = _agrupar(itens)
+    rotulos = rotulos_dos_itens(itens, colecao.registros)
+    da_ficha = _perguntas_da_ficha(colecao, membro)
+    por_id = {registro.ID: registro for registro in da_ficha}
+    pendencias = [
+        {
+            "ID": falta.ID,
+            "item_id": item_id,
+            "enunciado": montar_contexto_pergunta(
+                por_id[falta.ID],
+                respostas,
+                item_id=item_id,
+                rotulo_do_item=rotulos.get(item_id),
+                itens_por_escopo=agrupado,
+                rotulos=rotulos,
+            ).enunciado,
+        }
+        for falta in em_branco_no_item(da_ficha, respostas, agrupado, item_id)
+    ]
+    if pede_nome(item.origem) and not item.nome:
+        pendencias.insert(0, {"ID": "", "item_id": item_id, "enunciado": "Nome da despesa"})
+    if pendencias:
+        return JSONResponse(
+            {
+                "erro": f"{_MENSAGEM_FICHA_INCOMPLETA} "
+                f"{'; '.join(str(p['enunciado']) for p in pendencias)}",
+                "pendencias": pendencias,
+            },
+            status_code=400,
+        )
+
+    irmaos = [i.item_id for i in itens if i.escopo is membro and i.item_pai_id == item.item_pai_id]
+    em_aberto = itens_em_aberto(
+        da_ficha, respostas, agrupado, {i.item_id: i.item_pai_id for i in itens if i.item_pai_id}
+    )
+    posicao = irmaos.index(item_id)
+    proximo = next((i for i in irmaos[posicao + 1 :] + irmaos[:posicao] if i in em_aberto), None)
+    return JSONResponse(
+        {"CASO_ID": CASO_ID, "escopo": membro.value, "item_id": item_id, "proximo_item": proximo}
     )
 
 

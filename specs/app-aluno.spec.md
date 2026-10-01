@@ -404,6 +404,18 @@ com a redação canônica obrigatória.
 | `RF-104` | "Sim" em `B3.D11` (despesa não listada) leva **direto ao formulário do item novo** — nome + `B3.DF01`–`DF04` na mesma tela —, sem passar pela lista; na lista, "+ Adicionar outra despesa" abre o formulário de outro item, quantas vezes o aluno quiser. O "Outro" dos checklists `B3.D01`–`D10` segue pedindo o nome na lista (`T-217`) e também no formulário | Decisão do produto (2026-10-01) · `T-217`, `T-311` · `T-316` | importante |
 | `RF-105` | No formulário da ficha curta, o localizador diz a **posição do item entre os itens do escopo** ("Despesa 2 de 4") e uma barra mostra os **itens concluídos** do escopo, ambos calculados no servidor (`posicao_do_item`, `total_de_itens`, `itens_concluidos`). Não substitui a trilha de partes (`RF-100`) | Decisão do produto (2026-10-01) · `RF-62`, `RF-100` · `T-317` | importante |
 
+### Rodada 10 (2026-10-01) — fichas curtas na mesma tela, sem branco e em sequência
+
+> **Decisões do responsável do produto, 2026-10-01**, após teste no sistema
+> (`T-319`–`T-322`). Textos novos ao aluno: redação da equipe técnica,
+> aprovada pelo produto na mesma data (lista em `T-319`–`T-321`).
+
+| ID | Requisito | Regras / seções / IDs de origem | Prioridade |
+| --- | --- | --- | --- |
+| `RF-106` | A pergunta que abre uma **ficha curta ainda sem item** (`B3.03` renda extra, `B3.05` valores extraordinários, `B3.NM01` despesa não mensal, `B3.S01` vínculo, `B3.D11` despesa não listada) mostra, ao marcar a opção que abre, **os campos do primeiro item logo abaixo, na mesma tela** (como a thread de `RF-99`). O servidor decide o que é exibível: o payload da pergunta traz `ficha_nova` — por `valor_interno`, o escopo e as perguntas que o primeiro item exibiria, serializadas como em `RF-102` e avaliadas com a mãe provisória. Ao salvar: grava a mãe → o servidor cria o item (`RF-101`) e a `proxima` o nomeia → o cliente grava os campos naquele `item_id` (`RF-69`) → conclui (`RF-107`) → a lista do escopo abre com "+ Adicionar outro(a)" e "Continuar". Escopo que já tem item segue `RF-101`. Não vale para a dívida nem na correção (`RF-69`) | Decisão do produto (2026-10-01) · `RF-45`, `RF-69`, `RF-99`, `RF-101`, `RF-102`, `RF-104` · `T-319` | importante |
+| `RF-107` | No formulário da ficha curta (e na ficha nova de `RF-106`), **todo campo exibível do item precisa de resposta ou "Não sei"** — os mesmos predicados da retomada (`itens_em_aberto`, `T-201`); a despesa que pede nome precisa do nome. O cliente destaca o que falta e não grava; o servidor confirma em `POST /caso/{id}/concluir/{escopo}/{item_id}`, recusando com `400`, mensagem legível e `pendencias`. Resposta gravada em branco (`""`) não conta como respondida. Vale para criar e para revisar | Decisão do produto (2026-10-01) · `RF-11`, `RF-45`, `RF-102` · `T-320` | importante |
+| `RF-108` | Concluído um item de ficha curta, o servidor nomeia o **próximo item pendente do mesmo escopo** (mesmo pai; depois do atual, senão o primeiro antes) e o formulário dele abre em seguida ("Despesa 4 de 20"); sem nenhum pendente, a lista do escopo reabre com "+ Adicionar outro(a)" e "Continuar" | Decisão do produto (2026-10-01) · `RF-101`, `RF-105` · `T-321` | importante |
+
 ## 3. User Stories
 
 ### `US-01` — Responder em várias sessões sem perder nada
@@ -936,6 +948,18 @@ Atende: `RF-98`
 | `AC-165` | `US-05` | Dado o formulário de valor extraordinário, então aparece "Cadastre um valor de cada vez. Depois você pode adicionar outros."; quando o tipo for "Outro", então "Descreva a origem do valor." aparece na mesma tela e é aceita; com outro tipo, `B3.05AO` é recusada pelo servidor. `B3.03AO`, `B3.NM02AO`, `B3.NM02CO` e `B3.S06AO` vêm logo depois da mãe, no mesmo escopo, abertas só pelo "Outro" (`T-315`) |
 | `AC-166` | `US-02` | Dado `B3.D11 = Sim`, quando gravado, então `abrir_fichas` vem vazio e a próxima pergunta é `B3.DF01` do item novo, cujo formulário pede o nome; e na lista, "+ Adicionar outra despesa" abre o formulário do item criado (`T-316`) |
 | `AC-167` | `US-21` | Dados dois itens `EXT` com o primeiro completo, quando o formulário do segundo for pedido, então `posicao_do_item = 2`, `total_de_itens = 2` e `itens_concluidos = 1`, e a tela mostra "Valor extraordinário 2 de 2" e a barra com 1 de 2 (`T-317`) |
+
+### Rodada 10 (2026-10-01) — fichas curtas na mesma tela, sem branco e em sequência
+
+> **Rastreabilidade `RF` → `AC`.** `RF-106` → `AC-168` · `RF-107` → `AC-169` ·
+> `RF-108` → `AC-170` · relato de despesas (`T-322`) → `AC-171`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-168` | `US-05` | Dada `B3.03` sem renda adicional cadastrada, quando servida, então `ficha_nova["SIM"]` traz `RENDA_ADICIONAL_ID` com `B3.03A`–`B3.03C` (e o mesmo para `B3.05`, `B3.NM01`, `B3.S01`, `B3.D11`), sem `"NAO"`; quando o aluno marcar "Sim", então os campos aparecem na mesma tela; quando salvar, então a mãe é gravada, os campos vão para o item criado (`REND001`), o item é concluído e a lista abre. Com o escopo já tendo item, `ficha_nova` não vem (`T-319`) |
+| `AC-169` | `US-05` | Dado um item de despesa com `B3.DF03`/`DF04` em branco, quando concluir, então o servidor responde `400` com "Antes de salvar, responda nesta ficha: …" e `pendencias` daquelas perguntas; `""` gravado não conta como resposta; "Não sei" conta; a despesa sem nome não conclui. No cliente, "Salvar" com campo em branco destaca "Responda esta pergunta." e não grava nada (`T-320`) |
+| `AC-170` | `US-21` | Dadas três despesas do checklist, quando a 2ª for concluída, então `proximo_item` é a 3ª; concluída a 3ª, é a 1ª; concluída a última pendente, é `null`; e a tela abre o formulário do próximo ("Despesa 2 de 3") ou, sem ele, a lista (`T-321`) |
+| `AC-171` | `US-05` | Dado um item de despesa preenchido, quando o formulário do item seguinte ou de um item novo for aberto, então nenhum campo vem com valor de outro item (servidor e tela), e o formulário de cada ficha curta só traz perguntas do próprio escopo — nenhuma de dívida, como `B5.A01` (`T-322`) |
 
 ## 5. Non-Functional Requirements
 

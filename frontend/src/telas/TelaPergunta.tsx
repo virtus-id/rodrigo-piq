@@ -32,16 +32,32 @@ import { useCallback, useEffect, useState } from 'react'
 
 import Botao from '../componentes/Botao'
 import CampoPergunta from '../componentes/CampoPergunta'
+import CamposDoItem, {
+  CampoNome,
+  chaveDa,
+  emBranco,
+  type EstadoDaFilha,
+  filhasAbertas,
+  gravarEmSequencia,
+  MENSAGEM_CAMPO_EM_BRANCO,
+  MENSAGEM_FALTAM_CAMPOS,
+  MENSAGEM_SEM_NOME,
+  valorInicial,
+} from '../componentes/CamposDoItem'
 import Esqueleto from '../componentes/Esqueleto'
 import PainelFotografia from '../componentes/PainelFotografia'
 import Tela from '../componentes/Tela'
 import TrilhaDaColeta from '../componentes/TrilhaDaColeta'
 import {
+  concluirItem,
+  ErroHttp,
   gravarResposta,
+  nomearFicha,
   obterPergunta,
   obterProximaPergunta,
 } from '../services/api'
-import type { ConfirmacaoDeResposta, Pergunta } from '../tipos'
+import type { ConfirmacaoDeResposta, FichaNova, Pergunta } from '../tipos'
+import { avisoDeUmPorVez, TITULOS_POR_ESCOPO } from './TelaFichas'
 
 interface TelaPerguntaProps {
   casoId: string
@@ -149,51 +165,9 @@ function localizador(pergunta: Pergunta, pendencias: number): string {
   return `Bloco ${pergunta.bloco} · no total, ${pendencias} ${obrigatorias}`
 }
 
-/**
- * O valor com que a pergunta reabre (`AC-01`, `AC-102`).
- *
- * `T-204`: `ESCALA_0_10`/`NUMERO` chegam como `int` do servidor, apesar do
- * tipo; `String` normaliza, senão `"7" === 7` falha e a nota salva não
- * aparece marcada.
- */
-export function valorInicial(pergunta: Pergunta): string | string[] {
-  if (pergunta.valores_marcados.length > 0) return pergunta.valores_marcados
-  const atual = pergunta.valor_atual
-  if (atual === null) return ''
-  // `T-294`: opção com campo R$ em outra variável reabre com os dois.
-  if (pergunta.valor_do_campo != null && !Array.isArray(atual)) {
-    return [String(atual), pergunta.valor_do_campo]
-  }
-  return Array.isArray(atual) ? atual : String(atual)
-}
-
-/** O que o aluno preencheu numa pergunta da thread (`T-307`). */
-export interface EstadoDaFilha {
-  valor: string | string[]
-  naoSei: boolean
-  erro: string | null
-  aviso: string | null
-}
-
-export function chaveDa(pergunta: Pergunta): string {
-  return `${pergunta.ID}|${pergunta.item_id ?? ''}`
-}
-
-/**
- * As perguntas que a opção escolhida abre — `T-307`, `RF-99`.
- *
- * Consulta à tabela que o servidor montou, pelo valor escolhido: nenhuma
- * condição é avaliada aqui (`RF-45`). "Não sei" marcado não abre nada.
- */
-export function filhasAbertas(
-  pergunta: Pergunta,
-  valor: string | string[],
-  naoSei: boolean,
-): Pergunta[] {
-  if (naoSei || !pergunta.complementares) return []
-  const escolhida = Array.isArray(valor) ? (valor[0] ?? '') : valor
-  return pergunta.complementares[escolhida] ?? []
-}
+// `T-319`: os campos da ficha curta moraram aqui até a ficha nova precisar
+// deles também; re-exportados para quem já os importava.
+export { chaveDa, type EstadoDaFilha, filhasAbertas, valorInicial }
 
 /** O avanço dentro da ficha, em pontos percentuais. `null` fora de ficha. */
 function percentualDaFicha(pergunta: Pergunta): number | null {
@@ -236,6 +210,15 @@ export default function TelaPergunta({
    * opção mostra de novo o que tinha sido digitado.
    */
   const [filhas, setFilhas] = useState<Record<string, EstadoDaFilha>>({})
+  /**
+   * `T-319` (`RF-106`): a ficha curta que a opção abre, na mesma tela. Os
+   * campos dela ficam em `filhas` (a chave traz o `item_id` provisório); o
+   * nome é o da despesa não listada; `itemNovo`, o item que a mãe criou —
+   * guardado para que reenviar depois de um erro grave no mesmo item.
+   */
+  const [nomeNovo, setNomeNovo] = useState('')
+  const [erroNomeNovo, setErroNomeNovo] = useState<string | null>(null)
+  const [itemNovo, setItemNovo] = useState<string | null>(null)
 
   function estadoDa(filha: Pergunta): EstadoDaFilha {
     return (
@@ -253,7 +236,7 @@ export default function TelaPergunta({
     setConfirmacaoComAviso(null)
     setFilhas((atual) => ({
       ...atual,
-      [chaveDa(filha)]: { ...estadoDa(filha), aviso: null, ...mudanca },
+      [chaveDa(filha)]: { ...estadoDa(filha), aviso: null, erro: null, ...mudanca },
     }))
   }
 
@@ -290,6 +273,9 @@ export default function TelaPergunta({
       if (!corrigindo && abrirFormulario?.(dados.pergunta)) return
       setPergunta(dados.pergunta)
       setFilhas({})
+      setNomeNovo('')
+      setErroNomeNovo(null)
+      setItemNovo(null)
       setPendencias(dados.total_pendencias ?? 0)
       // Reabre com o valor já respondido, quando houver (`AC-01`, `AC-102`).
       setValor(valorInicial(dados.pergunta))
@@ -305,16 +291,50 @@ export default function TelaPergunta({
     void carregar()
   }, [carregar])
 
+  /**
+   * `T-319`: a ficha nova da opção escolhida — consulta à tabela do servidor,
+   * como as complementares. Não na correção: ela volta à revisão.
+   */
+  const escolhida = Array.isArray(valor) ? (valor[0] ?? '') : valor
+  const fichaNova: FichaNova | undefined =
+    pergunta && !corrigindo && !naoSei ? pergunta.ficha_nova?.[escolhida] : undefined
+  const titulosDaFichaNova = fichaNova ? TITULOS_POR_ESCOPO[fichaNova.escopo] : undefined
+
   async function aoResponder() {
     if (!pergunta) return
     if (confirmacaoComAviso) {
       const confirmacao = confirmacaoComAviso
       setConfirmacaoComAviso(null)
-      seguir(confirmacao)
+      if (fichaNova && itemNovo) {
+        setGravando(true)
+        try {
+          await concluirFichaNova(fichaNova, itemNovo, confirmacao)
+        } catch (falha) {
+          setErro(falha instanceof Error ? falha.message : 'Não foi possível salvar.')
+        } finally {
+          setGravando(false)
+        }
+      } else seguir(confirmacao)
       return
     }
-    setGravando(true)
     setErro(null)
+    // `T-320`: na ficha nova, nada em branco — destaca e não grava nada.
+    if (fichaNova) {
+      const faltam = emBranco(fichaNova.perguntas, estadoDa)
+      const semNome = fichaNova.pede_nome && !nomeNovo.trim()
+      if (faltam.length || semNome) {
+        setFilhas((atual) => ({
+          ...atual,
+          ...Object.fromEntries(
+            faltam.map((p) => [chaveDa(p), { ...estadoDa(p), erro: MENSAGEM_CAMPO_EM_BRANCO }]),
+          ),
+        }))
+        setErroNomeNovo(semNome ? MENSAGEM_SEM_NOME : null)
+        setErro(MENSAGEM_FALTAM_CAMPOS)
+        return
+      }
+    }
+    setGravando(true)
     try {
       const daMae = await gravarResposta(casoId, {
         idPergunta: pergunta.ID,
@@ -358,6 +378,10 @@ export default function TelaPergunta({
         avisos,
         abrir_fichas: [...new Set(abrirFichas)],
       }
+      if (fichaNova) {
+        await salvarFichaNova(fichaNova, confirmacao)
+        return
+      }
       // `T-240`: o aviso vai para o canal que o campo já anuncia
       // (`role="status"` ligado por `aria-describedby`, em `CampoPergunta`).
       // Nenhuma regra aqui: o texto e a decisão de avisar são do servidor.
@@ -385,6 +409,66 @@ export default function TelaPergunta({
     } finally {
       setGravando(false)
     }
+  }
+
+  /**
+   * `T-319` (`RF-106`): a mãe gravada criou o item (`T-311`/`T-316`) e a
+   * `proxima` do servidor aponta a primeira pergunta dele — é nesse
+   * `item_id` que os campos são gravados, na ordem, e o item é concluído.
+   */
+  async function salvarFichaNova(ficha: FichaNova, confirmacao: ConfirmacaoDeResposta) {
+    const criada = confirmacao.proxima.pergunta
+    const item =
+      itemNovo ?? (criada?.escopo_repeticao === ficha.escopo ? criada.item_id : null)
+    if (!item) throw new Error('Não foi possível salvar.')
+    setItemNovo(item)
+    let falhou = false
+    if (ficha.pede_nome) {
+      try {
+        await nomearFicha(casoId, ficha.escopo, item, nomeNovo.trim())
+        setErroNomeNovo(null)
+      } catch (falha) {
+        setErroNomeNovo(falha instanceof Error ? falha.message : 'Não foi possível salvar.')
+        falhou = true
+      }
+    }
+    const gravacao = await gravarEmSequencia(casoId, ficha.perguntas, estadoDa, item)
+    setFilhas((atual) => ({ ...atual, ...gravacao.estados }))
+    if (falhou || gravacao.falhou) return
+    if (gravacao.avisou) {
+      setConfirmacaoComAviso(confirmacao)
+      return
+    }
+    await concluirFichaNova(ficha, item, confirmacao)
+  }
+
+  /**
+   * Concluído (`T-320`), a lista do escopo abre com "+ Adicionar outro(a)"
+   * e "Continuar" (`T-311`). Se o servidor recusar — a resposta abriu uma
+   * pergunta que não estava na tela —, o formulário do item a mostra.
+   */
+  async function concluirFichaNova(
+    ficha: FichaNova,
+    item: string,
+    confirmacao: ConfirmacaoDeResposta,
+  ) {
+    try {
+      await concluirItem(casoId, ficha.escopo, item)
+    } catch (falha) {
+      const primeira = ficha.perguntas[0]
+      if (
+        falha instanceof ErroHttp &&
+        falha.status === 400 &&
+        primeira &&
+        abrirFormulario?.({ ...primeira, item_id: item })
+      ) {
+        return
+      }
+      throw falha
+    }
+    if (onAbrirFichas) {
+      onAbrirFichas([ficha.escopo, ...confirmacao.abrir_fichas.filter((e) => e !== ficha.escopo)])
+    } else seguir(confirmacao)
   }
 
   function seguir(confirmacao: ConfirmacaoDeResposta) {
@@ -416,6 +500,9 @@ export default function TelaPergunta({
     if (abrirFormulario?.(proxima)) return
     setPergunta(proxima)
     setFilhas({})
+    setNomeNovo('')
+    setErroNomeNovo(null)
+    setItemNovo(null)
     setPendencias(confirmacao.total_pendencias)
     setValor(valorInicial(proxima))
     setNaoSei(proxima.respondida_como_nao_sei)
@@ -435,7 +522,8 @@ export default function TelaPergunta({
       !confirmacaoComAviso &&
       (JSON.stringify(valor) !== JSON.stringify(valorInicial(pergunta)) ||
         naoSei !== pergunta.respondida_como_nao_sei ||
-        Object.keys(filhas).length > 0)
+        Object.keys(filhas).length > 0 ||
+        nomeNovo !== '')
     if (
       alterou &&
       !window.confirm(
@@ -580,6 +668,32 @@ export default function TelaPergunta({
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* `T-319` (RF-106): os campos do primeiro item da ficha curta que a
+          opção abre, logo abaixo — decididos pelo servidor. */}
+      {fichaNova && (
+        <div
+          key={`ficha-${escolhida}`}
+          role="group"
+          aria-label="Perguntas abertas pela sua resposta"
+          className="thread"
+        >
+          {titulosDaFichaNova && <p className="nota">{avisoDeUmPorVez(titulosDaFichaNova)}</p>}
+          {fichaNova.pede_nome && (
+            <CampoNome
+              id="nome-ficha-nova"
+              valor={nomeNovo}
+              erro={erroNomeNovo}
+              onMudar={(novo) => {
+                setConfirmacaoComAviso(null)
+                setNomeNovo(novo)
+                setErroNomeNovo(null)
+              }}
+            />
+          )}
+          <CamposDoItem perguntas={fichaNova.perguntas} estadoDe={estadoDa} mudar={mudarFilha} />
         </div>
       )}
     </Tela>

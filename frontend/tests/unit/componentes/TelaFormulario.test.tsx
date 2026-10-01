@@ -120,9 +120,8 @@ describe('T-314: ficha curta em uma tela', () => {
   })
 
   it('"Salvar" grava a mãe antes da filha e volta à lista com o item completo', async () => {
-    vi.spyOn(api, 'obterFormulario')
-      .mockResolvedValueOnce(formulario())
-      .mockResolvedValueOnce(formulario({ completa: true }))
+    vi.spyOn(api, 'obterFormulario').mockResolvedValue(formulario())
+    vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: null })
     const gravar = vi.spyOn(api, 'gravarResposta').mockResolvedValue(ok)
     const onConcluir = abrir()
 
@@ -147,7 +146,8 @@ describe('T-314: ficha curta em uma tela', () => {
       .mockResolvedValue(ok)
     const onConcluir = abrir()
 
-    await userEvent.type(await screen.findByLabelText('Pergunta B3.05C'), 'x')
+    await userEvent.click(await screen.findByRole('radio', { name: '13º salário' }))
+    await userEvent.type(screen.getByLabelText('Pergunta B3.05C'), 'x')
     await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -158,9 +158,10 @@ describe('T-314: ficha curta em uma tela', () => {
   })
 
   it('despesa não listada pede o nome no próprio formulário (T-316)', async () => {
-    vi.spyOn(api, 'obterFormulario')
-      .mockResolvedValueOnce(formulario({ escopo: 'ITEM_DESPESA', pede_nome: true, perguntas: [] }))
-      .mockResolvedValueOnce(formulario({ completa: true }))
+    vi.spyOn(api, 'obterFormulario').mockResolvedValue(
+      formulario({ escopo: 'ITEM_DESPESA', pede_nome: true, perguntas: [] }),
+    )
+    vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: null })
     const nomear = vi.spyOn(api, 'nomearFicha').mockResolvedValue({ rotulo: 'Pet' })
     const onConcluir = abrir('ITEM_DESPESA')
 
@@ -174,6 +175,206 @@ describe('T-314: ficha curta em uma tela', () => {
 
     await waitFor(() => expect(onConcluir).toHaveBeenCalledWith('ITEM_DESPESA'))
     expect(nomear).toHaveBeenCalledWith('CASO-1', 'ITEM_DESPESA', 'EXT002', 'Pet')
+  })
+})
+
+describe('T-319: a ficha curta abre na tela da pergunta-gatilho', () => {
+  const gatilho = fabricar('B3.03', 'SIM_NAO_TALVEZ', {
+    escopo_repeticao: 'NENHUM',
+    item_id: null,
+    opcoes: [
+      { rotulo: 'Sim', valor_interno: 'SIM', admite_nao_sei: false },
+      { rotulo: 'Não', valor_interno: 'NAO', admite_nao_sei: false },
+    ],
+    ficha_nova: {
+      SIM: {
+        escopo: 'RENDA_ADICIONAL_ID',
+        pede_nome: false,
+        perguntas: [
+          fabricar('B3.03B', 'TEXTO_CURTO', {
+            escopo_repeticao: 'RENDA_ADICIONAL_ID',
+            item_id: 'NOVO',
+          }),
+        ],
+      },
+    },
+  })
+
+  it('"Sim" mostra os campos do primeiro item; salvar grava no item criado e abre a lista', async () => {
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({ pergunta: gatilho })
+    const daMae = {
+      ...ok,
+      proxima: {
+        pergunta: fabricar('B3.03A', 'TEXTO_CURTO', {
+          escopo_repeticao: 'RENDA_ADICIONAL_ID',
+          item_id: 'REND001',
+        }),
+      },
+    } as unknown as ConfirmacaoDeResposta
+    const gravar = vi
+      .spyOn(api, 'gravarResposta')
+      .mockResolvedValueOnce(daMae)
+      .mockResolvedValue(ok)
+    const concluir = vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: null })
+    const onAbrirFichas = vi.fn()
+    render(
+      <TelaPergunta casoId="CASO-1" onColetaCompleta={vi.fn()} onAbrirFichas={onAbrirFichas} />,
+    )
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'Não' }))
+    expect(screen.queryByLabelText('Pergunta B3.03B')).toBeNull()
+    await userEvent.click(screen.getByRole('radio', { name: 'Sim' }))
+    expect(
+      screen.getByText(
+        'Cadastre uma renda adicional de cada vez. Depois você pode adicionar outras.',
+      ),
+    ).toBeVisible()
+
+    // `T-320`: em branco, nada é gravado.
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+    expect(await screen.findByText('Responda esta pergunta.')).toBeVisible()
+    expect(gravar).not.toHaveBeenCalled()
+
+    await userEvent.type(screen.getByLabelText('Pergunta B3.03B'), '800')
+    await userEvent.click(screen.getByRole('button', { name: 'Continuar' }))
+
+    await waitFor(() => expect(onAbrirFichas).toHaveBeenCalledWith(['RENDA_ADICIONAL_ID']))
+    expect(
+      gravar.mock.calls.map(([, e]) => [e.idPergunta, e.valor, e.itemId ?? null]),
+    ).toEqual([
+      ['B3.03', 'SIM', null],
+      ['B3.03B', '800', 'REND001'],
+    ])
+    expect(concluir).toHaveBeenCalledWith('CASO-1', 'RENDA_ADICIONAL_ID', 'REND001')
+  })
+})
+
+describe('T-320: nada em branco', () => {
+  it('campo sem resposta é destacado e nada é gravado', async () => {
+    vi.spyOn(api, 'obterFormulario').mockResolvedValue(formulario())
+    const gravar = vi.spyOn(api, 'gravarResposta').mockResolvedValue(ok)
+    const onConcluir = abrir()
+
+    await userEvent.type(await screen.findByLabelText('Pergunta B3.05C'), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByText('Responda as perguntas destacadas antes de salvar.')).toBeVisible()
+    expect(screen.getAllByText('Responda esta pergunta.')).toHaveLength(1)
+    expect(gravar).not.toHaveBeenCalled()
+    expect(onConcluir).not.toHaveBeenCalled()
+
+    // Responder tira o destaque.
+    await userEvent.click(screen.getByRole('radio', { name: '13º salário' }))
+    expect(screen.queryByText('Responda esta pergunta.')).toBeNull()
+  })
+
+  it('"Não sei" conta como resposta; despesa sem nome não salva', async () => {
+    vi.spyOn(api, 'obterFormulario').mockResolvedValue(
+      formulario({
+        escopo: 'ITEM_DESPESA',
+        pede_nome: true,
+        perguntas: [fabricar('B3.DF01', 'MOEDA', { admite_nao_sei: true })],
+      }),
+    )
+    const gravar = vi.spyOn(api, 'gravarResposta').mockResolvedValue(ok)
+    vi.spyOn(api, 'nomearFicha').mockResolvedValue({ rotulo: 'Pet' })
+    vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: null })
+    const onConcluir = abrir('ITEM_DESPESA')
+
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Não sei' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(await screen.findByText('Informe o nome da despesa.')).toBeVisible()
+    expect(gravar).not.toHaveBeenCalled()
+
+    await userEvent.type(screen.getByLabelText('Nome da despesa'), 'Pet')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(onConcluir).toHaveBeenCalledWith('ITEM_DESPESA'))
+    expect(gravar.mock.calls[0][1]).toMatchObject({ idPergunta: 'B3.DF01', naoSei: true })
+  })
+
+  it('o servidor recusa a conclusão: relê o item e destaca o que falta', async () => {
+    vi.spyOn(api, 'obterFormulario')
+      .mockResolvedValueOnce(formulario({ perguntas: [fabricar('B3.05C', 'TEXTO_CURTO')] }))
+      .mockResolvedValueOnce(
+        formulario({
+          perguntas: [fabricar('B3.05C', 'TEXTO_CURTO'), fabricar('B3.05D', 'TEXTO_CURTO')],
+        }),
+      )
+    vi.spyOn(api, 'gravarResposta').mockResolvedValue(ok)
+    vi.spyOn(api, 'concluirItem').mockRejectedValue(
+      new api.ErroHttp(400, 'Antes de salvar, responda nesta ficha: Pergunta B3.05D', [
+        { ID: 'B3.05D', item_id: 'EXT002', enunciado: 'Pergunta B3.05D' },
+      ]),
+    )
+    const onConcluir = abrir()
+
+    await userEvent.type(await screen.findByLabelText('Pergunta B3.05C'), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    expect(await screen.findByLabelText('Pergunta B3.05D')).toBeInTheDocument()
+    expect(screen.getByText('Responda esta pergunta.')).toBeVisible()
+    expect(
+      screen.getByText('Sua resposta abriu outras perguntas. Responda e salve de novo.'),
+    ).toBeVisible()
+    expect(onConcluir).not.toHaveBeenCalled()
+  })
+})
+
+describe('T-321: despesas em sequência', () => {
+  it('concluído, abre o próximo item pendente que o servidor nomeia', async () => {
+    vi.spyOn(api, 'obterFormulario').mockResolvedValue(
+      formulario({ perguntas: [fabricar('B3.05C', 'TEXTO_CURTO')] }),
+    )
+    vi.spyOn(api, 'gravarResposta').mockResolvedValue(ok)
+    const concluir = vi.spyOn(api, 'concluirItem').mockResolvedValue({ proximo_item: 'EXT003' })
+    const onConcluir = vi.fn()
+    const onAbrirItem = vi.fn()
+    render(
+      <TelaFormulario
+        casoId="CASO-1"
+        escopo="RECURSO_EXTRAORDINARIO_ID"
+        itemId="EXT002"
+        titulos={TITULOS_POR_ESCOPO.RECURSO_EXTRAORDINARIO_ID}
+        onConcluir={onConcluir}
+        onAbrirItem={onAbrirItem}
+      />,
+    )
+
+    await userEvent.type(await screen.findByLabelText('Pergunta B3.05C'), 'x')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+
+    await waitFor(() => expect(onAbrirItem).toHaveBeenCalledWith('EXT003'))
+    expect(concluir).toHaveBeenCalledWith('CASO-1', 'RECURSO_EXTRAORDINARIO_ID', 'EXT002')
+    expect(onConcluir).not.toHaveBeenCalled()
+  })
+})
+
+describe('T-322: o item seguinte abre sem valores do anterior', () => {
+  it('trocar de item, mesmo sem remontar, não leva o que foi digitado', async () => {
+    const preenchido = fabricar('B3.DF01', 'TEXTO_CURTO', { item_id: 'DESP001', valor_atual: '500' })
+    vi.spyOn(api, 'obterFormulario').mockImplementation(async (_caso, _escopo, item) =>
+      formulario({
+        escopo: 'ITEM_DESPESA',
+        item_id: item,
+        perguntas: [
+          item === 'DESP001' ? preenchido : fabricar('B3.DF01', 'TEXTO_CURTO', { item_id: item }),
+        ],
+      }),
+    )
+    const props = {
+      casoId: 'CASO-1',
+      escopo: 'ITEM_DESPESA',
+      titulos: TITULOS_POR_ESCOPO.ITEM_DESPESA,
+      onConcluir: vi.fn(),
+    }
+    const { rerender } = render(<TelaFormulario {...props} itemId="DESP001" />)
+    const campo = await screen.findByLabelText('Pergunta B3.DF01')
+    expect(campo).toHaveValue('500')
+    await userEvent.type(campo, '9')
+
+    rerender(<TelaFormulario {...props} itemId="DESP002" />)
+
+    await waitFor(() => expect(screen.getByLabelText('Pergunta B3.DF01')).toHaveValue(''))
   })
 })
 
