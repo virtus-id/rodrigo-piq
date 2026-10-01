@@ -1,5 +1,5 @@
-"""A pergunta anterior e a trilha da coleta — `RF-70` (`T-309`) e `RF-100`
-(`T-310`).
+"""A pergunta anterior, a seguinte e a trilha da coleta — `RF-70` (`T-309`,
+`T-318`) e `RF-100` (`T-310`).
 
 Os dois leem o MESMO percurso de `progresso.py::percurso_da_coleta` — a
 varredura da retomada —, nunca a ordem dos registros: a ficha é percorrida
@@ -63,6 +63,25 @@ def anterior_no_percurso(
     )
 
 
+def seguinte_no_percurso(
+    percurso: Percurso, ID: str, item_id: str | None
+) -> dict[str, str | None] | None:
+    """`RF-70`, `T-318` — a pergunta imediatamente depois desta no percurso,
+    para quem voltou com "‹ Pergunta anterior" e quer avançar sem responder
+    de novo. Só quando ESTA já está respondida: na fronteira (em branco) o
+    aluno precisa responder, e não há "seguinte". A seguinte pode estar em
+    branco — é a próxima a responder naquele trecho, onde o "Continuar"
+    também o levaria. `None` também na última e fora da coleta inicial."""
+    chaves = [(ocorrencia.ID, ocorrencia.item_id) for ocorrencia, _ in percurso]
+    if (ID, item_id) not in chaves:
+        return None
+    posicao = chaves.index((ID, item_id))
+    if percurso[posicao][1] or posicao + 1 == len(percurso):
+        return None
+    seguinte = percurso[posicao + 1][0]
+    return {"ID": seguinte.ID, "item_id": seguinte.item_id}
+
+
 def trilha_da_coleta(
     registros: tuple[RegistroPergunta, ...], percurso: Percurso, bloco_atual: int
 ) -> list[dict[str, object]] | None:
@@ -104,14 +123,15 @@ def anexar_ao_payload(
     respostas: RespostasCaso,
     itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
 ) -> None:
-    """`anterior` e `trilha` na pergunta serializada — uma varredura para os
+    """`anterior`, `seguinte` e `trilha` na pergunta serializada — uma varredura para os
     dois. Quem chama são as duas montagens da pergunta da coleta (`GET
     /pergunta` e `proxima` do `POST`), nunca as filhas de `T-307`."""
     percurso = percurso_da_coleta(registros, respostas, itens_por_escopo)
     item_id = pergunta.get("item_id")
-    pergunta["anterior"] = anterior_no_percurso(
-        percurso, str(pergunta["ID"]), item_id if isinstance(item_id, str) else None
-    )
+    chave = (str(pergunta["ID"]), item_id if isinstance(item_id, str) else None)
+    pergunta["anterior"] = anterior_no_percurso(percurso, *chave)
+    # `T-318`: a seguinte, para avançar depois de voltar.
+    pergunta["seguinte"] = seguinte_no_percurso(percurso, *chave)
     bloco = pergunta.get("bloco")
     pergunta["trilha"] = (
         trilha_da_coleta(registros, percurso, bloco) if isinstance(bloco, int) else None

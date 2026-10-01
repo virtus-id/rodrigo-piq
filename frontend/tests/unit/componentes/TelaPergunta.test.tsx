@@ -260,3 +260,58 @@ describe('T-308/T-309/T-310: topo, anterior e trilha vêm do servidor', () => {
     expect(screen.getByText(/Parte 2 de 3/)).toBeInTheDocument()
   })
 })
+
+describe('T-318: "Pergunta seguinte ›" depois de voltar', () => {
+  function abrirComSeguinte(abrirPergunta = vi.fn()) {
+    const gravar = vi.spyOn(api, 'gravarResposta')
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({
+      pergunta: fabricar('TEXTO_CURTO', {
+        valor_atual: 'já respondida',
+        seguinte: { ID: 'B3.05BF', item_id: 'EXT001' },
+      }),
+      total_pendencias: 0,
+    })
+    render(
+      <TelaPergunta casoId="CASO-1" onColetaCompleta={vi.fn()} abrirPergunta={abrirPergunta} />,
+    )
+    return { abrirPergunta, gravar }
+  }
+
+  it('sem alteração só navega, com o item, sem regravar', async () => {
+    const { abrirPergunta, gravar } = abrirComSeguinte()
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Pergunta seguinte ›' }))
+
+    expect(abrirPergunta).toHaveBeenCalledWith('B3.05BF', 'EXT001')
+    expect(gravar).not.toHaveBeenCalled()
+  })
+
+  it('com alteração não salva, pergunta antes de descartar', async () => {
+    // `happy-dom` não implementa `confirm`.
+    const confirmar = vi.fn().mockReturnValue(false)
+    vi.stubGlobal('confirm', confirmar)
+    const { abrirPergunta, gravar } = abrirComSeguinte()
+
+    await userEvent.type(await screen.findByLabelText(/Campo de teste/), ' e mudada')
+    await userEvent.click(screen.getByRole('button', { name: 'Pergunta seguinte ›' }))
+    expect(confirmar).toHaveBeenCalled()
+    expect(abrirPergunta).not.toHaveBeenCalled()
+
+    confirmar.mockReturnValue(true)
+    await userEvent.click(screen.getByRole('button', { name: 'Pergunta seguinte ›' }))
+    expect(abrirPergunta).toHaveBeenCalledWith('B3.05BF', 'EXT001')
+    expect(gravar).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('na fronteira (`seguinte: null`) não há botão', async () => {
+    vi.spyOn(api, 'obterProximaPergunta').mockResolvedValue({
+      pergunta: fabricar('TEXTO_CURTO', { seguinte: null }),
+      total_pendencias: 0,
+    })
+    render(<TelaPergunta casoId="CASO-1" onColetaCompleta={vi.fn()} abrirPergunta={vi.fn()} />)
+
+    await screen.findByText(/Campo de teste/, { selector: 'label, legend' })
+    expect(screen.queryByRole('button', { name: /Pergunta seguinte/ })).not.toBeInTheDocument()
+  })
+})

@@ -14,6 +14,7 @@ import type {
   EscoposDoCaso,
   Etapas,
   Ficha,
+  FormularioDoItem,
   Inicio,
   ItemDaFila,
   ListaDeFichas,
@@ -167,6 +168,15 @@ export function listarEscopos(casoId: string): Promise<EscoposDoCaso> {
 
 export function listarFichas(casoId: string, escopo: string): Promise<ListaDeFichas> {
   return pedir<ListaDeFichas>(`/caso/${casoId}/fichas/${escopo}`)
+}
+
+/** A ficha curta inteira numa tela — `T-314`. */
+export function obterFormulario(
+  casoId: string,
+  escopo: string,
+  itemId: string,
+): Promise<FormularioDoItem> {
+  return pedir<FormularioDoItem>(`/caso/${casoId}/formulario/${escopo}/${itemId}`)
 }
 
 /** `itemPaiId`: o item dentro do qual a ficha nasce — a margem no vínculo (`T-254`). */

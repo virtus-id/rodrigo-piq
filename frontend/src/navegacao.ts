@@ -43,6 +43,8 @@ export type Rota =
    * passa por eles antes de voltar à coleta.
    */
   | { tela: 'fichas'; escopo?: string; seguintes?: string[] }
+  /** A ficha curta de um item, inteira numa tela (`T-314`). */
+  | { tela: 'formulario'; escopo: string; itemId: string }
   /**
    * "Minhas respostas" — a revisão do que já foi dito (`RF-68`, T-160).
    *
@@ -133,6 +135,8 @@ export function rotaParaHash(rota: Rota): string {
     }
     case 'fichas':
       return [rota.tela, rota.escopo, ...(rota.seguintes ?? [])].filter(Boolean).join('/')
+    case 'formulario':
+      return `${rota.tela}/${rota.escopo}/${rota.itemId}`
     case 'acao':
       return `${rota.tela}/${rota.acaoId}`
     case 'coleta-dirigida':
@@ -185,6 +189,8 @@ export function hashParaRota(hash: string): Rota {
       const bloco = Number(resto[0])
       return bloco === 7 || bloco === 8 ? { tela, bloco } : ROTA_PADRAO
     }
+    case 'formulario':
+      return resto[0] && resto[1] ? { tela, escopo: resto[0], itemId: resto[1] } : ROTA_PADRAO
     case 'acao':
       return resto[0] ? { tela, acaoId: resto[0] } : ROTA_PADRAO
     // Sem token não há o que definir: cai no padrão, que leva ao login.

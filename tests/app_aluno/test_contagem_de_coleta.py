@@ -545,8 +545,10 @@ def test_a_colecao_real_tem_245_registros() -> None:
     fatia 9.1b — `B5.D05S`/`V`/`P`/`R` (`T-230`), `B8.12V`/`P` (`T-235`),
     `B7.13B`–`E` (`T-237`), `B7.04`, `B7.04A`, `B7.07V` (`T-242`); `+2` da
     fatia 9.3 — `B3.S04L`, `B3.S05C` (`T-255`); `+1` da fatia 9.5 —
-    `B3.05BF` (`T-270`)."""
-    assert len(_registros_reais()) == 261
+    `B3.05BF` (`T-270`). Rodada 10: `+5` descrições de "Outro" nas fichas
+    curtas — `B3.03AO`, `B3.05AO`, `B3.NM02AO`, `B3.NM02CO`, `B3.S06AO`
+    (`T-315`)."""
+    assert len(_registros_reais()) == 266
 
 
 def test_os_casos_de_prova_do_gerador_ficam_fora_da_coleta() -> None:

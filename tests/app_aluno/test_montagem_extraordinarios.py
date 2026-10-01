@@ -363,6 +363,9 @@ def test_ac123_restituicao_confirmada_cria_um_item_ligado_a_origem(
     # janela; valor e certeza já estão lá.
     assert _proxima_do_item(cliente, item.item_id) == "B3.05A"
     _responder(cliente, "B3.05A", "OUTRO", item.item_id)
+    # `T-315`: "Outro" pede a descrição.
+    assert _proxima_do_item(cliente, item.item_id) == "B3.05AO"
+    _responder(cliente, "B3.05AO", "Restituição do seguro", item.item_id)
     assert _proxima_do_item(cliente, item.item_id) == "B3.05C"
     _responder(cliente, "B3.05C", "1_3M", item.item_id)
 
@@ -405,6 +408,8 @@ def test_t286_restituicao_confirmada_conta_mesmo_com_b305_nao(
 
     assert _proxima_do_item(cliente, item.item_id) == "B3.05A"
     assert _responder(cliente, "B3.05A", "OUTRO", item.item_id).status_code == 200
+    # `T-315`: "Outro" pede a descrição.
+    assert _responder(cliente, "B3.05AO", "Seguro", item.item_id).status_code == 200
     assert _proxima_do_item(cliente, item.item_id) == "B3.05C"
     assert _responder(cliente, "B3.05C", "1_3M", item.item_id).status_code == 200
 

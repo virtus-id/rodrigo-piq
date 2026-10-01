@@ -34,31 +34,51 @@ import type { Ficha, ParteDaTrilha } from '../tipos'
  * `ITEM_DESPESA` (`T-217`): as fichas nascem do checklist; a lista serve
  * para dar nome a "Outro" e adicionar despesa não listada.
  */
-export const TITULOS_POR_ESCOPO: Readonly<
-  Record<
-    string,
-    { titulo: string; tituloPlural: string; possessivo?: string; feminino?: boolean }
-  >
-> = {
+export const TITULOS_POR_ESCOPO: Readonly<Record<string, TitulosDoEscopo>> = {
   DIVIDA_ID: { titulo: 'Dívida', tituloPlural: 'Dívidas', feminino: true },
   RENDA_ADICIONAL_ID: {
     titulo: 'Renda adicional',
     tituloPlural: 'Rendas adicionais',
     feminino: true,
+    curta: true,
   },
   DESPESA_NAO_MENSAL_ID: {
     titulo: 'Despesa não mensal',
     tituloPlural: 'Despesas não mensais',
     feminino: true,
+    curta: true,
   },
   // `T-270` (RF-98): redação aprovada pelo produto (`T-289`, 2026-09-30).
   RECURSO_EXTRAORDINARIO_ID: {
     titulo: 'Valor extraordinário',
     tituloPlural: 'Valores extraordinários',
+    curta: true,
+    // `T-315`: "Cadastre um valor de cada vez" — redação do produto.
+    nomeNoAviso: 'valor',
   },
-  VINCULO_ID: { titulo: 'Vínculo', tituloPlural: 'Vínculos', possessivo: 'Seus' },
-  MARGEM_ID: { titulo: 'Margem', tituloPlural: 'Margens', feminino: true },
-  ITEM_DESPESA: { titulo: 'Despesa', tituloPlural: 'Despesas', feminino: true },
+  VINCULO_ID: { titulo: 'Vínculo', tituloPlural: 'Vínculos', possessivo: 'Seus', curta: true },
+  MARGEM_ID: { titulo: 'Margem', tituloPlural: 'Margens', feminino: true, curta: true },
+  ITEM_DESPESA: { titulo: 'Despesa', tituloPlural: 'Despesas', feminino: true, curta: true },
+}
+
+/**
+ * `curta` (`T-314`, decisão do produto): a ficha abre num formulário único
+ * (`TelaFormulario`), não pergunta a pergunta. A dívida segue pergunta a
+ * pergunta. É apresentação — quais perguntas aparecem continua no servidor.
+ */
+export interface TitulosDoEscopo {
+  titulo: string
+  tituloPlural: string
+  possessivo?: string
+  feminino?: boolean
+  curta?: boolean
+  nomeNoAviso?: string
+}
+
+/** `T-315`: "Cadastre uma despesa de cada vez. Depois você pode adicionar outras." */
+export function avisoDeUmPorVez({ titulo, feminino, nomeNoAviso }: TitulosDoEscopo): string {
+  const nome = nomeNoAviso ?? titulo.toLowerCase()
+  return `Cadastre ${feminino ? 'uma' : 'um'} ${nome} de cada vez. Depois você pode adicionar ${feminino ? 'outras' : 'outros'}.`
 }
 
 interface TelaFichasProps {
@@ -78,12 +98,20 @@ interface TelaFichasProps {
   possessivo?: string
   /** "Adicionar outra dívida", mas "Adicionar outro vínculo" (`T-311`). */
   feminino?: boolean
+  /** Ficha curta (`T-314`): mostra o aviso de `T-315`. */
+  curta?: boolean
+  nomeNoAviso?: string
   voltar?: () => void
   /**
    * `idPergunta` é a pergunta em que a ficha abre — a próxima em branco
    * daquele item, decidida pelo servidor (`RF-45`, `T-203`).
    */
   onAbrirFicha: (itemId: string, idPergunta: string) => void
+  /**
+   * Ficha curta (`T-314`): abrir e adicionar levam ao formulário do item,
+   * não à pergunta. `escopo` é o do item — a margem abre no próprio escopo.
+   */
+  onAbrirFormulario?: (escopo: string, itemId: string) => void
   /**
    * Segue a coleta — `T-212`. Não exige ficha: se criar ao menos uma é
    * obrigatório ainda é questão aberta para o especialista.
@@ -98,8 +126,11 @@ export default function TelaFichas({
   tituloPlural,
   possessivo = 'Suas',
   feminino = false,
+  curta = false,
+  nomeNoAviso,
   voltar,
   onAbrirFicha,
+  onAbrirFormulario,
   onContinuar,
 }: TelaFichasProps) {
   const [fichas, setFichas] = useState<Ficha[]>([])
@@ -133,6 +164,11 @@ export default function TelaFichas({
   async function aoAdicionar(escopoAlvo = escopo, itemPaiId?: string) {
     try {
       const { ficha } = await criarFicha(casoId, escopoAlvo, itemPaiId)
+      // `T-314`/`T-316`: na ficha curta o formulário já pede o nome.
+      if (onAbrirFormulario) {
+        onAbrirFormulario(escopoAlvo, ficha.item_id)
+        return
+      }
       // `T-311`: o item novo abre direto na primeira pergunta. A despesa
       // não listada fica na lista: ela pede nome antes (`T-217`).
       if (!ficha.pede_nome) {
@@ -145,7 +181,11 @@ export default function TelaFichas({
     }
   }
 
-  async function aoAbrir(itemId: string) {
+  async function aoAbrir(itemId: string, escopoDoItem = escopo) {
+    if (onAbrirFormulario) {
+      onAbrirFormulario(escopoDoItem, itemId)
+      return
+    }
     try {
       const dados = await obterProximaPergunta(casoId, itemId)
       if (!dados.pergunta) throw new Error('ficha sem pergunta')
@@ -203,6 +243,11 @@ export default function TelaFichas({
       }
     >
       <p className="lead">Uma ficha para cada item. Toque em uma para completar.</p>
+      {curta && (
+        <p className="nota">
+          {avisoDeUmPorVez({ titulo, tituloPlural, feminino, nomeNoAviso })}
+        </p>
+      )}
 
       {/* Só na primeira carga — ver a nota em `TelaRevisao` (T-164). Aqui a
           recarga vem de adicionar ou remover ficha, e o esqueleto sobre a
@@ -268,7 +313,7 @@ export default function TelaFichas({
                           <button
                             type="button"
                             className="text-left text-accent"
-                            onClick={() => void aoAbrir(margem.item_id)}
+                            onClick={() => void aoAbrir(margem.item_id, filho)}
                           >
                             {margem.rotulo ?? `${nomes.titulo} ${margem.item_id}`}
                           </button>

@@ -77,6 +77,11 @@ interface TelaPerguntaProps {
    * de correção de `RF-69`, nunca uma segunda via de gravação.
    */
   abrirCorrecao?: (idPergunta: string, itemId: string) => void
+  /**
+   * `T-314`: a pergunta de ficha curta abre o formulário do item. Devolve
+   * se abriu — quem sabe quais fichas são curtas é `App.tsx`.
+   */
+  abrirFormulario?: (pergunta: Pergunta) => boolean
 }
 
 /**
@@ -151,7 +156,7 @@ function localizador(pergunta: Pergunta, pendencias: number): string {
  * tipo; `String` normaliza, senão `"7" === 7` falha e a nota salva não
  * aparece marcada.
  */
-function valorInicial(pergunta: Pergunta): string | string[] {
+export function valorInicial(pergunta: Pergunta): string | string[] {
   if (pergunta.valores_marcados.length > 0) return pergunta.valores_marcados
   const atual = pergunta.valor_atual
   if (atual === null) return ''
@@ -163,14 +168,14 @@ function valorInicial(pergunta: Pergunta): string | string[] {
 }
 
 /** O que o aluno preencheu numa pergunta da thread (`T-307`). */
-interface EstadoDaFilha {
+export interface EstadoDaFilha {
   valor: string | string[]
   naoSei: boolean
   erro: string | null
   aviso: string | null
 }
 
-function chaveDa(pergunta: Pergunta): string {
+export function chaveDa(pergunta: Pergunta): string {
   return `${pergunta.ID}|${pergunta.item_id ?? ''}`
 }
 
@@ -180,7 +185,11 @@ function chaveDa(pergunta: Pergunta): string {
  * Consulta à tabela que o servidor montou, pelo valor escolhido: nenhuma
  * condição é avaliada aqui (`RF-45`). "Não sei" marcado não abre nada.
  */
-function filhasAbertas(pergunta: Pergunta, valor: string | string[], naoSei: boolean): Pergunta[] {
+export function filhasAbertas(
+  pergunta: Pergunta,
+  valor: string | string[],
+  naoSei: boolean,
+): Pergunta[] {
   if (naoSei || !pergunta.complementares) return []
   const escolhida = Array.isArray(valor) ? (valor[0] ?? '') : valor
   return pergunta.complementares[escolhida] ?? []
@@ -203,6 +212,7 @@ export default function TelaPergunta({
   abrirPergunta,
   onAbrirFichas,
   abrirCorrecao,
+  abrirFormulario,
 }: TelaPerguntaProps) {
   const [pergunta, setPergunta] = useState<Pergunta | null>(null)
   const [pendencias, setPendencias] = useState(0)
@@ -277,6 +287,7 @@ export default function TelaPergunta({
         onColetaCompleta()
         return
       }
+      if (!corrigindo && abrirFormulario?.(dados.pergunta)) return
       setPergunta(dados.pergunta)
       setFilhas({})
       setPendencias(dados.total_pendencias ?? 0)
@@ -288,7 +299,7 @@ export default function TelaPergunta({
     } finally {
       setCarregando(false)
     }
-  }, [casoId, idPergunta, itemId, onColetaCompleta])
+  }, [casoId, idPergunta, itemId, onColetaCompleta, corrigindo, abrirFormulario])
 
   useEffect(() => {
     void carregar()
@@ -402,6 +413,7 @@ export default function TelaPergunta({
       return
     }
     const proxima = confirmacao.proxima.pergunta
+    if (abrirFormulario?.(proxima)) return
     setPergunta(proxima)
     setFilhas({})
     setPendencias(confirmacao.total_pendencias)
@@ -410,6 +422,30 @@ export default function TelaPergunta({
   }
 
   const anterior = pergunta?.anterior ?? null
+  const seguinte = pergunta?.seguinte ?? null
+
+  /**
+   * `T-318`: "Pergunta seguinte ›" só navega — gravar é do "Continuar". Com
+   * uma alteração não salva, pergunta antes de descartá-la, em vez de
+   * gravar por baixo (o aluno pode só ter mexido sem querer).
+   */
+  function irParaSeguinte() {
+    if (!pergunta || !seguinte || !abrirPergunta) return
+    const alterou =
+      !confirmacaoComAviso &&
+      (JSON.stringify(valor) !== JSON.stringify(valorInicial(pergunta)) ||
+        naoSei !== pergunta.respondida_como_nao_sei ||
+        Object.keys(filhas).length > 0)
+    if (
+      alterou &&
+      !window.confirm(
+        'Você mudou a resposta e ainda não salvou. Ir para a pergunta seguinte sem salvar?',
+      )
+    ) {
+      return
+    }
+    abrirPergunta(seguinte.ID, seguinte.item_id)
+  }
   // `T-308`: na correção o "voltar" leva à revisão, não ao Início.
   const rotuloVoltar = corrigindo ? '‹ Voltar' : undefined
 
@@ -467,6 +503,13 @@ export default function TelaPergunta({
               onClick={() => abrirPergunta(anterior.ID, anterior.item_id)}
             >
               ‹ Pergunta anterior
+            </Botao>
+          )}
+          {/* `T-318`: depois de voltar, avançar sem responder de novo. Na
+              fronteira `seguinte` é `null` — ali o aluno precisa responder. */}
+          {abrirPergunta && seguinte && (
+            <Botao variante="discreto" onClick={irParaSeguinte}>
+              Pergunta seguinte ›
             </Botao>
           )}
         </>

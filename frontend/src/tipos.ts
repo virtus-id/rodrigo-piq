@@ -83,6 +83,11 @@ export interface Pergunta {
    * decidida pelo servidor. `null` na primeira; ausente fora da coleta.
    */
   anterior?: { ID: string; item_id: string | null } | null
+  /**
+   * `T-318` (`RF-70`): a pergunta logo depois desta no percurso, só quando
+   * esta já está respondida — decidida pelo servidor. `null` na fronteira.
+   */
+  seguinte?: { ID: string; item_id: string | null } | null
   /** `T-310` (`RF-100`): as cinco partes e o estado de cada uma. */
   trilha?: ParteDaTrilha[] | null
 }
@@ -152,6 +157,26 @@ export interface ListaDeFichas {
   fichas: Ficha[]
   /** `T-310`: a trilha da coleta, na parte desta ficha. */
   trilha?: ParteDaTrilha[] | null
+}
+
+/**
+ * `GET /caso/{id}/formulario/{escopo}/{item_id}` — a ficha curta inteira
+ * numa tela (`T-314`). As perguntas e as `complementares` de cada uma vêm
+ * decididas pelo servidor; a posição e os concluídos também (`T-317`).
+ */
+export interface FormularioDoItem {
+  CASO_ID: string
+  escopo: string
+  escopo_pai: string | null
+  item_id: string
+  rotulo: string | null
+  pede_nome: boolean
+  completa: boolean
+  perguntas: Pergunta[]
+  posicao_do_item: number
+  total_de_itens: number
+  itens_concluidos: number
+  trilha: ParteDaTrilha[] | null
 }
 
 /** `GET /caso/{id}/escopos` — se cada escopo está aberto para o caso (`T-212`). */

@@ -121,13 +121,21 @@ def test_t105_renda_adicional_id_e_despesa_nao_mensal_id_tem_perguntas_reais_no_
         _colecao_real.registros, EscopoRepeticao.RENDA_ADICIONAL_ID
     )
     ids_renda_adicional = {registro.ID for registro in perguntas_de_renda_adicional}
-    assert ids_renda_adicional == {"B3.03A", "B3.03B", "B3.03C"}
+    # `T-315`: + `B3.03AO`, a descrição de "Outra renda recorrente".
+    assert ids_renda_adicional == {"B3.03A", "B3.03AO", "B3.03B", "B3.03C"}
 
     perguntas_de_despesa_nao_mensal = perguntas_da_ficha(
         _colecao_real.registros, EscopoRepeticao.DESPESA_NAO_MENSAL_ID
     )
     ids_despesa_nao_mensal = {registro.ID for registro in perguntas_de_despesa_nao_mensal}
-    assert ids_despesa_nao_mensal == {"B3.NM02A", "B3.NM02B", "B3.NM02C", "B3.NM02D"}
+    assert ids_despesa_nao_mensal == {
+        "B3.NM02A",
+        "B3.NM02AO",
+        "B3.NM02B",
+        "B3.NM02C",
+        "B3.NM02CO",
+        "B3.NM02D",
+    }
 
 
 # ---------------------------------------------------------------------------

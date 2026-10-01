@@ -158,6 +158,116 @@ test.describe('fichas repetíveis', () => {
   })
 })
 
+/**
+ * `T-314`–`T-317` (`AC-164`–`AC-167`): a ficha curta numa tela. A pergunta de
+ * um valor extraordinário leva ao formulário do item; "Outro" abre a
+ * descrição ali mesmo (`complementares` do servidor); "Salvar" grava em
+ * sequência e, com o item completo, volta à lista.
+ */
+test.describe('ficha curta em uma tela', () => {
+  // Os dois projetos (desktop e 360px) rodam este teste.
+  test('T-314: da coleta ao formulário e de volta à lista', async ({ page }) => {
+    const largura = page.viewportSize()?.width ?? 0
+    const base = {
+      ...PERGUNTA_MOEDA.pergunta,
+      escopo_repeticao: 'RECURSO_EXTRAORDINARIO_ID',
+      item_id: 'EXT002',
+    }
+    const tipo = {
+      ...base,
+      ID: 'B3.05A',
+      tipo: 'SELECAO_UNICA',
+      enunciado: 'Que valor extraordinário é esse?',
+      admite_nao_sei: false,
+      opcoes: [
+        {
+          rotulo: '13º salário',
+          valor_interno: '13O_SALARIO',
+          admite_nao_sei: false,
+        },
+        { rotulo: 'Outro', valor_interno: 'OUTRO', admite_nao_sei: false },
+      ],
+      complementares: {
+        OUTRO: [
+          {
+            ...base,
+            ID: 'B3.05AO',
+            tipo: 'TEXTO_CURTO',
+            enunciado: 'Descreva a origem do valor.',
+          },
+        ],
+      },
+    }
+    let completa = false
+    const gravadas: string[] = []
+    await interceptarBase(page, CASO)
+    await page.route(`**/caso/${CASO}/pergunta`, async (rota) => {
+      await rota.fulfill({ json: { ...PERGUNTA_MOEDA, pergunta: tipo } })
+    })
+    await page.route(
+      `**/caso/${CASO}/formulario/RECURSO_EXTRAORDINARIO_ID/EXT002`,
+      async (rota) => {
+        await rota.fulfill({
+          json: {
+            CASO_ID: CASO,
+            escopo: 'RECURSO_EXTRAORDINARIO_ID',
+            escopo_pai: null,
+            item_id: 'EXT002',
+            rotulo: null,
+            pede_nome: false,
+            completa,
+            perguntas: [tipo],
+            posicao_do_item: 2,
+            total_de_itens: 2,
+            itens_concluidos: 1,
+            trilha: null,
+          },
+        })
+      },
+    )
+    await page.route(`**/caso/${CASO}/resposta`, async (rota) => {
+      gravadas.push(new URLSearchParams(rota.request().postData() ?? '').get('ID_PERGUNTA') ?? '')
+      completa = gravadas.length >= 2
+      await rota.fulfill({
+        json: {
+          ID_PERGUNTA: 'x',
+          aviso: null,
+          avanco_permitido: false,
+          total_pendencias: 1,
+          proxima: { pergunta: null },
+          abrir_fichas: [],
+          avisos: [],
+        },
+      })
+    })
+    await page.route(`**/caso/${CASO}/fichas/RECURSO_EXTRAORDINARIO_ID`, async (rota) => {
+      await rota.fulfill({
+        json: {
+          CASO_ID: CASO,
+          escopo: 'RECURSO_EXTRAORDINARIO_ID',
+          fichas: [],
+        },
+      })
+    })
+
+    await abrirTela(page, CASO, 'pergunta')
+
+    await expect(page).toHaveURL(/#formulario\/RECURSO_EXTRAORDINARIO_ID\/EXT002/)
+    await expect(page.getByText('Valor extraordinário 2 de 2')).toBeVisible()
+    await expect(
+      page.getByText('Cadastre um valor de cada vez. Depois você pode adicionar outros.'),
+    ).toBeVisible()
+    await page.getByRole('radio', { name: 'Outro' }).check()
+    await page.getByLabel('Descreva a origem do valor.').fill('Venda do carro')
+    await acaoPrincipal(page, 'Salvar').click()
+
+    await expect(page).toHaveURL(/#fichas\/RECURSO_EXTRAORDINARIO_ID$/)
+    expect(gravadas).toEqual(['B3.05A', 'B3.05AO'])
+    const larguraDoDocumento = await page.evaluate(() => document.documentElement.scrollWidth)
+    expect(larguraDoDocumento).toBeLessThanOrEqual(largura)
+  })
+})
+
 test.describe('360px — a persona responde no celular', () => {
   test.use({ viewport: { width: 360, height: 740 } })
 

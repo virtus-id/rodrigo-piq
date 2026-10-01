@@ -41,7 +41,10 @@ def _do_item(cliente: TestClient, item_id: str) -> dict[str, Any]:
 
 
 def _anterior(cliente: TestClient, ID: str, item_id: str | None) -> tuple[str, str | None] | None:
-    corpo = cliente.get(f"/caso/{_CASO_ID}/pergunta/{ID}", params={"item_id": item_id}).json()
+    # Sem item, o parâmetro é OMITIDO: `item_id=""` fazia a rota tratar a
+    # pergunta como de outro item e a asserção passava sem verificar nada.
+    params = {"item_id": item_id} if item_id else {}
+    corpo = cliente.get(f"/caso/{_CASO_ID}/pergunta/{ID}", params=params).json()
     anterior = corpo["pergunta"]["anterior"]
     return None if anterior is None else (anterior["ID"], anterior["item_id"])
 

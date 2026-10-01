@@ -685,7 +685,7 @@ def responder_pergunta(
     # resposta já está gravada; se isto falhar, o aluno reenvia e a
     # sincronização, idempotente, completa o que faltou.
     try:
-        abriu_ficha_sem_nome = _sincronizar_itens_de_despesa(
+        sem_nome = _sincronizar_itens_de_despesa(
             registro, valor, repositorio_itens, CASO_ID
         )
     except (ErroGravacaoItem, ErroGravacaoItemArquivo):
@@ -755,8 +755,17 @@ def responder_pergunta(
     abrir_fichas = escopos_abertos_pela_resposta(
         colecao.registros, registro.VARIAVEL_GRAVADA, respostas_apos_gravar, itens_por_escopo
     )
-    # `T-217`: "Outro" e a despesa não listada pedem nome — na lista.
-    if abriu_ficha_sem_nome:
+    # `T-217`: "Outro" do checklist pede nome — na lista. `T-316` (RF-104):
+    # a despesa não listada vai direto ao item novo, que o formulário da
+    # ficha curta abre com o nome e `B3.DF01`–`DF04`.
+    if sem_nome and registro.ID == DESPESA_NAO_LISTADA:
+        proxima = (
+            _proxima_do_item(
+                CASO_ID, colecao, respostas_apos_gravar, repositorio_itens, sem_nome[0]
+            )
+            or proxima
+        )
+    elif sem_nome:
         abrir_fichas = (*abrir_fichas, EscopoRepeticao.ITEM_DESPESA)
     # `T-291` (RF-87, DE-04): a cabeça de `DIVIDA_ID` não tem condição, então
     # `escopos_abertos_pela_resposta` nunca a aponta. Com `B5.00` e `B5.00A`
@@ -847,24 +856,9 @@ def _primeiro_item_ou_lista(
     criar = [e for e in abrir_fichas if e in _FICHAS_QUE_NASCEM_COM_ITEM]
     if criar:
         novos = [repositorio_itens.proximo_identificador(CASO_ID, e) for e in criar]
-        itens_por_escopo, rotulos = _itens_e_rotulos(repositorio_itens, CASO_ID, colecao)
-        primeira = proxima_pergunta_do_item(
-            colecao.registros, respostas, itens_por_escopo, novos[0]
-        )
         restantes = tuple(e for e in abrir_fichas if e not in criar)
-        if primeira is None:  # pragma: no cover — defensivo: ficha sem pergunta aberta
-            return restantes, proxima
-        pergunta = serializar_pergunta_do_caso(
-            CASO_ID,
-            _localizar_registro(colecao, primeira.ID),
-            respostas,
-            colecao,
-            itens_por_escopo,
-            novos[0],
-            rotulos,
-        )
-        anexar_ao_payload(pergunta, colecao.registros, respostas, itens_por_escopo)
-        return restantes, {"pergunta": pergunta, "coleta_completa": False}
+        no_item = _proxima_do_item(CASO_ID, colecao, respostas, repositorio_itens, novos[0])
+        return restantes, no_item or proxima
 
     if (
         item_id is not None
@@ -874,6 +868,32 @@ def _primeiro_item_ou_lista(
         if not em_branco_no_item(colecao.registros, respostas, itens_por_escopo, item_id):
             return (*abrir_fichas, registro.escopo_repeticao), proxima
     return abrir_fichas, proxima
+
+
+def _proxima_do_item(
+    CASO_ID: str,
+    colecao: ColecaoDeRegistros,
+    respostas: RespostasCaso,
+    repositorio_itens: RepositorioItens,
+    item_id: str,
+) -> dict[str, object] | None:
+    """`T-311`/`T-316` — a `proxima` apontando a primeira pergunta do item
+    recém-criado; `None` se ele não tem pergunta aberta (defensivo)."""
+    itens_por_escopo, rotulos = _itens_e_rotulos(repositorio_itens, CASO_ID, colecao)
+    primeira = proxima_pergunta_do_item(colecao.registros, respostas, itens_por_escopo, item_id)
+    if primeira is None:  # pragma: no cover — defensivo: ficha sem pergunta aberta
+        return None
+    pergunta = serializar_pergunta_do_caso(
+        CASO_ID,
+        _localizar_registro(colecao, primeira.ID),
+        respostas,
+        colecao,
+        itens_por_escopo,
+        item_id,
+        rotulos,
+    )
+    anexar_ao_payload(pergunta, colecao.registros, respostas, itens_por_escopo)
+    return {"pergunta": pergunta, "coleta_completa": False}
 
 
 # `T-292` — a variável da confirmação da ficha (`B5.CHECK`) e o valor que a
@@ -981,19 +1001,23 @@ def _sincronizar_itens_de_despesa(
     valor: ValorResposta,
     repositorio_itens: RepositorioItens,
     CASO_ID: str,
-) -> bool:
+) -> tuple[str, ...]:
     """`T-217` — aplica `app/casos/itens_despesa.py::sincronizar`: remove a
     ficha de cada item desmarcado (remoção lógica, `AC-04`) e cria a de cada
-    item marcado. Devolve se nasceu ficha que pede nome."""
+    item marcado. Devolve os `item_id` das fichas criadas que pedem nome."""
     if registro.ID not in CHECKLISTS_DE_DESPESA and registro.ID != DESPESA_NAO_LISTADA:
-        return False
+        return ()
     ativos = repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False)
     sincronizacao = sincronizar(registro, valor, ativos)
     for item_id in sincronizacao.remover:
         repositorio_itens.remover(CASO_ID, item_id)
-    for origem in sincronizacao.criar:
-        repositorio_itens.proximo_identificador(CASO_ID, EscopoRepeticao.ITEM_DESPESA, origem)
-    return any(pede_nome(origem) for origem in sincronizacao.criar)
+    criados = {
+        origem: repositorio_itens.proximo_identificador(
+            CASO_ID, EscopoRepeticao.ITEM_DESPESA, origem
+        )
+        for origem in sincronizacao.criar
+    }
+    return tuple(item_id for origem, item_id in criados.items() if pede_nome(origem))
 
 
 # `T-274` — a variável de `B5.D05R` e o que ela escreve no item `EXT`. Chaves

@@ -49,6 +49,7 @@ from app.http.rotas_coleta import (
     obter_colecao_de_registros,
     obter_repositorio_itens,
     obter_repositorio_respostas,
+    serializar_pergunta_do_caso,
 )
 from app.http.serializacao import serializar_pergunta
 from collection.carga import ColecaoDeRegistros
@@ -232,6 +233,89 @@ def listar_fichas(
                 cabeca.bloco,
             )
             if (cabeca := cabecas_das_fichas(colecao.registros).get(membro))
+            else None,
+        }
+    )
+
+
+@roteador.get("/{CASO_ID}/formulario/{escopo}/{item_id}")
+def formulario_do_item(
+    CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
+    escopo: str,
+    item_id: str,
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
+    repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
+    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+) -> JSONResponse:
+    """`T-314` (RF-102) — a ficha curta inteira numa tela: as perguntas
+    exibíveis DO ITEM, cada uma serializada como na coleta
+    (`serializar_pergunta_do_caso`, com `complementares` de `T-307`). A filha
+    que uma opção abre vem só sob a mãe, nunca de novo na lista — o cliente
+    a mostra pela tabela, sem avaliar condição (`RF-45`).
+
+    `T-317` (RF-105): `posicao_do_item`/`total_de_itens` ("Despesa 2 de 4") e
+    `itens_concluidos` — entre os itens do escopo com o mesmo pai."""
+    membro = _escopo_valido(escopo)
+    if membro is None:
+        return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
+
+    respostas_brutas, itens = duas_em_paralelo(
+        lambda: repositorio.listar_do_caso(CASO_ID),
+        lambda: repositorio_itens.listar_do_caso(CASO_ID, incluir_removidos=False),
+    )
+    item = next((i for i in itens if i.escopo is membro and i.item_id == item_id), None)
+    if item is None:
+        return JSONResponse({"erro": _MENSAGEM_ITEM_INEXISTENTE}, status_code=404)
+
+    respostas = RespostasCaso(respostas=respostas_brutas)
+    agrupado = _agrupar(itens)
+    rotulos = rotulos_dos_itens(itens, colecao.registros)
+    perguntas: list[dict[str, Any]] = []
+    abertas_por_opcao: set[str] = set()
+    for registro in _perguntas_da_ficha(colecao, membro):
+        if registro.ID in abertas_por_opcao:
+            continue
+        try:
+            pergunta = serializar_pergunta_do_caso(
+                CASO_ID, registro, respostas, colecao, agrupado, item_id, rotulos
+            )
+        except ErroPerguntaNaoExibivel:
+            continue
+        complementares = pergunta.get("complementares")
+        if isinstance(complementares, dict):
+            abertas_por_opcao |= {
+                str(filha["ID"]) for filhas in complementares.values() for filha in filhas
+            }
+        perguntas.append(pergunta)
+
+    irmaos = [i for i in itens if i.escopo is membro and i.item_pai_id == item.item_pai_id]
+    em_aberto = itens_em_aberto(
+        _perguntas_da_ficha(colecao, membro),
+        respostas,
+        agrupado,
+        {i.item_id: i.item_pai_id for i in itens if i.item_pai_id},
+    )
+    cabeca = cabecas_das_fichas(colecao.registros).get(membro)
+    pai = escopo_pai(colecao.registros, membro)
+    return JSONResponse(
+        {
+            "CASO_ID": CASO_ID,
+            "escopo": membro.value,
+            "escopo_pai": pai.value if pai else None,
+            "item_id": item_id,
+            "rotulo": rotulos.get(item_id),
+            "pede_nome": pede_nome(item.origem),
+            "completa": item_id not in em_aberto,
+            "perguntas": perguntas,
+            "posicao_do_item": irmaos.index(item) + 1,
+            "total_de_itens": len(irmaos),
+            "itens_concluidos": sum(1 for i in irmaos if i.item_id not in em_aberto),
+            "trilha": trilha_da_coleta(
+                colecao.registros,
+                percurso_da_coleta(colecao.registros, respostas, agrupado),
+                cabeca.bloco,
+            )
+            if cabeca
             else None,
         }
     )

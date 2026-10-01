@@ -12770,3 +12770,212 @@ segue "Continuar". Texto aprovado pelo produto.
 - [x] Gates: tsc, vitest, playwright
 
 **Status:** `[x] concluída` (2026-10-01)
+
+---
+
+### `T-318` — "Pergunta seguinte ›" depois de voltar
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-309` · **Rastreia:** `RF-70`, `AC-105`
+- **Arquivos:** `app/http/jornada.py`, `frontend/src/tipos.ts`,
+  `frontend/src/telas/TelaPergunta.tsx`,
+  `tests/app_aluno/test_t318_pergunta_seguinte.py`,
+  `frontend/tests/unit/componentes/TelaPergunta.test.tsx`,
+  `frontend/tests/e2e/navegacao.spec.ts`
+
+Decisão do produto (2026-10-01): quem voltou com "‹ Pergunta anterior" (ex.:
+da 20 até a 15) não conseguia avançar para a 16 sem responder de novo. O
+payload da pergunta (`anexar_ao_payload`: `GET /pergunta`, `GET
+/pergunta/{ID}` e `proxima` do `POST`) traz `seguinte`
+(`jornada.py::seguinte_no_percurso`): a ocorrência imediatamente depois no
+mesmo `percurso_da_coleta` de `anterior`, com `item_id`, **só quando a atual
+já está respondida**. Na fronteira (atual em branco) é `null`. A seguinte pode
+estar em branco — é a próxima a responder naquele trecho (simplificação
+registrada: não se exige que seja a primeira em branco da coleta inteira).
+
+`TelaPergunta`: botão discreto "Pergunta seguinte ›" ao lado de "‹ Pergunta
+anterior", só com `seguinte`. Só navega, nunca grava. Com alteração não salva
+(valor, "não sei" ou filhas de `T-307`), `window.confirm` pede para descartar;
+cancelar fica na pergunta. Escolhido por ser o mais simples e explícito.
+
+**Textos novos** — redação da equipe técnica, aprovada pelo produto em
+2026-10-01: "Pergunta seguinte ›" e "Você mudou a resposta e ainda não salvou.
+Ir para a pergunta seguinte sem salvar?".
+
+**Critérios de aceite**
+
+- [x] Rota: `seguinte` presente ao voltar, `null` na fronteira, cruzando para a
+      ficha com `item_id`; voltar 3 e avançar 1 (`test_t318_*`)
+- [x] vitest: navega sem gravar; com alteração pergunta antes; sem `seguinte`
+      não há botão. Playwright `T-318`: voltar 5 e avançar 1 chega à 2
+- [x] Gates: lint, build, test (falhas alheias abaixo), tsc, vitest, Playwright
+
+**Nota.** `_anterior` de `test_t309_t311_*` manda `item_id=` vazio quando o
+item é `None`, e a pergunta deixa de ser achada no percurso — a asserção
+`_anterior(B3.05) is None` passa por vacuidade. Fora do escopo; vale corrigir.
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-314` — Ficha curta em uma tela
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-307`, `T-310`, `T-311`
+- **Rastreia:** `RF-102`, `AC-164` (e `RF-45`, `RF-69`, `RF-99`, `RF-101`)
+- **Arquivos:** `app/http/rotas_fichas.py`, `frontend/src/telas/TelaFormulario.tsx`
+  (novo), `frontend/src/telas/TelaFichas.tsx`, `frontend/src/telas/TelaPergunta.tsx`,
+  `frontend/src/App.tsx`, `frontend/src/navegacao.ts`, `frontend/src/services/api.ts`,
+  `frontend/src/tipos.ts`, `tests/app_aluno/test_t314_t317_ficha_curta.py`,
+  `frontend/tests/unit/componentes/TelaFormulario.test.tsx`,
+  `frontend/tests/e2e/coleta.spec.ts`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01, após teste no
+sistema)
+
+Fichas curtas — `ITEM_DESPESA`, `RECURSO_EXTRAORDINARIO_ID`,
+`RENDA_ADICIONAL_ID`, `DESPESA_NAO_MENSAL_ID`, `VINCULO_ID`, `MARGEM_ID` (não
+`DIVIDA_ID`) — abrem num formulário único com "Salvar". Servidor: `GET
+/caso/{id}/formulario/{escopo}/{item_id}` devolve as perguntas
+exibíveis do item serializadas por `serializar_pergunta_do_caso` (com
+`complementares`); a filha que uma opção abre vem só sob a mãe. Cliente:
+rota `#formulario/{escopo}/{item}`; `TelaFormulario` reusa `CampoPergunta` e
+a tabela de `complementares` de `T-307` (sem avaliar condição); grava em
+sequência por `POST /resposta` (mãe antes das filhas; erro por campo, os
+demais seguem); relê o formulário — completo volta à lista do escopo (o do
+pai, na margem), senão mostra as perguntas que abriram. `curta` em
+`TITULOS_POR_ESCOPO` é a única lista; `App.tsx::abrirFormulario` desvia para
+o formulário a pergunta de ficha curta vinda da coleta, da retomada e do
+"Continuar" (`TelaPergunta`, fora da correção). Na lista, abrir e adicionar
+vão ao formulário.
+
+**Critérios de aceite**
+
+- [x] Teste que reproduz (falhava com `404` antes):
+      `test_ac164_formulario_traz_as_perguntas_exibiveis_do_item_com_as_complementares`,
+      `test_ac164_escopo_invalido_e_item_de_outro_escopo_sao_recusados`
+- [x] vitest (`TelaFormulario.test.tsx`): ordem dos `POST`, erro por campo,
+      volta à lista; `TelaPergunta` desvia na retomada; lista abre o formulário
+- [x] Playwright "T-314" (desktop e 360px): coleta → formulário → lista
+- [x] `AC-73` segue verde (nenhuma condição no cliente)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — redação da equipe técnica, aprovada pelo produto em
+2026-10-01: "Salvar", "Carregando a ficha", "Não foi possível carregar a
+ficha.", "Sua resposta abriu outras perguntas. Responda e salve de novo."
+
+**Limite conhecido.** Uma pergunta do item cuja abertura depende de outra
+não contígua (fora de `complementares`) só aparece depois de salvar — o
+formulário relê e a mostra com o aviso acima.
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-315` — Valores extraordinários: um de cada vez e "Outro" com descrição
+
+- **Tipo:** `FEATURE` · `Data`
+- **Dependências:** `T-270`, `T-314`
+- **Rastreia:** `RF-103`, `AC-165`; canônica v1.0.6 `E-18`
+- **Arquivos:** `collection/registros/bloco-03.yaml`, `specs/piq-app-spec.md`,
+  `frontend/src/telas/TelaFichas.tsx`, `frontend/src/telas/TelaFormulario.tsx`,
+  `tests/app_aluno/test_contagem_de_coleta.py`, testes de `T-314`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+Aviso no topo do formulário e da lista de toda ficha curta
+(`avisoDeUmPorVez`). "Outro" sem campo de texto ganhou pergunta de texto
+curto logo depois da mãe, aberta só por ela (vira complementar, `T-307`):
+
+| Registro | Mãe / opção | Variável |
+| --- | --- | --- |
+| `B3.05AO` | `B3.05A` / `OUTRO` | `DESCRICAO_RECURSO_EXTRAORDINARIO` |
+| `B3.03AO` | `B3.03A` / `OUTRA_RENDA_RECORRENTE` | `DESCRICAO_RENDA_ADICIONAL` |
+| `B3.NM02AO` | `B3.NM02A` / `OUTRA` | `DESCRICAO_DESPESA_NAO_MENSAL` |
+| `B3.NM02CO` | `B3.NM02C` / `OUTRA` | `DESCRICAO_FREQUENCIA_DESPESA_NAO_MENSAL` |
+| `B3.S06AO` | `B3.S06A` / `OUTRA_DO_REGIME` | `DESCRICAO_MARGEM` |
+
+Ficaram fora: `B3.S02` (seleção múltipla — complementar não se aplica — e o
+vínculo já tem `B3.S03`, texto) e o "Outro" dos checklists `B3.D01`–`D10`
+(já pede nome, `T-217`). Condição de cada uma repete a de abertura da ficha
+(para não pender num item cuja ficha fechou). Coleção real: 261 → 266.
+Nenhuma regra do motor lê as variáveis novas.
+
+**Critérios de aceite**
+
+- [x] `test_ac165_descricao_de_outro_so_abre_com_outro` (`B3.05AO` recusada
+      com `13O_SALARIO`, aceita com `OUTRO`) e
+      `test_ac165_outro_das_fichas_curtas_abre_a_descricao_na_mesma_tela`
+- [x] `complementares["OUTRO"]` de `B3.05A` = `B3.05AO`, `B3.05B` (`AC-164`)
+- [x] vitest: aviso e descrição aparecendo/sumindo; errata `E-18` (v1.0.6)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — aprovados pelo produto em 2026-10-01: "Cadastre {um | uma}
+{item} de cada vez. Depois você pode adicionar {outros | outras}." ("um
+valor" nos extraordinários); "Descreva a origem do valor." (do produto);
+"Descreva essa renda.", "Descreva essa despesa.", "Descreva com que
+frequência ela ocorre.", "Descreva essa margem."
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-316` — Despesa não listada (`B3.D11`) abre o formulário do item
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-217`, `T-311`, `T-314`
+- **Rastreia:** `RF-104`, `AC-166`
+- **Arquivos:** `app/http/rotas_coleta.py`, `frontend/src/telas/TelaFichas.tsx`,
+  `frontend/src/telas/TelaFormulario.tsx`, `tests/app_aluno/test_itens_despesa.py`,
+  testes de `T-314`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+Antes (`T-217`/`T-311`): "Sim" em `B3.D11` criava o item e mandava à lista
+para dar o nome; adicionar outro ficava na lista. Agora:
+`_sincronizar_itens_de_despesa` devolve os itens criados que pedem nome; em
+`B3.D11` a `proxima` passa a ser a primeira pergunta do item novo
+(`_proxima_do_item`, extraído de `_primeiro_item_ou_lista`), que o cliente
+abre no formulário com "Nome da despesa" + `B3.DF01`–`DF04`. "+ Adicionar
+outra despesa" cria e abre o formulário do item novo, sem limite. O "Outro"
+do checklist segue indo à lista (comportamento de `T-217`).
+
+**Critérios de aceite**
+
+- [x] `test_ac166_despesa_nao_listada_sim_abre_o_item_novo_direto` (falhava:
+      `abrir_fichas = [ITEM_DESPESA]`); `test_despesa_nao_listada_sim_*`
+      atualizado
+- [x] vitest: nome gravado por `PUT` antes das respostas; "+ Adicionar
+      despesa" abre o formulário
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Status:** `[x] concluída (2026-10-01)`
+
+---
+
+### `T-317` — "Despesa 2 de 4" e barra de itens concluídos
+
+- **Tipo:** `FEATURE`
+- **Dependências:** `T-314`
+- **Rastreia:** `RF-105`, `AC-167` (e `RF-100`)
+- **Arquivos:** `app/http/rotas_fichas.py`, `frontend/src/telas/TelaFormulario.tsx`,
+  testes de `T-314`
+
+**Descrição** (decisão do responsável do produto, 2026-10-01)
+
+O formulário traz `posicao_do_item`, `total_de_itens` e `itens_concluidos`
+(entre os itens do escopo com o mesmo pai; concluído = fora de
+`itens_em_aberto`). A tela mostra "{Item} N de M" no localizador e uma barra
+`role="progressbar"` de itens concluídos; a trilha de partes (`T-310`)
+continua na lateral.
+
+**Critérios de aceite**
+
+- [x] `test_ac167_posicao_do_item_e_itens_concluidos_vem_do_servidor`
+- [x] vitest: "Valor extraordinário 2 de 3", `aria-valuenow`/`aria-valuetext`
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos** — aprovados pelo produto em 2026-10-01: "{Item} N de M";
+rótulo acessível "{Itens} concluídos/concluídas", "N de M concluídos/
+concluídas".
+
+**Status:** `[x] concluída (2026-10-01)`

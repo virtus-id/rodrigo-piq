@@ -1649,6 +1649,52 @@ test('AC-105: num caso sem nenhuma resposta, a coleta não oferece "anterior"', 
 })
 
 /**
+ * `T-318` — voltar cinco perguntas e avançar uma chega à pergunta certa.
+ *
+ * Um percurso de seis, com `B1.06` na fronteira. `anterior` e `seguinte` vêm
+ * do servidor; a fronteira não oferece "seguinte" (o aluno precisa responder).
+ */
+function perguntaDoPercurso(n: number) {
+  const id = (k: number) => ({ ID: `B1.0${k}`, item_id: null })
+  return {
+    ...PROXIMA_PENDENTE,
+    pergunta: {
+      ...PROXIMA_PENDENTE.pergunta,
+      ID: `B1.0${n}`,
+      enunciado: `Pergunta número ${n}?`,
+      valor_atual: n < 6 ? `resposta ${n}` : null,
+      anterior: n > 1 ? id(n - 1) : null,
+      seguinte: n < 6 ? id(n + 1) : null,
+    },
+  }
+}
+
+test('T-318: voltar cinco e avançar uma chega à pergunta seguinte certa', async ({ page }) => {
+  await interceptarBase(page, CASO_REVISAO)
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta`, async (rota) => {
+    await rota.fulfill({ json: perguntaDoPercurso(6) })
+  })
+  for (let n = 1; n <= 6; n++) {
+    await page.route(`**/caso/${CASO_REVISAO}/pergunta/B1.0${n}*`, async (rota) => {
+      await rota.fulfill({ json: perguntaDoPercurso(n) })
+    })
+  }
+
+  await abrirTela(page, CASO_REVISAO, 'pergunta')
+  await expect(page.getByLabel('Pergunta número 6?')).toBeVisible()
+  await expect(acaoPrincipal(page, /Pergunta seguinte/)).toHaveCount(0)
+
+  for (let n = 5; n >= 1; n--) {
+    await acaoPrincipal(page, /Pergunta anterior/).click()
+    await expect(page.getByLabel(`Pergunta número ${n}?`)).toBeVisible()
+  }
+
+  await acaoPrincipal(page, 'Pergunta seguinte ›').click()
+  await expect(page).toHaveURL(/#pergunta\/B1\.02/)
+  await expect(page.getByLabel('Pergunta número 2?')).toHaveValue('resposta 2')
+})
+
+/**
  * `AC-106` — as duas geometrias, medidas no navegador.
  *
  * O critério tem dois pés opostos, e um teste que só verificasse o desktop

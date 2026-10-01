@@ -28,7 +28,7 @@ import Esqueleto from './componentes/Esqueleto'
 import Tela from './componentes/Tela'
 import { eTelaDaEquipe, type Rota, substituirRota, useRota } from './navegacao'
 import { obterInicio, obterSessao, sair } from './services/api'
-import type { Inicio } from './tipos'
+import type { Inicio, Pergunta } from './tipos'
 import TelaAcao from './telas/TelaAcao'
 import TelaAcoes from './telas/TelaAcoes'
 import TelaAguardando from './telas/TelaAguardando'
@@ -40,6 +40,7 @@ import TelaConsentimento from './telas/TelaConsentimento'
 import TelaDefinirSenha from './telas/TelaDefinirSenha'
 import TelaEquipeCaso from './telas/TelaEquipeCaso'
 import TelaFichas, { TITULOS_POR_ESCOPO } from './telas/TelaFichas'
+import TelaFormulario from './telas/TelaFormulario'
 import TelaInicio from './telas/TelaInicio'
 import TelaLogin from './telas/TelaLogin'
 import TelaOperador from './telas/TelaOperador'
@@ -296,6 +297,20 @@ export default function App() {
   const voltarAoInicio = useCallback(() => irPara({ tela: 'inicio' }), [irPara])
 
   /**
+   * `T-314` (RF-102): a pergunta de uma ficha curta abre o formulário do
+   * item, na coleta, na retomada e no "Continuar". Decide pelo escopo que o
+   * servidor mandou — nenhuma condição avaliada aqui (`RF-45`).
+   */
+  const abrirFormulario = useCallback(
+    (pergunta: Pergunta) => {
+      if (!pergunta.item_id || !TITULOS_POR_ESCOPO[pergunta.escopo_repeticao]?.curta) return false
+      irPara({ tela: 'formulario', escopo: pergunta.escopo_repeticao, itemId: pergunta.item_id })
+      return true
+    },
+    [irPara],
+  )
+
+  /**
    * Volta ao Início **depois** de uma ação que muda o estado do caso
    * (consentimento aceito, cálculo terminado).
    *
@@ -523,6 +538,12 @@ export default function App() {
           // aquele item. Só com `itemId`, `TelaPergunta` pediria a próxima
           // da coleta inteira, que pode ser de outra ficha.
           onAbrirFicha={(itemId, idPergunta) => irPara({ tela: 'pergunta', idPergunta, itemId })}
+          onAbrirFormulario={
+            titulos.curta
+              ? (escopoDoItem, itemId) =>
+                  irPara({ tela: 'formulario', escopo: escopoDoItem, itemId })
+              : undefined
+          }
           // Os escopos que a mesma resposta abriu vêm antes da coleta.
           onContinuar={() =>
             irPara(
@@ -531,6 +552,24 @@ export default function App() {
                 : { tela: 'pergunta' },
             )
           }
+        />
+      )
+    }
+
+    case 'formulario': {
+      const titulos = TITULOS_POR_ESCOPO[rota.escopo]
+      if (!titulos?.curta) return <RedirecionarAoInicio irPara={irPara} aoSair={aoSair} />
+      return (
+        <TelaFormulario
+          key={`${rota.escopo}/${rota.itemId}`}
+          casoId={casoId}
+          escopo={rota.escopo}
+          itemId={rota.itemId}
+          titulos={titulos}
+          voltar={voltarAoInicio}
+          // `T-314`: item concluído → a lista, com "+ Adicionar outro" e
+          // "Continuar" (`T-311`).
+          onConcluir={(escopo) => irPara({ tela: 'fichas', escopo })}
         />
       )
     }
@@ -597,6 +636,7 @@ export default function App() {
           abrirPergunta={(id, item) =>
             irPara({ tela: 'pergunta', idPergunta: id, itemId: item ?? undefined })
           }
+          abrirFormulario={abrirFormulario}
           // `T-212`: a resposta que abre uma ficha leva à lista dela.
           onAbrirFichas={([escopo, ...seguintes]) =>
             irPara({ tela: 'fichas', escopo, seguintes })

@@ -135,6 +135,27 @@ perguntas:
     admite_nao_sei: false
     salto_consequencia: "Aluguel lançado aqui não é relançado em B4.I05A."
 
+  # T-315 (RF-103): "Outro" pede a descrição na mesma tela (decisão do
+  # produto, 2026-10-01; canônica v1.0.6, errata E-18). Só coleta.
+  - ID: B3.03AO
+    bloco: 3
+    enunciado: Descreva essa renda.
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: RENDA_ADICIONAL_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: DESCRICAO_RENDA_ADICIONAL
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - {tipo: IGUAL, variavel: RENDA_RECORRENTE_ADICIONAL_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: TIPO_RENDA_ADICIONAL, valor: OUTRA_RENDA_RECORRENTE}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
   - ID: B3.03B
     bloco: 3
     enunciado: Quanto essa renda acrescenta, em média, por mês?
@@ -251,6 +272,31 @@ perguntas:
         - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
         # T-286 (DE-03): item criado pela restituição confirmada (T-274).
         - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  # T-315 (RF-103): "Outro" pede a descrição na mesma tela (decisão do
+  # produto, 2026-10-01; canônica v1.0.6, errata E-18). Só coleta.
+  - ID: B3.05AO
+    bloco: 3
+    enunciado: Descreva a origem do valor.
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: RECURSO_EXTRAORDINARIO_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: DESCRICAO_RECURSO_EXTRAORDINARIO
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - tipo: OU
+          termos:
+            - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: SIM}
+            - {tipo: IGUAL, variavel: RECURSOS_EXTRAORDINARIOS_EXISTE, valor: TALVEZ}
+            - {tipo: IGUAL, variavel: ORIGEM_RECURSO_EXTRAORDINARIO, valor: B5.D05R}
+        - {tipo: IGUAL, variavel: TIPO_RECURSO_EXTRAORDINARIO, valor: OUTRO}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -795,6 +841,27 @@ perguntas:
     admite_nao_sei: false
     salto_consequencia: null
 
+  # T-315 (RF-103): "Outro" pede a descrição na mesma tela (decisão do
+  # produto, 2026-10-01; canônica v1.0.6, errata E-18). Só coleta.
+  - ID: B3.NM02AO
+    bloco: 3
+    enunciado: Descreva essa despesa.
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DESPESA_NAO_MENSAL_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: DESCRICAO_DESPESA_NAO_MENSAL
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: TIPO_DESPESA_NAO_MENSAL, valor: OUTRA}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
   - ID: B3.NM02B
     bloco: 3
     enunciado: Qual é o valor total previsto?
@@ -825,6 +892,27 @@ perguntas:
       - {rotulo: Outra, valor_interno: OUTRA}
     VARIAVEL_GRAVADA: FREQUENCIA_DESPESA_NAO_MENSAL
     condicao_exibicao: {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
+
+  # T-315 (RF-103): "Outro" pede a descrição na mesma tela (decisão do
+  # produto, 2026-10-01; canônica v1.0.6, errata E-18). Só coleta.
+  - ID: B3.NM02CO
+    bloco: 3
+    enunciado: Descreva com que frequência ela ocorre.
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: DESPESA_NAO_MENSAL_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: DESCRICAO_FREQUENCIA_DESPESA_NAO_MENSAL
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - {tipo: IGUAL, variavel: DESPESAS_NAO_MENSAIS_EXISTE, valor: SIM}
+        - {tipo: IGUAL, variavel: FREQUENCIA_DESPESA_NAO_MENSAL, valor: OUTRA}
     interpolacoes: []
     validacoes_cruzadas: []
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
@@ -1125,6 +1213,29 @@ perguntas:
     origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
     admite_nao_sei: false
     salto_consequencia: "SYS: MARGEM_ID por ficha."
+
+  # T-315 (RF-103): "Outro" pede a descrição na mesma tela (decisão do
+  # produto, 2026-10-01; canônica v1.0.6, errata E-18). Só coleta.
+  - ID: B3.S06AO
+    bloco: 3
+    enunciado: Descreva essa margem.
+    tipo: TEXTO_CURTO
+    obrigatoriedade: [COND, REP]
+    escopo_repeticao: MARGEM_ID
+    escopo_pai: VINCULO_ID
+    opcoes: []
+    VARIAVEL_GRAVADA: DESCRICAO_MARGEM
+    condicao_exibicao:
+      tipo: E
+      termos:
+        - tipo: NAO
+          termo: {tipo: IGUAL, variavel: VINCULO_CONSIGNAVEL, valor: NAO}
+        - {tipo: IGUAL, variavel: TIPO_MARGEM, valor: OUTRA_DO_REGIME}
+    interpolacoes: []
+    validacoes_cruzadas: []
+    origem_opcoes: {fonte: REGISTRO, campo_do_snapshot: null}
+    admite_nao_sei: false
+    salto_consequencia: null
 
   - ID: B3.S06B
     bloco: 3

@@ -284,8 +284,10 @@ def test_despesa_nao_listada_sim_abre_uma_ficha_que_pede_nome(
 
     confirmacao = _responder(cliente, "B3.D11", "SIM")
 
-    assert confirmacao["abrir_fichas"] == [_DESPESA]
+    # `T-316` (AC-166): direto ao item novo, sem a lista no meio.
+    assert confirmacao["abrir_fichas"] == []
     [ficha] = _fichas(cliente)
+    assert confirmacao["proxima"]["pergunta"]["item_id"] == ficha["item_id"]
     assert ficha["pede_nome"] is True
     assert [c["ID"] for c in ficha["campos"]] == ["B3.DF01", "B3.DF02", "B3.DF03", "B3.DF04"]
     _nomear(cliente, ficha["item_id"], "Pet")
