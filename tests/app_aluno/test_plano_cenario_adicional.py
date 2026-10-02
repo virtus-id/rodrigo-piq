@@ -24,9 +24,11 @@ from engine.motor import calcular_plano
 from engine.snapshot import SnapshotOrdem
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from report.plano import (
+    VocabularioDoCaso,
     carregar_textos_canonicos,
     formatar_dinheiro_br,
     montar_contexto_plano,
+    nomear_dividas,
 )
 from tests.app_aluno.fixtures.caso_completo import (
     DATA_REFERENCIA,
@@ -104,7 +106,12 @@ def test_ac152_incerto_so_no_cenario_adicional_separado_e_rotulado(certeza: str)
     adicional = plano["cenario_adicional"]
     assert isinstance(adicional, dict)
     assert adicional["rotulo"]
-    assert adicional["ordem"] == list(adicional_do_snapshot.ORDEM_QUITACAO)
+    # `T-326` (`RF-111`): a ordem do cenário adicional também chama a
+    # dívida pelo nome, não pelo `DIVIDA_ID`.
+    nomes = nomear_dividas(
+        snapshot.estado_inputs.dividas, carregar_textos_canonicos(), VocabularioDoCaso()
+    )
+    assert adicional["ordem"] == [nomes[d] for d in adicional_do_snapshot.ORDEM_QUITACAO]
     assert adicional["CUSTO_FUTURO_TOTAL"] == formatar_dinheiro_br(
         adicional_do_snapshot.CUSTO_FUTURO_TOTAL
     )

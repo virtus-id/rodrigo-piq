@@ -619,10 +619,11 @@ def test_t304_sem_quitacao_no_cronograma_o_mes_fica_nao_disponivel(
     assert [p["mes_de_quitacao"] for p in plano["ordem"]] == [None] * len(plano["ordem"])
 
 
-# Valores que são CÓDIGO (discriminador lido pela tela, não texto ao aluno)
-# ou pendência registrada (`T-306`: `ORDEM_ACOES[].descricao` é o motivo
-# técnico do gate). Qualquer outro campo com identificador falha.
-_CHAVES_DE_CODIGO = frozenset({"cenario", "motivo", "descricao"})
+# Valores que são CÓDIGO, não texto ao aluno: `nao_projetados[].motivo`.
+# `T-306` (absorvida por `T-326`) tirou `cenario` e `descricao` daqui — hoje
+# são rótulo e texto em português. Qualquer outro campo com identificador
+# falha.
+_CHAVES_DE_CODIGO = frozenset({"motivo"})
 _IDENTIFICADOR = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
 
 

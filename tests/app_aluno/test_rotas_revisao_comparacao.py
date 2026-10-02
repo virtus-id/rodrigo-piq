@@ -39,9 +39,11 @@ from app.http.rotas_revisao import (
     obter_repositorio_casos_da_fila,
     obter_repositorio_snapshots_da_fila,
 )
-from app.http.serializacao_plano import serializar_plano
+from app.http.serializacao_plano import serializar_plano, vocabulario_do_caso
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.motor.executor import ParametrosDoCalculo, executar_calculo
+from collection.carga import carregar_registros
+from collection.respostas import RespostasCaso
 from engine.estado import EstadoFinanceiro
 from engine.snapshot import SnapshotOrdem
 from engine.tipos import DESCONHECIDO
@@ -55,6 +57,7 @@ from tests.app_aluno.fixtures.caso_completo import (
     caso_completo,
     caso_completo_com_divida_gab03,
 )
+from tests.app_aluno.fixtures.sem_respostas import sem_respostas_nem_itens
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-nao-usar-em-producao"
 _PARAMETROS_VERSAO = "1.0.1"
@@ -148,6 +151,7 @@ def _montar_cliente(
         repositorio_snapshots
     )
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: "conta-revisor-teste"
+    sem_respostas_nem_itens(aplicacao)  # `T-326`: credores lidos das respostas
     return TestClient(aplicacao, base_url="https://teste.local")
 
 
@@ -260,7 +264,17 @@ def test_plano_exibido_e_o_mesmo_html_de_montar_contexto_plano(
     snapshot = repositorio_snapshots.historico(caso.snapshot_raiz_id)[-1]
 
     textos = carregar_textos_canonicos()
-    contexto_plano = montar_contexto_plano(snapshot, textos)
+    # `T-326`: o mesmo vocabulário que a rota monta (registro real, caso
+    # sem respostas — sem credor, a dívida é chamada pelo tipo).
+    contexto_plano = montar_contexto_plano(
+        snapshot,
+        textos,
+        vocabulario_do_caso(
+            carregar_registros().registros,
+            RespostasCaso(respostas=()),
+            (d.DIVIDA_ID for d in snapshot.estado_inputs.dividas),
+        ),
+    )
     esperado = serializar_plano(contexto_plano, para_revisor=True)
 
     cliente = _montar_cliente(
@@ -298,7 +312,10 @@ def test_desconhecido_e_exibido_de_forma_visivel_nunca_como_zero_ou_vazio(
     sei" chega a `estado_inputs` como `Desconhecido`
     (`engine.tipos.DESCONHECIDO`). A tela do revisor precisa mostrar o texto
     literal "DESCONHECIDO" para os dois campos — nunca `0`, nunca `0,00`,
-    nunca uma célula vazia."""
+    nunca uma célula vazia.
+
+    `T-326` (`RF-111`): o texto passou de "DESCONHECIDO" para "Não
+    informado" — mesma regra, agora em português."""
     caso_id = "CASO-COMPARACAO-GAB03"
     _criar_caso(repositorio_casos, caso_id, "conta-aluno-gab03")
     snapshot = _calcular_snapshot(
@@ -325,9 +342,13 @@ def test_desconhecido_e_exibido_de_forma_visivel_nunca_como_zero_ou_vazio(
     corpo = resposta.text
 
     assert resposta.status_code == 200
-    # O texto literal aparece pelo menos duas vezes (um para cada campo
-    # desconhecido desta dívida) — nunca "0", "0,00" ou célula vazia no lugar.
-    assert corpo.count("DESCONHECIDO") >= 2
+    # Os dois campos desconhecidos aparecem como tais — nunca "0", "0,00" ou
+    # célula vazia no lugar.
+    campos = {
+        c["codigo"]: c["valor"] for c in resposta.json()["estado_inputs"]["dividas"][0]["campos"]
+    }
+    assert campos["SALDO_DEVEDOR_ATUAL"] == "Não informado"
+    assert campos["PAGAMENTO_MENSAL_EFETIVO"] == "Não informado"
     # Nenhum rótulo escondendo o desconhecido atrás de zero monetário: o
     # padrão de exibição monetária ("0,00") não aparece associado aos dois
     # campos que deveriam ser DESCONHECIDO (checagem indireta: já que

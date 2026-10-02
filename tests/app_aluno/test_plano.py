@@ -164,6 +164,12 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "cenario_adicional",
         # `T-245` (RF-82): orientação por dívida com seguro, não da ordem.
         "orientacao_seguro_prestamista",
+        # `T-326` (RF-111): nome da dívida, descrição das ações e rótulos
+        # dos dados e códigos — nenhum renomeia a ordem.
+        "nome_da_divida",
+        "descricao_da_acao",
+        "rotulos_de_dados",
+        "rotulos_de_codigos",
     }
     # A ordem continua sem rótulo paralelo: nenhuma chave de apoio fala
     # sobre a ORDEM, só sobre campos de uma dívida.
@@ -246,7 +252,9 @@ def test_ac17_ordem_com_n_dividas_exibe_n_posicoes_cada_uma_com_justificativa() 
     for posicao_do_contexto, posicao_do_snapshot in zip(
         contexto.ordem, snapshot.ORDEM_QUITACAO, strict=True
     ):
-        assert posicao_do_snapshot.DIVIDA_ID in html
+        # `T-326` (`RF-111`): a posição pelo nome da dívida, não pelo código.
+        assert posicao_do_contexto.nome in html
+        assert posicao_do_snapshot.DIVIDA_ID not in html
         # Toda posição explica por que está ali — `AC-17`.
         assert posicao_do_contexto.explicacao in html
     # E o vocabulário do motor não vaza para o documento do aluno.

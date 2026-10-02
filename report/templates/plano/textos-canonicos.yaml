@@ -146,3 +146,164 @@ orientacao_seguro_prestamista: >-
   contrato permitir, peça o cancelamento das cobranças futuras e pergunte
   sobre a restituição proporcional do período não usado — ela depende das
   condições da apólice e não é garantida.
+
+# ---------------------------------------------------------------------------
+# Plano e conferência em linguagem humana — RF-111, AC-174 (T-326).
+#
+# Redação da equipe técnica, a aprovar pelo produto (lista em `T-326`).
+# Relato do produto (2026-10-02): a conferência mostrava "D011", "método
+# HIBRIDO", `TIPO_DIVIDA = CONSIGNADO`, `CET = DESCONHECIDO` e até a
+# representação Python de `RecursoExtraordinario(...)`.
+#
+# Como a dívida é chamada no plano e na conferência. `{tipo}` é o rótulo da
+# opção de `B5.A02` (registro); `{credor}`, a resposta de `CREDOR`. Sem
+# credor, só o tipo.
+nome_da_divida: "{tipo} — {credor}"
+
+# O que o aluno precisa fazer, por `TIPO_ACAO` (engine/gates.py) — `T-306`.
+# A `descricao` do motor (o motivo do gate) segue só para o revisor.
+descricao_da_acao:
+  INFORMACAO: "Informar o dado que falta desta dívida, para que ela possa entrar na ordem."
+  RENEGOCIACAO: "Procurar o credor para renegociar ou conter o risco desta dívida antes de atacá-la."
+  TROCA: "Avaliar a troca desta dívida por uma mais barata antes de atacá-la."
+  ECONOMIA: "Colocar no orçamento a economia que já foi identificada nos seus gastos."
+
+# Rótulo curto de cada dado de entrada do motor (`EstadoFinanceiro` e o que
+# ele contém), na conferência do revisor. As chaves são os nomes dos campos
+# em `engine/estado.py` — os mesmos da spec canônica. Campo sem rótulo aqui
+# aparece com o nome gerado do código ("Taxa efetiva mensal normalizada"),
+# e `test_t326_todo_dado_de_entrada_tem_rotulo` falha listando-o.
+rotulos_de_dados:
+  DATA_REFERENCIA: "Data de referência"
+  RENDA_TOTAL_RECORRENTE: "Renda total recorrente"
+  TIPO_RENDA: "Tipo de renda"
+  DESPESAS_OPERACIONAIS_ATUAIS: "Despesas mensais atuais"
+  DESPESAS_NAO_MENSAIS_NORMALIZADAS: "Despesas não mensais, por mês"
+  CAPACIDADE_ATAQUE_DECLARADA: "Quanto declarou poder destinar às dívidas"
+  ECONOMIA_POTENCIAL_IMEDIATA: "Economia potencial imediata"
+  INVENTARIO_COMPLETO: "Cadastro de dívidas completo"
+  CONFIABILIDADE_DADOS: "Confiabilidade dos dados"
+  AUTOPERCEPCAO_CONTROLE: "Clareza sobre os próprios gastos"
+  RESERVA_EXISTE: "Tem reserva"
+  RESERVA_TOTAL: "Valor da reserva"
+  DISPOSICAO_USO_RESERVA: "Disposição para usar a reserva"
+  VALOR_MAXIMO_RESERVA_INFORMADO_USUARIO: "Quanto da reserva aceita usar"
+  DINHEIRO_DISPONIVEL: "Dinheiro disponível hoje"
+  investimentos: "Investimentos"
+  ativos: "Bens"
+  recursos_extraordinarios: "Valores extraordinários"
+  TIPO_DIVIDA: "Tipo de dívida"
+  STATUS_DIVIDA: "Situação da dívida"
+  SALDO_DEVEDOR_ATUAL: "Saldo devedor atual"
+  VALOR_QUITACAO_HOJE: "Valor para quitar hoje"
+  QUITACAO_CONSULTADA: "Consultou o valor de quitação"
+  STATUS_VALIDADE_PROPOSTA: "Validade da proposta de quitação"
+  TAXA_EFETIVA_MENSAL_NORMALIZADA: "Taxa de juros mensal"
+  CET: "Custo efetivo total (CET)"
+  PARCELA_CONTRATUAL: "Parcela do contrato"
+  PAGAMENTO_MENSAL_EFETIVO: "Pagamento mensal efetivo"
+  SEGURO_INCLUIDO_PARCELA: "Seguro incluído na parcela"
+  CUSTO_SEGURO: "Custo do seguro"
+  PESO_EMOCIONAL: "Peso emocional"
+  RENEGOCIACAO_PENDENTE: "Renegociação pendente"
+  TROCA_PENDENTE: "Troca de dívida pendente"
+  RISCO_MATERIAL_IMINENTE: "Risco material iminente"
+  OPORTUNIDADE_VIGENTE: "Oportunidade de quitação vigente"
+  beneficio: "Benefício"
+  recurso_disponivel: "Recurso disponível"
+  prazo: "Prazo"
+  sustentavel: "Sustentável"
+  REGISTRO_GASTOS: "Registro dos gastos"
+  FREQUENCIA_REGISTRO: "Frequência do registro"
+  DEFASAGEM_REGISTRO: "Atraso no registro"
+  COBERTURA_PEQUENOS_GASTOS: "Registro dos pequenos gastos"
+  COBERTURA_MEIOS_PAGAMENTO: "Meios de pagamento registrados"
+  CONHECIMENTO_GASTO: "Conhecimento dos gastos"
+  GASTOS_NAO_IDENTIFICADOS: "Gastos não identificados"
+  REVISAO_SEMANAL: "Revisão semanal dos gastos"
+  NOVA_DIVIDA_PREVISTA: "Nova dívida prevista"
+  MECANISMO_DEFICIT: "Como cobre o mês quando falta dinheiro"
+  HISTORICO_RECAIDA: "Já voltou a se endividar"
+  NOVO_PARCELAMENTO_PREVISTO: "Novo parcelamento previsto"
+  PACTO: "Compromisso de não assumir novas dívidas"
+  RISCO_IMPULSO: "Compras por impulso"
+  LINHA_CONTINUA_SENDO_UTILIZADA: "Continua usando a linha de crédito"
+  NECESSIDADE_VITORIA: "Importância de uma primeira quitação rápida"
+  HISTORICO_ABANDONO: "Já abandonou um plano"
+  JANELA_NOVA_DIVIDA: "Quando a nova dívida deve vir"
+  VALOR_LIQUIDO_REALIZAVEL: "Valor líquido realizável"
+  POSSUI_LIQUIDEZ: "Tem liquidez"
+  LIQUIDEZ_INVESTIMENTOS: "Prazo de resgate"
+  DISPOSICAO_USO_INVESTIMENTO: "Disposição para usar"
+  VALOR_LIQUIDO_REALIZAVEL_ATIVO_DISPONIVEL: "Valor disponível para uso"
+  TEM_CUSTO_CONHECIDO: "Custo de saída conhecido"
+  SEM_CUSTO_PERDA_RELEVANTE: "Sem custo ou perda relevante"
+  TIPO_ATIVO_FISICO: "Tipo de bem"
+  POSSIBILIDADE_VENDA: "Possibilidade de venda"
+  ESSENCIALIDADE: "Essencialidade"
+  VALOR_ESTIMADO_ATIVO: "Valor estimado"
+  POSSUI_PASSIVO_VINCULADO: "Tem dívida vinculada"
+  SALDO_PASSIVO_VINCULADO: "Saldo da dívida vinculada"
+  POSSUI_CUSTO_DESMOBILIZACAO: "Tem custo de venda"
+  CUSTOS_ESTIMADOS_DESMOBILIZACAO: "Custos estimados de venda"
+  RENDA_RECORRENTE_ATIVO: "Renda mensal do bem"
+  CUSTO_RECORRENTE_ATIVO: "Custo mensal do bem"
+  VALOR_RECURSO_EXTRAORDINARIO: "Valor"
+  JANELA_RECURSO_EXTRAORDINARIO: "Quando"
+  CERTEZA_RECURSO_EXTRAORDINARIO: "Certeza"
+
+# Rótulo de códigos que NÃO são opção de pergunta do registro: método,
+# status do método, cenário de apresentação, evento de recálculo e os
+# domínios do motor sem pergunta. Valor de opção de pergunta vem do
+# `rotulo` da opção no registro (`collection/registros`), não daqui; estes
+# são o segundo recurso, para o que o registro não tem.
+rotulos_de_codigos:
+  # Método e status (engine/tipos.py::METODO, STATUS_METODO)
+  AVALANCHE: "Avalanche"
+  BOLA_DE_NEVE: "Bola de neve"
+  HIBRIDO: "Híbrido"
+  DEFINITIVO_NA_DATA: "Definitivo na data"
+  PROVISORIO: "Provisório"
+  # Cenário de apresentação (report/plano.py::CENARIO_APRESENTACAO)
+  NORMAL: "Ordem de quitação publicada"
+  ORDEM_VAZIA: "Ordem vazia: ações antes do ataque"
+  ESTABILIZACAO: "Estabilização do orçamento"
+  # Motivo do recálculo (engine/tipos.py::EVENTO_RECALCULO)
+  SEM_EVENTO_PRIMEIRO_CALCULO: "Primeiro cálculo, sem evento de recálculo"
+  SEM_EVENTO: "Sem evento de recálculo"
+  QUITACAO_CONFIRMADA: "Quitação confirmada"
+  ALTERACAO_RENDA: "Alteração de renda"
+  ALTERACAO_DESPESAS: "Alteração de despesas"
+  NOVA_DIVIDA: "Nova dívida"
+  RENEGOCIACAO_EXECUTADA: "Renegociação executada"
+  TROCA_EXECUTADA: "Troca de dívida executada"
+  RECURSO_EXTRAORDINARIO: "Valor extraordinário recebido"
+  INFORMACAO_MATERIAL_CONHECIDA: "Informação relevante nova"
+  MUDANCA_PATRIMONIAL: "Mudança patrimonial"
+  PROPOSTA_TEMPORARIA: "Proposta temporária"
+  ALTERACAO_RISCO: "Alteração de risco"
+  OUTRO_MATERIAL: "Outra mudança relevante"
+  # Valores gerais
+  DESCONHECIDO: "Não informado"
+  NENHUM: "Nenhum"
+  SIM: "Sim"
+  NAO: "Não"
+  TALVEZ: "Talvez"
+  # engine/tipos.py::STATUS_VALIDADE_PROPOSTA
+  VIGENTE: "Vigente"
+  EXPIRADA: "Expirada"
+  VALIDADE_DESCONHECIDA: "Validade desconhecida"
+  # engine/tipos.py::CONFIABILIDADE_DADOS
+  ALTA: "Alta"
+  MEDIA: "Média"
+  BAIXA: "Baixa"
+  # engine/estado.py::TIPO_ATIVO_FISICO, POSSIBILIDADE_VENDA, ESSENCIALIDADE
+  IMOVEL: "Imóvel"
+  VEICULO: "Veículo"
+  OUTRO_ATIVO: "Outro bem"
+  EXTREMO: "Só em último caso"
+  JA_PRETENDE: "Já pretende vender"
+  ESSENCIAL: "Essencial"
+  IMPORTANTE: "Importante"
+  PARCIAL: "Parcialmente essencial"
+  NAO_ESSENCIAL: "Não essencial"

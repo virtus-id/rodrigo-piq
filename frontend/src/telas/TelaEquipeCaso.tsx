@@ -23,6 +23,7 @@ import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
 import {
+  type CampoDeEntrada,
   type CasoParaRevisao,
   type OpcoesDeDecisao,
   decidirRevisao,
@@ -48,6 +49,26 @@ function textoDoItem(valor: unknown): string {
       .join(' · ')
   }
   return String(valor)
+}
+
+/**
+ * Dados de entrada com rótulo e valor legíveis, ambos do servidor (`RF-111`,
+ * `T-326`) — a tela não traduz código nenhum. O nome técnico fica ao lado,
+ * discreto, para quem precisa casar o dado com a spec.
+ */
+function ListaDeDados({ campos }: { campos: CampoDeEntrada[] }) {
+  return (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+      {campos.map((campo) => (
+        <div key={campo.codigo} className="contents">
+          <dt className="text-muted">
+            {campo.nome} <small className="text-muted">{campo.codigo}</small>
+          </dt>
+          <dd className="tabular-nums">{campo.valor}</dd>
+        </div>
+      ))}
+    </dl>
+  )
 }
 
 interface TelaEquipeCasoProps {
@@ -281,18 +302,27 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
             {plano.ordem.map((posicao) => (
               <div className="item" key={posicao.DIVIDA_ID}>
                 <span className="num">{posicao.posicao}</span>
+                {/* `T-326` (`RF-111`): "tipo — credor" e a explicação que o
+                    aluno lê; o código e a justificativa do motor ficam como
+                    detalhe — recolhido, para quem precisa refazer a decisão. */}
                 <div className="flex-1">
-                  {posicao.DIVIDA_ID}
-                  <small className="block text-muted">
-                    {posicao.JUSTIFICATIVA_POSICAO}
-                  </small>
+                  {posicao.nome} <small className="text-muted">{posicao.DIVIDA_ID}</small>
+                  <p className="text-muted">{posicao.explicacao}</p>
+                  {posicao.JUSTIFICATIVA_POSICAO && (
+                    <details>
+                      <summary>Detalhe técnico</summary>
+                      <small className="block text-muted">
+                        {posicao.JUSTIFICATIVA_POSICAO}
+                      </small>
+                    </details>
+                  )}
                 </div>
               </div>
             ))}
           </div>
           <p className="carimbo">
-            Método: {fila.METODO_RECOMENDADO_PIQ} · {fila.STATUS_METODO} · versão do
-            cálculo {plano.ENGINE_VERSION} · parâmetros {plano.PARAMETROS_VERSION}
+            Método: {fila.metodo} · {fila.status_metodo} · versão do cálculo{' '}
+            {plano.ENGINE_VERSION} · parâmetros {plano.PARAMETROS_VERSION}
           </p>
         </div>
 
@@ -302,24 +332,19 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
               estado COMPLETO, e campo fora da tela é campo que ninguém
               confere. Os valores já vêm formatados pelo servidor — inclusive
               `DESCONHECIDO`, que nunca pode aparecer como `0` (`AC-08`). */}
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            {entradas.campos.map((campo) => (
-              <div key={campo.nome} className="contents">
-                <dt className="text-muted">{campo.nome}</dt>
-                <dd className="tabular-nums">{campo.valor}</dd>
-              </div>
-            ))}
-            {entradas.dividas.flatMap((divida) =>
-              divida.campos.map((campo) => (
-                <div key={`${divida.DIVIDA_ID}.${campo.nome}`} className="contents">
-                  <dt className="text-muted">
-                    {divida.DIVIDA_ID} · {campo.nome}
-                  </dt>
-                  <dd className="tabular-nums">{campo.valor}</dd>
-                </div>
-              )),
-            )}
-          </dl>
+          <ListaDeDados campos={entradas.campos} />
+          {entradas.dividas.map((divida) => (
+            <section key={divida.DIVIDA_ID} aria-label={divida.nome}>
+              <h3>
+                {divida.nome} <small className="text-muted">{divida.DIVIDA_ID}</small>
+              </h3>
+              <ListaDeDados campos={divida.campos} />
+            </section>
+          ))}
+          <h3>Como lida com os gastos</h3>
+          <ListaDeDados campos={entradas.perfil_comportamental} />
+          <h3>Sinais de comportamento</h3>
+          <ListaDeDados campos={entradas.sinais_comportamentais} />
         </div>
       </div>
 

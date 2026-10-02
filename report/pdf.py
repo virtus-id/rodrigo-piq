@@ -76,7 +76,12 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.casos import Caso
-from report.plano import ContextoPlano, TextosCanonicosPlano, montar_contexto_plano
+from report.plano import (
+    ContextoPlano,
+    TextosCanonicosPlano,
+    VocabularioDoCaso,
+    montar_contexto_plano,
+)
 
 REGRAS: Final[tuple[str, ...]] = ("RF-20", "RF-21", "AC-14", "AC-16")
 
@@ -143,7 +148,10 @@ def renderizar_html_do_plano(contexto: ContextoPlano) -> str:
 
 
 def gerar_html_do_plano_liberado(
-    caso: Caso, snapshot: SnapshotOrdem, textos: TextosCanonicosPlano
+    caso: Caso,
+    snapshot: SnapshotOrdem,
+    textos: TextosCanonicosPlano,
+    vocabulario: VocabularioDoCaso | None = None,
 ) -> str:
     """Monta o contexto (`report/plano.py::montar_contexto_plano` — a MESMA
     montagem que a tela usa, Lei nº 3: só leitura de campo do snapshot) e
@@ -159,11 +167,17 @@ def gerar_html_do_plano_liberado(
     if not snapshot_tem_liberacao_registrada(caso, snapshot):
         raise ErroSnapshotNaoLiberado(caso.CASO_ID, snapshot.SNAPSHOT_ID)
 
-    contexto = montar_contexto_plano(snapshot, textos)
+    # `T-326`: o vocabulário do caso dá às dívidas o nome "tipo — credor".
+    contexto = montar_contexto_plano(snapshot, textos, vocabulario)
     return renderizar_html_do_plano(contexto)
 
 
-def gerar_pdf_do_plano(caso: Caso, snapshot: SnapshotOrdem, textos: TextosCanonicosPlano) -> bytes:
+def gerar_pdf_do_plano(
+    caso: Caso,
+    snapshot: SnapshotOrdem,
+    textos: TextosCanonicosPlano,
+    vocabulario: VocabularioDoCaso | None = None,
+) -> bytes:
     """Gera os bytes do PDF do plano — `weasyprint.HTML(string=...).
     write_pdf()`, a API pública documentada da versão instalada
     (`weasyprint>=63.0`), aplicada sobre o MESMO HTML que `gerar_html_do_
@@ -178,7 +192,7 @@ def gerar_pdf_do_plano(caso: Caso, snapshot: SnapshotOrdem, textos: TextosCanoni
     plano`/`gerar_html_do_plano_liberado` continuem plenamente testáveis e
     utilizáveis (inclusive pela tela, T-64) sem que a mera importação deste
     módulo por outro código exija a biblioteca nativa presente."""
-    html = gerar_html_do_plano_liberado(caso, snapshot, textos)
+    html = gerar_html_do_plano_liberado(caso, snapshot, textos, vocabulario)
 
     from weasyprint import HTML
 

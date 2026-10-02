@@ -19,8 +19,12 @@
     T-92 — `acao.DIVIDA_ID` agora é `str | None` (`RF-31`): a ação de
     economia (`TIPO_ACAO="ECONOMIA"`, `RF-33`) não tem dívida associada.
     Exibida como `"—"`, a mesma convenção já usada em `report/plano.py::
-    _formatar_valor_ou_desconhecido` para ausência ESTRUTURAL — nenhum texto
-    novo inventado para este caso.
+    _apresentar_dado` para ausência ESTRUTURAL — nenhum texto novo inventado
+    para este caso.
+
+    T-326 (`RF-111`, absorve `T-306`) — a dívida por "tipo — credor"
+    (`acao.nome_divida`) e a descrição por `TIPO_ACAO`, de
+    `textos-canonicos.yaml`; o código e o motivo técnico não chegam ao aluno.
 #}
 <section>
     <h2>Nenhuma dívida pronta para ataque no momento</h2>
@@ -36,7 +40,7 @@
     <ul>
         {% for acao in acoes %}
         <li>
-            <strong>{{ acao.DIVIDA_ID if acao.DIVIDA_ID is not none else "—" }}</strong>
+            <strong>{{ acao.nome_divida if acao.nome_divida is not none else "—" }}</strong>
             — {{ acao.descricao }}
             {% if acao.prioridade_excepcional %}
             <em>(prioridade excepcional)</em>

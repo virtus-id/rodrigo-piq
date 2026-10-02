@@ -28,9 +28,10 @@
         <li>O cadastro das suas dívidas ainda não foi confirmado como completo.</li>
         {% endif %}
 
-        {% for divida_id, campos in pendencias.campos_faltantes_por_divida %}
+        {# T-326: a dívida por "tipo — credor", não pelo código. #}
+        {% for divida_id, nome, campos in pendencias.campos_faltantes_por_divida %}
         <li>
-            <strong>{{ divida_id }}</strong>: falta informar
+            <strong>{{ nome }}</strong>: falta informar
             {{ campos | join(", ") }}.
         </li>
         {% endfor %}

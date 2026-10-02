@@ -75,9 +75,11 @@ from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import obter_repositorio_casos
 from app.http.rotas_plano import obter_repositorio_snapshots
+from app.http.serializacao_plano import vocabulario_do_caso
 from app.http.sessao import iniciar_sessao_conta
 from app.montagem.conversao import converter_para_dinheiro
 from app.montagem.estado import montar_divida, montar_estado_financeiro
+from collection.carga import carregar_registros
 from collection.respostas import RespostasCaso
 from engine.motor import calcular_plano
 from engine.portas import RepositorioSnapshots
@@ -85,7 +87,7 @@ from engine.snapshot import SnapshotOrdem
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
 from report.pdf import gerar_html_do_plano_liberado
-from report.plano import carregar_textos_canonicos, montar_contexto_plano
+from report.plano import VocabularioDoCaso, carregar_textos_canonicos, montar_contexto_plano
 from tests.app_aluno.fixtures.caso_completo import (
     DATA_REFERENCIA,
     caso_completo,
@@ -276,7 +278,17 @@ def _html_que_a_rota_de_pdf_serviria(snapshot: SnapshotOrdem) -> str:
     de texto que este projeto não declara."""
     caso = _caso_com_plano_liberado(snapshot)
     textos = carregar_textos_canonicos()
-    return gerar_html_do_plano_liberado(caso, snapshot, textos)
+    return gerar_html_do_plano_liberado(caso, snapshot, textos, _vocabulario(snapshot))
+
+
+def _vocabulario(snapshot: SnapshotOrdem) -> VocabularioDoCaso:
+    """`T-326` — o mesmo vocabulário que as rotas montam: registro real e as
+    respostas do caso (nenhuma aqui, `sem_respostas_nem_itens`)."""
+    return vocabulario_do_caso(
+        carregar_registros().registros,
+        RespostasCaso(respostas=()),
+        (divida.DIVIDA_ID for divida in snapshot.estado_inputs.dividas),
+    )
 
 
 def _tentar_pdf_real(cliente: TestClient) -> bytes | None:
@@ -436,14 +448,16 @@ def test_ac17_n_posicoes_e_n_justificativas_conferidas_contra_o_snapshot_na_tela
     # snapshot — o snapshot só carrega a justificativa técnica.
     contexto_por_divida = {
         posicao.DIVIDA_ID: posicao
-        for posicao in montar_contexto_plano(snapshot, carregar_textos_canonicos()).ordem
+        for posicao in montar_contexto_plano(
+            snapshot, carregar_textos_canonicos(), _vocabulario(snapshot)
+        ).ordem
     }
 
     for html, origem in ((texto_da_tela, "tela"), (html_pdf, "PDF")):
         for posicao_do_snapshot in snapshot.ORDEM_QUITACAO:
-            assert posicao_do_snapshot.DIVIDA_ID in html, (
-                f"DIVIDA_ID={posicao_do_snapshot.DIVIDA_ID!r} ausente na saída de {origem}"
-            )
+            # `T-326` (`RF-111`): a posição pelo nome da dívida.
+            nome = contexto_por_divida[posicao_do_snapshot.DIVIDA_ID].nome
+            assert nome in html, f"{nome!r} ausente na saída de {origem}"
             # `T-177`: as saídas do ALUNO (tela e PDF) trazem a explicação
             # em português; a `JUSTIFICATIVA_POSICAO` técnica é texto de
             # auditoria e vai ao revisor (`AC-29`). `AC-17` continua

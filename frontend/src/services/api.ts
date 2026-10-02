@@ -384,16 +384,22 @@ export function obterFilaDeRevisao(): Promise<{ itens: ItemDaFila[] }> {
 // Conferência de um caso — `RF-26`, `AC-27`, `AC-29` (T-150)
 // ---------------------------------------------------------------------------
 
+/**
+ * Um dado de entrada do plano — `RF-111` (`T-326`): `nome` é o rótulo em
+ * português e `valor` o texto legível, ambos do servidor; `codigo` é o
+ * nome técnico, mostrado só como detalhe.
+ */
 export interface CampoDeEntrada {
   nome: string
   valor: string
+  codigo: string
 }
 
 export interface EstadoInputs {
   campos: CampoDeEntrada[]
   perfil_comportamental: CampoDeEntrada[]
   sinais_comportamentais: CampoDeEntrada[]
-  dividas: { DIVIDA_ID: string; campos: CampoDeEntrada[] }[]
+  dividas: { DIVIDA_ID: string; nome: string; campos: CampoDeEntrada[] }[]
 }
 
 export interface CasoParaRevisao {

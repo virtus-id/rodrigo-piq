@@ -39,6 +39,7 @@ const PLANO_LIBERADO = {
         indice: 1,
         total: 2,
         DIVIDA_ID: 'D001',
+        nome: 'Cheque especial — CAIXA ECONOMICA FEDERAL',
         explicacao: 'Maior custo efetivo entre as dívidas elegíveis.',
         mes_de_quitacao: 9,
         valores_de_apoio: [{ rotulo: 'SALDO_DEVEDOR_ATUAL', valor: '5000.00' }],
@@ -48,6 +49,7 @@ const PLANO_LIBERADO = {
         indice: 2,
         total: 2,
         DIVIDA_ID: 'D002',
+        nome: 'Empréstimo consignado — BANCO DO BRASIL',
         explicacao: 'Segue a primeira na ordem projetada.',
         mes_de_quitacao: null,
         valores_de_apoio: [],
@@ -58,7 +60,8 @@ const PLANO_LIBERADO = {
     valor_mensal_destinado: 'R$ 512,34',
     ENGINE_VERSION: '1.0.1',
     PARAMETROS_VERSION: '1.0.1',
-    cenario: 'RECOMENDADO',
+    metodo: 'Avalanche',
+    cenario: 'Ordem de quitação publicada',
     acoes: [],
     pendencias: null,
     MODO_ESTABILIZACAO: false,
@@ -163,7 +166,10 @@ test.describe('plano liberado', () => {
     await abrirPlano(page)
 
     for (const posicao of PLANO_LIBERADO.plano.ordem) {
-      await expect(page.getByText(posicao.DIVIDA_ID, { exact: true })).toBeVisible()
+      // `T-326` (`RF-111`, `AC-174`): a dívida por "tipo — credor"; o
+      // código não aparece ao aluno.
+      await expect(page.getByText(posicao.nome, { exact: true })).toBeVisible()
+      await expect(page.getByText(posicao.DIVIDA_ID, { exact: true })).toHaveCount(0)
       // `T-305`: a explicação ao aluno — o payload dele não traz mais a
       // justificativa técnica.
       await expect(page.getByText(posicao.explicacao)).toBeVisible()
@@ -293,6 +299,7 @@ test.describe('ordem vazia', () => {
             acoes: [
               {
                 DIVIDA_ID: 'D001',
+                nome_divida: 'Empréstimo consignado — BANCO DO BRASIL',
                 descricao: 'Renegociar o consignado antes de projetar a ordem.',
                 prioridade_excepcional: false,
               },
@@ -312,5 +319,9 @@ test.describe('ordem vazia', () => {
     await expect(
       page.getByText('Renegociar o consignado antes de projetar a ordem.'),
     ).toBeVisible()
+    // `T-306`/`T-326`: a dívida pelo nome, e o carimbo sem código de cenário.
+    await expect(page.getByText('Empréstimo consignado — BANCO DO BRASIL')).toBeVisible()
+    await expect(page.getByText('D001', { exact: true })).toHaveCount(0)
+    await expect(page.locator('.carimbo')).not.toContainText('método')
   })
 })

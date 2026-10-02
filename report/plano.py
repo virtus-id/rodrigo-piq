@@ -84,17 +84,13 @@ campos, inclusive `Divida`, `PerfilComportamental` e `SinaisComportamentais`
 por inteiro (contexto obrigatório da tarefa), nunca um recorte. Mesma Lei
 nº 3 de `montar_contexto_plano`: esta função só LÊ campos de
 `EstadoFinanceiro` por `getattr`, nunca calcula nada novo. A única
-formatação aplicada é `_formatar_valor_ou_desconhecido` (abaixo), que:
-
-- passa todo `Decimal` por `quantizar_exibicao` (mesma disciplina de
-  `_formatar_valor_de_apoio`/`AC-42`);
-- renderiza `Desconhecido`/`DESCONHECIDO` como o texto literal
-  `"DESCONHECIDO"` — nunca `str(Desconhecido.DESCONHECIDO)` (que produziria
-  `"Desconhecido.DESCONHECIDO"`) e, principalmente, nunca `0` ou string
-  vazia. É a regra mais importante desta tarefa: um campo `DinheiroTalvez`/
-  `TaxaTalvez`/`int | Desconhecido` marcado como desconhecido pelo motor
-  precisa continuar visivelmente desconhecido para o revisor, do contrário
-  ele julgaria o caso por um dado que nunca existiu (`RF-16`).
+formatação aplicada é `_apresentar_dado` (abaixo; reescrita em `T-326`,
+`RF-111`: rótulo em português, R$, %, dd/mm/aaaa, opção pelo rótulo do
+registro, item composto descrito campo a campo). Regra mais importante:
+um campo `DinheiroTalvez`/`TaxaTalvez`/`int | Desconhecido` marcado como
+desconhecido pelo motor continua visivelmente desconhecido para o revisor
+("Não informado") — nunca `0` ou vazio —, do contrário ele julgaria o caso
+por um dado que nunca existiu (`RF-16`).
 
 **T-115 — `_reserva_mobilizavel` (`RF-43`, `AC-70`, `EC-18`).** Quando o aluno
 responde que prefere decidir depois quanto da reserva quer usar, a §13.1
@@ -106,9 +102,8 @@ diferentes, e a segunda leitura o levaria a achar que não tem reserva alguma.
 
 A convenção seguida é a de `_pendencias`/`ContextoPendencias`/
 `pendencias.html` — a da tela do **ALUNO** —, não a de
-`_formatar_valor_ou_desconhecido`, que renderiza o rótulo técnico
-`"DESCONHECIDO"` e é a convenção da tela do **REVISOR** (`RF-26`/`AC-29`):
-adequada lá, inadequada aqui. Como em `_pendencias`, o `.py` faz apenas a
+`_apresentar_dado`, que é a convenção da tela do **REVISOR** (`RF-26`/
+`AC-29`): adequada lá, inadequada aqui. Como em `_pendencias`, o `.py` faz apenas a
 leitura pura (`is DESCONHECIDO`, sem aritmética e sem inferência) e o texto
 em português vive no template. Esta camada não reimplementa nenhuma das três
 regras da §13.1: o valor chega DERIVADO do motor
@@ -121,8 +116,9 @@ REGRAS: `RF-20`, `RF-21`, `RF-22`, `AC-14`, `AC-15`, `AC-16`, `AC-17`, `AC-42`,
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from dataclasses import dataclass, field, fields
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass, field, fields, is_dataclass
+from datetime import date
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
@@ -191,6 +187,38 @@ class TextosCanonicosPlano:
     #: `RF-82` (`T-245`) — orientação por dívida com seguro prestamista;
     #: aplicada, pendente de validação do especialista (`T-289`).
     orientacao_seguro_prestamista: str = ""
+    #: `RF-111` (`T-326`) — "{tipo} — {credor}": como a dívida é chamada no
+    #: plano e na conferência, no lugar do `DIVIDA_ID`.
+    nome_da_divida: str = ""
+    #: `RF-111` (`T-306`) — por `TIPO_ACAO`, o que o aluno precisa fazer. A
+    #: `descricao` do motor (motivo do gate) fica para o revisor.
+    descricao_da_acao: Mapping[str, str] = field(default_factory=dict)
+    #: `RF-111` (`T-326`) — campo de `EstadoFinanceiro` (e do que ele
+    #: contém) → rótulo curto na conferência.
+    rotulos_de_dados: Mapping[str, str] = field(default_factory=dict)
+    #: `RF-111` (`T-326`) — código sem opção no registro (método, status,
+    #: cenário, evento de recálculo, domínios do motor) → rótulo.
+    rotulos_de_codigos: Mapping[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class VocabularioDoCaso:
+    """`RF-111` (`T-326`) — o que o relatório precisa, além do snapshot,
+    para falar a língua de quem lê: o rótulo de cada opção do registro
+    (`VARIAVEL_GRAVADA` → `valor_interno` → `rotulo`) e o credor de cada
+    ficha de dívida. Montado pela aplicação (`report/` não lê registro nem
+    resposta); vazio, os nomes caem no rótulo gerado do código."""
+
+    rotulos_de_opcao: Mapping[str, Mapping[str, str]] = field(default_factory=dict)
+    credores: Mapping[str, str] = field(default_factory=dict)
+
+
+def rotulo_de_codigo(rotulos: Mapping[str, str], codigo: str) -> str:
+    """`RF-111` (`T-326`) — o rótulo cadastrado ou, sem ele, um legível
+    gerado do código (`TAXA_EFETIVA_MENSAL_NORMALIZADA` → "Taxa efetiva
+    mensal normalizada"). Nunca quebra; o teste de `AC-174` é quem cobra o
+    rótulo que falta."""
+    return rotulos.get(codigo) or codigo.replace("_", " ").strip().capitalize()
 
 
 def carregar_textos_canonicos(
@@ -226,6 +254,10 @@ def carregar_textos_canonicos(
         rotulos_de_comprovacao=_mapa("rotulos_de_comprovacao"),
         cenario_adicional=_mapa("cenario_adicional"),
         orientacao_seguro_prestamista=str(bruto.get("orientacao_seguro_prestamista") or ""),
+        nome_da_divida=str(bruto.get("nome_da_divida") or ""),
+        descricao_da_acao=_mapa("descricao_da_acao"),
+        rotulos_de_dados=_mapa("rotulos_de_dados"),
+        rotulos_de_codigos=_mapa("rotulos_de_codigos"),
     )
 
 
@@ -354,7 +386,7 @@ def _formatar_meses(prazo: int) -> str:
     return f"{prazo} mês" if prazo == 1 else f"{prazo} meses"
 
 
-def formatar_escala_br(valor: Decimal) -> str:
+def formatar_escala_br(valor: Decimal | int) -> str:
     """`Decimal('6.00')` → `6 de 10` — `T-177`.
 
     `PESO_EMOCIONAL` é `ESCALA_0_10`, e o motor o carrega como `Decimal`
@@ -365,77 +397,119 @@ def formatar_escala_br(valor: Decimal) -> str:
     return f"{int(valor)} de 10"
 
 
-# T-70 — o texto exibido para qualquer campo cujo valor seja `DESCONHECIDO`.
-# Literal e explícito: nunca "0", nunca string vazia (RF-16, regra mais
-# importante desta tarefa — ver docstring do módulo).
-_TEXTO_DESCONHECIDO: Final[str] = "DESCONHECIDO"
+#: `T-326` — dados inteiros que são `ESCALA_0_10`: "6 de 10", não "6".
+_ESCALAS: Final[frozenset[str]] = frozenset(
+    {"PESO_EMOCIONAL", "NECESSIDADE_VITORIA", "AUTOPERCEPCAO_CONTROLE"}
+)
+
+#: `T-326` — identificadores dos itens: vão ao revisor como detalhe
+#: (`DIVIDA_ID` no cabeçalho da dívida), nunca como dado de entrada.
+_CAMPOS_IDENTIFICADORES: Final[frozenset[str]] = frozenset({"DIVIDA_ID", "ITEM_ID"})
 
 
-def _formatar_valor_ou_desconhecido(valor: object) -> str:
-    """T-70 (`RF-26`, `AC-29`) — formata QUALQUER campo de `EstadoFinanceiro`/
-    `Divida`/`PerfilComportamental`/`SinaisComportamentais` para exibição ao
-    revisor, tratando `Desconhecido` (`engine.tipos.DESCONHECIDO`) de forma
-    VISÍVEL, nunca como `0` ou vazio.
+def _rotulo_de_opcao(
+    nome: str, codigo: str, textos: TextosCanonicosPlano, vocabulario: VocabularioDoCaso
+) -> str:
+    """`RF-111` — o código de uma opção: primeiro o `rotulo` da opção no
+    registro (a pergunta que grava `nome`); sem ela, o glossário."""
+    return vocabulario.rotulos_de_opcao.get(nome, {}).get(codigo) or rotulo_de_codigo(
+        textos.rotulos_de_codigos, codigo
+    )
 
-    Ordem de checagem, cada uma exaustiva para o tipo que trata:
 
-    - `Desconhecido` (comparação `isinstance`, equivalente a `is DESCONHECIDO`
-      já que o enum tem um único membro) -> `"DESCONHECIDO"` literal — nunca
-      `str(valor)`, que produziria `"Desconhecido.DESCONHECIDO"` (ilegível) e
-      nunca um valor numérico substituto.
-    - `None` -> `"—"`: `None` é ausência ESTRUTURAL (campo condicional que
-      nem chega a ser perguntado, ex. `JANELA_NOVA_DIVIDA`,
-      `OPORTUNIDADE_VIGENTE`), semanticamente distinta de `DESCONHECIDO`
-      (RF-16: "`None` significaria 'não perguntado', que é outra coisa") —
-      as duas ausências recebem rótulos DIFERENTES para que o revisor não as
-      confunda.
-    - `Decimal` -> `quantizar_exibicao` (mesma disciplina de
-      `_formatar_valor_de_apoio`/`AC-42`: todo monetário/taxa exibido passa
-      por ali, nunca uma formatação numérica própria).
-    - `Enum` -> `.value` (o identificador canônico, nunca `str(enum)`, que
-      incluiria o nome da classe).
-    - `frozenset`/`set` -> os elementos ordenados e unidos por vírgula, para
-      exibição estável (`MECANISMO_DEFICIT`, B1.09).
-    - `bool`/demais tipos -> `str(valor)`.
+def _apresentar_dado(
+    nome: str, valor: object, textos: TextosCanonicosPlano, vocabulario: VocabularioDoCaso
+) -> str:
+    """T-70 (`RF-26`, `AC-29`), reescrita em `T-326` (`RF-111`) — um campo
+    de `EstadoFinanceiro` (ou do que ele contém) como o revisor o lê.
+
+    - `Desconhecido` → "Não informado" — nunca `0` nem vazio (`RF-16`).
+    - `None` → "—": ausência ESTRUTURAL (campo que nem se aplica), distinta
+      de `DESCONHECIDO` — as duas ausências seguem com textos diferentes.
+    - `Decimal` → taxa em % (`formatar_taxa_br`), escala ou dinheiro em R$:
+      todo outro `Decimal` de `EstadoFinanceiro` é `Dinheiro`/`DinheiroTalvez`.
+    - `date` → dd/mm/aaaa; `bool` → Sim/Não.
+    - `Enum`/`str` → rótulo da opção do registro ou do glossário.
+    - conjunto → rótulos separados por vírgula.
+    - item composto (`RecursoExtraordinario`, `Oportunidade`…) → descrito
+      campo a campo; tupla deles, item a item. Nunca a representação Python.
     """
+    codigos = textos.rotulos_de_codigos
     if isinstance(valor, Desconhecido):
-        return _TEXTO_DESCONHECIDO
+        return rotulo_de_codigo(codigos, "DESCONHECIDO")
     if valor is None:
         return "—"
+    if isinstance(valor, bool):
+        return rotulo_de_codigo(codigos, "SIM" if valor else "NAO")
     if isinstance(valor, Decimal):
-        return str(quantizar_exibicao(valor))
+        formato = _FORMATO_DE_APOIO.get(nome)
+        if formato == "taxa":
+            return formatar_taxa_br(valor)
+        if formato == "escala":
+            return formatar_escala_br(valor)
+        return formatar_dinheiro_br(valor)
+    if isinstance(valor, int):
+        return formatar_escala_br(valor) if nome in _ESCALAS else str(valor)
+    if isinstance(valor, date):
+        return f"{valor:%d/%m/%Y}"
     if isinstance(valor, Enum):
-        return str(valor.value)
+        return _rotulo_de_opcao(nome, str(valor.value), textos, vocabulario)
+    if isinstance(valor, str):
+        return _rotulo_de_opcao(nome, valor, textos, vocabulario)
     if isinstance(valor, (frozenset, set)):
-        return ", ".join(sorted(str(item) for item in valor))
+        rotulos = sorted(_rotulo_de_opcao(nome, str(v), textos, vocabulario) for v in valor)
+        return ", ".join(rotulos) or rotulo_de_codigo(codigos, "NENHUM")
+    if isinstance(valor, tuple):
+        itens = [_descrever_item(item, textos, vocabulario) for item in valor]
+        return "; ".join(itens) or rotulo_de_codigo(codigos, "NENHUM")
+    if is_dataclass(valor):
+        return _descrever_item(valor, textos, vocabulario)
     return str(valor)
+
+
+def _descrever_item(
+    item: object, textos: TextosCanonicosPlano, vocabulario: VocabularioDoCaso
+) -> str:
+    """`T-326` — "Valor: R$ 15.000,00 · Quando: 1–3 meses · …": cada campo
+    do item com rótulo e valor legível, sem o identificador."""
+    return " · ".join(
+        f"{rotulo_de_codigo(textos.rotulos_de_dados, campo.name)}: "
+        f"{_apresentar_dado(campo.name, getattr(item, campo.name), textos, vocabulario)}"
+        for campo in fields(item)  # type: ignore[arg-type]
+        if campo.name not in _CAMPOS_IDENTIFICADORES
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class ContextoCampo:
     """Um campo de `EstadoFinanceiro`/`Divida`/`PerfilComportamental`/
-    `SinaisComportamentais`, já formatado para exibição ao revisor — nome do
-    campo (idêntico ao da spec canônica, `sdd.config.md` §7) e valor tal
-    como `_formatar_valor_ou_desconhecido` o resolveu."""
+    `SinaisComportamentais`, pronto para o revisor (`T-326`): `nome` é o
+    rótulo em português, `valor` o texto legível e `codigo` o nome técnico
+    (idêntico ao da spec canônica, `sdd.config.md` §7), mostrado só como
+    detalhe."""
 
     nome: str
     valor: str
+    codigo: str
 
 
-def _campos_de_apoio(instancia: object) -> tuple[ContextoCampo, ...]:
+def _campos_de_apoio(
+    instancia: object, textos: TextosCanonicosPlano, vocabulario: VocabularioDoCaso
+) -> tuple[ContextoCampo, ...]:
     """T-70 — todos os campos de uma dataclass `frozen` do motor
     (`EstadoFinanceiro`, `Divida`, `PerfilComportamental`,
-    `SinaisComportamentais`), na ordem declarada, cada um formatado por
-    `_formatar_valor_ou_desconhecido`. Leitura genérica por `dataclasses.
-    fields`/`getattr` — nenhum campo é escolhido a dedo, nenhum é omitido
-    (contexto obrigatório da tarefa: "TODOS os campos que precisam ser
-    exibidos ao revisor, incluindo os que são `Desconhecido`")."""
+    `SinaisComportamentais`), na ordem declarada. Leitura genérica por
+    `dataclasses.fields`/`getattr` — nenhum campo é escolhido a dedo, nenhum
+    é omitido além do identificador (`T-326`), que vai no cabeçalho."""
     return tuple(
         ContextoCampo(
-            nome=campo.name,
-            valor=_formatar_valor_ou_desconhecido(getattr(instancia, campo.name)),
+            nome=rotulo_de_codigo(textos.rotulos_de_dados, campo.name),
+            valor=_apresentar_dado(campo.name, getattr(instancia, campo.name), textos, vocabulario),
+            codigo=campo.name,
         )
         for campo in fields(instancia)  # type: ignore[arg-type]
+        if campo.name not in _CAMPOS_IDENTIFICADORES
+        and campo.name not in _CAMPOS_ESTADO_COM_SECAO_PROPRIA
     )
 
 
@@ -443,18 +517,18 @@ def _campos_de_apoio(instancia: object) -> tuple[ContextoCampo, ...]:
 class ContextoDivida:
     """Uma `Divida` de `estado_inputs.dividas`, com TODOS os seus campos
     formatados para exibição ao revisor (`RF-26`, `AC-29`) — inclusive os
-    que são `Desconhecido` (`GAB-03`/`AC-08`: saldo e pagamento
-    desconhecidos, reproduzidos pelo teste desta tarefa)."""
+    que são `Desconhecido` (`GAB-03`/`AC-08`). `nome` é "tipo — credor"
+    (`T-326`); `DIVIDA_ID`, o detalhe."""
 
     DIVIDA_ID: str
+    nome: str
     campos: tuple[ContextoCampo, ...]
 
 
 @dataclass(frozen=True, slots=True)
 class ContextoEstadoInputs:
     """T-70 (`RF-26`, `AC-29`) — os `estado_inputs` (`EstadoFinanceiro`)
-    completos que produziram o snapshot, prontos para
-    `report/templates/revisao/comparacao.html`. `campos` cobre os campos
+    completos que produziram o snapshot. `campos` cobre os campos
     escalares de `EstadoFinanceiro` (exceto `dividas`, `perfil_
     comportamental` e `sinais_comportamentais`, que ganham seções próprias
     abaixo, e não são duplicados aqui); `perfil_comportamental` e
@@ -476,36 +550,52 @@ _CAMPOS_ESTADO_COM_SECAO_PROPRIA: Final[frozenset[str]] = frozenset(
 )
 
 
-def montar_contexto_estado_inputs(estado: EstadoFinanceiro) -> ContextoEstadoInputs:
+def nomear_dividas(
+    dividas: Iterable[Divida], textos: TextosCanonicosPlano, vocabulario: VocabularioDoCaso
+) -> dict[str, str]:
+    """`RF-111` (`T-326`) — `DIVIDA_ID` → "Cheque especial — CAIXA
+    ECONOMICA FEDERAL". O tipo é o do snapshot, pelo rótulo da opção de
+    `B5.A02`; o credor, a resposta de `CREDOR` — o mesmo par que o alerta de
+    inventário mostra (`T-324`). Sem credor, só o tipo."""
+    nomes: dict[str, str] = {}
+    for divida in dividas:
+        tipo = _rotulo_de_opcao("TIPO_DIVIDA", divida.TIPO_DIVIDA.value, textos, vocabulario)
+        credor = vocabulario.credores.get(divida.DIVIDA_ID)
+        nomes[divida.DIVIDA_ID] = (
+            textos.nome_da_divida.format(tipo=tipo, credor=credor)
+            if credor and textos.nome_da_divida
+            else tipo
+        )
+    return nomes
+
+
+def montar_contexto_estado_inputs(
+    estado: EstadoFinanceiro,
+    textos: TextosCanonicosPlano,
+    vocabulario: VocabularioDoCaso | None = None,
+) -> ContextoEstadoInputs:
     """T-70 (`RF-26`, `AC-29`) — monta o contexto de exibição de
     `estado_inputs` para o revisor, a partir de um `EstadoFinanceiro` REAL
     (`SnapshotOrdem.estado_inputs`). Lei nº 3: só LÊ campos por `getattr`,
-    nunca calcula nada — cada valor passa por `_formatar_valor_ou_
-    desconhecido`, que é quem decide a formatação (nunca este função).
-
-    Todo campo de `EstadoFinanceiro`, `Divida`, `PerfilComportamental` e
-    `SinaisComportamentais` aparece no contexto resultante — nenhum é
-    omitido, e nenhum campo `DESCONHECIDO` vira `0` ou string vazia (ver
-    `_formatar_valor_ou_desconhecido`)."""
-    campos = tuple(
-        ContextoCampo(
-            nome=campo.name,
-            valor=_formatar_valor_ou_desconhecido(getattr(estado, campo.name)),
-        )
-        for campo in fields(estado)
-        if campo.name not in _CAMPOS_ESTADO_COM_SECAO_PROPRIA
-    )
-
-    dividas = tuple(
-        ContextoDivida(DIVIDA_ID=divida.DIVIDA_ID, campos=_campos_de_apoio(divida))
-        for divida in estado.dividas
-    )
+    nunca calcula nada — cada valor passa por `_apresentar_dado`, que é
+    quem decide a formatação (`T-326`: rótulo e valor legíveis)."""
+    vocabulario = vocabulario or VocabularioDoCaso()
+    nomes = nomear_dividas(estado.dividas, textos, vocabulario)
 
     return ContextoEstadoInputs(
-        campos=campos,
-        perfil_comportamental=_campos_de_apoio(estado.perfil_comportamental),
-        sinais_comportamentais=_campos_de_apoio(estado.sinais_comportamentais),
-        dividas=dividas,
+        campos=_campos_de_apoio(estado, textos, vocabulario),
+        perfil_comportamental=_campos_de_apoio(estado.perfil_comportamental, textos, vocabulario),
+        sinais_comportamentais=_campos_de_apoio(
+            estado.sinais_comportamentais, textos, vocabulario
+        ),
+        dividas=tuple(
+            ContextoDivida(
+                DIVIDA_ID=divida.DIVIDA_ID,
+                nome=nomes[divida.DIVIDA_ID],
+                campos=_campos_de_apoio(divida, textos, vocabulario),
+            )
+            for divida in estado.dividas
+        ),
     )
 
 
@@ -562,23 +652,33 @@ class ContextoAcaoRequerida:
     novo inventado para este caso."""
 
     DIVIDA_ID: str | None
+    #: `T-306`: o que o aluno precisa fazer, por `TIPO_ACAO`.
     descricao: str
     prioridade_excepcional: bool
+    #: `T-326`: "tipo — credor"; `None` na ação sem dívida (economia).
+    nome_divida: str | None = None
+    #: `T-306`: a `descricao` do motor (motivo do gate) — só ao revisor.
+    motivo: str = ""
 
 
-def _contexto_acoes(snapshot: SnapshotOrdem) -> tuple[ContextoAcaoRequerida, ...]:
+def _contexto_acoes(
+    snapshot: SnapshotOrdem, textos: TextosCanonicosPlano, nomes: Mapping[str, str]
+) -> tuple[ContextoAcaoRequerida, ...]:
     """`EC-07` — `ORDEM_ACOES` tal como o snapshot a devolveu, sem
     reordenar nem filtrar: leitura direta, campo a campo.
 
     T-92: `DIVIDA_ID` é repassado tal como veio de `AcaoRequerida` (`str |
-    None`) — a decisão de texto de exibição para `None` fica em
-    `ContextoAcaoRequerida`/nos templates, não aqui (esta função continua
-    sendo pura leitura, sem decidir apresentação)."""
+    None`). `T-306`: a descrição ao aluno vem de `textos-canonicos.yaml` por
+    `TIPO_ACAO`; o motivo técnico do gate segue em `motivo`."""
     return tuple(
         ContextoAcaoRequerida(
             DIVIDA_ID=acao.DIVIDA_ID,
-            descricao=acao.descricao,
+            descricao=rotulo_de_codigo(textos.descricao_da_acao, acao.TIPO_ACAO),
             prioridade_excepcional=acao.prioridade_excepcional,
+            nome_divida=None
+            if acao.DIVIDA_ID is None
+            else nomes.get(acao.DIVIDA_ID, acao.DIVIDA_ID),
+            motivo=acao.descricao,
         )
         for acao in snapshot.ORDEM_ACOES
     )
@@ -607,7 +707,8 @@ class ContextoPendencias:
     (`snapshot.estado_inputs`, `RF-16`)."""
 
     inventario_incompleto: bool  # estado_inputs.INVENTARIO_COMPLETO is False (B5.FIM02)
-    campos_faltantes_por_divida: tuple[tuple[str, tuple[str, ...]], ...]  # (DIVIDA_ID, campos)
+    #: (DIVIDA_ID, nome "tipo — credor" — `T-326`, campos)
+    campos_faltantes_por_divida: tuple[tuple[str, str, tuple[str, ...]], ...]
 
 
 def _campos_desconhecidos_da_divida(divida: Divida) -> tuple[str, ...]:
@@ -623,7 +724,9 @@ def _campos_desconhecidos_da_divida(divida: Divida) -> tuple[str, ...]:
 
 
 def _pendencias(
-    snapshot: SnapshotOrdem, rotulos: Mapping[str, str] | None = None
+    snapshot: SnapshotOrdem,
+    rotulos: Mapping[str, str] | None = None,
+    nomes: Mapping[str, str] | None = None,
 ) -> ContextoPendencias | None:
     """`EC-08` — monta o relato de pendências quando `ORDEM_STATUS =
     PROVISORIA`, por LEITURA de `snapshot.estado_inputs` — nunca recomputando
@@ -639,9 +742,14 @@ def _pendencias(
     # `VALOR_QUITACAO_HOJE`. Campo sem rótulo cadastrado mantém o nome
     # técnico — visível, nunca um rótulo inventado aqui.
     traduzir = rotulos or {}
+    nomes = nomes or {}
 
     campos_faltantes_por_divida = tuple(
-        (divida.DIVIDA_ID, tuple(traduzir.get(campo, campo) for campo in campos_da_divida))
+        (
+            divida.DIVIDA_ID,
+            nomes.get(divida.DIVIDA_ID, divida.DIVIDA_ID),
+            tuple(traduzir.get(campo, campo) for campo in campos_da_divida),
+        )
         for divida in snapshot.estado_inputs.dividas
         for campos_da_divida in (_campos_desconhecidos_da_divida(divida),)
         if campos_da_divida
@@ -686,9 +794,8 @@ def _reserva_mobilizavel(snapshot: SnapshotOrdem) -> ContextoReservaMobilizavel:
 
     O ramo desconhecido NUNCA passa por `_formatar_valor_de_apoio`: aquela
     função cai em `str(valor)` para o que não é `Decimal` e produziria
-    `"Desconhecido.DESCONHECIDO"`. E também não usa
-    `_formatar_valor_ou_desconhecido`, que é a convenção da tela do REVISOR
-    (rótulo técnico `"DESCONHECIDO"`, `RF-26`/`AC-29`) — adequada lá,
+    `"Desconhecido.DESCONHECIDO"`. E também não usa `_apresentar_dado`,
+    que é a convenção da tela do REVISOR (`RF-26`/`AC-29`) — adequada lá,
     inadequada aqui. `valor` fica `""` e a decisão de o que o aluno LÊ é do
     template (`reserva_mobilizavel.html`, redação pendente de `OQ-21`),
     mesma divisão de trabalho de `_pendencias`/`pendencias.html`.
@@ -720,6 +827,8 @@ class ContextoPosicao:
     indice: int  # 1-based: ordem de exibição na sequência (contagem, não valor financeiro)
     total: int  # len(ORDEM_QUITACAO) — contagem de itens, não valor financeiro (AC-42)
     DIVIDA_ID: str
+    #: `T-326`: "tipo — credor" — o título da posição; o código é detalhe.
+    nome: str
     #: Texto de AUDITORIA, do motor — vai só ao revisor (`RF-26`/`AC-29`;
     #: `T-305`). O próprio `engine/ordem.py` o declara "não prosa de usuário
     #: final".
@@ -767,6 +876,10 @@ class ContextoPlano:
     #: `T-304` (`DE-08`) — `diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA`, a
     #: capacidade que alimenta o cronograma (`AC-07`), formatada.
     valor_mensal_destinado: str = ""
+    #: `T-326` (`RF-111`) — rótulos do método recomendado e do cenário de
+    #: apresentação; o código continua em `cenario`, para os templates.
+    metodo: str = ""
+    rotulo_do_cenario: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -795,7 +908,7 @@ class ContextoCenarioAdicional:
 
 
 def _cenario_adicional(
-    snapshot: SnapshotOrdem, textos: TextosCanonicosPlano
+    snapshot: SnapshotOrdem, textos: TextosCanonicosPlano, nomes: Mapping[str, str]
 ) -> ContextoCenarioAdicional | None:
     """`None` quando o motor não projetou cenário adicional."""
     adicional_do_snapshot = snapshot.projecao_extraordinarios.cenario_adicional
@@ -806,7 +919,7 @@ def _cenario_adicional(
         explicacao=textos.cenario_adicional.get("explicacao", ""),
         PRAZO_TOTAL=_formatar_meses(adicional_do_snapshot.PRAZO_TOTAL),
         CUSTO_FUTURO_TOTAL=formatar_dinheiro_br(adicional_do_snapshot.CUSTO_FUTURO_TOTAL),
-        ordem=adicional_do_snapshot.ORDEM_QUITACAO,
+        ordem=tuple(nomes.get(d, d) for d in adicional_do_snapshot.ORDEM_QUITACAO),
         itens=tuple(
             ContextoAporte(
                 ITEM_ID=aporte.ITEM_ID,
@@ -832,8 +945,26 @@ def meses_de_quitacao(snapshot: SnapshotOrdem) -> dict[str, int] | None:
     }
 
 
+def rotulo_do_motivo_de_recalculo(snapshot: SnapshotOrdem, textos: TextosCanonicosPlano) -> str:
+    """`RF-111` (`T-326`) — o motivo do recálculo por rótulo. O
+    `MOTIVO_RECALCULO` do motor é texto de auditoria ("Nenhum
+    EVENTO_RECALCULO observado — … (R-02, AC-13)"); aqui se lê o
+    `EVENTO_RECALCULO` que o gerou. Sem evento, o primeiro snapshot da
+    cadeia é o primeiro cálculo."""
+    evento = snapshot.EVENTO_RECALCULO
+    if evento is not None:
+        chave = evento.value
+    elif snapshot.versao == 1:
+        chave = "SEM_EVENTO_PRIMEIRO_CALCULO"
+    else:
+        chave = "SEM_EVENTO"
+    return rotulo_de_codigo(textos.rotulos_de_codigos, chave)
+
+
 def montar_contexto_plano(
-    snapshot: SnapshotOrdem, textos: TextosCanonicosPlano
+    snapshot: SnapshotOrdem,
+    textos: TextosCanonicosPlano,
+    vocabulario: VocabularioDoCaso | None = None,
 ) -> ContextoPlano:
     """RF-20, RF-22, AC-16, AC-17, AC-42 (T-60); EC-07, EC-08, EC-09 (T-62) —
     monta o contexto Jinja2 de `plano.html` a partir de um `SnapshotOrdem`
@@ -862,13 +993,19 @@ def montar_contexto_plano(
     cenario_recomendado = snapshot.cenarios[snapshot.METODO_RECOMENDADO_PIQ]
     total_de_posicoes = len(snapshot.ORDEM_QUITACAO)  # contagem de itens, não valor financeiro
     quitacoes = meses_de_quitacao(snapshot) or {}
+    # `T-326`: a dívida por "tipo — credor", não por `DIVIDA_ID`.
+    nomes = nomear_dividas(
+        snapshot.estado_inputs.dividas, textos, vocabulario or VocabularioDoCaso()
+    )
 
+    cenario = decidir_cenario_apresentacao(snapshot)
     ordem = tuple(
         ContextoPosicao(
             posicao=posicao_do_snapshot.posicao,
             indice=indice,
             total=total_de_posicoes,
             DIVIDA_ID=posicao_do_snapshot.DIVIDA_ID,
+            nome=nomes.get(posicao_do_snapshot.DIVIDA_ID, posicao_do_snapshot.DIVIDA_ID),
             JUSTIFICATIVA_POSICAO=posicao_do_snapshot.JUSTIFICATIVA_POSICAO,
             # `T-177`: rótulo em português do aluno (de
             # `textos-canonicos.yaml`) e valor com unidade. Sem rótulo
@@ -902,9 +1039,9 @@ def montar_contexto_plano(
         CUSTO_FUTURO_TOTAL=formatar_dinheiro_br(cenario_recomendado.CUSTO_FUTURO_TOTAL),
         ENGINE_VERSION=snapshot.ENGINE_VERSION,
         PARAMETROS_VERSION=snapshot.PARAMETROS_VERSION,
-        cenario=decidir_cenario_apresentacao(snapshot),
-        acoes=_contexto_acoes(snapshot),
-        pendencias=_pendencias(snapshot, textos.rotulos_de_pendencia),
+        cenario=cenario,
+        acoes=_contexto_acoes(snapshot, textos, nomes),
+        pendencias=_pendencias(snapshot, textos.rotulos_de_pendencia, nomes),
         MODO_ESTABILIZACAO=snapshot.diagnostico.MODO_ESTABILIZACAO,
         # `T-177`: com `R$`. O template de estabilização deixou de
         # prefixá-lo — o valor chega pronto.
@@ -912,7 +1049,7 @@ def montar_contexto_plano(
             snapshot.diagnostico.RESULTADO_CAIXA_OBSERVADO
         ),
         reserva_mobilizavel=_reserva_mobilizavel(snapshot),
-        cenario_adicional=_cenario_adicional(snapshot, textos),
+        cenario_adicional=_cenario_adicional(snapshot, textos, nomes),
         nao_projetados=tuple(
             (item.ITEM_ID, item.motivo.value)
             for item in snapshot.projecao_extraordinarios.nao_projetados
@@ -920,4 +1057,8 @@ def montar_contexto_plano(
         valor_mensal_destinado=formatar_dinheiro_br(
             snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA
         ),
+        metodo=rotulo_de_codigo(
+            textos.rotulos_de_codigos, snapshot.METODO_RECOMENDADO_PIQ.value
+        ),
+        rotulo_do_cenario=rotulo_de_codigo(textos.rotulos_de_codigos, cenario.value),
     )

@@ -313,6 +313,7 @@ test('AC-85: o rodapé de ações fica visível com o conteúdo rolado', async (
     indice: i + 1,
     total: 12,
     DIVIDA_ID: `D${String(i + 1).padStart(3, '0')}`,
+    nome: `Empréstimo pessoal — BANCO ${i + 1}`,
     JUSTIFICATIVA_POSICAO:
       'Maior custo efetivo entre as dívidas elegíveis nesta projeção.',
     valores_de_apoio: [{ rotulo: 'SALDO_DEVEDOR_ATUAL', valor: '5000.00' }],
@@ -340,7 +341,8 @@ test('AC-85: o rodapé de ações fica visível com o conteúdo rolado', async (
           CUSTO_FUTURO_TOTAL: '1200.00',
           ENGINE_VERSION: '1.0.1',
           PARAMETROS_VERSION: '1.0.1',
-          cenario: 'RECOMENDADO',
+          metodo: 'Híbrido',
+          cenario: 'Ordem de quitação publicada',
           acoes: [],
           pendencias: null,
           MODO_ESTABILIZACAO: false,
@@ -631,6 +633,9 @@ test('AC-83 + AC-29: a fila abre a conferência do caso', async ({ page }) => {
             EVENTO_RECALCULO: null,
             METODO_RECOMENDADO_PIQ: 'HIBRIDO',
             STATUS_METODO: 'DEFINITIVO_NA_DATA',
+            metodo: 'Híbrido',
+            status_metodo: 'Definitivo na data',
+            motivo: 'Sem evento de recálculo',
             entra_por_politica: true,
             e_metodologico: false,
             ENGINE_VERSION: '1.0.1',
@@ -671,6 +676,9 @@ test('AC-83 + AC-29: a fila abre a conferência do caso', async ({ page }) => {
   // revisor não tinha como liberar plano nenhum pela interface.
   const abrir = page.getByRole('button', { name: /abrir para conferir/i })
   await expect(abrir).toBeVisible()
+  // `T-326` (`RF-111`): a fila mostra rótulos, não os códigos do motor.
+  await expect(page.getByText('Híbrido', { exact: true })).toBeVisible()
+  await expect(page.getByText('DEFINITIVO_NA_DATA')).toHaveCount(0)
   await abrir.click()
 
   await expect

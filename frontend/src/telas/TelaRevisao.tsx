@@ -162,16 +162,14 @@ export default function TelaRevisao({
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
               <dt className="text-muted">Data de referência</dt>
               <dd className="m-0 tabular-nums">{item.DATA_REFERENCIA}</dd>
+              {/* `T-326` (`RF-111`): rótulos do servidor, não os códigos do
+                  motor nem o `MOTIVO_RECALCULO` técnico. */}
               <dt className="text-muted">Método</dt>
-              <dd className="m-0">{item.METODO_RECOMENDADO_PIQ}</dd>
+              <dd className="m-0">{item.metodo}</dd>
               <dt className="text-muted">Status do método</dt>
-              <dd className="m-0">{item.STATUS_METODO}</dd>
-              {item.MOTIVO_RECALCULO && (
-                <>
-                  <dt className="text-muted">Motivo</dt>
-                  <dd className="m-0">{item.MOTIVO_RECALCULO}</dd>
-                </>
-              )}
+              <dd className="m-0">{item.status_metodo}</dd>
+              <dt className="text-muted">Motivo</dt>
+              <dd className="m-0">{item.motivo}</dd>
             </dl>
 
             {/* Dois chips, nunca um — ver a nota do cabeçalho. */}

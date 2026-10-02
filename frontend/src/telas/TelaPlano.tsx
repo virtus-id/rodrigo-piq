@@ -182,7 +182,8 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
                   {posicao.indice}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold">{posicao.DIVIDA_ID}</p>
+                  {/* `T-326` (`RF-111`): "tipo — credor", nunca o código. */}
+                  <p className="font-bold">{posicao.nome}</p>
                   {/*
                     `T-177`: o ALUNO lê a explicação em português. A
                     `JUSTIFICATIVA_POSICAO` técnica ("método BOLA_DE_NEVE,
@@ -232,8 +233,12 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
           <ul className="lista list-none p-0">
             {plano.acoes.map((acao, i) => (
               <li key={`${acao.DIVIDA_ID ?? 'sem-divida'}-${i}`} className="cartao">
+                {/* `T-306`: o que fazer, em português, por `TIPO_ACAO` — o
+                    motivo técnico do gate não vem ao aluno. */}
                 <p>{acao.descricao}</p>
-                {acao.DIVIDA_ID && <small className="text-muted">{acao.DIVIDA_ID}</small>}
+                {acao.nome_divida && (
+                  <small className="text-muted">{acao.nome_divida}</small>
+                )}
               </li>
             ))}
           </ul>
@@ -268,7 +273,7 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
             {plano.pendencias.inventario_incompleto && 'O inventário ainda não está completo. '}
             {plano.pendencias.campos_faltantes_por_divida.map((p) => (
               <span key={p.DIVIDA_ID} className="block">
-                {p.DIVIDA_ID}: falta {p.campos.join(', ')}
+                {p.nome}: falta {p.campos.join(', ')}
               </span>
             ))}
           </div>
@@ -310,11 +315,15 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
       {/* O ícone entra ANTES do texto e é `aria-hidden`: `plano.spec.ts:121`
           casa `/versão do cálculo 1\.0\.1/` por regex sobre o texto, que
           segue idêntico. */}
+      {/* `T-306`: o carimbo dizia "método ORDEM_VAZIA" — o código do
+          cenário. Agora, o rótulo do método, e só quando há ordem a seguir:
+          na ordem vazia e na estabilização o método ainda não está em uso. */}
       <p className="carimbo flex items-center gap-2">
         <Icone nome="conferencia" />
         <span>
           versão do cálculo {plano.ENGINE_VERSION} · parâmetros{' '}
-          {plano.PARAMETROS_VERSION} · método {plano.cenario}
+          {plano.PARAMETROS_VERSION}
+          {plano.ordem.length > 0 && !plano.MODO_ESTABILIZACAO && ` · método ${plano.metodo}`}
         </span>
       </p>
     </Tela>

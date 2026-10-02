@@ -12447,13 +12447,13 @@ cenário de apresentação (`ORDEM_VAZIA`, `ESTABILIZACAO`).
 
 **Critérios de aceite**
 
-- [ ] Descrição da ação ao aluno em português, de `textos-canonicos.yaml`
-      por `TIPO_ACAO` (redação a aprovar pelo produto)
-- [ ] Carimbo sem código de cenário
-- [ ] Tirar `descricao`/`cenario` das isenções do teste de `T-305`
-- [ ] Gates: lint, build, test
+- [x] Descrição da ação ao aluno em português, de `textos-canonicos.yaml`
+      por `TIPO_ACAO` (redação a aprovar pelo produto) — feito em `T-326`
+- [x] Carimbo sem código de cenário — feito em `T-326`
+- [x] Tirar `descricao`/`cenario` das isenções do teste de `T-305` — feito em `T-326`
+- [x] Gates: lint, build, test — em `T-326`
 
-**Status:** `[ ] pendente`
+**Status:** `[-] absorvida por T-326 (2026-10-02)`
 
 ---
 
@@ -13275,3 +13275,96 @@ formulário de ficha e nas complementares (thread).
 - [x] Gates: tsc, vitest, playwright
 
 **Status:** `[x] concluída` (2026-10-01)
+
+---
+
+### `T-326` — Plano e conferência em linguagem humana
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-305` · **Rastreia:** `RF-111`, `AC-174` (absorve `T-306`)
+- **Arquivos:** `report/plano.py`, `report/templates/plano/textos-canonicos.yaml`,
+  `app/http/serializacao_plano.py`, `app/http/rotas_revisao.py`, `app/revisao/fila.py`,
+  `frontend/src/telas/TelaEquipeCaso.tsx`, `frontend/src/telas/TelaPlano.tsx`,
+  `frontend/src/telas/TelaRevisao.tsx`, `frontend/src/tipos.ts` + testes
+
+Relato do produto (2026-10-02), na conferência do caso de teste: a ordem
+mostrava `D011` e "método HIBRIDO … D_ESTRELA … (H-05, H-06, H-07)"; os
+dados de entrada, `TIPO_DIVIDA = CONSIGNADO`, `CET = DESCONHECIDO` e até a
+representação Python de `RecursoExtraordinario(...)`; a fila, `HIBRIDO`,
+`DEFINITIVO_NA_DATA` e um motivo com `EVENTO_RECALCULO`/`R-02`.
+
+**Implementação.** `report/plano.py`: `VocabularioDoCaso` (rótulos das
+opções do registro por `VARIAVEL_GRAVADA` + credor de cada ficha, montado
+na aplicação por `serializacao_plano.vocabulario_do_caso`, que reaproveita
+`credor_da_ficha` de `T-324`); `nomear_dividas` ("{tipo} — {credor}", tipo
+pelo rótulo de `B5.A02`); `_apresentar_dado` no lugar de
+`_formatar_valor_ou_desconhecido` (R$, % a.m. por `formatar_taxa_br`,
+dd/mm/aaaa, escala "n de 10", Sim/Não, opção pelo registro, item composto
+campo a campo, `DESCONHECIDO` → "Não informado"); `rotulo_de_codigo` com
+fallback gerado do código; `rotulo_do_motivo_de_recalculo` (por
+`EVENTO_RECALCULO`; sem evento, "Primeiro cálculo…" na versão 1). Payload:
+`ordem[].nome`, `acoes[].nome_divida` + `descricao` por `TIPO_ACAO` (`motivo`
+técnico só ao revisor), `pendencias…[].nome`, `cenario_adicional.ordem` por
+nome, `metodo`/`cenario` como rótulo; fila com `metodo`, `status_metodo`,
+`motivo`; `estado_inputs` com `{nome: rótulo, valor, codigo}` e
+`dividas[].nome`. Rotas: plano do aluno, PDF e conferência montam o
+vocabulário (conferência e PDF passam a ler as respostas do caso). Telas:
+`TelaPlano` (nome, ação, pendência, carimbo "método {rótulo}" só com ordem
+e fora da estabilização), `TelaEquipeCaso` (nome + `<small>` código,
+explicação, `<details>` "Detalhe técnico", dados por seção com código
+discreto, inclusive perfil e sinais), `TelaRevisao` (rótulos).
+
+**Critérios de aceite**
+
+- [x] Dívida por "tipo — credor" no plano, nas ações e nas pendências;
+      código só como detalhe ao revisor
+- [x] Dados de entrada com rótulo e valor legíveis (opção pelo rótulo do
+      registro; R$, %, dd/mm/aaaa; listas; itens compostos item a item;
+      `DESCONHECIDO` → "Não informado")
+- [x] Método, status, cenário e motivo do recálculo por rótulo; justificativa
+      técnica em "Detalhe técnico" recolhido
+- [x] `T-306`: ações por `TIPO_ACAO` de `textos-canonicos.yaml`; carimbo sem
+      código de cenário; tirar `descricao`/`cenario` das isenções do teste de `T-305`
+- [x] Tradução no servidor/relatório; `engine/` intocado; cliente não traduz
+- [x] Teste de `AC-174` (inclui varredura: nenhum texto principal com CAIXA_ALTA_COM_UNDERLINE, `D0nn` ou repr)
+      — `tests/app_aluno/test_t326_linguagem_humana.py` (falha antes: `ImportError`
+      de `VocabularioDoCaso`); glossário completo cobrado por
+      `test_t326_todo_dado_de_entrada_tem_rotulo` e
+      `test_t326_todo_valor_de_dominio_tem_rotulo`; vitest `TelaPlano`,
+      `TelaEquipeCaso`, `TelaRevisao` (novo); Playwright `plano.spec.ts`,
+      `navegacao.spec.ts`
+- [x] Gates: lint, build, test, tsc, vitest, Playwright (pytest: única falha é
+      `test_ambiente_confirma_que_navegador_real_nao_substitui_axe_core`, de
+      ambiente — pacote Python `playwright` não instalado; independe desta tarefa)
+
+**Textos novos — a aprovar pelo produto** (redação da equipe técnica, em
+`report/templates/plano/textos-canonicos.yaml`, exceto os dois títulos da
+conferência):
+
+- Nome da dívida: "{tipo} — {credor}" (sem credor, só o tipo).
+- Ações ao aluno (`descricao_da_acao`): INFORMACAO "Informar o dado que
+  falta desta dívida, para que ela possa entrar na ordem."; RENEGOCIACAO
+  "Procurar o credor para renegociar ou conter o risco desta dívida antes
+  de atacá-la."; TROCA "Avaliar a troca desta dívida por uma mais barata
+  antes de atacá-la."; ECONOMIA "Colocar no orçamento a economia que já foi
+  identificada nos seus gastos."
+- Método/status/cenário/motivo (`rotulos_de_codigos`): Avalanche, Bola de
+  neve, Híbrido; Definitivo na data, Provisório; "Ordem de quitação
+  publicada", "Ordem vazia: ações antes do ataque", "Estabilização do
+  orçamento"; "Primeiro cálculo, sem evento de recálculo", "Sem evento de
+  recálculo", Quitação confirmada, Alteração de renda, Alteração de
+  despesas, Nova dívida, Renegociação executada, Troca de dívida executada,
+  Valor extraordinário recebido, Informação relevante nova, Mudança
+  patrimonial, Proposta temporária, Alteração de risco, Outra mudança
+  relevante.
+- Valores sem opção no registro (`rotulos_de_codigos`): Não informado,
+  Nenhum, Sim, Não, Talvez; Vigente, Expirada, Validade desconhecida; Alta,
+  Média, Baixa; Imóvel, Veículo, Outro bem; Só em último caso, Já pretende
+  vender; Essencial, Importante, Parcialmente essencial, Não essencial.
+- Rótulos dos 77 dados de entrada (`rotulos_de_dados`), ex.: "Data de
+  referência", "Renda total recorrente", "Taxa de juros mensal", "Custo
+  efetivo total (CET)", "Valores extraordinários", "Valor"/"Quando"/"Certeza"
+  (itens do valor extraordinário) — lista completa no YAML.
+- Conferência (`TelaEquipeCaso`): "Detalhe técnico", "Como lida com os
+  gastos", "Sinais de comportamento".
+
+**Status:** `[x] concluída (2026-10-02)`

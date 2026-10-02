@@ -25,12 +25,23 @@ REGRAS: `RF-50`, `RF-51`, `RF-21`, `AC-14`, `AC-16`
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, Final
 
+from app.casos.inventario import credor_da_ficha
 from app.revisao.comprovacao import NivelDaFicha
 from app.revisao.fila import ItemFila
-from report.plano import ContextoEstadoInputs, ContextoPlano, TextosCanonicosPlano
+from collection.registro import RegistroPergunta
+from collection.respostas import RespostasCaso
+from report.plano import (
+    ContextoCampo,
+    ContextoEstadoInputs,
+    ContextoPlano,
+    TextosCanonicosPlano,
+    VocabularioDoCaso,
+    rotulo_de_codigo,
+    rotulo_do_motivo_de_recalculo,
+)
 
 REGRAS: Final[tuple[str, ...]] = ("RF-50", "RF-51", "RF-21", "AC-14", "AC-16")
 
@@ -52,6 +63,31 @@ def fontes_por_divida(
     for nivel in niveis:
         fontes.setdefault(nivel.item_id, rotulo_do_nivel(nivel, textos))
     return fontes
+
+
+def vocabulario_do_caso(
+    registros: tuple[RegistroPergunta, ...],
+    respostas: RespostasCaso,
+    dividas: Iterable[str],
+) -> VocabularioDoCaso:
+    """`RF-111` (`T-326`) — o que `report/` precisa para dar nome às coisas:
+    o `rotulo` de cada opção do registro, por `VARIAVEL_GRAVADA` (a primeira
+    pergunta que grava a variável vence), e o credor de cada dívida — o
+    mesmo de `T-324`. Só leitura de registro e de resposta."""
+    rotulos: dict[str, dict[str, str]] = {}
+    for registro in registros:
+        if registro.VARIAVEL_GRAVADA is None:
+            continue
+        opcoes = rotulos.setdefault(registro.VARIAVEL_GRAVADA, {})
+        for opcao in registro.opcoes:
+            if opcao.valor_interno is not None:
+                opcoes.setdefault(opcao.valor_interno, opcao.rotulo)
+    credores = {
+        divida: credor
+        for divida in dividas
+        if (credor := credor_da_ficha(respostas, divida)) is not None
+    }
+    return VocabularioDoCaso(rotulos_de_opcao=rotulos, credores=credores)
 
 
 def serializar_plano(
@@ -78,7 +114,11 @@ def serializar_plano(
     `orientacoes_seguro` (`T-245`, `RF-82`): `DIVIDA_ID` → orientação sobre
     o seguro prestamista, só para dívida com seguro; `None` nas demais.
 
-    `para_revisor` (`T-305`): só o revisor recebe `JUSTIFICATIVA_POSICAO`.
+    `para_revisor` (`T-305`): só o revisor recebe `JUSTIFICATIVA_POSICAO`
+    e (`T-326`) o motivo técnico de cada ação.
+
+    `T-326` (`RF-111`): a dívida vai por `nome` ("tipo — credor"); o
+    `DIVIDA_ID` segue como identificador. `metodo` e `cenario` são rótulos.
     """
     fontes = fontes or {}
     orientacoes_seguro = orientacoes_seguro or {}
@@ -91,6 +131,7 @@ def serializar_plano(
                 "indice": posicao.indice,
                 "total": posicao.total,
                 "DIVIDA_ID": posicao.DIVIDA_ID,
+                "nome": posicao.nome,
                 # `JUSTIFICATIVA_POSICAO` é o texto de AUDITORIA do motor —
                 # o revisor precisa dele para refazer a decisão (`AC-29`).
                 # `explicacao` (T-177) é o mesmo "porquê" dito ao ALUNO.
@@ -117,14 +158,15 @@ def serializar_plano(
         "valor_mensal_destinado": contexto.valor_mensal_destinado,
         "ENGINE_VERSION": contexto.ENGINE_VERSION,
         "PARAMETROS_VERSION": contexto.PARAMETROS_VERSION,
-        "cenario": contexto.cenario.value
-        if hasattr(contexto.cenario, "value")
-        else str(contexto.cenario),
+        "metodo": contexto.metodo,
+        "cenario": contexto.rotulo_do_cenario,
         "acoes": [
             {
                 "DIVIDA_ID": acao.DIVIDA_ID,
+                "nome_divida": acao.nome_divida,
                 "descricao": acao.descricao,
                 "prioridade_excepcional": acao.prioridade_excepcional,
+                **({"motivo": acao.motivo} if para_revisor else {}),
             }
             for acao in contexto.acoes
         ],
@@ -133,8 +175,8 @@ def serializar_plano(
         else {
             "inventario_incompleto": contexto.pendencias.inventario_incompleto,
             "campos_faltantes_por_divida": [
-                {"DIVIDA_ID": divida, "campos": list(campos)}
-                for divida, campos in contexto.pendencias.campos_faltantes_por_divida
+                {"DIVIDA_ID": divida, "nome": nome, "campos": list(campos)}
+                for divida, nome, campos in contexto.pendencias.campos_faltantes_por_divida
             ],
         },
         "MODO_ESTABILIZACAO": contexto.MODO_ESTABILIZACAO,
@@ -166,8 +208,12 @@ def serializar_plano(
     }
 
 
-def serializar_item_da_fila(item: ItemFila) -> dict[str, Any]:
+def serializar_item_da_fila(item: ItemFila, textos: TextosCanonicosPlano) -> dict[str, Any]:
     """Uma linha da fila de revisão.
+
+    `T-326` (`RF-111`): `metodo`, `status_metodo` e `motivo` são os rótulos
+    que a tela mostra; os códigos e o `MOTIVO_RECALCULO` do motor seguem
+    como detalhe.
 
     `entra_por_politica` e `e_metodologico` seguem SEPARADOS — um teste
     estático falha se forem combinados num único booleano. São coisas
@@ -197,6 +243,11 @@ def serializar_item_da_fila(item: ItemFila) -> dict[str, Any]:
             if hasattr(snapshot.STATUS_METODO, "value")
             else str(snapshot.STATUS_METODO)
         ),
+        "metodo": rotulo_de_codigo(
+            textos.rotulos_de_codigos, snapshot.METODO_RECOMENDADO_PIQ.value
+        ),
+        "status_metodo": rotulo_de_codigo(textos.rotulos_de_codigos, snapshot.STATUS_METODO.value),
+        "motivo": rotulo_do_motivo_de_recalculo(snapshot, textos),
         "entra_por_politica": item.entra_por_politica,
         "e_metodologico": item.e_metodologico,
         "ENGINE_VERSION": snapshot.ENGINE_VERSION,
@@ -218,19 +269,16 @@ def serializar_estado_inputs(contexto: ContextoEstadoInputs) -> dict[str, Any]:
     Nenhum campo é omitido: o revisor compara o plano contra o estado
     COMPLETO, e um campo ausente da tela é um campo que ninguém confere.
     """
+    def campos(lista: Iterable[ContextoCampo]) -> list[dict[str, str]]:
+        # `T-326`: `nome` é o rótulo; `codigo`, o nome técnico (detalhe).
+        return [{"nome": c.nome, "valor": c.valor, "codigo": c.codigo} for c in lista]
+
     return {
-        "campos": [{"nome": c.nome, "valor": c.valor} for c in contexto.campos],
-        "perfil_comportamental": [
-            {"nome": c.nome, "valor": c.valor} for c in contexto.perfil_comportamental
-        ],
-        "sinais_comportamentais": [
-            {"nome": c.nome, "valor": c.valor} for c in contexto.sinais_comportamentais
-        ],
+        "campos": campos(contexto.campos),
+        "perfil_comportamental": campos(contexto.perfil_comportamental),
+        "sinais_comportamentais": campos(contexto.sinais_comportamentais),
         "dividas": [
-            {
-                "DIVIDA_ID": d.DIVIDA_ID,
-                "campos": [{"nome": c.nome, "valor": c.valor} for c in d.campos],
-            }
+            {"DIVIDA_ID": d.DIVIDA_ID, "nome": d.nome, "campos": campos(d.campos)}
             for d in contexto.dividas
         ],
     }

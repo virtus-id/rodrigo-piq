@@ -256,7 +256,13 @@ export interface PosicaoDaOrdem {
   posicao: number
   indice: number
   total: number
+  /** Identificador — chave da lista; ao revisor, detalhe discreto. */
   DIVIDA_ID: string
+  /**
+   * A dívida como o aluno a reconhece — "Cheque especial — CAIXA ECONOMICA
+   * FEDERAL" (`RF-111`, `T-326`). Montado pelo servidor; nunca o código.
+   */
+  nome: string
   /**
    * O texto de AUDITORIA do motor — cita método, critério normativo e
    * regras de desempate (`O-04`/`O-05`). É o que o revisor precisa para
@@ -291,13 +297,18 @@ export interface PosicaoDaOrdem {
 
 export interface AcaoRequerida {
   DIVIDA_ID: string | null
+  /** "tipo — credor" (`T-326`); `null` na ação sem dívida (economia). */
+  nome_divida: string | null
+  /** O que fazer, em português, por `TIPO_ACAO` (`T-306`). */
   descricao: string
   prioridade_excepcional: boolean
+  /** O motivo técnico do gate — só no payload do REVISOR (`T-306`). */
+  motivo?: string
 }
 
 export interface Pendencias {
   inventario_incompleto: boolean
-  campos_faltantes_por_divida: { DIVIDA_ID: string; campos: string[] }[]
+  campos_faltantes_por_divida: { DIVIDA_ID: string; nome: string; campos: string[] }[]
 }
 
 /** `AC-70`: reserva desconhecida é estado explícito, nunca `R$ 0,00`. */
@@ -317,6 +328,9 @@ export interface Plano {
   valor_mensal_destinado?: string
   ENGINE_VERSION: string
   PARAMETROS_VERSION: string
+  /** Rótulo do método recomendado ("Híbrido") — `T-326`. */
+  metodo: string
+  /** Rótulo do cenário de apresentação — `T-326`; nunca o código. */
   cenario: string
   acoes: AcaoRequerida[]
   pendencias: Pendencias | null
@@ -360,6 +374,13 @@ export interface ItemDaFila {
   EVENTO_RECALCULO: string | null
   METODO_RECOMENDADO_PIQ: string
   STATUS_METODO: string
+  /**
+   * Rótulos do servidor (`RF-111`, `T-326`): o que a tela mostra. Os
+   * códigos acima e o `MOTIVO_RECALCULO` do motor ficam como detalhe.
+   */
+  metodo: string
+  status_metodo: string
+  motivo: string
   /** Os dois sinais seguem SEPARADOS — política do piloto × sinal do motor. */
   entra_por_politica: boolean
   e_metodologico: boolean

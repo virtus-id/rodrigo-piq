@@ -44,6 +44,9 @@ const CASO = {
     EVENTO_RECALCULO: null,
     METODO_RECOMENDADO_PIQ: 'AVALANCHE',
     STATUS_METODO: 'DEFINITIVO_NA_DATA',
+    metodo: 'Avalanche',
+    status_metodo: 'Definitivo na data',
+    motivo: 'Primeiro cálculo, sem evento de recálculo',
     entra_por_politica: true,
     e_metodologico: false,
     ENGINE_VERSION: 'e',
@@ -51,8 +54,8 @@ const CASO = {
   },
 } as unknown as CasoParaRevisao
 
-function montar(opcoes: OpcoesDeDecisao) {
-  vi.spyOn(api, 'obterCasoParaRevisao').mockResolvedValue(CASO)
+function montar(opcoes: OpcoesDeDecisao, caso: CasoParaRevisao = CASO) {
+  vi.spyOn(api, 'obterCasoParaRevisao').mockResolvedValue(caso)
   vi.spyOn(api, 'obterOpcoesDeDecisao').mockResolvedValue(opcoes)
   render(<TelaEquipeCaso casoId="CASO-1" voltar={vi.fn()} />)
 }
@@ -120,5 +123,84 @@ describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
     expect(secao).toHaveTextContent('Custo total de jurosR$ 321,00')
     expect(secao).toHaveTextContent('não disponívelRESERVA_RECOMENDADA não gravada (R9-6)')
     expect(secao).toHaveTextContent('Pode ser homologadosim')
+  })
+})
+
+describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
+  const JUSTIFICATIVA =
+    'Posição 1: D011 — método HIBRIDO, critério: D_ESTRELA prioritária (H-05, H-06, H-07).'
+
+  function casoComDados(): CasoParaRevisao {
+    return {
+      ...CASO,
+      plano: {
+        ...CASO.plano,
+        ordem: [
+          {
+            posicao: 1,
+            indice: 1,
+            total: 1,
+            DIVIDA_ID: 'D011',
+            nome: 'Cheque especial — CAIXA ECONOMICA FEDERAL',
+            JUSTIFICATIVA_POSICAO: JUSTIFICATIVA,
+            explicacao: 'É a dívida que mais destrava o seu orçamento agora.',
+            valores_de_apoio: [],
+          },
+        ],
+      },
+      estado_inputs: {
+        campos: [
+          { nome: 'Renda total recorrente', valor: 'R$ 10.350,92', codigo: 'RENDA_TOTAL_RECORRENTE' },
+        ],
+        perfil_comportamental: [
+          { nome: 'Registro dos gastos', valor: 'A maior parte, mas alguns ficam de fora.', codigo: 'REGISTRO_GASTOS' },
+        ],
+        sinais_comportamentais: [],
+        dividas: [
+          {
+            DIVIDA_ID: 'D011',
+            nome: 'Cheque especial — CAIXA ECONOMICA FEDERAL',
+            campos: [{ nome: 'Custo efetivo total (CET)', valor: 'Não informado', codigo: 'CET' }],
+          },
+        ],
+      },
+    }
+  }
+
+  it('posição por "tipo — credor" e explicação; justificativa só no detalhe recolhido', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, casoComDados())
+
+    expect(
+      await screen.findAllByText('Cheque especial — CAIXA ECONOMICA FEDERAL', { exact: false }),
+    ).not.toHaveLength(0)
+    expect(
+      screen.getByText('É a dívida que mais destrava o seu orçamento agora.'),
+    ).toBeInTheDocument()
+    const justificativa = screen.getByText(JUSTIFICATIVA)
+    expect(justificativa.closest('details')).not.toBeNull()
+    expect(justificativa.closest('details')).not.toHaveAttribute('open')
+    expect(screen.getByText('Detalhe técnico')).toBeInTheDocument()
+  })
+
+  it('dados com rótulo e valor do servidor; o código fica como detalhe', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, casoComDados())
+
+    const cet = (await screen.findByText('Custo efetivo total (CET)', { exact: false })).closest('dt')
+    expect(cet).toHaveTextContent('Custo efetivo total (CET) CET')
+    expect(cet?.nextElementSibling).toHaveTextContent('Não informado')
+    expect(screen.getByText('R$ 10.350,92')).toBeInTheDocument()
+    expect(screen.getByText('A maior parte, mas alguns ficam de fora.')).toBeInTheDocument()
+    expect(
+      screen.getByRole('region', { name: 'Cheque especial — CAIXA ECONOMICA FEDERAL' }),
+    ).toHaveTextContent('D011')
+  })
+
+  it('método e status por rótulo no carimbo', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] })
+
+    expect(
+      await screen.findByText(/Método: Avalanche · Definitivo na data/),
+    ).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain('DEFINITIVO_NA_DATA')
   })
 })

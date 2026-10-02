@@ -236,11 +236,10 @@ def _detalhe_das_dividas(
     fichas = []
     for item_id in cadastradas:
         tipo = respostas.valor_no_item(item_id, _TIPO_DA_FICHA)
-        credor = respostas.valor_no_item(item_id, _CREDOR)
         fichas.append(
             FichaDeDivida(
                 item_id=item_id,
-                credor=credor if isinstance(credor, str) and credor.strip() else None,
+                credor=credor_da_ficha(respostas, item_id),
                 tipo=rotulos_da_ficha.get(tipo) if isinstance(tipo, str) else None,
             )
         )
@@ -253,6 +252,13 @@ def _detalhe_das_dividas(
         fichas=tuple(fichas),
         ficha_vazia=next((i for i in todas if i not in cadastradas), None),
     )
+
+
+def credor_da_ficha(respostas: RespostasCaso, item_id: str) -> str | None:
+    """T-324 — o credor da ficha de dívida, `None` enquanto não respondido.
+    Também nomeia a dívida no plano e na conferência (`T-326`)."""
+    credor = respostas.valor_no_item(item_id, _CREDOR)
+    return credor if isinstance(credor, str) and credor.strip() else None
 
 
 def _rotulos(registros: tuple[RegistroPergunta, ...], variavel: str) -> dict[str, str]:

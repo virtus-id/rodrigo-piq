@@ -190,20 +190,20 @@ def test_ec07_ordem_acoes_e_o_conteudo_principal_quando_presente() -> None:
     template = ambiente.get_template("ordem_vazia.html")
     acao = ContextoAcaoRequerida(
         DIVIDA_ID="D-EC07",
-        descricao="D-EC07: risco material iminente — ação exigida antes do ataque.",
+        descricao="Procurar o credor para conter o risco desta dívida.",
         prioridade_excepcional=False,
+        nome_divida="Cheque especial — CAIXA ECONOMICA FEDERAL",
+        motivo="D-EC07: risco material iminente — ação exigida antes do ataque.",
     )
 
     html = template.render(acoes=(acao,))
 
-    # T-92: ContextoAcaoRequerida.DIVIDA_ID é `str | None` (ação de economia,
-    # RF-33, não tem dívida) — este teste usa uma ação de gate concreta
-    # ("D-EC07"), então a asserção de não-nulidade documenta a garantia
-    # antes do `in` (mypy --strict não aceita `str | None` como operando de
-    # `in` sobre `str`).
-    assert acao.DIVIDA_ID is not None
-    assert acao.DIVIDA_ID in html
+    # `T-326`/`T-306`: o aluno lê o nome da dívida e o que fazer; o código e
+    # o motivo técnico do gate ficam para o revisor.
+    assert acao.nome_divida is not None
+    assert acao.nome_divida in html
     assert acao.descricao in html
+    assert "D-EC07" not in html
 
 
 # ---------------------------------------------------------------------------

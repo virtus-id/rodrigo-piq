@@ -57,8 +57,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
+from app.http.rotas_coleta import obter_colecao_de_registros, obter_repositorio_respostas
+from app.http.serializacao_plano import vocabulario_do_caso
+from collection.carga import ColecaoDeRegistros
+from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
 from persistencia.app_aluno.casos import RepositorioCasos
+from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import (
     ErroSnapshotNaoEncontrado,
     RepositorioSnapshotsSupabase,
@@ -101,6 +106,8 @@ def exportar_pdf_do_plano(
     repositorio_snapshots: Annotated[
         RepositorioSnapshots, Depends(obter_repositorio_snapshots)
     ],
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
+    repositorio_respostas: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
 ) -> Response:
     """Serve o PDF do snapshot **liberado** do caso — nunca o último
     calculado (`AC-25`). Chama `report.pdf.gerar_pdf_do_plano`, que por sua
@@ -122,9 +129,15 @@ def exportar_pdf_do_plano(
         ) from erro
 
     textos = carregar_textos_canonicos()
+    # `T-326` (`RF-111`): no PDF, como na tela, a dívida por "tipo — credor".
+    vocabulario = vocabulario_do_caso(
+        colecao.registros,
+        RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID)),
+        (divida.DIVIDA_ID for divida in snapshot.estado_inputs.dividas),
+    )
 
     try:
-        pdf_bytes = gerar_pdf_do_plano(caso, snapshot, textos)
+        pdf_bytes = gerar_pdf_do_plano(caso, snapshot, textos, vocabulario)
     except ErroSnapshotNaoLiberado as erro:
         # Defensivo: `caso.snapshot_liberado_id` já filtrou isso acima — só
         # ocorreria se o snapshot obtido não bater com o SNAPSHOT_ID pedido,

@@ -427,6 +427,17 @@ com a redação canônica obrigatória.
 | `RF-109` | Nas perguntas de valor (`MOEDA`, `TAXA`, `NUMERO`, `DATA`), **todas as alternativas não numéricas do registro, inclusive "Não sei", aparecem no mesmo formato**: um grupo de opções exclusivas (estilo `.opt`) junto ao campo de valor — nada de checkbox à parte. Escolher uma alternativa limpa o campo; digitar um valor desmarca a alternativa. A gravação não muda (`NAO_SEI`, o código da alternativa ou o valor). Vale na tela da pergunta e no formulário de ficha. Nas perguntas de seleção segue `T-207`. Revisa `AC-78` nos tipos de valor: "inerte" passa a ser campo vazio, não travado | Decisão do produto (2026-10-01) · `RF-11`, `RF-48`, `RF-50`, `AC-78` · `T-323` | importante |
 | `RF-110` | O alerta de dívidas faltando (`RF-87`) **diz quais**: abaixo da mensagem de `RF-87` (literal, primeira linha), os **tipos marcados na declaração de tipos (`B5.00A`) que ainda não têm nenhuma ficha** daquele tipo (`TIPO_DIVIDA`, pelo rótulo legível) e as **fichas já cadastradas** (credor e tipo de cada uma), com a ação "Cadastrar a próxima dívida", que reabre a ficha criada e vazia ou cria uma e abre a primeira pergunta (`RF-101`). Como a declaração dá só o total, não há contagem por tipo. Cálculo no servidor (payload de `/inventario`); o cliente só escreve | Decisão do produto (2026-10-01) · `RF-86`, `RF-87`, `RF-101`, `DE-04` · `T-324` | importante |
 
+### Rodada 11 (2026-10-02) — Plano e conferência em linguagem humana
+
+> **Decisão do responsável do produto, 2026-10-02**, após ver o plano do
+> caso de teste na conferência: "o relatório gerado está usando siglas do
+> sistema, deveria ser mais humano para que possamos interpretar". Rótulos
+> novos: redação da equipe técnica, a aprovar pelo produto (lista em `T-326`).
+
+| ID | Requisito | Regras / seções / IDs de origem | Prioridade |
+| --- | --- | --- | --- |
+| `RF-111` | **Nenhum código interno é o texto principal do plano (aluno) nem da conferência (revisor).** (a) A dívida é identificada pelo **tipo legível e credor** ("Cheque especial — CAIXA ECONOMICA FEDERAL") na ordem, nas ações e nas pendências; o código (`D011`) aparece só ao revisor, como detalhe discreto. (b) Na conferência, cada dado de entrada (`estado_inputs`) tem **rótulo em português** e **valor legível**: opção pelo rótulo do registro, moeda em R$, taxa em %, data dd/mm/aaaa, lista separada por vírgula, item composto (ex.: valores extraordinários) descrito item a item — nunca a representação interna; `DESCONHECIDO` vira "Não informado". (c) Método, status do método, cenário e motivo do recálculo aparecem por rótulo; a justificativa técnica da posição (`JUSTIFICATIVA_POSICAO`) fica num "Detalhe técnico" recolhido, e o texto principal é a explicação já mostrada ao aluno. (d) Absorve `T-306`: a descrição das ações requeridas ao aluno vem de `textos-canonicos.yaml` por `TIPO_ACAO`, e o carimbo não mostra código de cenário. A tradução é do relatório/servidor; o motor (`engine/`) não muda e o cliente não traduz códigos | Decisão do produto (2026-10-02) · `EC-07`, `AC-17`, `RF-92`, `T-177`, `T-306` · `T-326` | importante |
+
 ## 3. User Stories
 
 ### `US-01` — Responder em várias sessões sem perder nada
@@ -980,6 +991,14 @@ Atende: `RF-98`
 | --- | --- | --- |
 | `AC-172` | `US-18` | Dada uma pergunta de valor como `B4.V09` (alternativa "Não há custo relevante…" e "Não sei."), quando renderizada, então as duas são opções `.opt` do mesmo grupo e não há checkbox; marcar "Não sei." grava `NAO_SEI` e esvazia o campo; marcar a alternativa grava o código e desmarca "Não sei."; digitar um valor desmarca ambas. Dada uma pergunta de valor só com "não sei", então ele é opção do grupo, não checkbox (`T-323`) |
 | `AC-173` | `US-28` | Dadas 12 dívidas declaradas, os tipos `CONSIGNADO`, `PESSOAL` e `CARTAO_ROTATIVO` marcados, uma ficha `PESSOAL` com credor, uma sem tipo e uma criada vazia, quando `/inventario` for pedido, então a mensagem é "Você declarou 12 dívidas e cadastrou 2. Faltam 10 fichas." e `dividas` traz `tipos_sem_ficha` = consignado e cartão rotativo (rótulos), as duas fichas com credor/tipo e `ficha_vazia`; e na tela, "Cadastrar a próxima dívida" abre a ficha vazia ou, sem ela, cria uma (`T-324`) |
+
+### Rodada 11 (2026-10-02) — Plano e conferência em linguagem humana
+
+> **Rastreabilidade `RF` → `AC`.** `RF-111` → `AC-174`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-174` | `US-28` | Dado um caso calculado com um cheque especial da CAIXA (`D011`), um consignado com `CET` desconhecido e um valor extraordinário, quando a conferência e o plano forem pedidos, então: a posição do cheque especial diz "Cheque especial — CAIXA ECONOMICA FEDERAL"; nenhum texto principal do payload de plano/conferência contém nome de variável em CAIXA_ALTA, código de opção ou `D0nn` (só os campos de detalhe/identificador); o `CET` desconhecido aparece como "Não informado"; o valor extraordinário aparece por item ("R$ 15.000,00 · em 1 a 3 meses · …"), sem `RecursoExtraordinario(`; método "Híbrido"; e a justificativa técnica só no detalhe recolhido (`T-326`) |
 
 ## 5. Non-Functional Requirements
 

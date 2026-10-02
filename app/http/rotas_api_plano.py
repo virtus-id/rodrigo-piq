@@ -64,6 +64,7 @@ from app.http.serializacao_plano import (
     serializar_estado_inputs,
     serializar_item_da_fila,
     serializar_plano,
+    vocabulario_do_caso,
 )
 from app.revisao.comprovacao import niveis_por_ficha
 from app.revisao.fila import (
@@ -74,12 +75,14 @@ from app.revisao.fila import (
 from collection.carga import ColecaoDeRegistros
 from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
+from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.casos import RepositorioCasos
 from persistencia.app_aluno.itens import RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
 from report.pdf import snapshot_tem_liberacao_registrada
 from report.plano import (
+    VocabularioDoCaso,
     carregar_textos_canonicos,
     montar_contexto_estado_inputs,
     montar_contexto_plano,
@@ -98,6 +101,17 @@ class ErroCasoDesaparecidoAposIsolamento(Exception):
 
     def __init__(self, caso_id: str) -> None:
         super().__init__(f"CASO_ID={caso_id!r} desapareceu após isolamento")
+
+
+def _vocabulario(
+    colecao: ColecaoDeRegistros, respostas: RespostasCaso, snapshot: SnapshotOrdem
+) -> VocabularioDoCaso:
+    """`T-326` — o vocabulário do caso para as dívidas DESTE snapshot."""
+    return vocabulario_do_caso(
+        colecao.registros,
+        respostas,
+        (divida.DIVIDA_ID for divida in snapshot.estado_inputs.dividas),
+    )
 
 
 @roteador.get("/caso/{CASO_ID}/api/plano")
@@ -171,12 +185,15 @@ def plano_do_aluno(
         )
 
     textos = carregar_textos_canonicos()
-    contexto = montar_contexto_plano(snapshot, textos)
     respostas, itens_por_escopo = duas_em_paralelo(
         lambda: repositorio_respostas.listar_do_caso(CASO_ID),
         lambda: _itens_por_escopo(repositorio_itens, CASO_ID),
     )
     respostas_do_caso = RespostasCaso(respostas=respostas)
+    # `T-326` (`RF-111`): a dívida por "tipo — credor", nunca pelo código.
+    contexto = montar_contexto_plano(
+        snapshot, textos, _vocabulario(colecao, respostas_do_caso, snapshot)
+    )
     niveis = niveis_por_ficha(colecao.registros, respostas_do_caso, itens_por_escopo)
     # `T-245` (`RF-82`): orientação só na dívida com seguro prestamista.
     orientacoes_seguro = {
@@ -214,7 +231,8 @@ def fila_de_revisao(
     # pela MESMA consulta de estado.
     casos_ids = repositorio_casos.listar_por_estado(ESTADO_CASO.AGUARDANDO_REVISAO)
     itens = listar_fila_de_revisao(list(casos_ids), repositorio_casos, repositorio_snapshots)
-    return JSONResponse({"itens": [serializar_item_da_fila(item) for item in itens]})
+    textos = carregar_textos_canonicos()
+    return JSONResponse({"itens": [serializar_item_da_fila(item, textos) for item in itens]})
 
 
 @roteador.get("/api/revisao/caso/{CASO_ID_REVISAO}")
@@ -224,6 +242,10 @@ def caso_para_revisao(
     repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos_da_fila)],
     repositorio_snapshots: Annotated[
         RepositorioSnapshots, Depends(obter_repositorio_snapshots_da_fila)
+    ],
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_da_coleta)],
+    repositorio_respostas: Annotated[
+        RepositorioRespostas, Depends(obter_repositorio_respostas_da_coleta)
     ],
 ) -> JSONResponse:
     """O plano como o aluno o verá, mais o carimbo — para a tela lado a lado
@@ -249,18 +271,26 @@ def caso_para_revisao(
 
     snapshot = historico[-1]
 
-    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    textos = carregar_textos_canonicos()
+    # `T-326` (`RF-111`): rótulos do registro e credores — o revisor lê
+    # "Cheque especial — CAIXA", não `D011`; o código fica como detalhe.
+    vocabulario = _vocabulario(
+        colecao,
+        RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID_REVISAO)),
+        snapshot,
+    )
+    contexto = montar_contexto_plano(snapshot, textos, vocabulario)
     item = montar_item_da_fila(CASO_ID_REVISAO, snapshot)
     # `AC-29`: plano e `estado_inputs` na MESMA resposta. O revisor compara
     # os dois lado a lado; se viessem de requisições diferentes, poderiam
     # ser de snapshots diferentes — e a comparação não provaria nada.
-    estado_inputs = montar_contexto_estado_inputs(snapshot.estado_inputs)
+    estado_inputs = montar_contexto_estado_inputs(snapshot.estado_inputs, textos, vocabulario)
     return JSONResponse(
         {
             "CASO_ID": CASO_ID_REVISAO,
             "plano": serializar_plano(contexto, para_revisor=True),
             "estado_inputs": serializar_estado_inputs(estado_inputs),
-            "fila": serializar_item_da_fila(item),
+            "fila": serializar_item_da_fila(item, textos),
         }
     )
 

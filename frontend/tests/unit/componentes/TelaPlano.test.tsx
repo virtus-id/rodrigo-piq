@@ -39,6 +39,7 @@ function plano(
         indice: 1,
         total: 1,
         DIVIDA_ID: 'D001',
+        nome: 'Cheque especial — CAIXA ECONOMICA FEDERAL',
         JUSTIFICATIVA_POSICAO: 'j',
         explicacao: 'e',
         fonte: null,
@@ -50,7 +51,8 @@ function plano(
     CUSTO_FUTURO_TOTAL: 'R$ 3.333,33',
     ENGINE_VERSION: 'e',
     PARAMETROS_VERSION: 'p',
-    cenario: 'AVALANCHE',
+    metodo: 'Avalanche',
+    cenario: 'Ordem de quitação publicada',
     acoes: [],
     pendencias: null,
     MODO_ESTABILIZACAO: false,
@@ -168,5 +170,61 @@ describe('TelaPlano — sem texto técnico ao aluno (T-305)', () => {
 
     await screen.findByText('14 meses')
     expect(container.textContent).not.toContain('BENEFICIO_MARGINAL_AMORTIZACAO')
+  })
+})
+
+describe('TelaPlano — linguagem humana (T-326, RF-111, AC-174; T-306)', () => {
+  it('a dívida aparece por "tipo — credor"; o código não aparece', async () => {
+    const { container } = mostrar(null)
+
+    expect(
+      await screen.findByText('Cheque especial — CAIXA ECONOMICA FEDERAL'),
+    ).toBeInTheDocument()
+    expect(container.textContent).not.toMatch(/\bD0\d\d\b/)
+  })
+
+  it('o carimbo traz o rótulo do método, não o código do cenário', async () => {
+    mostrar(null)
+
+    expect(await screen.findByText(/método Avalanche/)).toBeInTheDocument()
+    expect(screen.queryByText(/Ordem de quitação publicada/)).not.toBeInTheDocument()
+  })
+
+  it('ordem vazia: a ação em português com o nome da dívida, sem método no carimbo', async () => {
+    const base = plano(null)
+    vi.spyOn(api, 'obterPlano').mockResolvedValue({
+      CASO_ID: 'CASO-1',
+      estado: 'LIBERADO',
+      plano: {
+        ...base,
+        ordem: [],
+        acoes: [
+          {
+            DIVIDA_ID: 'D001',
+            nome_divida: 'Cartão de crédito — saldo rotativo — NUBANK',
+            descricao: 'Informar o dado que falta desta dívida.',
+            prioridade_excepcional: false,
+          },
+        ],
+        pendencias: {
+          inventario_incompleto: false,
+          campos_faltantes_por_divida: [
+            {
+              DIVIDA_ID: 'D001',
+              nome: 'Cartão de crédito — saldo rotativo — NUBANK',
+              campos: ['quanto você ainda deve'],
+            },
+          ],
+        },
+      },
+    })
+    const { container } = render(<TelaPlano casoId="CASO-1" />)
+
+    expect(await screen.findByText('Informar o dado que falta desta dívida.')).toBeInTheDocument()
+    expect(
+      screen.getByText('Cartão de crédito — saldo rotativo — NUBANK: falta quanto você ainda deve'),
+    ).toBeInTheDocument()
+    expect(container.textContent).not.toContain('D001')
+    expect(container.textContent).not.toContain('método')
   })
 })
