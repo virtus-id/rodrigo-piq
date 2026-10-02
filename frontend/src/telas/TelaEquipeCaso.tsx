@@ -17,7 +17,7 @@
  * escritas aqui. `OQ-12` fixou os seis nomes sem definição de categoria; um
  * sétimo rótulo só pode nascer em `CLASSIFICACAO_ERRO`, num lugar só.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useState } from 'react'
 
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
@@ -42,14 +42,22 @@ const ITENS_DE_HOMOLOGACAO: [string, string][] = [
 
 /** Valor do registro como texto — sem conta nenhuma (Lei nº 3). Ordem e
  *  meses chegam com o nome da dívida (`T-328`). */
-function textoDoItem(valor: unknown): string {
-  if (Array.isArray(valor)) return valor.join(' → ')
-  if (valor && typeof valor === 'object') {
-    return Object.entries(valor)
-      .map(([divida, mes]) => `${divida}: mês ${String(mes)}`)
-      .join(' · ')
-  }
-  return String(valor)
+function textoDoItem(valor: unknown): ReactNode {
+  // `T-329`: ordem e meses em lista, uma dívida por linha — em parágrafo
+  // corrido, onze nomes longos viravam um bloco ilegível.
+  const linhas = Array.isArray(valor)
+    ? valor.map(String)
+    : valor && typeof valor === 'object'
+      ? Object.entries(valor).map(([divida, mes]) => `${divida}: mês ${String(mes)}`)
+      : null
+  if (!linhas) return String(valor)
+  return (
+    <ul className="m-0 list-none p-0">
+      {linhas.map((linha) => (
+        <li key={linha}>{linha}</li>
+      ))}
+    </ul>
+  )
 }
 
 /**

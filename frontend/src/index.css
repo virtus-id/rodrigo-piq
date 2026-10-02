@@ -463,7 +463,7 @@
   }
 
   .back {
-    @apply inline-flex min-h-toque items-center font-bold text-accent cursor-pointer;
+    @apply inline-flex min-h-toque items-center font-bold text-accent cursor-pointer whitespace-nowrap;
     gap: 0.35rem;
     padding: 0.5rem 0.25rem;
     margin-left: -0.25rem;

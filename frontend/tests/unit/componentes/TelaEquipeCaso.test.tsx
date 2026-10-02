@@ -140,8 +140,8 @@ describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
     })
 
     const secao = await screen.findByRole('region', { name: 'Registro de homologação' })
-    expect(secao).toHaveTextContent('Ordem final de ataque1º Cheque — CAIXA → 2º Consignado — BB')
-    expect(secao).toHaveTextContent('Cheque — CAIXA: mês 4 · Consignado — BB: mês 9')
+    expect(secao).toHaveTextContent('Ordem final de ataque1º Cheque — CAIXA2º Consignado — BB')
+    expect(secao).toHaveTextContent('Cheque — CAIXA: mês 4Consignado — BB: mês 9')
     expect(secao).toHaveTextContent('Valor mensal destinadoR$ 500,00')
     expect(secao).toHaveTextContent('Custo total de jurosR$ 321,00')
     expect(secao).toHaveTextContent('não disponívela reserva recomendada ainda não é registrada pelo cálculo')
