@@ -46,6 +46,7 @@ const CASO = {
     STATUS_METODO: 'DEFINITIVO_NA_DATA',
     metodo: 'Avalanche',
     status_metodo: 'Definitivo na data',
+    criterio_metodo: 'Cada dívida entra quando é a que mais economiza juros por real pago, entre as que restam.',
     motivo: 'Primeiro cálculo, sem evento de recálculo',
     entra_por_politica: true,
     e_metodologico: false,
@@ -190,7 +191,7 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
     }
   }
 
-  it('posição por "tipo — credor" e explicação; justificativa só no detalhe recolhido', async () => {
+  it('posição por "tipo — credor" e explicação, sem a justificativa do motor (T-330)', async () => {
     montar({ classificacoes_erro: [], pendencias_homologacao: [] }, casoComDados())
 
     expect(
@@ -199,10 +200,8 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
     expect(
       screen.getByText('É a dívida que mais destrava o seu orçamento agora.'),
     ).toBeInTheDocument()
-    const justificativa = screen.getByText(JUSTIFICATIVA)
-    expect(justificativa.closest('details')).not.toBeNull()
-    expect(justificativa.closest('details')).not.toHaveAttribute('open')
-    expect(screen.getByText('Detalhe técnico')).toBeInTheDocument()
+    expect(screen.queryByText(JUSTIFICATIVA)).not.toBeInTheDocument()
+    expect(screen.queryByText('Detalhe técnico')).not.toBeInTheDocument()
   })
 
   it('dados com rótulo e valor do servidor, sem o nome da variável', async () => {
@@ -219,12 +218,14 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
     ).not.toHaveTextContent('D011')
   })
 
-  it('método e status por rótulo no carimbo', async () => {
+  it('método do caso em destaque, uma vez, com o critério (T-330)', async () => {
     montar({ classificacoes_erro: [], pendencias_homologacao: [] })
 
-    expect(
-      await screen.findByText(/Método: Avalanche · Definitivo na data/),
-    ).toBeInTheDocument()
+    const destaque = await screen.findByRole('region', { name: /Avalanche/ })
+    expect(destaque).toHaveTextContent('Método selecionado para este aluno')
+    expect(destaque).toHaveTextContent('Definitivo na data')
+    expect(destaque).toHaveTextContent('mais economiza juros por real pago')
+    expect(screen.getAllByText(/Avalanche/)).toHaveLength(1)
     expect(document.body.textContent).not.toContain('DEFINITIVO_NA_DATA')
   })
 })

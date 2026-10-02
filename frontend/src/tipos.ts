@@ -382,6 +382,8 @@ export interface ItemDaFila {
    */
   metodo: string
   status_metodo: string
+  /** `T-330`: o critério do método, uma frase — vale para o caso inteiro. */
+  criterio_metodo: string
   motivo: string
   /** Os dois sinais seguem SEPARADOS — política do piloto × sinal do motor. */
   entra_por_politica: boolean

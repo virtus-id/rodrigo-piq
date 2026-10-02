@@ -172,6 +172,7 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "descricao_da_acao",
         "rotulos_de_dados",
         "rotulos_de_codigos",
+        "criterio_do_metodo",
     }
     # A ordem continua sem rótulo paralelo: nenhuma chave de apoio fala
     # sobre a ORDEM, só sobre campos de uma dívida.

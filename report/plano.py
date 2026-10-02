@@ -204,6 +204,9 @@ class TextosCanonicosPlano:
     #: `RF-111` (`T-326`) — código sem opção no registro (método, status,
     #: cenário, evento de recálculo, domínios do motor) → rótulo.
     rotulos_de_codigos: Mapping[str, str] = field(default_factory=dict)
+    #: `T-330` (`RF-111`) — por `METODO`, o critério da ordem em uma frase,
+    #: mostrado uma vez no destaque do método (não por posição).
+    criterio_do_metodo: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -265,6 +268,7 @@ def carregar_textos_canonicos(
         descricao_da_acao=_mapa("descricao_da_acao"),
         rotulos_de_dados=_mapa("rotulos_de_dados"),
         rotulos_de_codigos=_mapa("rotulos_de_codigos"),
+        criterio_do_metodo=_mapa("criterio_do_metodo"),
     )
 
 

@@ -321,3 +321,23 @@ rotulos_de_codigos:
   IMPORTANTE: "Importante"
   PARCIAL: "Parcialmente essencial"
   NAO_ESSENCIAL: "Não essencial"
+
+# ---------------------------------------------------------------------------
+# Critério do método — T-330 (RF-111), relato do produto 2026-10-02.
+#
+# O método é do caso, não da dívida: aparece uma vez, em destaque, na
+# conferência. Substitui a `JUSTIFICATIVA_POSICAO` repetida em cada posição
+# (texto de auditoria do motor, `engine/ordem.py::_DESCRICAO_CRITERIO`).
+# Redação da equipe técnica — pendente de validação do especialista.
+criterio_do_metodo:
+  HIBRIDO: >-
+    Primeiro, uma dívida de vitória rápida: quitável em poucos meses, sem
+    aumentar de forma relevante o custo ou o prazo em relação à Avalanche.
+    Depois, as demais pela maior economia de juros, com a ordem revista a
+    cada dívida quitada.
+  AVALANCHE: >-
+    Cada dívida entra quando é a que mais economiza juros por real pago,
+    entre as que restam.
+  BOLA_DE_NEVE: >-
+    Cada dívida entra quando é a de menor valor a quitar, entre as que
+    restam; empates seguem a regra de desempate do método.

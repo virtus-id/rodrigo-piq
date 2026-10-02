@@ -455,7 +455,7 @@ test('AC-80: conta sem papel não encontra caminho para a área da equipe', asyn
  * fato promete: as duas áreas têm colunas DISTINTAS, e a do revisor é a de
  * 900px.
  */
-test('AC-87: a área da equipe usa 900px, distinta da coluna do aluno', async ({
+test('AC-87: a área da equipe usa 900px (1280px no monitor largo, T-329), distinta da coluna do aluno', async ({
   page,
 }, infoDoTeste) => {
   const larguraDaColuna = () =>
@@ -493,7 +493,10 @@ test('AC-87: a área da equipe usa 900px, distinta da coluna do aluno', async ({
   // `T-186`: o login já leva direto à fila — não há mais um passo de
   // navegação do Início até lá.
   await entrarComoRevisor(page, CASO)
-  expect(await larguraDaColuna()).toBe('900px')
+  // `T-329` revisa `AC-87` no monitor largo: a partir de `xl` (1280px de
+  // janela) a equipe vai até 1280px; abaixo disso, os 900px de sempre.
+  const largo = (page.viewportSize()?.width ?? 0) >= 1280
+  expect(await larguraDaColuna()).toBe(largo ? '1280px' : '900px')
 })
 
 /**
@@ -636,6 +639,7 @@ test('AC-83 + AC-29: a fila abre a conferência do caso', async ({ page }) => {
             STATUS_METODO: 'DEFINITIVO_NA_DATA',
             metodo: 'Híbrido',
             status_metodo: 'Definitivo na data',
+            criterio_metodo: 'Critério do método.',
             motivo: 'Sem evento de recálculo',
             entra_por_politica: true,
             e_metodologico: false,

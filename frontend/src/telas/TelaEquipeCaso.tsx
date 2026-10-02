@@ -305,6 +305,17 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         )}
       </div>
 
+      {/* `T-330`: o método é do caso, não da dívida — um destaque só, com o
+          critério em uma frase (do servidor). Substitui o "Detalhe técnico"
+          que repetia o mesmo texto do motor em cada posição. */}
+      <section className="cartao" aria-labelledby="titulo-metodo">
+        <span className="eyebrow">Método selecionado para este aluno</span>
+        <h2 id="titulo-metodo">
+          {fila.metodo} <small className="text-muted">· {fila.status_metodo}</small>
+        </h2>
+        {fila.criterio_metodo && <p>{fila.criterio_metodo}</p>}
+      </section>
+
       {/* `T-329`: lado a lado só no monitor largo; abaixo disso, empilhado. */}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <div className="cartao min-w-0">
@@ -316,26 +327,18 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
             {plano.ordem.map((posicao) => (
               <div className="item" key={posicao.DIVIDA_ID}>
                 <span className="num">{posicao.posicao}</span>
-                {/* `T-326` (`RF-111`): "tipo — credor" e a explicação que o
-                    aluno lê; a justificativa do motor fica como detalhe
-                    recolhido. Sem o código `D0nn` (relato do produto, 2026-10-02). */}
+                {/* `T-326`/`T-330` (`RF-111`): "tipo — credor" e a explicação
+                    que o aluno lê — o papel da dívida na ordem. O critério do
+                    método fica no destaque acima, uma vez. */}
                 <div className="flex-1">
                   {posicao.nome}
                   <p className="text-muted">{posicao.explicacao}</p>
-                  {posicao.JUSTIFICATIVA_POSICAO && (
-                    <details>
-                      <summary>Detalhe técnico</summary>
-                      <small className="block text-muted">
-                        {posicao.JUSTIFICATIVA_POSICAO}
-                      </small>
-                    </details>
-                  )}
                 </div>
               </div>
             ))}
           </div>
           <p className="carimbo">
-            Método: {fila.metodo} · {fila.status_metodo} · versão do cálculo{' '}
+            Versão do cálculo{' '}
             {plano.ENGINE_VERSION} · parâmetros {plano.PARAMETROS_VERSION}
           </p>
         </div>

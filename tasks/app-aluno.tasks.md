@@ -13441,3 +13441,30 @@ a partir de `xl` (no celular e até `lg`, 900px como antes).
 - [x] Gates: tsc, vitest
 
 **Status:** `[x] concluída (2026-10-02)`
+
+---
+
+### `T-330` — Método do caso em destaque; sem "Detalhe técnico" por posição
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-326`, `T-329` · **Rastreia:** `RF-111` (c)
+- **Arquivos:** `report/plano.py`, `report/templates/plano/textos-canonicos.yaml`,
+  `app/http/serializacao_plano.py`, `frontend/src/telas/TelaEquipeCaso.tsx`,
+  `frontend/src/tipos.ts` + testes
+
+Decisão do produto (2026-10-02): o "Detalhe técnico" de cada posição repetia
+o mesmo texto do motor (`engine/ordem.py::_DESCRICAO_CRITERIO`: "D_ESTRELA
+prioritária seguida de Avalanche event-driven… (H-05, H-06, H-07)") nas 11
+posições. O método é do caso (`METODO_RECOMENDADO_PIQ`, um por snapshot),
+não da dívida: vai para um destaque único com o critério em uma frase.
+
+- [x] `criterio_do_metodo` por `METODO` em `textos-canonicos.yaml`; `criterio_metodo` no item da fila
+- [x] Destaque "Método selecionado para este aluno" (método · status + critério)
+- [x] Posição só com nome e explicação; carimbo sem o método
+- [x] `engine/` intocado (a `JUSTIFICATIVA_POSICAO` segue no snapshot e no payload)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Textos novos — pendentes de validação do especialista:** os três critérios
+de `criterio_do_metodo` (Híbrido, Avalanche, Bola de neve) e o título
+"Método selecionado para este aluno".
+
+**Status:** `[x] concluída (2026-10-02)`

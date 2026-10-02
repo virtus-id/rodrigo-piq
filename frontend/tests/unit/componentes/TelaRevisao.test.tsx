@@ -27,6 +27,7 @@ const ITEM: ItemDaFila = {
   STATUS_METODO: 'DEFINITIVO_NA_DATA',
   metodo: 'Híbrido',
   status_metodo: 'Definitivo na data',
+  criterio_metodo: 'Critério do método.',
   motivo: 'Primeiro cálculo, sem evento de recálculo',
   entra_por_politica: true,
   e_metodologico: false,

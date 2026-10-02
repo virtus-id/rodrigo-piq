@@ -253,6 +253,11 @@ def serializar_item_da_fila(
             textos.rotulos_de_codigos, snapshot.METODO_RECOMENDADO_PIQ.value
         ),
         "status_metodo": rotulo_de_codigo(textos.rotulos_de_codigos, snapshot.STATUS_METODO.value),
+        # `T-330`: o método vale para o caso inteiro — o critério vai uma
+        # vez, no destaque, nunca repetido por posição.
+        "criterio_metodo": textos.criterio_do_metodo.get(
+            snapshot.METODO_RECOMENDADO_PIQ.value, ""
+        ),
         "motivo": rotulo_do_motivo_de_recalculo(snapshot, textos),
         "entra_por_politica": item.entra_por_politica,
         "e_metodologico": item.e_metodologico,
