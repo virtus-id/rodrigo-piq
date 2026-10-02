@@ -205,11 +205,12 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
     expect(screen.getByText('Detalhe técnico')).toBeInTheDocument()
   })
 
-  it('dados com rótulo e valor do servidor; o código fica como detalhe', async () => {
+  it('dados com rótulo e valor do servidor, sem o nome da variável', async () => {
     montar({ classificacoes_erro: [], pendencias_homologacao: [] }, casoComDados())
 
     const cet = (await screen.findByText('Custo efetivo total (CET)', { exact: false })).closest('dt')
-    expect(cet).toHaveTextContent('Custo efetivo total (CET) CET')
+    expect(cet).toHaveTextContent(/^Custo efetivo total \(CET\)$/)
+    expect(screen.queryByText('RENDA_TOTAL_RECORRENTE')).not.toBeInTheDocument()
     expect(cet?.nextElementSibling).toHaveTextContent('Não informado')
     expect(screen.getByText('R$ 10.350,92')).toBeInTheDocument()
     expect(screen.getByText('A maior parte, mas alguns ficam de fora.')).toBeInTheDocument()

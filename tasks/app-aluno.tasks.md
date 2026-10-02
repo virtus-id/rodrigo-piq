@@ -13436,6 +13436,7 @@ a partir de `xl` (no celular e até `lg`, 900px como antes).
 - [x] Listas de dados em uma coluna no celular; valores e códigos quebram linha
 - [x] Aviso de pendência empilhado; `CASO_ID` do cabeçalho quebra
 - [x] Sem rolagem horizontal em 390px e 1440px (medido no servidor)
+- [x] Dados de entrada só com o rótulo — sem o nome da variável (relato do produto, 2026-10-02)
 - [x] Gates: tsc, vitest
 
 **Status:** `[x] concluída (2026-10-02)`
