@@ -702,5 +702,5 @@ def test_t304_registro_de_homologacao_exposto_ao_revisor(
     assert itens["uso_da_reserva"] == {
         "valor": NAO_DISPONIVEL,
         "origem": [],
-        "motivo": esperado.uso_da_reserva.motivo,
+        "motivo": "a reserva recomendada ainda não é registrada pelo cálculo",
     }

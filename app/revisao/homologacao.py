@@ -95,8 +95,8 @@ def registrar_homologacao(
     quitacoes = meses_de_quitacao(snapshot)
 
     if quitacoes is None:
-        meses: ItemHomologacao = _nao_disponivel("sem cenário do método recomendado")
-        juros = _nao_disponivel("sem cenário do método recomendado")
+        meses: ItemHomologacao = _nao_disponivel("SEM_PROJECAO_DO_METODO")
+        juros = _nao_disponivel("SEM_PROJECAO_DO_METODO")
     else:
         meses = ItemHomologacao(
             valor=quitacoes,
@@ -116,7 +116,7 @@ def registrar_homologacao(
             origem=("diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA",),
         ),
         custo_total_de_juros=juros,
-        uso_da_reserva=_nao_disponivel("RESERVA_RECOMENDADA não gravada (R9-6)"),
+        uso_da_reserva=_nao_disponivel("RESERVA_RECOMENDADA_NAO_GRAVADA"),
         homologavel=not pendencias,
         pendencias=pendencias,
     )
@@ -125,13 +125,13 @@ def registrar_homologacao(
 def _juros(snapshot: SnapshotOrdem, origem_cenario: str) -> ItemHomologacao:
     cenario = snapshot.cenarios[snapshot.METODO_RECOMENDADO_PIQ]
     if cenario.ESTOUROU_HORIZONTE:
-        return _nao_disponivel("estourou o horizonte (EC-13)")
+        return _nao_disponivel("HORIZONTE_ESTOURADO")
     saldos = [d.SALDO_DEVEDOR_ATUAL for d in snapshot.estado_inputs.dividas]
     iniciais = [saldo for saldo in saldos if saldo is not DESCONHECIDO]
     if len(iniciais) != len(saldos):
         # A dívida sem saldo fica fora do cronograma: somar só as outras
         # daria o juro de um plano parcial, não o do caso.
-        return _nao_disponivel("SALDO_DEVEDOR_ATUAL desconhecido")
+        return _nao_disponivel("SALDO_DEVEDOR_DESCONHECIDO")
     finais = cenario.meses[-1].estado_final.saldos.values() if cenario.meses else ()
     return ItemHomologacao(
         valor=cenario.CUSTO_FUTURO_TOTAL - sum(iniciais) + sum(finais),
@@ -144,7 +144,9 @@ def _juros(snapshot: SnapshotOrdem, origem_cenario: str) -> ItemHomologacao:
 
 
 def serializar_registro(
-    registro: RegistroHomologacao, nomes: Mapping[str, str] | None = None
+    registro: RegistroHomologacao,
+    nomes: Mapping[str, str] | None = None,
+    rotulos: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
     """`T-304` — os cinco itens para a tela do revisor; dinheiro formatado
     (`G-01`), o resto como veio. As pendências já vão nomeadas ao lado, em
@@ -153,8 +155,11 @@ def serializar_registro(
     `T-328` (`RF-111`): ordem e meses de quitação pelo nome da dívida
     (`nomes`, de `nomear_dividas`) — "1º Cheque especial — CAIXA" e
     "Cheque especial — CAIXA: mês 2". O registro em si segue com os
-    `DIVIDA_ID`; só a apresentação troca."""
+    `DIVIDA_ID`; só a apresentação troca. O `motivo` de "não disponível" é
+    um código, lido em `rotulos` (`rotulos_de_codigos` de
+    `textos-canonicos.yaml`)."""
     nomes = nomes or {}
+    rotulos = rotulos or {}
 
     def nome(divida_id: str) -> str:
         return nomes.get(divida_id, divida_id)
@@ -179,7 +184,7 @@ def serializar_registro(
             nome: {
                 "valor": valor(item.valor),
                 "origem": list(item.origem),
-                "motivo": item.motivo,
+                "motivo": rotulos.get(item.motivo, item.motivo) if item.motivo else None,
             }
             for nome, item in (
                 ("ordem_final_de_ataque", ordem),

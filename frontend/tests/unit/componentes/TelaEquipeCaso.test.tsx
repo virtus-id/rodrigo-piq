@@ -133,7 +133,7 @@ describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
           uso_da_reserva: {
             valor: 'não disponível',
             origem: [],
-            motivo: 'RESERVA_RECOMENDADA não gravada (R9-6)',
+            motivo: 'a reserva recomendada ainda não é registrada pelo cálculo',
           },
         },
       },
@@ -144,7 +144,7 @@ describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
     expect(secao).toHaveTextContent('Cheque — CAIXA: mês 4 · Consignado — BB: mês 9')
     expect(secao).toHaveTextContent('Valor mensal destinadoR$ 500,00')
     expect(secao).toHaveTextContent('Custo total de jurosR$ 321,00')
-    expect(secao).toHaveTextContent('não disponívelRESERVA_RECOMENDADA não gravada (R9-6)')
+    expect(secao).toHaveTextContent('não disponívela reserva recomendada ainda não é registrada pelo cálculo')
     expect(secao).toHaveTextContent('Pode ser homologadosim')
   })
 })

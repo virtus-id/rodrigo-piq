@@ -266,6 +266,12 @@ rotulos_de_dados:
 # `rotulo` da opção no registro (`collection/registros`), não daqui; estes
 # são o segundo recurso, para o que o registro não tem.
 rotulos_de_codigos:
+  # Motivo de item "não disponível" no registro de homologação
+  # (app/revisao/homologacao.py) — relato do produto, 2026-10-02.
+  SEM_PROJECAO_DO_METODO: "o cálculo não gerou a projeção do método recomendado"
+  RESERVA_RECOMENDADA_NAO_GRAVADA: "a reserva recomendada ainda não é registrada pelo cálculo"
+  HORIZONTE_ESTOURADO: "a projeção passou do prazo máximo de cálculo"
+  SALDO_DEVEDOR_DESCONHECIDO: "falta o saldo devedor de alguma dívida"
   # Método e status (engine/tipos.py::METODO, STATUS_METODO)
   AVALANCHE: "Avalanche"
   BOLA_DE_NEVE: "Bola de neve"

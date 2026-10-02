@@ -602,9 +602,10 @@ def formulario_de_decisao(
     )
     # `T-328` (`RF-111`): as dívidas pelo MESMO nome do plano e da conferência.
     dividas = snapshot.estado_inputs.dividas
+    textos = carregar_textos_canonicos()
     nomes = nomear_dividas(
         dividas,
-        carregar_textos_canonicos(),
+        textos,
         vocabulario_do_caso(colecao.registros, dados[0], (d.DIVIDA_ID for d in dividas)),
     )
 
@@ -620,7 +621,9 @@ def formulario_de_decisao(
             # `T-304` (`RF-96`, `RF-97`, `DE-08`): os cinco itens, lidos do
             # snapshot sobre o qual a decisão recai.
             "homologacao": serializar_registro(
-                registrar_homologacao(snapshot, pendencias_homologacao), nomes
+                registrar_homologacao(snapshot, pendencias_homologacao),
+                nomes,
+                textos.rotulos_de_codigos,
             ),
         }
     )

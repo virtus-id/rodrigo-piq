@@ -13411,6 +13411,7 @@ de teste, 9 consignados CAIXA.
 - [x] Nomes repetidos ganham o diferencial da parcela ("· parcela R$ 292,55");
       sem parcela, ordinal ("· 2"). Vale em todo lugar que usa `nomear_dividas`
 - [x] Varredura de `AC-174` estendida ao payload de decisão
+- [x] Motivos de "não disponível" da homologação em português (relato do produto, 2026-10-02)
 - [x] Gates: lint, build, test, tsc, vitest, Playwright
 
 **Status:** `[x] concluída (2026-10-02)`
