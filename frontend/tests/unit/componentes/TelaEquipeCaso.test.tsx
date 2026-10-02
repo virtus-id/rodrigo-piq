@@ -216,7 +216,7 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
     expect(screen.getByText('A maior parte, mas alguns ficam de fora.')).toBeInTheDocument()
     expect(
       screen.getByRole('region', { name: 'Cheque especial — CAIXA ECONOMICA FEDERAL' }),
-    ).toHaveTextContent('D011')
+    ).not.toHaveTextContent('D011')
   })
 
   it('método e status por rótulo no carimbo', async () => {

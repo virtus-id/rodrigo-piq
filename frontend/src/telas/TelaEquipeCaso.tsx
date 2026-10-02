@@ -317,10 +317,10 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
               <div className="item" key={posicao.DIVIDA_ID}>
                 <span className="num">{posicao.posicao}</span>
                 {/* `T-326` (`RF-111`): "tipo — credor" e a explicação que o
-                    aluno lê; o código e a justificativa do motor ficam como
-                    detalhe — recolhido, para quem precisa refazer a decisão. */}
+                    aluno lê; a justificativa do motor fica como detalhe
+                    recolhido. Sem o código `D0nn` (relato do produto, 2026-10-02). */}
                 <div className="flex-1">
-                  {posicao.nome} <small className="text-muted">{posicao.DIVIDA_ID}</small>
+                  {posicao.nome}
                   <p className="text-muted">{posicao.explicacao}</p>
                   {posicao.JUSTIFICATIVA_POSICAO && (
                     <details>
@@ -350,7 +350,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           {entradas.dividas.map((divida) => (
             <section key={divida.DIVIDA_ID} aria-label={divida.nome}>
               <h3>
-                {divida.nome} <small className="text-muted">{divida.DIVIDA_ID}</small>
+                {divida.nome}
               </h3>
               <ListaDeDados campos={divida.campos} />
             </section>
