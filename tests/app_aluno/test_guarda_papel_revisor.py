@@ -27,6 +27,7 @@ REGRAS: `RF-23`, `RF-25`
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, Request
@@ -34,6 +35,7 @@ from fastapi.testclient import TestClient
 
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import obter_repositorio_contas_para_papel
+from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_revisao import (
     obter_repositorio_casos_da_fila,
     obter_repositorio_snapshots_da_fila,
@@ -107,6 +109,10 @@ def aplicacao_e_dublê(
         }
     )
     aplicacao.dependency_overrides[obter_repositorio_contas_para_papel] = lambda: dublê
+    # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=lambda _caso_ids: {}
+    )
     # Nos cenários de recusa (sem sessão / sem papel), a fila não deve chegar
     # a consultar casos — um repositório que levanta em qualquer chamada
     # prova, por si só, que a guarda de papel recusou ANTES de qualquer

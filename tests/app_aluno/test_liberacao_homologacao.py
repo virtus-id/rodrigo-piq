@@ -234,6 +234,8 @@ def test_ac149_indispensavel_ausente_calculo_roda_e_liberacao_nomeia_o_dado(
     saldo = next(r for r in registros if r.ID == "B5.B03")
     assert pendencia == {
         "item_id": ambiente.divida,
+        # `T-328`: sem nomes (rota de `POST`), o nome cai no `item_id`.
+        "nome": ambiente.divida,
         "ID_PERGUNTA": "B5.B03",
         "enunciado": saldo.enunciado,
         "motivo": "AUSENTE",
@@ -277,13 +279,18 @@ def test_t266_contexto_do_revisor_fontes_avisos_e_pendencias(
     assert corpo["fontes"] == [
         {
             "item_id": ambiente.divida,
+            # `T-328`: a ficha fora do snapshot cai no `item_id`.
+            "nome": ambiente.divida,
             "origem": "B5.I02",
+            "dado": "Fonte das informações",
             "nivel": "PENDENTE_DE_CONFIRMACAO",
             "rotulo": textos["PENDENTE_DE_CONFIRMACAO"],
         }
     ]
     # AC-155/EC-39: seguro "não sei" é "não informado", nunca nível 3.
-    assert corpo["seguros_nao_informados"] == [ambiente.divida]
+    assert corpo["seguros_nao_informados"] == [
+        {"item_id": ambiente.divida, "nome": ambiente.divida}
+    ]
     assert corpo["rotulo_nao_informado"] == textos["NAO_INFORMADO"]
     assert {"tipo": "RENDA_VINCULOS"}.items() <= corpo["divergencias"][0].items()
     # AC-124: R$ 1.200 no total em 24 meses → R$ 50,00 rotulado rateio.

@@ -208,8 +208,13 @@ def serializar_plano(
     }
 
 
-def serializar_item_da_fila(item: ItemFila, textos: TextosCanonicosPlano) -> dict[str, Any]:
+def serializar_item_da_fila(
+    item: ItemFila, textos: TextosCanonicosPlano, email_do_aluno: str | None = None
+) -> dict[str, Any]:
     """Uma linha da fila de revisão.
+
+    `T-327` (`RF-111` e): `email_do_aluno` identifica o caso para a equipe;
+    `None` (conta sem e-mail) faz a tela cair no `CASO_ID`.
 
     `T-326` (`RF-111`): `metodo`, `status_metodo` e `motivo` são os rótulos
     que a tela mostra; os códigos e o `MOTIVO_RECALCULO` do motor seguem
@@ -223,6 +228,7 @@ def serializar_item_da_fila(item: ItemFila, textos: TextosCanonicosPlano) -> dic
     snapshot = item.snapshot
     return {
         "CASO_ID": item.CASO_ID,
+        "email_do_aluno": email_do_aluno,
         "SNAPSHOT_ID": snapshot.SNAPSHOT_ID,
         "versao": snapshot.versao,
         "DATA_REFERENCIA": snapshot.DATA_REFERENCIA.isoformat(),

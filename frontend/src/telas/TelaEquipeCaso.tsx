@@ -40,7 +40,8 @@ const ITENS_DE_HOMOLOGACAO: [string, string][] = [
   ['uso_da_reserva', 'Uso da reserva'],
 ]
 
-/** Valor do registro como texto — sem conta nenhuma (Lei nº 3). */
+/** Valor do registro como texto — sem conta nenhuma (Lei nº 3). Ordem e
+ *  meses chegam com o nome da dívida (`T-328`). */
 function textoDoItem(valor: unknown): string {
   if (Array.isArray(valor)) return valor.join(' → ')
   if (valor && typeof valor === 'object') {
@@ -164,7 +165,8 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
 
   return (
     <Tela
-      titulo={`Conferir o plano de ${dados.CASO_ID}`}
+      // `T-327` (`RF-111` e): o aluno pelo e-mail; o `CASO_ID` vai para o `onde`.
+      titulo={`Conferir o plano de ${fila.email_do_aluno || dados.CASO_ID}`}
       voltar={voltar}
       onde={`${dados.CASO_ID} · plano v${fila.versao}`}
       largura="equipe"
@@ -210,7 +212,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           <ul>
             {pendencias.map((p) => (
               <li key={`${p.item_id ?? 'caso'}-${p.ID_PERGUNTA}`}>
-                {p.item_id ? `${p.item_id} · ` : ''}
+                {p.nome ? `${p.nome} · ` : ''}
                 {p.enunciado} —{' '}
                 {p.motivo === 'AUSENTE' ? 'não informado' : 'pendente de confirmação'}
               </li>
@@ -228,24 +230,24 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           <ul>
             {fontes.map((f) => (
               <li key={`${f.item_id}-${f.origem}`}>
-                {f.item_id} · {f.origem}: {f.rotulo}
+                {f.nome} · {f.dado}: {f.rotulo}
               </li>
             ))}
             {segurosNaoInformados.map((divida) => (
-              <li key={`seguro-${divida}`}>
-                {divida} · seguro: {conferencia?.rotulo_nao_informado ?? 'não informado'}
+              <li key={`seguro-${divida.item_id}`}>
+                {divida.nome} · seguro: {conferencia?.rotulo_nao_informado ?? 'não informado'}
               </li>
             ))}
             {divergencias.map((d, i) => (
               <li key={`divergencia-${i}`}>
                 {d.tipo === 'DESCONTO'
-                  ? `${d.item_id} · desconto: valor em R$ e percentual não conferem`
+                  ? `${d.nome} · desconto: valor em R$ e percentual não conferem`
                   : `Renda dos vínculos (${d.soma_liquidas}) difere da renda total (${d.renda_bloco_3})`}
               </li>
             ))}
             {rateios.map((r) => (
               <li key={`rateio-${r.item_id}-${r.variavel}`}>
-                {r.item_id} · rateio mensal (só análise): {r.valor_mensal}
+                {r.nome} · rateio mensal (só análise): {r.valor_mensal}
               </li>
             ))}
           </ul>

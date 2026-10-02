@@ -116,6 +116,7 @@ REGRAS: `RF-20`, `RF-21`, `RF-22`, `AC-14`, `AC-15`, `AC-16`, `AC-17`, `AC-42`,
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, fields, is_dataclass
 from datetime import date
@@ -190,6 +191,10 @@ class TextosCanonicosPlano:
     #: `RF-111` (`T-326`) — "{tipo} — {credor}": como a dívida é chamada no
     #: plano e na conferência, no lugar do `DIVIDA_ID`.
     nome_da_divida: str = ""
+    #: `RF-111` (`T-328`) — o diferencial de nomes repetidos: "{nome} ·
+    #: parcela {parcela}" e, sem parcela, "{nome} · {ordinal}".
+    nome_com_parcela: str = ""
+    nome_com_ordinal: str = ""
     #: `RF-111` (`T-306`) — por `TIPO_ACAO`, o que o aluno precisa fazer. A
     #: `descricao` do motor (motivo do gate) fica para o revisor.
     descricao_da_acao: Mapping[str, str] = field(default_factory=dict)
@@ -255,6 +260,8 @@ def carregar_textos_canonicos(
         cenario_adicional=_mapa("cenario_adicional"),
         orientacao_seguro_prestamista=str(bruto.get("orientacao_seguro_prestamista") or ""),
         nome_da_divida=str(bruto.get("nome_da_divida") or ""),
+        nome_com_parcela=str(bruto.get("nome_com_parcela") or ""),
+        nome_com_ordinal=str(bruto.get("nome_com_ordinal") or ""),
         descricao_da_acao=_mapa("descricao_da_acao"),
         rotulos_de_dados=_mapa("rotulos_de_dados"),
         rotulos_de_codigos=_mapa("rotulos_de_codigos"),
@@ -556,7 +563,14 @@ def nomear_dividas(
     """`RF-111` (`T-326`) — `DIVIDA_ID` → "Cheque especial — CAIXA
     ECONOMICA FEDERAL". O tipo é o do snapshot, pelo rótulo da opção de
     `B5.A02`; o credor, a resposta de `CREDOR` — o mesmo par que o alerta de
-    inventário mostra (`T-324`). Sem credor, só o tipo."""
+    inventário mostra (`T-324`). Sem credor, só o tipo.
+
+    `T-328`: nomes repetidos (9 consignados CAIXA) ganham a parcela
+    ("· parcela R$ 292,55"); o que ainda repete (sem parcela, ou parcela
+    igual) ganha o ordinal na ordem de `dividas` ("· 2"). Todo chamador
+    passa `estado_inputs.dividas`, então o nome é o mesmo no plano, no PDF
+    e na conferência."""
+    dividas = tuple(dividas)
     nomes: dict[str, str] = {}
     for divida in dividas:
         tipo = _rotulo_de_opcao("TIPO_DIVIDA", divida.TIPO_DIVIDA.value, textos, vocabulario)
@@ -566,6 +580,25 @@ def nomear_dividas(
             if credor and textos.nome_da_divida
             else tipo
         )
+
+    repetidos = Counter(nomes.values())
+    for divida in dividas:
+        nome = nomes[divida.DIVIDA_ID]
+        parcela = divida.PARCELA_CONTRATUAL
+        if repetidos[nome] > 1 and isinstance(parcela, Decimal) and textos.nome_com_parcela:
+            nomes[divida.DIVIDA_ID] = textos.nome_com_parcela.format(
+                nome=nome, parcela=formatar_dinheiro_br(parcela)
+            )
+
+    repetidos = Counter(nomes.values())
+    ordinais: Counter[str] = Counter()
+    for divida in dividas:
+        nome = nomes[divida.DIVIDA_ID]
+        if repetidos[nome] > 1 and textos.nome_com_ordinal:
+            ordinais[nome] += 1
+            nomes[divida.DIVIDA_ID] = textos.nome_com_ordinal.format(
+                nome=nome, ordinal=ordinais[nome]
+            )
     return nomes
 
 

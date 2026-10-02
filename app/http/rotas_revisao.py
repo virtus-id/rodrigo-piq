@@ -178,6 +178,7 @@ REGRAS: `RF-23`, `RF-25`, `AC-25`, `AC-28`, `RF-26`, `AC-29`, `RF-24`,
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Final
@@ -192,7 +193,7 @@ from app.http.isolamento import (
     obter_repositorio_contas_para_papel,
 )
 from app.http.rotas_coleta import _itens_por_escopo
-from app.http.serializacao_plano import rotulo_do_nivel
+from app.http.serializacao_plano import rotulo_do_nivel, vocabulario_do_caso
 from app.montagem.entrada import conferir_desconto, conferir_renda_dos_vinculos, rateio_mensal
 from app.notificacao.email import (
     EnviadorDeEmail,
@@ -231,7 +232,12 @@ from persistencia.app_aluno.itens import RepositorioItens, RepositorioItensSupab
 from persistencia.app_aluno.respostas import RepositorioRespostas, RepositorioRespostasSupabase
 from persistencia.app_aluno.revisoes import RepositorioRevisoesSupabase
 from persistencia.supabase.repositorio_snapshots import RepositorioSnapshotsSupabase
-from report.plano import carregar_textos_canonicos, formatar_dinheiro_br
+from report.plano import (
+    carregar_textos_canonicos,
+    formatar_dinheiro_br,
+    nomear_dividas,
+    rotulo_de_codigo,
+)
 
 REGRAS: Final[tuple[str, ...]] = (
     "RF-23",
@@ -375,21 +381,30 @@ def _contexto_de_conferencia(
     respostas: RespostasCaso,
     itens_por_escopo: ItensPorEscopo,
     pendencias: tuple[PendenciaHomologacao, ...],
+    nomes: Mapping[str, str],
 ) -> dict[str, object]:
     """`T-266` — o que o revisor confere antes de decidir: a fonte de cada
     ficha (`RF-92`), os seguros "não informado" (`AC-155`, `EC-39` — nunca
     nível 3), as divergências de desconto (`AC-129`) e de renda dos vínculos
     (`AC-156`), os rateios analíticos (`AC-124`) e as pendências de
     homologação (`AC-142`). Só leitura e agregação de entrada — nada chega
-    ao motor."""
+    ao motor.
+
+    `T-328` (`RF-111`): cada linha leva o `nome` da dívida (`nomes`, o mesmo
+    `nomear_dividas` do plano) e, nas fontes, o `dado` pelo rótulo — o
+    `item_id` e o ID da pergunta seguem só como detalhe."""
     textos = carregar_textos_canonicos()
     dividas = itens_por_escopo.get(EscopoRepeticao.DIVIDA_ID, ())
+    variavel_por_pergunta = {r.ID: r.VARIAVEL_GRAVADA for r in colecao.registros}
+
+    def nome(item_id: str) -> str:
+        return nomes.get(item_id, item_id)
 
     def no_item(item_id: str, variavel: str) -> object:
         return respostas.valor_no_item(item_id, variavel)
 
     divergencias: list[dict[str, str | None]] = [
-        {"tipo": "DESCONTO", "item_id": item_id}
+        {"tipo": "DESCONTO", "item_id": item_id, "nome": nome(item_id)}
         for item_id in dividas
         if conferir_desconto(respostas, item_id).divergencia_rs_pct
     ]
@@ -419,6 +434,7 @@ def _contexto_de_conferencia(
                 rateios.append(
                     {
                         "item_id": item_id,
+                        "nome": nome(item_id),
                         "variavel": variavel_valor,
                         "valor_mensal": formatar_dinheiro_br(mensal),
                     }
@@ -428,14 +444,19 @@ def _contexto_de_conferencia(
         "fontes": [
             {
                 "item_id": nivel.item_id,
+                "nome": nome(nivel.item_id),
                 "origem": nivel.origem_fonte,
+                "dado": rotulo_de_codigo(
+                    textos.rotulos_de_dados,
+                    variavel_por_pergunta.get(nivel.origem_fonte) or nivel.origem_fonte,
+                ),
                 "nivel": nivel.nivel.value if nivel.nivel is not None else None,
                 "rotulo": rotulo_do_nivel(nivel, textos),
             }
             for nivel in niveis_por_ficha(colecao.registros, respostas, itens_por_escopo)
         ],
         "seguros_nao_informados": [
-            item_id
+            {"item_id": item_id, "nome": nome(item_id)}
             for item_id in dividas
             if no_item(item_id, _SEGURO_PRESTAMISTA) == "SIM"
             and no_item(item_id, _SITUACAO_SEGURO) in (NAO_SEI, NAO_SEI.value)
@@ -443,18 +464,25 @@ def _contexto_de_conferencia(
         "rotulo_nao_informado": textos.rotulos_de_comprovacao.get("NAO_INFORMADO"),
         "divergencias": divergencias,
         "rateios": rateios,
-        "pendencias_homologacao": [formatar_pendencia_homologacao(colecao, p) for p in pendencias],
+        "pendencias_homologacao": [
+            formatar_pendencia_homologacao(colecao, p, nomes) for p in pendencias
+        ],
     }
 
 
 def formatar_pendencia_homologacao(
-    colecao: ColecaoDeRegistros, pendencia: PendenciaHomologacao
+    colecao: ColecaoDeRegistros,
+    pendencia: PendenciaHomologacao,
+    nomes: Mapping[str, str] | None = None,
 ) -> dict[str, str | None]:
     """Nomeia dívida e dado (`AC-142`): o `item_id` e o enunciado do
-    registro — nenhum texto aqui (`AC-37`)."""
+    registro — nenhum texto aqui (`AC-37`). `T-328`: `nome` é a dívida por
+    `nomear_dividas`, o `item_id` fica como detalhe."""
     registro = next((r for r in colecao.registros if r.ID == pendencia.ID_PERGUNTA), None)
+    item_id = pendencia.item_id
     return {
-        "item_id": pendencia.item_id,
+        "item_id": item_id,
+        "nome": (nomes or {}).get(item_id, item_id) if item_id is not None else None,
         "ID_PERGUNTA": pendencia.ID_PERGUNTA,
         "enunciado": registro.enunciado if registro is not None else pendencia.ID_PERGUNTA,
         "motivo": pendencia.motivo,
@@ -572,6 +600,13 @@ def formulario_de_decisao(
     _caso, snapshot = _buscar_caso_e_snapshot_mais_recente(
         CASO_ID_REVISAO, repositorio_casos, repositorio_snapshots
     )
+    # `T-328` (`RF-111`): as dívidas pelo MESMO nome do plano e da conferência.
+    dividas = snapshot.estado_inputs.dividas
+    nomes = nomear_dividas(
+        dividas,
+        carregar_textos_canonicos(),
+        vocabulario_do_caso(colecao.registros, dados[0], (d.DIVIDA_ID for d in dividas)),
+    )
 
     return JSONResponse(
         {
@@ -581,11 +616,11 @@ def formulario_de_decisao(
             "decisoes": ["LIBERAR", "REPROVAR"],
             "classificacoes_erro": [c.value for c in CLASSIFICACAO_ERRO],
             # `T-266`: fontes, avisos e pendências (`RF-92`, `RF-93`).
-            **_contexto_de_conferencia(colecao, *dados, pendencias_homologacao),
+            **_contexto_de_conferencia(colecao, *dados, pendencias_homologacao, nomes),
             # `T-304` (`RF-96`, `RF-97`, `DE-08`): os cinco itens, lidos do
             # snapshot sobre o qual a decisão recai.
             "homologacao": serializar_registro(
-                registrar_homologacao(snapshot, pendencias_homologacao)
+                registrar_homologacao(snapshot, pendencias_homologacao), nomes
             ),
         }
     )

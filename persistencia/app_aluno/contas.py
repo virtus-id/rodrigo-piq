@@ -330,6 +330,27 @@ class RepositorioContasSupabase:
 
         return _linha_para_conta(linha) if linha is not None else None
 
+    def emails_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, str]:
+        """`RF-111` (e), T-327 — o e-mail da conta dona de cada caso, numa
+        consulta só (mesma disciplina de `RepositorioCasos.buscar_varios`,
+        T-187). Caso sem conta ou conta sem e-mail simplesmente não aparece
+        no dict — a tela cai no `CASO_ID`."""
+        if not caso_ids:
+            return {}
+        with _conectar() as conexao, conexao.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT c."CASO_ID", ct.email
+                FROM app_aluno.casos c
+                JOIN app_aluno.contas ct ON ct.conta_id = c.conta_id
+                WHERE c."CASO_ID" = ANY(%s) AND ct.email IS NOT NULL
+                """,
+                (list(caso_ids),),
+            )
+            linhas = cursor.fetchall()
+
+        return {str(caso_id): str(email) for caso_id, email in linhas}
+
     def autenticar(self, email: str, senha: str) -> Conta | None:
         """`RF-02`: a mensagem/resultado de erro não distingue "conta
         inexistente" de "senha errada" — ambos os ramos abaixo devolvem

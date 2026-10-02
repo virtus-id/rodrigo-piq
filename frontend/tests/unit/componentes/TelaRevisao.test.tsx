@@ -45,3 +45,24 @@ describe('TelaRevisao — linguagem humana (T-326)', () => {
     expect(container.textContent).not.toMatch(/[A-Z]+_[A-Z_]+/)
   })
 })
+
+describe('TelaRevisao — o caso pelo e-mail do aluno (T-327, RF-111)', () => {
+  it('cartão pelo e-mail; o CASO_ID fica como detalhe discreto', async () => {
+    vi.spyOn(api, 'obterFilaDeRevisao').mockResolvedValue({
+      itens: [{ ...ITEM, email_do_aluno: 'fulano@exemplo.com' }],
+    })
+    render(<TelaRevisao aoSair={vi.fn()} />)
+
+    expect(await screen.findByText('fulano@exemplo.com')).toHaveClass('font-bold')
+    expect(screen.getByText('CASO-1').tagName).toBe('SMALL')
+  })
+
+  it('sem e-mail, cai no CASO_ID', async () => {
+    vi.spyOn(api, 'obterFilaDeRevisao').mockResolvedValue({
+      itens: [{ ...ITEM, email_do_aluno: null }],
+    })
+    render(<TelaRevisao aoSair={vi.fn()} />)
+
+    expect(await screen.findByText('CASO-1')).toHaveClass('font-bold')
+  })
+})

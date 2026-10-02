@@ -65,13 +65,21 @@ describe('TelaEquipeCaso — pendências de homologação (T-266)', () => {
     montar({
       classificacoes_erro: [],
       fontes: [
-        { item_id: 'D001', origem: 'B5.I02', nivel: 'PENDENTE_DE_CONFIRMACAO', rotulo: 'Pendente de confirmação' },
+        {
+          item_id: 'D001',
+          nome: 'Consignado — CAIXA · 2',
+          dado: 'Fonte das informações',
+          origem: 'B5.I02',
+          nivel: 'PENDENTE_DE_CONFIRMACAO',
+          rotulo: 'Pendente de confirmação',
+        },
       ],
-      seguros_nao_informados: ['D001'],
+      seguros_nao_informados: [{ item_id: 'D001', nome: 'Consignado — CAIXA · 2' }],
       rotulo_nao_informado: 'Não informado',
       pendencias_homologacao: [
         {
           item_id: 'D001',
+          nome: 'Consignado — CAIXA · 2',
           ID_PERGUNTA: 'B5.B03',
           enunciado: 'Qual é o saldo devedor atual desta dívida?',
           motivo: 'PENDENTE_DE_CONFIRMACAO',
@@ -80,11 +88,17 @@ describe('TelaEquipeCaso — pendências de homologação (T-266)', () => {
     })
 
     const alerta = await screen.findByRole('alert')
-    expect(alerta).toHaveTextContent('D001 · Qual é o saldo devedor atual desta dívida?')
+    // `T-328` (`RF-111`): a dívida e o dado por nome, nunca `D001`/`B5.I02`.
+    expect(alerta).toHaveTextContent(
+      'Consignado — CAIXA · 2 · Qual é o saldo devedor atual desta dívida?',
+    )
     expect(screen.getByRole('button', { name: 'Liberar para o aluno' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Pedir correção' })).toBeEnabled()
-    expect(screen.getByText('D001 · B5.I02: Pendente de confirmação')).toBeInTheDocument()
-    expect(screen.getByText('D001 · seguro: Não informado')).toBeInTheDocument()
+    expect(
+      screen.getByText('Consignado — CAIXA · 2 · Fonte das informações: Pendente de confirmação'),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Consignado — CAIXA · 2 · seguro: Não informado')).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/\bD0\d\d\b|\bB\d+\.[A-Z0-9]+\b/)
   })
 
   it('sem pendência, Liberar fica disponível', async () => {
@@ -103,8 +117,17 @@ describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
       homologacao: {
         homologavel: true,
         itens: {
-          ordem_final_de_ataque: { valor: ['D002', 'D001'], origem: ['o'], motivo: null },
-          mes_de_quitacao_por_divida: { valor: { D002: 4, D001: 9 }, origem: ['o'], motivo: null },
+          // `T-328`: o servidor já manda os nomes.
+          ordem_final_de_ataque: {
+            valor: ['1º Cheque — CAIXA', '2º Consignado — BB'],
+            origem: ['o'],
+            motivo: null,
+          },
+          mes_de_quitacao_por_divida: {
+            valor: { 'Cheque — CAIXA': 4, 'Consignado — BB': 9 },
+            origem: ['o'],
+            motivo: null,
+          },
           valor_mensal_destinado: { valor: 'R$ 500,00', origem: ['o'], motivo: null },
           custo_total_de_juros: { valor: 'R$ 321,00', origem: ['o'], motivo: null },
           uso_da_reserva: {
@@ -117,8 +140,8 @@ describe('TelaEquipeCaso — registro de homologação (T-304, RF-96)', () => {
     })
 
     const secao = await screen.findByRole('region', { name: 'Registro de homologação' })
-    expect(secao).toHaveTextContent('Ordem final de ataqueD002 → D001')
-    expect(secao).toHaveTextContent('D002: mês 4 · D001: mês 9')
+    expect(secao).toHaveTextContent('Ordem final de ataque1º Cheque — CAIXA → 2º Consignado — BB')
+    expect(secao).toHaveTextContent('Cheque — CAIXA: mês 4 · Consignado — BB: mês 9')
     expect(secao).toHaveTextContent('Valor mensal destinadoR$ 500,00')
     expect(secao).toHaveTextContent('Custo total de jurosR$ 321,00')
     expect(secao).toHaveTextContent('não disponívelRESERVA_RECOMENDADA não gravada (R9-6)')
@@ -202,5 +225,27 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
       await screen.findByText(/Método: Avalanche · Definitivo na data/),
     ).toBeInTheDocument()
     expect(document.body.textContent).not.toContain('DEFINITIVO_NA_DATA')
+  })
+})
+
+describe('TelaEquipeCaso — o caso pelo e-mail do aluno (T-327, RF-111)', () => {
+  it('título pelo e-mail; o CASO_ID só no localizador', async () => {
+    montar(
+      { classificacoes_erro: [], pendencias_homologacao: [] },
+      { ...CASO, fila: { ...CASO.fila, email_do_aluno: 'fulano@exemplo.com' } },
+    )
+
+    expect(
+      await screen.findByRole('heading', { name: 'Conferir o plano de fulano@exemplo.com' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('CASO-1 · plano v1')).toBeInTheDocument()
+  })
+
+  it('sem e-mail, o título cai no CASO_ID', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] })
+
+    expect(
+      await screen.findByRole('heading', { name: 'Conferir o plano de CASO-1' }),
+    ).toBeInTheDocument()
   })
 })

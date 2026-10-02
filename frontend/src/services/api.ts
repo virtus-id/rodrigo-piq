@@ -425,6 +425,9 @@ export function obterCasoParaRevisao(casoId: string): Promise<CasoParaRevisao> {
  *  servidor (`textos-canonicos.yaml`). */
 export interface FonteDaFicha {
   item_id: string
+  /** `T-328` (`RF-111`): a dívida e o dado por nome; `item_id`/`origem` são detalhe. */
+  nome: string
+  dado: string
   origem: string
   nivel: string | null
   rotulo: string
@@ -433,6 +436,8 @@ export interface FonteDaFicha {
 /** Dado indispensável que impede a liberação — `RF-93`, `AC-142`. */
 export interface PendenciaDeHomologacao {
   item_id: string | null
+  /** `T-328` (`RF-111`): a dívida por nome; `null` fora de ficha (renda). */
+  nome: string | null
   ID_PERGUNTA: string
   enunciado: string
   motivo: 'AUSENTE' | 'PENDENTE_DE_CONFIRMACAO'
@@ -455,15 +460,16 @@ export interface OpcoesDeDecisao {
   classificacoes_erro: string[]
   // `T-266` — derivados das respostas atuais, a cada leitura.
   fontes?: FonteDaFicha[]
-  seguros_nao_informados?: string[]
+  seguros_nao_informados?: { item_id: string; nome: string }[]
   rotulo_nao_informado?: string | null
   divergencias?: {
     tipo: 'DESCONTO' | 'RENDA_VINCULOS'
     item_id: string | null
+    nome?: string
     soma_liquidas?: string
     renda_bloco_3?: string
   }[]
-  rateios?: { item_id: string; variavel: string; valor_mensal: string }[]
+  rateios?: { item_id: string; nome: string; variavel: string; valor_mensal: string }[]
   pendencias_homologacao?: PendenciaDeHomologacao[]
   homologacao?: RegistroDeHomologacao
 }
@@ -553,6 +559,8 @@ export function obterProgressoDoCalculo(
 
 export interface LinhaDoPainel {
   CASO_ID: string
+  /** `T-327` (`RF-111` e): a identificação para a equipe; `null` cai no `CASO_ID`. */
+  email_do_aluno?: string | null
   estado: string
   aguardando_revisao: boolean
   tempo_desde_ultima_atividade: string

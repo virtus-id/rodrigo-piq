@@ -22,7 +22,7 @@ REGRAS: `RF-50`, `RF-51`, `AC-25`, `AC-28`
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Annotated, Final
+from typing import Annotated, Final, Protocol
 
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
@@ -77,6 +77,7 @@ from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.casos import RepositorioCasos
+from persistencia.app_aluno.contas import RepositorioContasSupabase
 from persistencia.app_aluno.itens import RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
@@ -101,6 +102,20 @@ class ErroCasoDesaparecidoAposIsolamento(Exception):
 
     def __init__(self, caso_id: str) -> None:
         super().__init__(f"CASO_ID={caso_id!r} desapareceu após isolamento")
+
+
+class EmailsDosAlunos(Protocol):
+    """`T-327` — recorte de `RepositorioContasSupabase` que as telas da
+    equipe usam: o e-mail do aluno por `CASO_ID`, em lote (sem N+1)."""
+
+    def emails_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, str]: ...
+
+
+def obter_emails_dos_alunos() -> EmailsDosAlunos:
+    """Ponto único de injeção — sobrescrito nos testes. Só rotas de revisor
+    (`exigir_papel_revisor`) dependem dele: o e-mail nunca vai a rota de
+    aluno."""
+    return RepositorioContasSupabase()
 
 
 def _vocabulario(
@@ -219,6 +234,7 @@ def fila_de_revisao(
     repositorio_snapshots: Annotated[
         RepositorioSnapshots, Depends(obter_repositorio_snapshots_da_fila)
     ],
+    emails: Annotated[EmailsDosAlunos, Depends(obter_emails_dos_alunos)],
 ) -> JSONResponse:
     """`AC-28` — a fila, com os dois sinais SEPARADOS.
 
@@ -232,7 +248,15 @@ def fila_de_revisao(
     casos_ids = repositorio_casos.listar_por_estado(ESTADO_CASO.AGUARDANDO_REVISAO)
     itens = listar_fila_de_revisao(list(casos_ids), repositorio_casos, repositorio_snapshots)
     textos = carregar_textos_canonicos()
-    return JSONResponse({"itens": [serializar_item_da_fila(item, textos) for item in itens]})
+    email_por_caso = emails.emails_dos_casos(tuple(item.CASO_ID for item in itens))
+    return JSONResponse(
+        {
+            "itens": [
+                serializar_item_da_fila(item, textos, email_por_caso.get(item.CASO_ID))
+                for item in itens
+            ]
+        }
+    )
 
 
 @roteador.get("/api/revisao/caso/{CASO_ID_REVISAO}")
@@ -247,6 +271,7 @@ def caso_para_revisao(
     repositorio_respostas: Annotated[
         RepositorioRespostas, Depends(obter_repositorio_respostas_da_coleta)
     ],
+    emails: Annotated[EmailsDosAlunos, Depends(obter_emails_dos_alunos)],
 ) -> JSONResponse:
     """O plano como o aluno o verá, mais o carimbo — para a tela lado a lado
     do revisor (`AC-29`).
@@ -290,7 +315,11 @@ def caso_para_revisao(
             "CASO_ID": CASO_ID_REVISAO,
             "plano": serializar_plano(contexto, para_revisor=True),
             "estado_inputs": serializar_estado_inputs(estado_inputs),
-            "fila": serializar_item_da_fila(item, textos),
+            "fila": serializar_item_da_fila(
+                item,
+                textos,
+                emails.emails_dos_casos((CASO_ID_REVISAO,)).get(CASO_ID_REVISAO),
+            ),
         }
     )
 
@@ -304,6 +333,7 @@ def painel_do_operador(
         RespostasDoPainel, Depends(obter_repositorio_respostas_do_painel)
     ],
     repositorio_itens: Annotated[ItensDoPainel, Depends(obter_repositorio_itens_do_painel)],
+    emails: Annotated[EmailsDosAlunos, Depends(obter_emails_dos_alunos)],
 ) -> JSONResponse:
     """`RF-35` — quem está onde, sem nenhum valor financeiro.
 
@@ -330,6 +360,8 @@ def painel_do_operador(
         lambda: repositorio_respostas.listar_de_varios_casos(caso_ids),
         lambda: repositorio_itens.listar_de_varios_casos(caso_ids, incluir_removidos=False),
     )
+    # `T-327` (`RF-111` e): uma consulta para todos os e-mails, não uma por caso.
+    email_por_caso = emails.emails_dos_casos(tuple(caso_ids))
 
     linhas = []
     for caso_id in caso_ids:
@@ -343,6 +375,7 @@ def painel_do_operador(
         linhas.append(
             {
                 "CASO_ID": linha.CASO_ID,
+                "email_do_aluno": email_por_caso.get(linha.CASO_ID),
                 "estado": linha.estado.value,
                 "aguardando_revisao": linha.aguardando_revisao,
                 "tempo_desde_ultima_atividade": linha.tempo_desde_ultima_atividade,

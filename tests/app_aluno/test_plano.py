@@ -167,6 +167,8 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         # `T-326` (RF-111): nome da dívida, descrição das ações e rótulos
         # dos dados e códigos — nenhum renomeia a ordem.
         "nome_da_divida",
+        "nome_com_parcela",
+        "nome_com_ordinal",
         "descricao_da_acao",
         "rotulos_de_dados",
         "rotulos_de_codigos",

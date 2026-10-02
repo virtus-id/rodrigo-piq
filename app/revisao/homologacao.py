@@ -45,7 +45,8 @@ REGRAS: `RF-96`, `RF-97`, `DE-08`
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from typing import Any, Final
 
@@ -142,15 +143,35 @@ def _juros(snapshot: SnapshotOrdem, origem_cenario: str) -> ItemHomologacao:
     )
 
 
-def serializar_registro(registro: RegistroHomologacao) -> dict[str, Any]:
+def serializar_registro(
+    registro: RegistroHomologacao, nomes: Mapping[str, str] | None = None
+) -> dict[str, Any]:
     """`T-304` — os cinco itens para a tela do revisor; dinheiro formatado
     (`G-01`), o resto como veio. As pendências já vão nomeadas ao lado, em
-    `pendencias_homologacao` — aqui só `homologavel`."""
+    `pendencias_homologacao` — aqui só `homologavel`.
+
+    `T-328` (`RF-111`): ordem e meses de quitação pelo nome da dívida
+    (`nomes`, de `nomear_dividas`) — "1º Cheque especial — CAIXA" e
+    "Cheque especial — CAIXA: mês 2". O registro em si segue com os
+    `DIVIDA_ID`; só a apresentação troca."""
+    nomes = nomes or {}
+
+    def nome(divida_id: str) -> str:
+        return nomes.get(divida_id, divida_id)
 
     def valor(bruto: object) -> object:
         if isinstance(bruto, Decimal):
             return formatar_dinheiro_br(bruto)
         return list(bruto) if isinstance(bruto, tuple) else bruto
+
+    ordem = registro.ordem_final_de_ataque
+    if isinstance(ordem.valor, tuple):
+        ordem = replace(
+            ordem, valor=tuple(f"{i}º {nome(d)}" for i, d in enumerate(ordem.valor, start=1))
+        )
+    meses = registro.mes_de_quitacao_por_divida
+    if isinstance(meses.valor, dict):
+        meses = replace(meses, valor={nome(d): mes for d, mes in meses.valor.items()})
 
     return {
         "homologavel": registro.homologavel,
@@ -161,8 +182,8 @@ def serializar_registro(registro: RegistroHomologacao) -> dict[str, Any]:
                 "motivo": item.motivo,
             }
             for nome, item in (
-                ("ordem_final_de_ataque", registro.ordem_final_de_ataque),
-                ("mes_de_quitacao_por_divida", registro.mes_de_quitacao_por_divida),
+                ("ordem_final_de_ataque", ordem),
+                ("mes_de_quitacao_por_divida", meses),
                 ("valor_mensal_destinado", registro.valor_mensal_destinado),
                 ("custo_total_de_juros", registro.custo_total_de_juros),
                 ("uso_da_reserva", registro.uso_da_reserva),

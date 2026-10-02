@@ -24,6 +24,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi import FastAPI, Request
@@ -32,6 +33,7 @@ from fastapi.testclient import TestClient
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import obter_repositorio_contas_para_papel
+from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_operador import (
     obter_colecao_de_registros_do_painel,
     obter_repositorio_casos_do_painel,
@@ -147,6 +149,10 @@ def aplicacao_e_dublê(
         }
     )
     aplicacao.dependency_overrides[obter_repositorio_contas_para_papel] = lambda: dublê
+    # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=lambda _caso_ids: {}
+    )
     aplicacao.dependency_overrides[obter_repositorio_casos_do_painel] = lambda: repositorio_casos
     aplicacao.dependency_overrides[obter_colecao_de_registros_do_painel] = lambda: _COLECAO_VAZIA
     aplicacao.dependency_overrides[obter_repositorio_respostas_do_painel] = (
@@ -276,3 +282,39 @@ def test_painel_vazio_quando_nenhum_caso_cadastrado(cliente: TestClient) -> None
 
     assert resposta.status_code == 200
     assert resposta.json()["linhas"] == []
+
+
+def test_t327_painel_identifica_o_caso_pelo_email_do_aluno(
+    aplicacao_e_dublê: tuple[FastAPI, _RepositorioContasDublê],
+    cliente: TestClient,
+    repositorio_casos: RepositorioCasosArquivo,
+) -> None:
+    """`RF-111` (e): o e-mail da conta dona do caso, numa consulta só para
+    o painel inteiro; conta sem e-mail cai em `null` (a tela mostra o
+    `CASO_ID`)."""
+    agora = datetime.now(UTC)
+    for caso_id in ("CASO-COM-EMAIL", "CASO-SEM-EMAIL"):
+        _criar_caso(
+            repositorio_casos,
+            caso_id,
+            "conta-aluno-1",
+            estado=ESTADO_CASO.COLETA_INICIAL,
+            ultima_interacao_em=agora,
+        )
+    consultas: list[tuple[str, ...]] = []
+
+    def emails_dos_casos(caso_ids: tuple[str, ...]) -> dict[str, str]:
+        consultas.append(caso_ids)
+        return {"CASO-COM-EMAIL": "fulano@exemplo.invalido"}
+
+    aplicacao, _dublê = aplicacao_e_dublê
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=emails_dos_casos
+    )
+    cliente.post("/_teste/login", params={"conta_id": "CONTA_REVISOR"})
+
+    linhas = cliente.get("/api/operador/painel").json()["linhas"]
+
+    emails = {linha["CASO_ID"]: linha["email_do_aluno"] for linha in linhas}
+    assert emails == {"CASO-COM-EMAIL": "fulano@exemplo.invalido", "CASO-SEM-EMAIL": None}
+    assert len(consultas) == 1

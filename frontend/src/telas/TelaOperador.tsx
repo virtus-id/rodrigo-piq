@@ -93,7 +93,9 @@ export default function TelaOperador({ voltar }: TelaOperadorProps) {
         {linhas.map((linha) => (
           <li key={linha.CASO_ID} className="cartao">
             <div className="linha flex-wrap">
-              <span className="font-bold">{linha.CASO_ID}</span>
+              {/* `T-327` (`RF-111` e): o aluno pelo e-mail; o código, discreto. */}
+              <span className="font-bold">{linha.email_do_aluno || linha.CASO_ID}</span>
+              {linha.email_do_aluno && <small className="text-muted">{linha.CASO_ID}</small>}
               {linha.aguardando_revisao && (
                 <span className="chip bg-warn-soft text-warn">Aguarda conferência</span>
               )}

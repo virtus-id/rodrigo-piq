@@ -367,6 +367,8 @@ export interface RespostaPlano {
 
 export interface ItemDaFila {
   CASO_ID: string
+  /** `T-327` (`RF-111` e): a identificação para a equipe; `null` cai no `CASO_ID`. */
+  email_do_aluno?: string | null
   SNAPSHOT_ID: string
   versao: number
   DATA_REFERENCIA: string

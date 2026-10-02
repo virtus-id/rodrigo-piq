@@ -626,6 +626,7 @@ test('AC-83 + AC-29: a fila abre a conferência do caso', async ({ page }) => {
         itens: [
           {
             CASO_ID: 'CASO-001',
+            email_do_aluno: 'aluno@exemplo.gov.br',
             SNAPSHOT_ID: 'S1',
             versao: 2,
             DATA_REFERENCIA: '2026-03-15',
@@ -679,6 +680,8 @@ test('AC-83 + AC-29: a fila abre a conferência do caso', async ({ page }) => {
   // `T-326` (`RF-111`): a fila mostra rótulos, não os códigos do motor.
   await expect(page.getByText('Híbrido', { exact: true })).toBeVisible()
   await expect(page.getByText('DEFINITIVO_NA_DATA')).toHaveCount(0)
+  // `T-327` (`RF-111` e): o cartão identifica o caso pelo e-mail do aluno.
+  await expect(page.getByText('aluno@exemplo.gov.br', { exact: true })).toBeVisible()
   await abrir.click()
 
   await expect

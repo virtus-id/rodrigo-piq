@@ -13368,3 +13368,49 @@ conferência):
   gastos", "Sinais de comportamento".
 
 **Status:** `[x] concluída (2026-10-02)`
+
+---
+
+### `T-327` — Telas da equipe identificam o caso pelo e-mail do aluno
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-326` · **Rastreia:** `RF-111` (e)
+- **Arquivos:** `app/http/serializacao_plano.py`, `app/http/rotas_revisao.py`,
+  `app/http/rotas_operador.py`, `frontend/src/telas/TelaRevisao.tsx`,
+  `frontend/src/telas/TelaEquipeCaso.tsx`, `frontend/src/telas/TelaOperador.tsx` + testes
+
+Relato do produto (2026-10-02): a conferência mostrava "Conferir o plano de
+CASO_4910a3ea…". O revisor precisa saber de quem é o caso.
+
+- [x] Fila, conferência e painel trazem `email_do_aluno` (servidor, pela conta do caso)
+- [x] Título/cartão pelo e-mail; `CASO_ID` só como detalhe discreto
+- [x] Testes (servidor e telas)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Status:** `[x] concluída (2026-10-02)`
+
+---
+
+### `T-328` — Decisão da conferência sem siglas e dívidas com nome único
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-326`, `T-327` · **Rastreia:** `RF-111` (a)/(b)
+- **Arquivos:** `app/http/rotas_revisao.py` (`GET /caso/{id}/decisao`), `report/plano.py`
+  (`nomear_dividas`), `report/templates/plano/textos-canonicos.yaml`,
+  `frontend/src/telas/TelaEquipeCaso.tsx` + testes
+
+Relato do produto (2026-10-02), na conferência do caso de teste: "Fonte de
+comprovação e avisos — D001 · B5.I02: Comprovado…"; "Ordem final de ataque
+D011 → D008 → …"; "Mês de quitação — D011: mês 2 · …". Achado 3 de `T-326`:
+fontes, seguros não informados, divergências, rateios, pendências de
+homologação e registro de homologação usam `item_id`/ID de pergunta como texto.
+E (achado 6) dívidas de mesmo tipo e credor ficam com nomes iguais — no caso
+de teste, 9 consignados CAIXA.
+
+- [x] Payload de decisão com o nome da dívida (mesmo `nomear_dividas`) e o
+      rótulo do dado no lugar do ID de pergunta (ex.: `B5.I02` → "Fonte das informações")
+- [x] Ordem final e meses de quitação por nome ("1º Cheque especial — CAIXA … · mês 2")
+- [x] Nomes repetidos ganham o diferencial da parcela ("· parcela R$ 292,55");
+      sem parcela, ordinal ("· 2"). Vale em todo lugar que usa `nomear_dividas`
+- [x] Varredura de `AC-174` estendida ao payload de decisão
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Status:** `[x] concluída (2026-10-02)`

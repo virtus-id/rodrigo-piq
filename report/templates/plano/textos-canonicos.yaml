@@ -159,6 +159,10 @@ orientacao_seguro_prestamista: >-
 # opção de `B5.A02` (registro); `{credor}`, a resposta de `CREDOR`. Sem
 # credor, só o tipo.
 nome_da_divida: "{tipo} — {credor}"
+# `T-328`: dívidas com o mesmo nome (ex.: 9 consignados da CAIXA) ganham a
+# parcela; sem parcela (ou com parcela igual), o ordinal na ordem do caso.
+nome_com_parcela: "{nome} · parcela {parcela}"
+nome_com_ordinal: "{nome} · {ordinal}"
 
 # O que o aluno precisa fazer, por `TIPO_ACAO` (engine/gates.py) — `T-306`.
 # A `descricao` do motor (o motivo do gate) segue só para o revisor.
@@ -193,6 +197,10 @@ rotulos_de_dados:
   ativos: "Bens"
   recursos_extraordinarios: "Valores extraordinários"
   TIPO_DIVIDA: "Tipo de dívida"
+  # `T-328`: a pergunta de fonte da ficha, na conferência.
+  FONTE_DADO: "Fonte das informações"
+  "FONTE_DADO (proposta)": "Fonte da proposta de quitação"
+  "FONTE_DADO (troca)": "Fonte da proposta de troca"
   STATUS_DIVIDA: "Situação da dívida"
   SALDO_DEVEDOR_ATUAL: "Saldo devedor atual"
   VALOR_QUITACAO_HOJE: "Valor para quitar hoje"

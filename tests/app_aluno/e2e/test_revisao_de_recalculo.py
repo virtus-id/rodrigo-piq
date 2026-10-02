@@ -73,6 +73,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -81,6 +82,7 @@ from app.casos.acompanhamento import processar_resposta_bloco_11
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import obter_repositorio_casos, obter_repositorio_contas_para_papel
+from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_bloco11 import obter_colecao_de_registros as obter_colecao_bloco11
 from app.http.rotas_bloco11 import obter_repositorio_respostas as obter_repositorio_respostas_b11
 from app.http.rotas_bloco11 import roteador as roteador_bloco11
@@ -330,6 +332,10 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
     # Guarda de papel de revisor (app/http/isolamento.py::exigir_papel_revisor,
     # T-100) — consulta este MESMO repositório de contas a cada requisição.
     aplicacao.dependency_overrides[obter_repositorio_contas_para_papel] = lambda: repositorio_contas
+    # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=lambda _caso_ids: {}
+    )
 
     # Bloco 11 (app/http/rotas_bloco11.py) — coleção REAL (nenhum filtro:
     # só a pergunta B11.Q01 é exercida, que já existe na coleção completa).

@@ -155,7 +155,9 @@ export default function TelaRevisao({
         {itens.map((item) => (
           <li key={item.SNAPSHOT_ID} className="cartao">
             <div className="linha flex-wrap">
-              <span className="font-bold">{item.CASO_ID}</span>
+              {/* `T-327` (`RF-111` e): o aluno pelo e-mail; o código, discreto. */}
+              <span className="font-bold">{item.email_do_aluno || item.CASO_ID}</span>
+              {item.email_do_aluno && <small className="text-muted">{item.CASO_ID}</small>}
               <span className="text-muted">v{item.versao}</span>
             </div>
 

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,6 +36,7 @@ from fastapi.testclient import TestClient
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import exigir_papel_revisor
+from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_revisao import (
     obter_repositorio_casos_da_fila,
     obter_repositorio_snapshots_da_fila,
@@ -151,6 +153,10 @@ def _montar_cliente(
         repositorio_snapshots
     )
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: "conta-revisor-teste"
+    # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=lambda _caso_ids: {}
+    )
     sem_respostas_nem_itens(aplicacao)  # `T-326`: credores lidos das respostas
     return TestClient(aplicacao, base_url="https://teste.local")
 

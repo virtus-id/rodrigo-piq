@@ -687,8 +687,16 @@ def test_t304_registro_de_homologacao_exposto_ao_revisor(
         "custo_total_de_juros",
         "uso_da_reserva",
     }
-    assert itens["ordem_final_de_ataque"]["valor"] == [p.DIVIDA_ID for p in gravado.ORDEM_QUITACAO]
-    assert itens["mes_de_quitacao_por_divida"]["valor"] == esperado.mes_de_quitacao_por_divida.valor
+    # `T-328` (`RF-111`): ordem e meses pelo nome da dívida, não pelo `DIVIDA_ID`.
+    ordem = itens["ordem_final_de_ataque"]["valor"]
+    assert len(ordem) == len(gravado.ORDEM_QUITACAO)
+    assert all(nome.startswith(f"{i}º ") for i, nome in enumerate(ordem, start=1))
+    assert not any(p.DIVIDA_ID in nome for p in gravado.ORDEM_QUITACAO for nome in ordem)
+    meses_esperados = esperado.mes_de_quitacao_por_divida.valor
+    assert isinstance(meses_esperados, dict)
+    assert list(itens["mes_de_quitacao_por_divida"]["valor"].values()) == list(
+        meses_esperados.values()
+    )
     assert itens["mes_de_quitacao_por_divida"]["valor"]
     assert itens["valor_mensal_destinado"]["valor"].startswith("R$ ")
     assert itens["uso_da_reserva"] == {

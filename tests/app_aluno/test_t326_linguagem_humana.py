@@ -23,6 +23,7 @@ import typing
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -32,6 +33,7 @@ from fastapi.testclient import TestClient
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import exigir_papel_revisor, obter_repositorio_casos
+from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_coleta import obter_repositorio_itens, obter_repositorio_respostas
 from app.http.rotas_plano import obter_repositorio_snapshots
 from app.http.rotas_revisao import (
@@ -75,6 +77,8 @@ _CAIXA = "CAIXA ECONOMICA FEDERAL"
 # representação de dataclass do motor.
 _IDENTIFICADOR = re.compile(r"\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)+\b")
 _CODIGO_DE_DIVIDA = re.compile(r"\bD0\d\d\b")
+# `T-328`: ID de pergunta do registro (`B5.I02`).
+_ID_DE_PERGUNTA = re.compile(r"\bB\d+\.[A-Z0-9]+\b")
 _REPR = re.compile(
     r"\b(?:RecursoExtraordinario|ItemInvestimento|ItemAtivo|Oportunidade|Divida|Decimal)\("
 )
@@ -96,6 +100,13 @@ _CHAVES_DE_DETALHE = frozenset(
         "MOTIVO_RECALCULO",
         "ENGINE_VERSION",
         "PARAMETROS_VERSION",
+        # `T-328` — payload de decisão: códigos ao lado do nome/rótulo.
+        "item_id",
+        "ID_PERGUNTA",
+        "origem",
+        "variavel",
+        "nivel",
+        "tipo",
     }
 )
 
@@ -108,7 +119,7 @@ def _codigos_no_texto_principal(valor: object, chave: str = "") -> list[str]:
     if isinstance(valor, str) and chave not in _CHAVES_DE_DETALHE:
         return [
             f"{chave}: {achado}"
-            for padrao in (_IDENTIFICADOR, _CODIGO_DE_DIVIDA, _REPR)
+            for padrao in (_IDENTIFICADOR, _CODIGO_DE_DIVIDA, _ID_DE_PERGUNTA, _REPR)
             for achado in padrao.findall(valor)
         ]
     return []
@@ -119,12 +130,14 @@ def test_detector_pega_os_tres_tipos_de_codigo() -> None:
         "ordem": [{"nome": "D011", "DIVIDA_ID": "D011"}],
         "campos": [{"valor": "HIBRIDO_X", "codigo": "CET"}],
         "x": "(RecursoExtraordinario(VALOR=1",
+        "dado": "B5.I02",
     }
 
     assert _codigos_no_texto_principal(payload) == [
         "nome: D011",
         "valor: HIBRIDO_X",
         "x: RecursoExtraordinario(",
+        "dado: B5.I02",
     ]
 
 
@@ -241,6 +254,10 @@ def _cliente(
     )
     aplicacao.dependency_overrides[obter_repositorio_itens] = _SemItens
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: "conta-revisor-teste"
+    # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=lambda _caso_ids: {}
+    )
 
     @aplicacao.post("/_teste/abrir-sessao")
     def abrir_sessao(request: Request) -> dict[str, str]:
