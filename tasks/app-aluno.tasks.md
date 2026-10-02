@@ -13415,3 +13415,27 @@ de teste, 9 consignados CAIXA.
 - [x] Gates: lint, build, test, tsc, vitest, Playwright
 
 **Status:** `[x] concluída (2026-10-02)`
+
+---
+
+### `T-329` — Conferência do revisor responsiva
+
+- **Tipo:** `BUGFIX` · **Dependências:** `T-326` · **Rastreia:** `RF-111`, `AC-87`
+- **Arquivos:** `frontend/src/telas/TelaEquipeCaso.tsx`, `frontend/src/componentes/Tela.tsx`,
+  `frontend/src/index.css`
+
+Relato do produto (2026-10-02): "na exibição do plano na visão de revisor
+precisa ajustar o enquadramento da tela, tente deixar mais responsivo".
+Medido no caso de teste: no celular (390px) a página tinha 556px de largura
+(códigos técnicos longos sem quebra, `CASO_ID` no cabeçalho, aviso em duas
+colunas); no monitor (1440px) a coluna de dados de entrada estourava o
+cartão de 900px. Revisa `AC-87` no monitor largo: telas da equipe até 1280px
+a partir de `xl` (no celular e até `lg`, 900px como antes).
+
+- [x] Plano e dados lado a lado só a partir de `xl`; empilhados abaixo
+- [x] Listas de dados em uma coluna no celular; valores e códigos quebram linha
+- [x] Aviso de pendência empilhado; `CASO_ID` do cabeçalho quebra
+- [x] Sem rolagem horizontal em 390px e 1440px (medido no servidor)
+- [x] Gates: tsc, vitest
+
+**Status:** `[x] concluída (2026-10-02)`

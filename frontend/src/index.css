@@ -472,7 +472,8 @@
   }
 
   .where {
-    @apply text-right text-muted;
+    @apply min-w-0 text-right text-muted;
+    overflow-wrap: anywhere;
     font-size: 0.9rem;
   }
 

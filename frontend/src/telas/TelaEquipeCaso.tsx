@@ -59,13 +59,18 @@ function textoDoItem(valor: unknown): string {
  */
 function ListaDeDados({ campos }: { campos: CampoDeEntrada[] }) {
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+    // `T-329`: uma coluna no celular, duas a partir de `sm`; nada estoura o
+    // cartão — o código técnico quebra em qualquer ponto.
+    <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {campos.map((campo) => (
         <div key={campo.codigo} className="contents">
-          <dt className="text-muted">
-            {campo.nome} <small className="text-muted">{campo.codigo}</small>
+          <dt className="min-w-0 text-muted">
+            {campo.nome}{' '}
+            <small className="text-muted [overflow-wrap:anywhere]">{campo.codigo}</small>
           </dt>
-          <dd className="tabular-nums">{campo.valor}</dd>
+          <dd className="m-0 mb-2 min-w-0 tabular-nums [overflow-wrap:anywhere] sm:mb-0">
+            {campo.valor}
+          </dd>
         </div>
       ))}
     </dl>
@@ -205,7 +210,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
 
       {/* `T-266` — redação aprovada pelo produto (`T-289`, 2026-09-30). */}
       {pendencias.length > 0 && (
-        <div role="alert" className="aviso-erro">
+        <div role="alert" className="aviso-erro flex-col">
           <p className="font-bold">
             Não pode ser homologado ainda: confirme ou corrija estes dados antes de liberar.
           </p>
@@ -262,13 +267,13 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           <h2 id="titulo-homologacao" className="eyebrow">
             Registro de homologação
           </h2>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+          <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[auto_minmax(0,1fr)]">
             {ITENS_DE_HOMOLOGACAO.map(([chave, rotulo]) => {
               const item = homologacao.itens[chave]
               return (
                 <div key={chave} className="contents">
                   <dt className="text-muted">{rotulo}</dt>
-                  <dd className="m-0 tabular-nums">
+                  <dd className="m-0 mb-2 min-w-0 tabular-nums [overflow-wrap:anywhere] sm:mb-0">
                     {item ? textoDoItem(item.valor) : 'não disponível'}
                     {item?.motivo && (
                       <small className="block text-muted">{item.motivo}</small>
@@ -294,8 +299,9 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="cartao">
+      {/* `T-329`: lado a lado só no monitor largo; abaixo disso, empilhado. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className="cartao min-w-0">
           <span className="eyebrow">Como o aluno vai ver</span>
           {/* Redação canônica do servidor — `AC-14`. Nunca reescrita aqui. */}
           <h2>{plano.titulo}</h2>
@@ -328,7 +334,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           </p>
         </div>
 
-        <div className="cartao">
+        <div className="cartao min-w-0">
           <span className="eyebrow">Dados que produziram o plano</span>
           {/* Nenhum campo é omitido: o revisor compara o plano contra o
               estado COMPLETO, e campo fora da tela é campo que ninguém

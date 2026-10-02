@@ -166,7 +166,7 @@ export default function Tela({
       <div
         className={`flex min-h-screen w-full flex-col ${
           largura === 'equipe'
-            ? 'max-w-equipe'
+            ? 'max-w-equipe xl:max-w-[1280px]'
             : lateral
               ? 'max-w-tela lg:max-w-[1120px]'
               : 'max-w-tela lg:max-w-[760px]'
@@ -184,7 +184,7 @@ export default function Tela({
             <span />
           )}
           {onde || aoSair ? (
-            <div className="flex items-center gap-3">
+            <div className="flex min-w-0 items-center gap-3">
               {onde && <span className="where">{onde}</span>}
               {aoSair && (
                 <button type="button" className="sair" onClick={aoSair}>
