@@ -214,6 +214,17 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         </p>
       )}
 
+      {/* `T-330`: o método é do caso, não da dívida — um destaque só, com o
+          critério em uma frase (do servidor). Substitui o "Detalhe técnico"
+          que repetia o mesmo texto do motor em cada posição. */}
+      <section className="cartao" aria-labelledby="titulo-metodo">
+        <span className="eyebrow">Método selecionado para este aluno</span>
+        <h2 id="titulo-metodo">
+          {fila.metodo} <small className="text-muted">· {fila.status_metodo}</small>
+        </h2>
+        {fila.criterio_metodo && <p>{fila.criterio_metodo}</p>}
+      </section>
+
       {/* `T-266` — redação aprovada pelo produto (`T-289`, 2026-09-30). */}
       {pendencias.length > 0 && (
         <div role="alert" className="aviso-erro flex-col">
@@ -304,17 +315,6 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           <span className="chip chip-atencao">S-04 · revisão obrigatória</span>
         )}
       </div>
-
-      {/* `T-330`: o método é do caso, não da dívida — um destaque só, com o
-          critério em uma frase (do servidor). Substitui o "Detalhe técnico"
-          que repetia o mesmo texto do motor em cada posição. */}
-      <section className="cartao" aria-labelledby="titulo-metodo">
-        <span className="eyebrow">Método selecionado para este aluno</span>
-        <h2 id="titulo-metodo">
-          {fila.metodo} <small className="text-muted">· {fila.status_metodo}</small>
-        </h2>
-        {fila.criterio_metodo && <p>{fila.criterio_metodo}</p>}
-      </section>
 
       {/* `T-329`: lado a lado só no monitor largo; abaixo disso, empilhado. */}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
