@@ -136,3 +136,14 @@ def anexar_ao_payload(
     pergunta["trilha"] = (
         trilha_da_coleta(registros, percurso, bloco) if isinstance(bloco, int) else None
     )
+
+
+def parte_da_pergunta(registros: tuple[RegistroPergunta, ...], ID: str) -> str | None:
+    """`RF-100`, `T-331` — "Parte N de 5 · rótulo" da pergunta `ID`, para o
+    Painel de usuários (`RF-112`) dizer em que parte da coleta o aluno está.
+    `None` quando a pergunta não pertence às cinco partes."""
+    bloco = next((registro.bloco for registro in registros if registro.ID == ID), None)
+    numero = _PARTE_DO_BLOCO.get(bloco) if bloco is not None else None
+    if numero is None:
+        return None
+    return f"Parte {numero} de {len(PARTES)} · {PARTES[numero - 1][1]}"

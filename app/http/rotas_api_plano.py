@@ -29,13 +29,14 @@ from fastapi.responses import JSONResponse
 
 from app.casos.inventario import pendencias_de_inventario
 from app.casos.maquina import ESTADO_CASO
-from app.casos.progresso import consultar_trilha_de_progresso
+from app.casos.progresso import RelatoDeProgresso, consultar_trilha_de_progresso
 from app.concorrencia import duas_em_paralelo, tres_em_paralelo
 from app.http.isolamento import (
     exigir_caso_da_sessao,
     exigir_papel_revisor,
     obter_repositorio_casos,
 )
+from app.http.jornada import parte_da_pergunta
 from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
 from app.http.rotas_coleta import _itens_por_escopo
 from app.http.rotas_coleta import obter_colecao_de_registros as obter_colecao_da_coleta
@@ -77,16 +78,18 @@ from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
 from persistencia.app_aluno.casos import RepositorioCasos
-from persistencia.app_aluno.contas import RepositorioContasSupabase
+from persistencia.app_aluno.contas import ContaDoCaso, RepositorioContasSupabase
 from persistencia.app_aluno.itens import RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
 from report.pdf import snapshot_tem_liberacao_registrada
 from report.plano import (
+    TextosCanonicosPlano,
     VocabularioDoCaso,
     carregar_textos_canonicos,
     montar_contexto_estado_inputs,
     montar_contexto_plano,
+    rotulo_de_codigo,
 )
 
 REGRAS: Final[tuple[str, ...]] = ("RF-50", "RF-51", "AC-25", "AC-28")
@@ -106,9 +109,12 @@ class ErroCasoDesaparecidoAposIsolamento(Exception):
 
 class EmailsDosAlunos(Protocol):
     """`T-327` — recorte de `RepositorioContasSupabase` que as telas da
-    equipe usam: o e-mail do aluno por `CASO_ID`, em lote (sem N+1)."""
+    equipe usam: o e-mail do aluno por `CASO_ID`, em lote (sem N+1).
+    `contas_dos_casos` (`T-331`) traz também `e_revisor`, para o painel."""
 
     def emails_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, str]: ...
+
+    def contas_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, ContaDoCaso]: ...
 
 
 def obter_emails_dos_alunos() -> EmailsDosAlunos:
@@ -324,6 +330,19 @@ def caso_para_revisao(
     )
 
 
+def _etapa_do_caso(
+    relato: RelatoDeProgresso, colecao: ColecaoDeRegistros, textos: TextosCanonicosPlano
+) -> str:
+    """`RF-112` — o estado do caso por rótulo e, na coleta, a parte da trilha
+    (`RF-100`) da próxima pergunta em branco, que `relato` já traz."""
+    etapa = rotulo_de_codigo(textos.rotulos_de_codigos, relato.estado.value)
+    if relato.estado is ESTADO_CASO.COLETA_INICIAL and relato.proxima_pergunta is not None:
+        parte = parte_da_pergunta(colecao.registros, relato.proxima_pergunta.ID)
+        if parte is not None:
+            return f"{etapa} · {parte}"
+    return etapa
+
+
 @roteador.get("/api/operador/painel")
 def painel_do_operador(
     _revisor: Annotated[str, Depends(exigir_papel_revisor)],
@@ -360,13 +379,19 @@ def painel_do_operador(
         lambda: repositorio_respostas.listar_de_varios_casos(caso_ids),
         lambda: repositorio_itens.listar_de_varios_casos(caso_ids, incluir_removidos=False),
     )
-    # `T-327` (`RF-111` e): uma consulta para todos os e-mails, não uma por caso.
-    email_por_caso = emails.emails_dos_casos(tuple(caso_ids))
+    # `T-327` (`RF-111` e): uma consulta para todas as contas, não uma por
+    # caso. `T-331` (`RF-112`): a mesma consulta diz quem é revisor — todo
+    # cadastro cria caso, e conta promovida a revisor não é aluno.
+    conta_por_caso = emails.contas_dos_casos(tuple(caso_ids))
+    textos = carregar_textos_canonicos()
 
     linhas = []
     for caso_id in caso_ids:
         caso = casos_por_id.get(caso_id)
         if caso is None:  # pragma: no cover — defensivo: removido entre as duas consultas
+            continue
+        conta = conta_por_caso.get(caso_id)
+        if conta is not None and conta.e_revisor:
             continue
         respostas = RespostasCaso(respostas=respostas_por_caso.get(caso_id, ()))
         itens = agrupar_itens_por_escopo(itens_por_caso.get(caso_id, ()))
@@ -375,8 +400,10 @@ def painel_do_operador(
         linhas.append(
             {
                 "CASO_ID": linha.CASO_ID,
-                "email_do_aluno": email_por_caso.get(linha.CASO_ID),
+                "email_do_aluno": conta.email if conta is not None else None,
                 "estado": linha.estado.value,
+                # `T-331` (`RF-112`): a etapa por rótulo — o cliente não traduz.
+                "etapa": _etapa_do_caso(relato, colecao, textos),
                 "aguardando_revisao": linha.aguardando_revisao,
                 "tempo_desde_ultima_atividade": linha.tempo_desde_ultima_atividade,
                 # `T-248` (RF-35, NFR de observabilidade da Rodada 9): o

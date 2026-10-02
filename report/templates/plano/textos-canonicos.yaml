@@ -297,6 +297,20 @@ rotulos_de_codigos:
   PROPOSTA_TEMPORARIA: "Proposta temporária"
   ALTERACAO_RISCO: "Alteração de risco"
   OUTRO_MATERIAL: "Outra mudança relevante"
+  # Estado do caso (app/casos/maquina.py::ESTADO_CASO) — Etapa do Painel
+  # de usuários (RF-112, T-331). Textos a aprovar pelo produto.
+  CADASTRADO: "Cadastro feito"
+  CONSENTIMENTO_REGISTRADO: "Consentimento registrado"
+  COLETA_INICIAL: "Respondendo o questionário"
+  CALCULANDO: "Calculando o plano"
+  ERRO_DE_CALCULO: "Erro no cálculo"
+  AGUARDANDO_REVISAO: "Plano em conferência"
+  REPROVADO_EM_REVISAO: "Plano devolvido na conferência"
+  PLANO_LIBERADO: "Plano liberado"
+  COLETA_DIRIGIDA: "Completando informações"
+  CONFIRMACAO_ATAQUE: "Confirmando a dívida em ataque"
+  ACOMPANHAMENTO: "Em acompanhamento"
+  ENCERRADO: "Encerrado"
   # Valores gerais
   DESCONHECIDO: "Não informado"
   NENHUM: "Nenhum"

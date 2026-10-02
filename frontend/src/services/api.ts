@@ -562,6 +562,8 @@ export interface LinhaDoPainel {
   /** `T-327` (`RF-111` e): a identificação para a equipe; `null` cai no `CASO_ID`. */
   email_do_aluno?: string | null
   estado: string
+  /** `T-331` (`RF-112`): o estado por rótulo e, na coleta, a parte da trilha — do servidor. */
+  etapa: string
   aguardando_revisao: boolean
   tempo_desde_ultima_atividade: string
   /** `T-248` — códigos de pendência de inventário que bloqueiam o cálculo (`RF-35`). */

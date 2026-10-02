@@ -13468,3 +13468,47 @@ de `criterio_do_metodo` (Híbrido, Avalanche, Bola de neve) e o título
 "Método selecionado para este aluno".
 
 **Status:** `[x] concluída (2026-10-02)`
+
+---
+
+### `T-331` — Painel de usuários: só alunos, tabela minimalista
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-327` · **Rastreia:** `RF-112` (revisa `RF-35`)
+- **Arquivos:** `app/http/rotas_operador.py`, `frontend/src/telas/TelaOperador.tsx`,
+  `frontend/src/telas/TelaRevisao.tsx` (rótulo do botão), `report/templates/plano/textos-canonicos.yaml`
+  ou equivalente para rótulos de estado + testes
+
+Relato do produto (2026-10-02): "ver o painel da equipe" confunde — mostra
+alunos e revisores. Todo cadastro cria caso, então contas promovidas a
+revisor aparecem como alunos parados.
+
+- [x] Botão "Ver painel de usuários"; título "Painel de usuários"
+- [x] Só alunos: casos de contas `e_revisor = true` fora (filtro no servidor)
+- [x] Tabela de largura total: E-mail · Etapa · Status (sem coluna Nome — `OQ-68`)
+- [x] Etapa por rótulo (estado do caso; na coleta, a parte da trilha); Status = aguarda conferência / cálculo bloqueado / parado há …
+- [x] Celular sem rolagem lateral
+- [x] Testes (servidor: revisor fora; telas; e2e de navegação)
+- [x] Gates: lint, build, test, tsc, vitest, Playwright
+
+**Como ficou.** `RepositorioContasSupabase.contas_dos_casos` (mesmo SELECT
+casos⋈contas de `emails_dos_casos`, agora com `e_revisor`; `emails_dos_casos`
+passa a derivar dele) — uma consulta para o painel inteiro. A rota manda
+`etapa` (rótulo de `rotulos_de_codigos`; na `COLETA_INICIAL`, mais a parte da
+trilha da `proxima_pergunta` via `app/http/jornada.py::parte_da_pergunta`).
+`estado` (código) continua no JSON, mas a tela não o exibe.
+
+**Textos novos — a aprovar pelo produto:**
+
+- Botão "Ver painel de usuários"; título "Painel de usuários"; contador
+  "N aluno(s)"; lead "Alunos: em que etapa estão, o que aguarda e há quanto
+  tempo."; vazio "Nenhum aluno no piloto ainda."; status "parado há {tempo}".
+- Etapa (`rotulos_de_codigos`, `ESTADO_CASO`): CADASTRADO "Cadastro feito";
+  CONSENTIMENTO_REGISTRADO "Consentimento registrado"; COLETA_INICIAL
+  "Respondendo o questionário" (+ " · Parte N de 5 · {parte}"); CALCULANDO
+  "Calculando o plano"; ERRO_DE_CALCULO "Erro no cálculo"; AGUARDANDO_REVISAO
+  "Plano em conferência"; REPROVADO_EM_REVISAO "Plano devolvido na
+  conferência"; PLANO_LIBERADO "Plano liberado"; COLETA_DIRIGIDA "Completando
+  informações"; CONFIRMACAO_ATAQUE "Confirmando a dívida em ataque";
+  ACOMPANHAMENTO "Em acompanhamento"; ENCERRADO "Encerrado".
+
+**Status:** `[x] concluída`

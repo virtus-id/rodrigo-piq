@@ -17,7 +17,7 @@ Cobre os quatro critérios de aceite de T-102:
 `RepositorioContas` em memória (mesmo padrão de `tests/app_aluno/
 test_guarda_papel_revisor.py`, T-100) — sem Postgres real.
 
-REGRAS: `RF-35`, `RF-31`
+REGRAS: `RF-35`, `RF-31`, `RF-112`
 """
 
 from __future__ import annotations
@@ -41,13 +41,13 @@ from app.http.rotas_operador import (
     obter_repositorio_respostas_do_painel,
 )
 from app.http.sessao import iniciar_sessao_conta
-from collection.carga import ColecaoDeRegistros
+from collection.carga import ColecaoDeRegistros, carregar_registros
 from persistencia.app_aluno.arquivo import (
     RepositorioCasosArquivo,
     RepositorioItensArquivo,
     RepositorioRespostasArquivo,
 )
-from persistencia.app_aluno.contas import Conta, RepositorioContas
+from persistencia.app_aluno.contas import Conta, ContaDoCaso, RepositorioContas
 
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-nao-usar-em-producao"
 _DATA_REFERENCIA = datetime(2026, 1, 1, tzinfo=UTC).date()
@@ -151,15 +151,15 @@ def aplicacao_e_dublê(
     aplicacao.dependency_overrides[obter_repositorio_contas_para_papel] = lambda: dublê
     # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=lambda _caso_ids: {}
+        emails_dos_casos=lambda _caso_ids: {}, contas_dos_casos=lambda _caso_ids: {}
     )
     aplicacao.dependency_overrides[obter_repositorio_casos_do_painel] = lambda: repositorio_casos
     aplicacao.dependency_overrides[obter_colecao_de_registros_do_painel] = lambda: _COLECAO_VAZIA
-    aplicacao.dependency_overrides[obter_repositorio_respostas_do_painel] = (
-        lambda: RepositorioRespostasArquivo(tmp_path / "respostas.jsonl")
+    aplicacao.dependency_overrides[obter_repositorio_respostas_do_painel] = lambda: (
+        RepositorioRespostasArquivo(tmp_path / "respostas.jsonl")
     )
-    aplicacao.dependency_overrides[obter_repositorio_itens_do_painel] = (
-        lambda: RepositorioItensArquivo(tmp_path / "itens_repetidos.jsonl")
+    aplicacao.dependency_overrides[obter_repositorio_itens_do_painel] = lambda: (
+        RepositorioItensArquivo(tmp_path / "itens_repetidos.jsonl")
     )
 
     @aplicacao.post("/_teste/login")
@@ -301,15 +301,9 @@ def test_t327_painel_identifica_o_caso_pelo_email_do_aluno(
             estado=ESTADO_CASO.COLETA_INICIAL,
             ultima_interacao_em=agora,
         )
-    consultas: list[tuple[str, ...]] = []
-
-    def emails_dos_casos(caso_ids: tuple[str, ...]) -> dict[str, str]:
-        consultas.append(caso_ids)
-        return {"CASO-COM-EMAIL": "fulano@exemplo.invalido"}
-
-    aplicacao, _dublê = aplicacao_e_dublê
-    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=emails_dos_casos
+    consultas = _com_contas(
+        aplicacao_e_dublê[0],
+        {"CASO-COM-EMAIL": ContaDoCaso(email="fulano@exemplo.invalido", e_revisor=False)},
     )
     cliente.post("/_teste/login", params={"conta_id": "CONTA_REVISOR"})
 
@@ -318,3 +312,107 @@ def test_t327_painel_identifica_o_caso_pelo_email_do_aluno(
     emails = {linha["CASO_ID"]: linha["email_do_aluno"] for linha in linhas}
     assert emails == {"CASO-COM-EMAIL": "fulano@exemplo.invalido", "CASO-SEM-EMAIL": None}
     assert len(consultas) == 1
+
+
+# ---------------------------------------------------------------------------
+# `T-331` (`RF-112`) — Painel de usuários: só alunos, etapa por rótulo.
+# ---------------------------------------------------------------------------
+
+
+def _com_contas(aplicacao: FastAPI, contas: dict[str, ContaDoCaso]) -> list[tuple[str, ...]]:
+    """Dublê de `contas_dos_casos` que conta as consultas — o painel inteiro
+    pede todas as contas de uma vez (sem N+1)."""
+    consultas: list[tuple[str, ...]] = []
+
+    def contas_dos_casos(caso_ids: tuple[str, ...]) -> dict[str, ContaDoCaso]:
+        consultas.append(caso_ids)
+        return {c: contas[c] for c in caso_ids if c in contas}
+
+    aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        contas_dos_casos=contas_dos_casos
+    )
+    return consultas
+
+
+def test_t331_painel_lista_so_alunos_numa_consulta_so(
+    aplicacao_e_dublê: tuple[FastAPI, _RepositorioContasDublê],
+    cliente: TestClient,
+    repositorio_casos: RepositorioCasosArquivo,
+) -> None:
+    """Todo cadastro cria caso: o caso de uma conta revisora não aparece."""
+    agora = datetime.now(UTC)
+    for caso_id in ("CASO-ALUNO", "CASO-REVISOR", "CASO-SEM-CONTA"):
+        _criar_caso(
+            repositorio_casos,
+            caso_id,
+            "conta",
+            estado=ESTADO_CASO.COLETA_INICIAL,
+            ultima_interacao_em=agora,
+        )
+    consultas = _com_contas(
+        aplicacao_e_dublê[0],
+        {
+            "CASO-ALUNO": ContaDoCaso(email="aluno@exemplo.invalido", e_revisor=False),
+            "CASO-REVISOR": ContaDoCaso(email="equipe@exemplo.invalido", e_revisor=True),
+        },
+    )
+    cliente.post("/_teste/login", params={"conta_id": "CONTA_REVISOR"})
+
+    resposta = cliente.get("/api/operador/painel")
+
+    casos = sorted(linha["CASO_ID"] for linha in resposta.json()["linhas"])
+    assert casos == ["CASO-ALUNO", "CASO-SEM-CONTA"]
+    assert "equipe@exemplo.invalido" not in resposta.text
+    assert len(consultas) == 1
+
+
+@pytest.mark.parametrize(
+    ("estado", "etapa"),
+    [
+        (ESTADO_CASO.AGUARDANDO_REVISAO, "Plano em conferência"),
+        (ESTADO_CASO.PLANO_LIBERADO, "Plano liberado"),
+        (ESTADO_CASO.CADASTRADO, "Cadastro feito"),
+    ],
+)
+def test_t331_etapa_por_rotulo_nunca_o_codigo(
+    cliente: TestClient,
+    repositorio_casos: RepositorioCasosArquivo,
+    estado: ESTADO_CASO,
+    etapa: str,
+) -> None:
+    _criar_caso(
+        repositorio_casos,
+        "CASO-ETAPA",
+        "conta",
+        estado=estado,
+        ultima_interacao_em=datetime.now(UTC),
+    )
+    cliente.post("/_teste/login", params={"conta_id": "CONTA_REVISOR"})
+
+    linha = cliente.get("/api/operador/painel").json()["linhas"][0]
+
+    assert linha["etapa"] == etapa
+    assert estado.value not in linha["etapa"]
+
+
+def test_t331_etapa_na_coleta_traz_a_parte_da_trilha(
+    aplicacao_e_dublê: tuple[FastAPI, _RepositorioContasDublê],
+    cliente: TestClient,
+    repositorio_casos: RepositorioCasosArquivo,
+) -> None:
+    """`RF-100`: sem nenhuma resposta, a próxima pergunta é a da parte 1."""
+    aplicacao_e_dublê[0].dependency_overrides[obter_colecao_de_registros_do_painel] = (
+        carregar_registros
+    )
+    _criar_caso(
+        repositorio_casos,
+        "CASO-COLETA",
+        "conta",
+        estado=ESTADO_CASO.COLETA_INICIAL,
+        ultima_interacao_em=datetime.now(UTC),
+    )
+    cliente.post("/_teste/login", params={"conta_id": "CONTA_REVISOR"})
+
+    linha = cliente.get("/api/operador/painel").json()["linhas"][0]
+
+    assert linha["etapa"] == "Respondendo o questionário · Parte 1 de 5 · Seu compromisso"

@@ -422,7 +422,7 @@ test('AC-80: conta sem papel não encontra caminho para a área da equipe', asyn
   // Nenhum texto de navegação de equipe tampouco: o aluno não deve nem
   // saber que a fila existe a partir desta tela.
   const textoDaTela = await page.locator('body').innerText()
-  for (const rotulo of ['Fila de conferência', 'Painel do operador']) {
+  for (const rotulo of ['Fila de conferência', 'Painel do operador', 'Painel de usuários']) {
     expect(textoDaTela).not.toContain(rotulo)
   }
 
@@ -769,6 +769,73 @@ test('T-170: o revisor que recarrega em #equipe-fila continua lá', async ({ pag
 
   await expect(page.getByRole('heading', { name: /aguardando conferência/i })).toBeVisible()
   expect(await page.evaluate(() => window.location.hash)).toContain('equipe-fila')
+})
+
+/**
+ * `T-331` (`RF-112`) — da fila, "Ver painel de usuários" abre o painel: uma
+ * tabela E-mail · Etapa · Status, sem rolagem lateral no celular (390px) nem
+ * no monitor largo (1440px).
+ */
+test('T-331: a fila abre o Painel de usuários, em tabela sem rolagem lateral', async ({
+  page,
+}) => {
+  await page.route(`**/caso/${CASO_ACESSO}/inicio`, (r) =>
+    r.fulfill({ json: INICIO_ACESSO }),
+  )
+  await page.route('**/api/conta/eu', (r) =>
+    r.fulfill({
+      json: {
+        email: 'revisor@exemplo.gov.br',
+        conta_id: 'C1',
+        e_revisor: true,
+        CASO_ID: CASO_ACESSO,
+        casos: [CASO_ACESSO],
+      },
+    }),
+  )
+  await page.route('**/api/revisao/fila', (r) => r.fulfill({ json: { itens: [] } }))
+  await page.route('**/api/operador/painel', (r) =>
+    r.fulfill({
+      json: {
+        linhas: [
+          {
+            CASO_ID: 'CASO-A',
+            email_do_aluno: 'uma.servidora.com.email.bem.comprido@prefeitura.exemplo.gov.br',
+            estado: 'COLETA_INICIAL',
+            etapa: 'Respondendo o questionário · Parte 4 de 5 · Salário, margem e o que você tem',
+            aguardando_revisao: false,
+            tempo_desde_ultima_atividade: 'há 3 dias',
+            bloqueio_inventario: ['DIVIDA_SEM_SALDO'],
+          },
+          {
+            CASO_ID: 'CASO-B',
+            email_do_aluno: 'b@exemplo.gov.br',
+            estado: 'AGUARDANDO_REVISAO',
+            etapa: 'Plano em conferência',
+            aguardando_revisao: true,
+            tempo_desde_ultima_atividade: 'há 15 horas',
+          },
+        ],
+      },
+    }),
+  )
+
+  await page.goto(`/?caso=${CASO_ACESSO}#equipe-fila`)
+  await page.getByRole('button', { name: 'Ver painel de usuários' }).click()
+  await expect(page.getByRole('heading', { name: 'Painel de usuários' })).toBeVisible()
+  const tabela = page.getByRole('table')
+  await expect(tabela.getByRole('row')).toHaveCount(3)
+  await expect(tabela).toContainText('Plano em conferência')
+  await expect(tabela).not.toContainText('AGUARDANDO_REVISAO')
+
+  for (const largura of [390, 1440]) {
+    await page.setViewportSize({ width: largura, height: 900 })
+    const rolagem = await page.evaluate(() => ({
+      conteudo: document.documentElement.scrollWidth,
+      janela: window.innerWidth,
+    }))
+    expect(rolagem.conteudo, `${largura}px`).toBeLessThanOrEqual(rolagem.janela)
+  }
 })
 
 // ---------------------------------------------------------------------------

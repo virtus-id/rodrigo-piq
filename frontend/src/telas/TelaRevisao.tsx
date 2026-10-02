@@ -52,7 +52,7 @@ interface TelaRevisaoProps {
    */
   abrirCaso?: (casoId: string) => void
   /**
-   * Abre o painel "Quem está onde" — `T-186`.
+   * Abre o "Painel de usuários" — `T-186` (`T-331`).
    *
    * Sem isto o painel só era alcançável digitando `#equipe-painel` na mão:
    * nenhuma tela linkava para lá. A fila é a raiz da navegação do revisor
@@ -114,7 +114,7 @@ export default function TelaRevisao({
           </Botao>
           {abrirPainel && (
             <Botao variante="discreto" onClick={abrirPainel}>
-              Ver o painel da equipe
+              Ver painel de usuários
             </Botao>
           )}
         </>

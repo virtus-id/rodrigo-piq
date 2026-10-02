@@ -212,6 +212,15 @@ class RepositorioContas(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True)
+class ContaDoCaso:
+    """`T-331` — o recorte da conta dona de um caso que as telas da equipe
+    usam: quem é (e-mail) e se é da equipe (`e_revisor`)."""
+
+    email: str | None
+    e_revisor: bool
+
+
 class RepositorioContasSupabase:
     """Implementa `RepositorioContas` sobre `app_aluno.contas`."""
 
@@ -335,21 +344,37 @@ class RepositorioContasSupabase:
         consulta só (mesma disciplina de `RepositorioCasos.buscar_varios`,
         T-187). Caso sem conta ou conta sem e-mail simplesmente não aparece
         no dict — a tela cai no `CASO_ID`."""
+        return {
+            caso_id: conta.email
+            for caso_id, conta in self.contas_dos_casos(caso_ids).items()
+            if conta.email is not None
+        }
+
+    def contas_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, ContaDoCaso]:
+        """`RF-112`, T-331 — e-mail e `e_revisor` da conta dona de cada caso,
+        na MESMA consulta que `emails_dos_casos` usa: o painel tira os
+        revisores sem uma ida ao banco por caso. Caso sem conta não aparece
+        no dict."""
         if not caso_ids:
             return {}
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT c."CASO_ID", ct.email
+                SELECT c."CASO_ID", ct.email, ct.e_revisor
                 FROM app_aluno.casos c
                 JOIN app_aluno.contas ct ON ct.conta_id = c.conta_id
-                WHERE c."CASO_ID" = ANY(%s) AND ct.email IS NOT NULL
+                WHERE c."CASO_ID" = ANY(%s)
                 """,
                 (list(caso_ids),),
             )
             linhas = cursor.fetchall()
 
-        return {str(caso_id): str(email) for caso_id, email in linhas}
+        return {
+            str(caso_id): ContaDoCaso(
+                email=str(email) if email is not None else None, e_revisor=bool(e_revisor)
+            )
+            for caso_id, email, e_revisor in linhas
+        }
 
     def autenticar(self, email: str, senha: str) -> Conta | None:
         """`RF-02`: a mensagem/resultado de erro não distingue "conta
