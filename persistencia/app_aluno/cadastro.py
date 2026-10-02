@@ -99,7 +99,7 @@ def _conectar() -> Iterator[psycopg.Connection[tuple[object, ...]]]:
         pool.putconn(conexao)
 
 
-def provisionar_conta_e_caso(email: str) -> tuple[Conta, Caso]:
+def provisionar_conta_e_caso(email: str, nome: str | None = None) -> tuple[Conta, Caso]:
     """Cria `Conta` SEM SENHA + `Caso` na MESMA transação — `T-179`.
 
     **O caminho de quem COMPRA, não de quem se cadastra.** O webhook da
@@ -112,7 +112,10 @@ def provisionar_conta_e_caso(email: str) -> tuple[Conta, Caso]:
 
     `ErroEmailDuplicado` se `email` já existir. Quem chama decide o que
     fazer com isso; a rota de provisionamento trata como reenvio de link,
-    não como erro (uma compra repetida do mesmo aluno é normal)."""
+    não como erro (uma compra repetida do mesmo aluno é normal).
+
+    `nome` (`T-332`, migração `009`): o do comprador na Hotmart, já aparado;
+    `None` quando não veio."""
     conta_id = f"CONTA_{uuid.uuid4().hex}"
     caso_id = f"CASO_{uuid.uuid4().hex}"
     agora = datetime.now(UTC)
@@ -123,8 +126,8 @@ def provisionar_conta_e_caso(email: str) -> tuple[Conta, Caso]:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO app_aluno.contas "
-                "(conta_id, email, senha_hash, criado_em) VALUES (%s, %s, NULL, %s)",
-                (conta_id, email, agora),
+                "(conta_id, email, senha_hash, criado_em, nome) VALUES (%s, %s, NULL, %s, %s)",
+                (conta_id, email, agora, nome),
             )
             cursor.execute(
                 'INSERT INTO app_aluno.casos ("CASO_ID", conta_id, estado, '

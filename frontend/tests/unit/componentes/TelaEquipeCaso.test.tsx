@@ -7,6 +7,7 @@
  * mostra e desabilita "Liberar" — a recusa de verdade é o `409`.
  */
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import TelaEquipeCaso from '../../../src/telas/TelaEquipeCaso'
@@ -249,5 +250,36 @@ describe('TelaEquipeCaso — o caso pelo e-mail do aluno (T-327, RF-111)', () =>
     expect(
       await screen.findByRole('heading', { name: 'Conferir o plano de CASO-1' }),
     ).toBeInTheDocument()
+  })
+})
+
+describe('TelaEquipeCaso — mensagem para o aluno (T-333, RF-113)', () => {
+  it('pedir correção sem mensagem é recusado na tela, sem chamar o servidor', async () => {
+    const decidir = vi.spyOn(api, 'decidirRevisao').mockResolvedValue({})
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] })
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Pedir correção' }))
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Escreva a mensagem para o aluno.')
+    expect(decidir).not.toHaveBeenCalled()
+  })
+
+  it('envia a mensagem separada da observação interna', async () => {
+    const decidir = vi.spyOn(api, 'decidirRevisao').mockResolvedValue({})
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] })
+
+    await userEvent.type(
+      await screen.findByLabelText('Mensagem para o aluno'),
+      'Informe a taxa do cheque especial',
+    )
+    await userEvent.type(screen.getByLabelText('Observação'), 'taxa zerada')
+    await userEvent.click(screen.getByRole('button', { name: 'Pedir correção' }))
+
+    expect(decidir).toHaveBeenCalledWith('CASO-1', {
+      decisao: 'REPROVAR',
+      classificacaoErro: undefined,
+      observacao: 'taxa zerada',
+      mensagemAluno: 'Informe a taxa do cheque especial',
+    })
   })
 })

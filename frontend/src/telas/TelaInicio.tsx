@@ -134,6 +134,15 @@ const TEXTO_DO_COMECO = {
   detalhe: 'Você pode parar quando quiser: tudo fica guardado.',
 } as const
 
+/**
+ * A etapa `calculando` quando a conferência pediu correção — `T-333`
+ * (`RF-113`). Redação da equipe técnica, a aprovar pelo produto.
+ */
+const TEXTO_DO_REENVIO = {
+  rotulo: 'Enviar para nova conferência',
+  detalhe: 'Conferiu os dados? A equipe recebe o plano refeito.',
+} as const
+
 const TEXTO_DA_ETAPA: Readonly<
   Record<DestinoDaEtapa, { rotulo: string; detalhe: string }>
 > = {
@@ -215,10 +224,13 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
   // manda para lá pelo mesmo motivo.
   // `T-313`: "continuar" pressupõe que algo foi começado. Com zero respostas
   // gravadas (dado do servidor, `progresso.respondidas`) a etapa é o começo.
+  const correcao = inicio.correcao_pedida ?? null
   const texto =
     etapa.destino === 'pergunta' && inicio.progresso.respondidas === 0
       ? TEXTO_DO_COMECO
-      : (TEXTO_DA_ETAPA[etapa.destino] ?? TEXTO_DA_ETAPA.plano)
+      : correcao && etapa.destino === 'calculando'
+        ? TEXTO_DO_REENVIO
+        : (TEXTO_DA_ETAPA[etapa.destino] ?? TEXTO_DA_ETAPA.plano)
 
   // O valor vem SEPARADO do rótulo (`AC-88`) e é composto AQUI. O servidor
   // manda "Decidir sobre o dinheiro que você tem disponível" + "3000.00";
@@ -289,6 +301,40 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
         A borda de 2px do `.cartao-proximo` continua sendo o que marca esta
         tela (`RF-58`); o selo não a substitui.
       */}
+      {/* `T-333` (`RF-113`): a conferência devolveu o plano. Fixo enquanto o
+          aluno não reenvia: a mensagem do revisor e os dados a conferir,
+          cada um levando à pergunta pela rota de correção (`RF-69`). O
+          reenvio é a própria próxima etapa, logo abaixo. */}
+      {correcao && (
+        <div className="aviso-atencao flex-col" role="status">
+          <strong>{inicio.mensagem}</strong>
+          {correcao.mensagem && <p className="m-0">{correcao.mensagem}</p>}
+          {correcao.dados_a_conferir.length > 0 && (
+            <>
+              <span>Confira estes dados:</span>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {correcao.dados_a_conferir.map((dado) => (
+                  <li key={`${dado.ID_PERGUNTA}:${dado.item_id ?? ''}`}>
+                    <Botao
+                      variante="discreto"
+                      onClick={() =>
+                        irPara({
+                          tela: 'respostas',
+                          idPergunta: dado.ID_PERGUNTA,
+                          itemId: dado.item_id ?? undefined,
+                        })
+                      }
+                    >
+                      {[dado.nome, dado.enunciado].filter(Boolean).join(' · ')}
+                    </Botao>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      )}
+
       <div className="cartao-proximo">
         <div className="flex items-start gap-3">
           <span className="selo">

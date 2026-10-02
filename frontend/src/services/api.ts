@@ -495,6 +495,8 @@ export function decidirRevisao(
     decisao: 'LIBERAR' | 'REPROVAR'
     classificacaoErro?: string
     observacao?: string
+    /** `T-333` (`RF-113`): obrigatória para pedir correção. */
+    mensagemAluno?: string
   },
 ): Promise<unknown> {
   const corpo = new URLSearchParams({ decisao: entrada.decisao })
@@ -502,6 +504,7 @@ export function decidirRevisao(
     corpo.append('classificacao_erro', entrada.classificacaoErro)
   }
   if (entrada.observacao) corpo.append('observacao', entrada.observacao)
+  if (entrada.mensagemAluno) corpo.append('mensagem_aluno', entrada.mensagemAluno)
 
   return pedir(`/revisao/caso/${casoId}/decisao`, {
     method: 'POST',
@@ -561,6 +564,8 @@ export interface LinhaDoPainel {
   CASO_ID: string
   /** `T-327` (`RF-111` e): a identificação para a equipe; `null` cai no `CASO_ID`. */
   email_do_aluno?: string | null
+  /** `T-332` (`RF-112`, `OQ-68`): o nome do comprador na Hotmart; `null` → "—". */
+  nome_do_aluno?: string | null
   estado: string
   /** `T-331` (`RF-112`): o estado por rótulo e, na coleta, a parte da trilha — do servidor. */
   etapa: string

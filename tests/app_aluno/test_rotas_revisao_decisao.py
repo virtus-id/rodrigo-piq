@@ -294,7 +294,7 @@ def test_reprovar_grava_registro_com_autor_da_sessao_e_data(
 
     resposta = cliente.post(
         f"/revisao/caso/{caso_id}/decisao",
-        content="decisao=REPROVAR&observacao=Valor+incorreto",
+        content="decisao=REPROVAR&observacao=Valor+incorreto&mensagem_aluno=Confira+o+valor",
         headers={"content-type": "application/x-www-form-urlencoded"},
     )
 
@@ -507,7 +507,7 @@ def test_apos_reprovar_o_plano_nao_fica_acessivel_ao_aluno(
 
     resposta_decisao = cliente_revisor.post(
         f"/revisao/caso/{caso_id}/decisao",
-        content="decisao=REPROVAR&observacao=Erro+de+calculo",
+        content="decisao=REPROVAR&observacao=Erro+de+calculo&mensagem_aluno=Confira+a+taxa",
         headers={"content-type": "application/x-www-form-urlencoded"},
     )
     assert resposta_decisao.status_code == 200
@@ -521,7 +521,7 @@ def test_apos_reprovar_o_plano_nao_fica_acessivel_ao_aluno(
 
     caso_apos = repositorio_casos.buscar(caso_id)
     assert caso_apos is not None
-    assert caso_apos.estado is ESTADO_CASO.REPROVADO_EM_REVISAO
+    assert caso_apos.estado is ESTADO_CASO.COLETA_INICIAL  # T-333, RF-113
     assert caso_apos.snapshot_liberado_id is None
 
 
@@ -599,7 +599,7 @@ def test_segunda_decisao_sobre_o_mesmo_caso_e_recusada_com_409(
 
     segunda = cliente.post(
         f"/revisao/caso/{caso_id}/decisao",
-        content="decisao=REPROVAR",
+        content="decisao=REPROVAR&mensagem_aluno=Confira",
         headers={"content-type": "application/x-www-form-urlencoded"},
     )
 

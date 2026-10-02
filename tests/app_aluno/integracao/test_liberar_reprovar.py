@@ -178,8 +178,8 @@ def test_liberar_registra_decisao_e_preenche_snapshot_liberado_id_no_banco(
 def test_reprovar_registra_decisao_e_nao_preenche_snapshot_liberado_id_ec12(
     tmp_path: Path,
 ) -> None:
-    """`EC-12`, contra Postgres real: após `reprovar`, o caso vai a
-    `REPROVADO_EM_REVISAO`, `snapshot_liberado_id` continua `None`, e a
+    """`EC-12`, contra Postgres real: após `reprovar`, o caso volta à
+    coleta (`RF-113`), `snapshot_liberado_id` continua `None`, e a
     revisão gravada é `REPROVADO` com autor e data."""
     with psycopg.connect(_database_url()) as conexao, conexao.cursor() as cursor:
         cursor.execute("SET search_path TO app_aluno, public")
@@ -200,10 +200,12 @@ def test_reprovar_registra_decisao_e_nao_preenche_snapshot_liberado_id_ec12(
         repositorio_revisoes=repositorio_revisoes,
         repositorio_casos=repositorio_casos,
         repositorio_eventos=repositorio_eventos,
+        mensagem_aluno="Confira a taxa do cheque especial",
         classificacao_erro=CLASSIFICACAO_ERRO.CALCULO,
     )
 
-    assert caso_reprovado.estado is ESTADO_CASO.REPROVADO_EM_REVISAO
+    # `T-333` (RF-113): reprovado e devolvido à coleta no mesmo ato.
+    assert caso_reprovado.estado is ESTADO_CASO.COLETA_INICIAL
     assert caso_reprovado.snapshot_liberado_id is None
 
     registros = repositorio_revisoes.listar_do_caso(caso_id)
@@ -211,6 +213,8 @@ def test_reprovar_registra_decisao_e_nao_preenche_snapshot_liberado_id_ec12(
     assert registros[0].decisao is DECISAO_REVISAO.REPROVADO
     assert registros[0].autor == "revisor.teste@piq.invalido"
     assert registros[0].decidido_em == agora
+    # Exige a migração `010_mensagem_ao_aluno.sql` aplicada.
+    assert registros[0].mensagem_aluno == "Confira a taxa do cheque especial"
 
 
 def test_duas_liberacoes_concorrentes_do_mesmo_caso_produzem_um_unico_vencedor(

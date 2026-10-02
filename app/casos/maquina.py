@@ -39,13 +39,17 @@ o chamador (fora desta tarefa) escolhe qual delas invocar, mas TODAS e
 SOMENTE essas quatro são declaradas; qualquer outro destino a partir de
 `ERRO_DE_CALCULO` é recusado.
 
-**`REPROVADO_EM_REVISAO` não tem transição de saída declarada nesta
-máquina.** O plano §7.1 diz que a reprovação vai para "tratamento do
-operador" sem desenhar seta de volta — `EC-12` confirma que o snapshot
-permanece intacto e o caso aguarda o operador fora do fluxo desta máquina.
-Nenhuma transição de `REPROVADO_EM_REVISAO` é declarada; qualquer tentativa
-é recusada como não declarada, até que uma tarefa futura, se necessário,
-declare explicitamente o que o operador faz a partir daqui.
+**`REPROVADO_EM_REVISAO` devolve o caso ao aluno (`RF-113`, `T-333`,
+revisa `EC-12`).** Até `T-333` o estado não tinha saída — "tratamento do
+operador" que nenhum fluxo fazia, e o aluno ficava preso em "em revisão".
+Agora a única saída declarada é `REPROVADO_EM_REVISAO → COLETA_INICIAL`
+(gatilho `devolve_ao_aluno`), disparada por `app/revisao/fila.py::reprovar`
+NO MESMO ATO da reprovação: as duas transições ficam na trilha, as respostas
+e o snapshot não são tocados (append-only). Escolhido voltar a
+`COLETA_INICIAL`, e não deixar o aluno operar em `REPROVADO_EM_REVISAO`,
+porque assim a coleta, a correção (`RF-69`) e o cálculo (`RF-14`) seguem
+pelas guardas que já existem — o reenvio é o `bloco_6_executa` de sempre,
+encadeado ao snapshot reprovado (`app/http/rotas_calculo.py`).
 
 Direção de dependência: este módulo usa só `dataclasses`/`enum`/stdlib —
 nunca `engine.gates`, `engine.ciclo_mensal` ou qualquer módulo interno do
@@ -62,7 +66,7 @@ persistir — é isso que a guarda formaliza, para que a checagem viva aqui
 (domínio) e seja chamada pelo adaptador de persistência, nunca reimplementada
 por rota.
 
-REGRAS: `RF-01`, `AC-33`, `AC-34`, `RF-30`, `AC-39`
+REGRAS: `RF-01`, `AC-33`, `AC-34`, `RF-30`, `AC-39`, `RF-113`
 """
 
 from __future__ import annotations
@@ -72,7 +76,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Final
 
-REGRAS: Final[tuple[str, ...]] = ("RF-01", "AC-33", "AC-34", "RF-30", "AC-39")
+REGRAS: Final[tuple[str, ...]] = ("RF-01", "AC-33", "AC-34", "RF-30", "AC-39", "RF-113")
 
 
 class ESTADO_CASO(Enum):
@@ -205,6 +209,13 @@ TABELA_TRANSICOES: Final[tuple[Transicao, ...]] = (
         para=ESTADO_CASO.REPROVADO_EM_REVISAO,
         gatilho="reprova",
         guarda="EC-12: decisão = REPROVADO",
+    ),
+    # RF-113 (T-333): a reprovação devolve o caso ao aluno no mesmo ato.
+    Transicao(
+        de=ESTADO_CASO.REPROVADO_EM_REVISAO,
+        para=ESTADO_CASO.COLETA_INICIAL,
+        gatilho="devolve_ao_aluno",
+        guarda="RF-113: mensagem ao aluno registrada",
     ),
     Transicao(
         de=ESTADO_CASO.AGUARDANDO_REVISAO,

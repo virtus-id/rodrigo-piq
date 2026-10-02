@@ -773,8 +773,8 @@ test('T-170: o revisor que recarrega em #equipe-fila continua lá', async ({ pag
 
 /**
  * `T-331` (`RF-112`) — da fila, "Ver painel de usuários" abre o painel: uma
- * tabela E-mail · Etapa · Status, sem rolagem lateral no celular (390px) nem
- * no monitor largo (1440px).
+ * tabela Nome · E-mail · Etapa · Status (`T-332`), sem rolagem lateral no
+ * celular (390px) nem no monitor largo (1440px).
  */
 test('T-331: a fila abre o Painel de usuários, em tabela sem rolagem lateral', async ({
   page,
@@ -800,6 +800,7 @@ test('T-331: a fila abre o Painel de usuários, em tabela sem rolagem lateral', 
         linhas: [
           {
             CASO_ID: 'CASO-A',
+            nome_do_aluno: 'Maria Aparecida dos Santos Albuquerque de Oliveira',
             email_do_aluno: 'uma.servidora.com.email.bem.comprido@prefeitura.exemplo.gov.br',
             estado: 'COLETA_INICIAL',
             etapa: 'Respondendo o questionário · Parte 4 de 5 · Salário, margem e o que você tem',
@@ -827,6 +828,8 @@ test('T-331: a fila abre o Painel de usuários, em tabela sem rolagem lateral', 
   await expect(tabela.getByRole('row')).toHaveCount(3)
   await expect(tabela).toContainText('Plano em conferência')
   await expect(tabela).not.toContainText('AGUARDANDO_REVISAO')
+  await expect(tabela).toContainText('Maria Aparecida dos Santos Albuquerque de Oliveira')
+  await expect(tabela.getByRole('row').nth(2).getByRole('cell').first()).toContainText('—')
 
   for (const largura of [390, 1440]) {
     await page.setViewportSize({ width: largura, height: 900 })

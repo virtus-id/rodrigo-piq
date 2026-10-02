@@ -351,3 +351,27 @@ def test_listar_revisores_devolve_tupla_ordenada_de_forma_estavel() -> None:
 
     assert isinstance(primeira, tuple)
     assert [conta.conta_id for conta in primeira] == [conta.conta_id for conta in segunda]
+
+
+# ---------------------------------------------------------------------------
+# T-332 — migração `009_nome_da_conta.sql`: `nome` anulável, completado uma
+# vez e lido em lote por `contas_dos_casos` (`RF-112`).
+# ---------------------------------------------------------------------------
+
+
+def test_completar_nome_grava_so_em_conta_sem_nome_e_painel_le_em_lote() -> None:
+    from persistencia.app_aluno.cadastro import provisionar_conta_e_caso
+
+    repositorio = RepositorioContasSupabase()
+    conta_sem, caso_sem = provisionar_conta_e_caso(_email_novo())
+    _conta_com, caso_com = provisionar_conta_e_caso(_email_novo(), "Maria da Silva")
+    caso_ids = (caso_sem.CASO_ID, caso_com.CASO_ID)
+
+    assert repositorio.contas_dos_casos(caso_ids)[caso_sem.CASO_ID].nome is None
+
+    repositorio.completar_nome(conta_sem.conta_id, "João Souza")
+    repositorio.completar_nome(conta_sem.conta_id, "Outro Nome")
+
+    contas = repositorio.contas_dos_casos(caso_ids)
+    assert contas[caso_sem.CASO_ID].nome == "João Souza"
+    assert contas[caso_com.CASO_ID].nome == "Maria da Silva"

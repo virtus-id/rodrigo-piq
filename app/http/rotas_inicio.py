@@ -51,6 +51,7 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.casos.acompanhamento import _snapshot_corrente
 from app.casos.confirmacao_ataque import (
     ataque_imediato_recomendado_de,
     bloco_10_alcancavel,
@@ -66,13 +67,21 @@ from app.casos.progresso import (
 )
 from app.concorrencia import tres_em_paralelo
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
-from app.http.mensagens_de_estado import MENSAGEM_COLETA_COMPLETA, mensagem_do_estado_do_caso
+from app.http.mensagens_de_estado import (
+    MENSAGEM_COLETA_COMPLETA,
+    MENSAGEM_CORRECAO_PEDIDA,
+    mensagem_do_estado_do_caso,
+)
 from app.http.rotas_coleta import (
     _itens_por_escopo,
     faltam_fichas_de_divida,
     posterior_a_declaracao_de_dividas,
 )
 from app.http.rotas_plano import obter_repositorio_snapshots
+from app.http.rotas_revisao import formatar_pendencia_homologacao
+from app.http.serializacao_plano import vocabulario_do_caso
+from app.revisao.comprovacao import pendencias_de_homologacao
+from app.revisao.fila import DECISAO_REVISAO
 from collection.carga import ColecaoDeRegistros, carregar_registros
 from collection.registro import EscopoRepeticao
 from collection.respostas import RespostasCaso
@@ -84,7 +93,9 @@ from persistencia.app_aluno.respostas import (
     RepositorioRespostas,
     RepositorioRespostasSupabase,
 )
+from persistencia.app_aluno.revisoes import RepositorioRevisoes, RepositorioRevisoesSupabase
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
+from report.plano import carregar_textos_canonicos, nomear_dividas
 
 REGRAS: Final[tuple[str, ...]] = (
     "RF-58",
@@ -95,6 +106,7 @@ REGRAS: Final[tuple[str, ...]] = (
     "AC-88",
     "AC-90",
     "EC-25",
+    "RF-113",
 )
 
 roteador = APIRouter(prefix="/caso", tags=["inicio"])
@@ -129,6 +141,11 @@ def obter_repositorio_itens_do_inicio() -> RepositorioItens:
     para montar `itens_por_escopo`, que a varredura de `progresso.py`
     consome."""
     return RepositorioItensSupabase()
+
+
+def obter_repositorio_revisoes_do_inicio() -> RepositorioRevisoes:
+    """Ponto único de injeção do repositório de revisões (`T-333`)."""
+    return RepositorioRevisoesSupabase()
 
 
 class DESTINO_DA_ETAPA(Enum):
@@ -325,6 +342,51 @@ def _proxima_etapa(
             )
 
 
+def _correcao_pedida(
+    caso: Caso,
+    colecao: ColecaoDeRegistros,
+    respostas: RespostasCaso,
+    itens_por_escopo: Mapping[EscopoRepeticao, tuple[str, ...]],
+    repositorio_snapshots: RepositorioSnapshots,
+    repositorio_revisoes: RepositorioRevisoes,
+) -> dict[str, object] | None:
+    """`RF-113`, `AC-175` (`T-333`) — o aviso de "Pedir correção", enquanto
+    o aluno não reenviar: o caso voltou a `COLETA_INICIAL` já com snapshot,
+    e a última decisão da conferência é a reprovação.
+
+    Leva a `mensagem_aluno` do revisor — **nunca a `observacao`**, que é
+    interna — e os dados a conferir: as pendências de homologação de
+    `RF-93`, pela MESMA função da conferência, sobre as respostas atuais
+    (somem conforme o aluno corrige). Cada uma com o nome da dívida
+    (`nomear_dividas`, o mesmo do plano) e o enunciado; `ID_PERGUNTA` e
+    `item_id` só servem ao link de correção (`RF-69`)."""
+    if caso.estado is not ESTADO_CASO.COLETA_INICIAL or caso.snapshot_raiz_id is None:
+        return None
+    revisoes = repositorio_revisoes.listar_do_caso(caso.CASO_ID)
+    if not revisoes or revisoes[-1].decisao is not DECISAO_REVISAO.REPROVADO:
+        return None
+
+    snapshot = _snapshot_corrente(caso, repositorio_snapshots)
+    dividas = snapshot.estado_inputs.dividas if snapshot is not None else ()
+    nomes = nomear_dividas(
+        dividas,
+        carregar_textos_canonicos(),
+        vocabulario_do_caso(colecao.registros, respostas, (d.DIVIDA_ID for d in dividas)),
+    )
+    return {
+        "mensagem": revisoes[-1].mensagem_aluno,
+        "dados_a_conferir": [
+            {
+                "nome": nomes.get(p.item_id) if p.item_id is not None else None,
+                "enunciado": formatar_pendencia_homologacao(colecao, p)["enunciado"],
+                "ID_PERGUNTA": p.ID_PERGUNTA,
+                "item_id": p.item_id,
+            }
+            for p in pendencias_de_homologacao(colecao.registros, respostas, itens_por_escopo)
+        ],
+    }
+
+
 @roteador.get("/{CASO_ID}/inicio")
 def inicio_do_caso(
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
@@ -340,6 +402,9 @@ def inicio_do_caso(
     ],
     repositorio_snapshots: Annotated[
         RepositorioSnapshots, Depends(obter_repositorio_snapshots)
+    ],
+    repositorio_revisoes: Annotated[
+        RepositorioRevisoes, Depends(obter_repositorio_revisoes_do_inicio)
     ],
 ) -> JSONResponse:
     """`RF-58`, `RF-60`, `AC-81` — a fase do caso e a ÚNICA próxima etapa.
@@ -383,13 +448,19 @@ def inicio_do_caso(
         else None
     )
 
+    correcao_pedida = _correcao_pedida(
+        caso, colecao, respostas, itens_por_escopo, repositorio_snapshots, repositorio_revisoes
+    )
+
     # `T-293` (a): com a coleta completa o caso ainda está em
     # `COLETA_INICIAL` — a mensagem do estado diria "em andamento".
-    mensagem = (
-        MENSAGEM_COLETA_COMPLETA
-        if fase is FASE_INICIO.COLETA and etapa.destino is DESTINO_DA_ETAPA.CALCULANDO
-        else mensagem_do_estado_do_caso(caso.estado)
-    )
+    # `T-333`: devolvido pela conferência, a mensagem diz isso.
+    if correcao_pedida is not None:
+        mensagem = MENSAGEM_CORRECAO_PEDIDA
+    elif fase is FASE_INICIO.COLETA and etapa.destino is DESTINO_DA_ETAPA.CALCULANDO:
+        mensagem = MENSAGEM_COLETA_COMPLETA
+    else:
+        mensagem = mensagem_do_estado_do_caso(caso.estado)
 
     # `T-293` (b): ficha com pergunta em branco, ou ficha ainda por cadastrar
     # (`RF-87`/`RF-88`), faz o total crescer — o cliente mostra só as
@@ -419,6 +490,8 @@ def inicio_do_caso(
             "valor_em_destaque": valor_em_destaque,
             "plano_liberado": caso.snapshot_liberado_id is not None,
             "versao_do_plano": snapshot.versao if snapshot is not None else None,
+            # `T-333` (RF-113): `null` fora da correção pedida.
+            "correcao_pedida": correcao_pedida,
         }
     )
 

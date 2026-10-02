@@ -510,4 +510,25 @@ export interface Inicio {
   valor_em_destaque: string | null
   plano_liberado: boolean
   versao_do_plano: number | null
+  /**
+   * `T-333` (`RF-113`): a conferência pediu correção e o aluno ainda não
+   * reenviou. `null` fora disso. Só a mensagem ao aluno — a observação
+   * interna do revisor nunca vem para cá.
+   */
+  correcao_pedida?: CorrecaoPedida | null
+}
+
+/** Um dado a conferir — pendência de homologação (`RF-93`), por nome. */
+export interface DadoAConferir {
+  /** O nome da dívida ("Cheque especial — CAIXA"); `null` fora de ficha. */
+  nome: string | null
+  enunciado: string
+  /** Só para o link de correção (`RF-69`) — nunca exibidos. */
+  ID_PERGUNTA: string
+  item_id: string | null
+}
+
+export interface CorrecaoPedida {
+  mensagem: string | null
+  dados_a_conferir: DadoAConferir[]
 }

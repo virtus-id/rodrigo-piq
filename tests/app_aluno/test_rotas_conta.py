@@ -114,6 +114,9 @@ class _RepositorioContasDublê(RepositorioContas):
     def bloquear(self, conta_id: str) -> None:  # pragma: no cover
         raise NotImplementedError
 
+    def completar_nome(self, conta_id: str, nome: str) -> None:  # pragma: no cover
+        raise NotImplementedError
+
     def buscar_por_email(self, email: str) -> Conta | None:
         for conta in self._cadastro.contas.values():
             if conta.email == email:

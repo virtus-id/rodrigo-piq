@@ -36,7 +36,10 @@ MENSAGEM_COLETA_COMPLETA: Final[str] = "Sua coleta está completa."
 _MENSAGEM_ESTADO_CALCULANDO: Final[str] = "Seu plano está sendo calculado."
 _MENSAGEM_ESTADO_ERRO_DE_CALCULO: Final[str] = "Seu plano está em nova análise."
 _MENSAGEM_ESTADO_AGUARDANDO_REVISAO: Final[str] = "Seu plano está em revisão."
-_MENSAGEM_ESTADO_REPROVADO_EM_REVISAO: Final[str] = "Seu plano está em revisão."
+# `T-333` (RF-113): a conferência devolveu o plano — "em revisão" era falso.
+# Redação da equipe técnica, a aprovar pelo produto. Lida também por
+# `rotas_inicio.py` quando o caso já voltou à coleta com a correção pedida.
+MENSAGEM_CORRECAO_PEDIDA: Final[str] = "Seu plano voltou para você conferir."
 # `T-300`: textos aprovados pelo produto em 2026-10-01 — antes estes três
 # estados diziam "coleta em andamento" ou "em revisão", que já não é verdade
 # depois que a equipe libera o plano.
@@ -62,7 +65,7 @@ def mensagem_do_estado_do_caso(estado: ESTADO_CASO) -> str:
         case ESTADO_CASO.AGUARDANDO_REVISAO:
             return _MENSAGEM_ESTADO_AGUARDANDO_REVISAO
         case ESTADO_CASO.REPROVADO_EM_REVISAO:
-            return _MENSAGEM_ESTADO_REPROVADO_EM_REVISAO
+            return MENSAGEM_CORRECAO_PEDIDA
         case ESTADO_CASO.PLANO_LIBERADO:
             # `T-300`: o Início também lê esta mensagem COM plano liberado —
             # "coleta em andamento" aqui era falso.

@@ -9,15 +9,17 @@ de `Transicao`, um par recusado como amostra, ausência de estado
    declaradas (`gatilho` nomeado a cada passo, nunca uma transição
    inventada pelo teste);
 2. o produto cartesiano DOS DOZE ESTADOS — 12×12 = 144 pares, EXAUSTIVO,
-   não amostrado — separa os 17 pares declarados (sucesso) dos 127
+   não amostrado — separa os 18 pares declarados (sucesso) dos 126
    restantes (recusa por `ErroTransicaoNaoDeclarada`, nomeando origem e
    destino);
 3. `ERRO_DE_CALCULO` volta a CADA UM dos quatro estados de origem de
    `CALCULANDO` por transição nomeada (`EC-06`);
 4. `REPROVADO_EM_REVISAO` é alcançável só a partir de `AGUARDANDO_REVISAO`,
-   nunca a partir de `PLANO_LIBERADO` (`EC-12`).
+   nunca a partir de `PLANO_LIBERADO` (`EC-12`);
+5. a única saída de `REPROVADO_EM_REVISAO` é a volta à coleta
+   (`devolve_ao_aluno`, `RF-113`, `T-333`).
 
-REGRAS: `RF-01`
+REGRAS: `RF-01`, `RF-113`
 """
 
 from __future__ import annotations
@@ -33,7 +35,7 @@ from app.casos.maquina import (
     transicionar,
 )
 
-# Os 17 pares declarados na tabela — usados para a exaustão do produto
+# Os 18 pares declarados na tabela — usados para a exaustão do produto
 # cartesiano. Não é uma cópia solta: é derivado da própria TABELA_TRANSICOES,
 # para que o teste nunca divirja do módulo por edição manual desatualizada.
 _PARES_DECLARADOS: frozenset[tuple[ESTADO_CASO, ESTADO_CASO]] = frozenset(
@@ -41,13 +43,13 @@ _PARES_DECLARADOS: frozenset[tuple[ESTADO_CASO, ESTADO_CASO]] = frozenset(
 )
 
 
-def test_tabela_declara_exatamente_dezessete_transicoes() -> None:
-    """Pré-condição da exaustão: a tabela citada pela tarefa (17 linhas)
-    ainda tem 17 pares distintos. Se este número mudar, os testes abaixo
+def test_tabela_declara_exatamente_dezoito_transicoes() -> None:
+    """Pré-condição da exaustão: a tabela citada pela tarefa (17 linhas, 18
+    desde `T-333`) tem 18 pares distintos. Se este número mudar, os testes abaixo
     continuam corretos (derivam de `TABELA_TRANSICOES`), mas este teste
     avisa explicitamente que a superfície declarada mudou."""
-    assert len(TABELA_TRANSICOES) == 17
-    assert len(_PARES_DECLARADOS) == 17
+    assert len(TABELA_TRANSICOES) == 18
+    assert len(_PARES_DECLARADOS) == 18
 
 
 def test_caminho_completo_do_plano_e_percorrivel_so_por_transicoes_declaradas() -> None:
@@ -145,8 +147,8 @@ def test_coleta_dirigida_e_confirmacao_ataque_tambem_convergem_para_calculando(
 
 def test_produto_cartesiano_completo_dos_doze_estados_e_exaustivo() -> None:
     """Critério 2 — EXAUSTIVO sobre os 12×12 = 144 pares (de, para), nenhuma
-    amostra: os 17 pares declarados sucedem e devolvem a `Transicao`
-    correta; os 127 restantes são recusados com `ErroTransicaoNaoDeclarada`
+    amostra: os 18 pares declarados sucedem e devolvem a `Transicao`
+    correta; os 126 restantes são recusados com `ErroTransicaoNaoDeclarada`
     nomeando origem e destino."""
     todos_os_pares = list(itertools.product(ESTADO_CASO, ESTADO_CASO))
     assert len(todos_os_pares) == 144  # 12 x 12, produto cartesiano completo
@@ -168,8 +170,8 @@ def test_produto_cartesiano_completo_dos_doze_estados_e_exaustivo() -> None:
             assert erro.para is para
             pares_recusados_vistos += 1
 
-    assert pares_declarados_vistos == 17
-    assert pares_recusados_vistos == 127
+    assert pares_declarados_vistos == 18
+    assert pares_recusados_vistos == 126
     assert pares_declarados_vistos + pares_recusados_vistos == 144
 
 
@@ -254,3 +256,14 @@ def test_reprovado_em_revisao_e_alcancavel_apenas_a_partir_de_aguardando_revisao
         if (estado, ESTADO_CASO.REPROVADO_EM_REVISAO) in _PARES_DECLARADOS
     }
     assert origens_que_alcancam_reprovado == {ESTADO_CASO.AGUARDANDO_REVISAO}
+
+
+def test_reprovado_em_revisao_sai_so_de_volta_a_coleta_rf113() -> None:
+    """`RF-113`, `AC-175` (`T-333`, revisa `EC-12`): a reprovação devolve o
+    caso ao aluno — a ÚNICA saída de `REPROVADO_EM_REVISAO` é
+    `COLETA_INICIAL`, pelo gatilho `devolve_ao_aluno`. Nenhuma volta direta
+    à fila nem liberação: o reenvio passa pelo cálculo."""
+    saidas = {
+        t.para: t.gatilho for t in TABELA_TRANSICOES if t.de is ESTADO_CASO.REPROVADO_EM_REVISAO
+    }
+    assert saidas == {ESTADO_CASO.COLETA_INICIAL: "devolve_ao_aluno"}

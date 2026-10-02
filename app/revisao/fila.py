@@ -373,6 +373,10 @@ class RegistroRevisao:
     decidido_em: datetime
     classificacao_erro: CLASSIFICACAO_ERRO | None
     observacao: str | None
+    # `RF-113` (T-333): o texto que o ALUNO lê quando o revisor pede
+    # correção — separado de `observacao`, que é interna e nunca vai a rota
+    # de aluno. `None` na liberação e nos registros anteriores a `T-333`.
+    mensagem_aluno: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -517,13 +521,15 @@ def reprovar(
     repositorio_revisoes: RepositorioRevisoesDaDecisao,
     repositorio_casos: RepositorioCasosDaDecisao,
     repositorio_eventos: RepositorioEventosCaso,
+    mensagem_aluno: str,
     classificacao_erro: CLASSIFICACAO_ERRO | None = None,
     observacao: str | None = None,
 ) -> Caso:
     """`EC-12` — reprova `snapshot`: o plano NÃO é liberado ao aluno, o
     snapshot permanece INTACTO (append-only — esta função nunca grava em
     `RepositorioSnapshots` nem edita nenhum campo do snapshot), e o caso vai
-    para `REPROVADO_EM_REVISAO`, tratamento do operador.
+    para `REPROVADO_EM_REVISAO` e, no mesmo ato, volta ao aluno em
+    `COLETA_INICIAL` (`RF-113`, `T-333`).
 
     Mesma ordem e mesma disciplina de recusa de `liberar`: (1) grava o
     `RegistroRevisao` com `decisao=REPROVADO`, autor e data (`EC-12`:
@@ -531,7 +537,10 @@ def reprovar(
     `AGUARDANDO_REVISAO → REPROVADO_EM_REVISAO` (gatilho `reprova`) E
     registra o evento na trilha (`transicionar_e_registrar`, `T-91`)
     condicionalmente ao estado corrente. `snapshot_liberado_id` nunca é
-    tocado por este caminho — reprovar não libera nada ao aluno.
+    tocado por este caminho — reprovar não libera nada ao aluno; (3)
+    `REPROVADO_EM_REVISAO → COLETA_INICIAL` (gatilho `devolve_ao_aluno`):
+    o aluno corrige e reenvia pelo cálculo de sempre. `mensagem_aluno` é
+    obrigatória — sem ela o aluno não saberia o que corrigir.
 
     `classificacao_erro` (`RF-26`, `T-72`) é opcional mesmo em reprovação —
     o revisor pode reprovar sem classificar, porque classificar errado
@@ -544,6 +553,7 @@ def reprovar(
         decidido_em=decidido_em,
         classificacao_erro=classificacao_erro,
         observacao=observacao,
+        mensagem_aluno=mensagem_aluno,
     )
     repositorio_revisoes.gravar(revisao_id, registro)
 
@@ -558,4 +568,14 @@ def reprovar(
     if caso_reprovado is None:
         raise ErroRevisaoJaDecidida(caso_id, ESTADO_CASO.REPROVADO_EM_REVISAO)
 
-    return caso_reprovado
+    caso_devolvido = transicionar_e_registrar(
+        repositorio_casos=repositorio_casos,
+        repositorio_eventos=repositorio_eventos,
+        caso_id=caso_id,
+        de=ESTADO_CASO.REPROVADO_EM_REVISAO,
+        para=ESTADO_CASO.COLETA_INICIAL,
+        agora=decidido_em,
+    )
+    if caso_devolvido is None:  # pragma: no cover — defensivo
+        raise ErroRevisaoJaDecidida(caso_id, ESTADO_CASO.COLETA_INICIAL)
+    return caso_devolvido

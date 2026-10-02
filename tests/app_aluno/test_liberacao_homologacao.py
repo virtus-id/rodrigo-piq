@@ -206,7 +206,7 @@ def test_reprovar_continua_possivel_com_pendencia(
 
     resposta = ambiente.cliente(monkeypatch).post(
         f"/revisao/caso/{_CASO}/decisao",
-        content="decisao=REPROVAR",
+        content="decisao=REPROVAR&mensagem_aluno=Confira",
         headers={"content-type": "application/x-www-form-urlencoded"},
     )
 

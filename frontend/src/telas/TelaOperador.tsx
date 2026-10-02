@@ -1,6 +1,7 @@
 /**
  * Painel de usuários — tela `equipe-painel` do protótipo (`RF-35`, `RF-59`,
- * `AC-87`; `RF-112`, `T-331`: só alunos, em tabela E-mail · Etapa · Status).
+ * `AC-87`; `RF-112`, `T-331`/`T-332`: só alunos, em tabela Nome · E-mail ·
+ * Etapa · Status).
  *
  * **Nenhum valor financeiro aparece aqui, e isso é critério de aceite**
  * (`T-102`), não escolha de layout: só etapa, pendência e tempo desde a
@@ -96,13 +97,14 @@ export default function TelaOperador({ voltar }: TelaOperadorProps) {
       )}
 
       {/* `T-331` (`RF-112`): tabela de largura total, uma linha por aluno.
-          Sem coluna Nome — o sistema não guarda nome (`OQ-68`). Até 640px
+          Nome é o do comprador na Hotmart (`T-332`, `OQ-68`). Até 640px
           vira lista empilhada, com o rótulo da coluna em cada célula, para
           não rolar de lado. */}
       {linhas.length > 0 && (
         <table className="w-full border-collapse text-left text-sm max-[640px]:block">
           <thead className="max-[640px]:sr-only">
             <tr className="border-b border-line text-muted">
+              <th scope="col" className="py-2 pr-4 font-normal">Nome</th>
               <th scope="col" className="py-2 pr-4 font-normal">E-mail</th>
               <th scope="col" className="py-2 pr-4 font-normal">Etapa</th>
               <th scope="col" className="py-2 font-normal">Status</th>
@@ -114,6 +116,10 @@ export default function TelaOperador({ voltar }: TelaOperadorProps) {
                 key={linha.CASO_ID}
                 className="border-b border-line align-top max-[640px]:block max-[640px]:py-2"
               >
+                <td className={CELULA}>
+                  <span className={ROTULO_NO_CELULAR} aria-hidden="true">Nome</span>
+                  {linha.nome_do_aluno || '—'}
+                </td>
                 <td className={CELULA}>
                   <span className={ROTULO_NO_CELULAR} aria-hidden="true">E-mail</span>
                   {/* Sem e-mail, o código do caso (`T-327`). */}

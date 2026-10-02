@@ -44,6 +44,16 @@ export interface InicioDeTeste {
   valor_em_destaque: string | null
   plano_liberado: boolean
   versao_do_plano: number | null
+  /** `T-333` (`RF-113`): a conferência pediu correção; `null` fora disso. */
+  correcao_pedida?: {
+    mensagem: string | null
+    dados_a_conferir: {
+      nome: string | null
+      enunciado: string
+      ID_PERGUNTA: string
+      item_id: string | null
+    }[]
+  } | null
 }
 
 /** O caso em coleta — a fase de longe mais comum nos testes. */

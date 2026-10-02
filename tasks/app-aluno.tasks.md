@@ -13512,3 +13512,69 @@ trilha da `proxima_pergunta` via `app/http/jornada.py::parte_da_pergunta`).
   ACOMPANHAMENTO "Em acompanhamento"; ENCERRADO "Encerrado".
 
 **Status:** `[x] concluída`
+
+---
+
+### `T-332` — Nome do aluno vindo da Hotmart no Painel de usuários
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-331` · **Rastreia:** `RF-112`, `OQ-68` (respondida 2026-10-02)
+- **Arquivos:** migração nova (`contas.nome`, nulo), `persistencia/app_aluno/contas.py`,
+  `app/http/rotas_provisionamento.py`, `app/http/rotas_api_plano.py` (painel),
+  `frontend/src/telas/TelaOperador.tsx` + testes
+
+Decisão do produto (2026-10-02): "Pegue do cadastro da Hotmart o nome do aluno."
+
+- [x] Coluna `nome` (nula) em `app_aluno.contas`, por migração — `009_nome_da_conta.sql` (**não aplicada** em banco nenhum)
+- [x] Webhook `PURCHASE_APPROVED`: grava `data.buyer.name` (aparado; vazio → nulo); conta já existente sem nome ganha o nome; nunca sobrescreve nome existente com vazio
+- [x] Painel de usuários: coluna **Nome** antes do E-mail; sem nome → "—"
+- [x] Nome não aparece em rota de aluno nem em log
+- [x] Testes (webhook com e sem nome; painel); gates
+
+**Como ficou.** `provisionar_conta_e_caso(email, nome=None)` grava o nome no
+`INSERT`; `/api/provisionamento/conta` continua só com e-mail (nome nulo).
+Compra repetida chama `RepositorioContas.completar_nome` (`UPDATE ... WHERE
+nome IS NULL`), só com nome não vazio — nunca troca nome gravado.
+`contas_dos_casos` traz `ct.nome` na mesma consulta (`ContaDoCaso.nome`); o
+painel manda `nome_do_aluno`. Teste de integração novo em
+`test_persistencia_contas.py` (`requer_banco`): pulado sem `DATABASE_URL`.
+
+**Status:** `[x] concluída`
+
+---
+
+### `T-333` — "Pedir correção" devolve o plano ao aluno, com mensagem e dados a conferir
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-326`, `T-328` · **Rastreia:** `RF-113`, `AC-175` (revisa `EC-12`)
+- **Arquivos (previstos):** `app/casos/maquina.py` (transição de saída de
+  `REPROVADO_EM_REVISAO`), `app/http/rotas_revisao.py` (mensagem obrigatória),
+  persistência da decisão (coluna/migração da mensagem), `app/http/mensagens_de_estado.py`,
+  `app/casos/fases.py`, rota de Início/`/inicio`, rota de reenvio, `frontend/src/telas/TelaEquipeCaso.tsx`,
+  `frontend/src/telas/TelaInicio.tsx` + testes
+
+Relato e decisão do produto (2026-10-02): o revisor devolveu o plano e o aluno
+viu só "Seu plano está em revisão", sem causa nem o que conferir.
+`REPROVADO_EM_REVISAO` não tinha transição de saída (`EC-12`: "tratamento do
+operador"). Decidido: quem corrige é o aluno; ele vê uma mensagem própria do
+revisor (campo separado da observação interna) e a lista automática dos dados
+pendentes.
+
+- [x] Campo "Mensagem para o aluno" na conferência; obrigatório para pedir correção
+  (cliente valida; servidor recusa com `422` "Escreva a mensagem para o aluno.")
+- [x] Mensagem gravada com a decisão (`RegistroRevisao.mensagem_aluno`, migração
+  `010_mensagem_ao_aluno.sql`); observação interna nunca vai ao aluno (teste)
+- [x] Máquina: saída declarada `REPROVADO_EM_REVISAO → COLETA_INICIAL` (gatilho
+  `devolve_ao_aluno`), disparada por `reprovar` no mesmo ato; respostas e snapshot
+  intactos. O reenvio é o `bloco_6_executa` de sempre, encadeado ao último snapshot
+  (`anterior`, evento `INFORMACAO_MATERIAL_CONHECIDA`)
+- [x] Início do aluno: aviso com a mensagem, dados a conferir (nome da dívida + enunciado,
+  link para a correção de `RF-69`) e "Enviar para nova conferência"
+- [x] Reenvio recalcula e devolve à fila como nova versão (v2 encadeada à v1)
+- [x] Teste de `AC-175` (`tests/app_aluno/test_correcao_pedida.py`); gates
+
+Textos novos ao aluno — redação da equipe técnica, **a aprovar pelo produto**:
+"Seu plano voltou para você conferir." (mensagem de estado), "Confira estes dados:",
+"Enviar para nova conferência" / "Conferiu os dados? A equipe recebe o plano refeito.".
+Na conferência: "Mensagem para o aluno" e "Obrigatória para pedir correção. O aluno lê
+este texto; a observação, não."
+
+**Status:** `[x] concluída (2026-10-02)` — migração `010` ainda não aplicada no banco

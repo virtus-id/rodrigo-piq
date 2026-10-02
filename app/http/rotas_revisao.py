@@ -258,6 +258,8 @@ _MENSAGEM_DECISAO_INVALIDA: Final[str] = "Decisão inválida: LIBERAR/REPROVAR."
 _MENSAGEM_CLASSIFICACAO_INVALIDA: Final[str] = "Classificação de erro inválida."
 # `T-264` (RF-97) — redação aprovada pelo produto (`T-289`, 2026-09-30).
 _MENSAGEM_HOMOLOGACAO_BLOQUEADA: Final[str] = "Não pode ser homologado ainda."
+# `T-333` (RF-113, AC-175) — pedir correção exige a mensagem para o aluno.
+_MENSAGEM_SEM_MENSAGEM_AO_ALUNO: Final[str] = "Escreva a mensagem para o aluno."
 
 roteador = APIRouter(prefix="/revisao", tags=["revisao"])
 
@@ -676,7 +678,8 @@ def processar_decisao(
 
     O formulário só contribui `decisao` (`"LIBERAR"`/`"REPROVAR"`) e
     `observacao` (texto livre do revisor, gravado junto à decisão,
-    `RF-24`). Uma decisão sobre um caso que já saiu de `AGUARDANDO_REVISAO`
+    `RF-24`) — e, ao pedir correção, `mensagem_aluno` (`RF-113`, `T-333`),
+    obrigatória. Uma decisão sobre um caso que já saiu de `AGUARDANDO_REVISAO`
     (`ErroRevisaoJaDecidida`) devolve `409` — nunca uma segunda gravação
     silenciosa (mesma disciplina de `app/revisao/fila.py`).
 
@@ -738,6 +741,11 @@ def processar_decisao(
         # revisor decidir de novo, e a segunda tentativa bateria em `409`.
         _avisar_plano_liberado(caso.conta_id, repositorio_contas, enviador)
     elif decisao == "REPROVAR":
+        # `T-333` (RF-113): sem a mensagem o aluno receberia o plano de volta
+        # sem saber o que corrigir — recusado antes de gravar qualquer coisa.
+        mensagem_aluno = dados.get("mensagem_aluno", "").strip()
+        if not mensagem_aluno:
+            raise HTTPException(status_code=422, detail=_MENSAGEM_SEM_MENSAGEM_AO_ALUNO)
         classificacao_erro_bruta = dados.get("classificacao_erro") or None
         classificacao_erro: CLASSIFICACAO_ERRO | None = None
         if classificacao_erro_bruta is not None:
@@ -757,6 +765,7 @@ def processar_decisao(
                 repositorio_revisoes=repositorio_revisoes,
                 repositorio_casos=repositorio_casos,
                 repositorio_eventos=repositorio_eventos,
+                mensagem_aluno=mensagem_aluno,
                 classificacao_erro=classificacao_erro,
                 observacao=observacao,
             )

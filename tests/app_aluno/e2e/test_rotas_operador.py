@@ -83,6 +83,9 @@ class _RepositorioContasDublê(RepositorioContas):
     def bloquear(self, conta_id: str) -> None:  # pragma: no cover
         raise NotImplementedError
 
+    def completar_nome(self, conta_id: str, nome: str) -> None:  # pragma: no cover
+        raise NotImplementedError
+
     def buscar_por_email(self, email: str) -> Conta | None:  # pragma: no cover
         raise NotImplementedError("não usado por estes testes")
 
@@ -363,6 +366,44 @@ def test_t331_painel_lista_so_alunos_numa_consulta_so(
     casos = sorted(linha["CASO_ID"] for linha in resposta.json()["linhas"])
     assert casos == ["CASO-ALUNO", "CASO-SEM-CONTA"]
     assert "equipe@exemplo.invalido" not in resposta.text
+    assert len(consultas) == 1
+
+
+def test_t332_painel_traz_nome_do_aluno_na_mesma_consulta(
+    aplicacao_e_dublê: tuple[FastAPI, _RepositorioContasDublê],
+    cliente: TestClient,
+    repositorio_casos: RepositorioCasosArquivo,
+) -> None:
+    """`T-332` (`RF-112`, `OQ-68`): o nome do comprador vem na mesma
+    consulta das contas; conta sem nome (ou caso sem conta) vai `null`."""
+    agora = datetime.now(UTC)
+    for caso_id in ("CASO-COM-NOME", "CASO-SEM-NOME", "CASO-SEM-CONTA"):
+        _criar_caso(
+            repositorio_casos,
+            caso_id,
+            "conta",
+            estado=ESTADO_CASO.COLETA_INICIAL,
+            ultima_interacao_em=agora,
+        )
+    consultas = _com_contas(
+        aplicacao_e_dublê[0],
+        {
+            "CASO-COM-NOME": ContaDoCaso(
+                email="maria@exemplo.invalido", e_revisor=False, nome="Maria da Silva"
+            ),
+            "CASO-SEM-NOME": ContaDoCaso(email="joao@exemplo.invalido", e_revisor=False),
+        },
+    )
+    cliente.post("/_teste/login", params={"conta_id": "CONTA_REVISOR"})
+
+    linhas = cliente.get("/api/operador/painel").json()["linhas"]
+
+    nomes = {linha["CASO_ID"]: linha["nome_do_aluno"] for linha in linhas}
+    assert nomes == {
+        "CASO-COM-NOME": "Maria da Silva",
+        "CASO-SEM-NOME": None,
+        "CASO-SEM-CONTA": None,
+    }
     assert len(consultas) == 1
 
 

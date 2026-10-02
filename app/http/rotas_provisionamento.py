@@ -92,7 +92,7 @@ class ProvisionaContaECaso(Protocol):
     """Ponto de injeção da criação atômica conta+caso — sobrescrito nos
     testes, mesmo padrão de `obter_cadastro_conta`."""
 
-    def __call__(self, email: str) -> tuple[Conta, object]: ...
+    def __call__(self, email: str, nome: str | None = None) -> tuple[Conta, object]: ...
 
 
 def obter_provisionamento() -> ProvisionaContaECaso:
@@ -348,8 +348,12 @@ def _processar_webhook_hotmart(
             repositorio_contas.bloquear(alvo.conta_id)
         return JSONResponse({"bloqueado": alvo is not None}, status_code=200)
 
+    # `T-332` (`RF-112`, `OQ-68`): o nome do comprador, só para o Painel de
+    # usuários. Aparado; vazio vira `None`. Nunca logado.
+    nome = str(comprador.get("name") or "").strip() or None
+
     try:
-        conta, _caso = provisionamento(email)
+        conta, _caso = provisionamento(email, nome)
         conta_id = conta.conta_id
     except ErroEmailDuplicado:
         # Mesma disciplina de `provisionar`: compra repetida reemite o
@@ -358,6 +362,10 @@ def _processar_webhook_hotmart(
         if existente is None:  # pragma: no cover — defensivo: o UNIQUE acusou
             return JSONResponse({"erro": _MENSAGEM_NAO_AUTORIZADO}, status_code=401)
         conta_id = existente.conta_id
+        # Conta de antes da `009` (ou sem nome na primeira compra) ganha o
+        # nome agora; nome já gravado fica — ver `completar_nome`.
+        if nome is not None:
+            repositorio_contas.completar_nome(conta_id, nome)
 
     token: TokenEmitido = repositorio_tokens.emitir(conta_id)
 

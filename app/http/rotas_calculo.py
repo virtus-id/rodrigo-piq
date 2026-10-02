@@ -155,6 +155,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 
+from app.casos.acompanhamento import _snapshot_corrente
 from app.casos.inventario import (
     ErroInventarioIncompleto,
     PendenciaInventario,
@@ -196,6 +197,7 @@ from engine.comportamento import derivar_CONFIABILIDADE_DADOS, derivar_NIVEL_CON
 from engine.estado import Divida, EstadoFinanceiro
 from engine.portas import FonteParametros, RepositorioSnapshots
 from engine.snapshot import SnapshotOrdem
+from engine.tipos import EVENTO_RECALCULO
 from persistencia.app_aluno.casos import Caso, RepositorioCasos
 from persistencia.app_aluno.eventos import RepositorioEventosCaso, RepositorioEventosCasoSupabase
 from persistencia.app_aluno.itens import RepositorioItens, RepositorioItensSupabase
@@ -728,6 +730,10 @@ def _preparar_calculo(
             status_code=409,
         )
 
+    # `T-333` (RF-113): caso devolvido pela conferência já tem snapshot — o
+    # reenvio é uma NOVA VERSÃO encadeada a ele (`V-01`), nunca uma segunda
+    # raiz. O evento é o fato: o aluno conferiu e corrigiu os dados.
+    anterior = _snapshot_corrente(caso, repositorio_snapshots)
     insumos = ParametrosDoCalculo(
         fonte_parametros=fonte_parametros,
         repositorio_snapshots=repositorio_snapshots,
@@ -736,6 +742,10 @@ def _preparar_calculo(
         caso_id=CASO_ID,
         parametros_versao=parametros_versao,
         estado_anterior_do_caso=ESTADO_CASO.COLETA_INICIAL,
+        anterior=anterior,
+        evento=(
+            EVENTO_RECALCULO.INFORMACAO_MATERIAL_CONHECIDA if anterior is not None else None
+        ),
     )
 
     return estado_financeiro, insumos

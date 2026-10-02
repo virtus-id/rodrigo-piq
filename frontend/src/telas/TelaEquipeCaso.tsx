@@ -94,6 +94,8 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
   const [conferencia, setConferencia] = useState<OpcoesDeDecisao | null>(null)
   const [classificacao, setClassificacao] = useState('')
   const [observacao, setObservacao] = useState('')
+  // `T-333` (`RF-113`): o que o ALUNO lê — separado da observação interna.
+  const [mensagemAluno, setMensagemAluno] = useState('')
   const [erro, setErro] = useState<string | null>(null)
   const [aviso, setAviso] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
@@ -122,6 +124,12 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
   }, [carregar])
 
   async function decidir(decisao: 'LIBERAR' | 'REPROVAR') {
+    // `RF-113`: sem a mensagem o aluno recebe o plano de volta sem saber o
+    // que corrigir. Conveniência — quem recusa é o servidor (`422`).
+    if (decisao === 'REPROVAR' && !mensagemAluno.trim()) {
+      setErro('Escreva a mensagem para o aluno.')
+      return
+    }
     setEnviando(true)
     setErro(null)
     try {
@@ -132,6 +140,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         // no ramo `LIBERAR`.
         classificacaoErro: decisao === 'REPROVAR' ? classificacao || undefined : undefined,
         observacao: observacao || undefined,
+        mensagemAluno: decisao === 'REPROVAR' ? mensagemAluno.trim() : undefined,
       })
       setAviso(
         decisao === 'LIBERAR'
@@ -393,6 +402,22 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
           />
+        </div>
+        {/* `T-333` (`RF-113`): o texto que o aluno lê no Início. A
+            observação acima é interna e nunca chega a ele. */}
+        <div className="field">
+          <label htmlFor="mensagem-aluno">Mensagem para o aluno</label>
+          <textarea
+            id="mensagem-aluno"
+            className="campo-texto"
+            rows={3}
+            aria-describedby="mensagem-aluno-nota"
+            value={mensagemAluno}
+            onChange={(e) => setMensagemAluno(e.target.value)}
+          />
+          <p id="mensagem-aluno-nota" className="nota">
+            Obrigatória para pedir correção. O aluno lê este texto; a observação, não.
+          </p>
         </div>
         {/* `AC-27`: o autor vem da sessão do revisor no servidor, nunca de um
             campo daqui. Dizer isso na tela é honesto — a decisão é dele e não

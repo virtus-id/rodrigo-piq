@@ -401,6 +401,8 @@ def painel_do_operador(
             {
                 "CASO_ID": linha.CASO_ID,
                 "email_do_aluno": conta.email if conta is not None else None,
+                # `T-332` (`RF-112`): o nome do comprador na Hotmart; `None` → "—".
+                "nome_do_aluno": conta.nome if conta is not None else None,
                 "estado": linha.estado.value,
                 # `T-331` (`RF-112`): a etapa por rótulo — o cliente não traduz.
                 "etapa": _etapa_do_caso(relato, colecao, textos),

@@ -50,11 +50,13 @@ class _ProvisionamentoDublê:
 
     def __init__(self) -> None:
         self.emails: list[str] = []
+        self.nomes: list[str | None] = []
 
-    def __call__(self, email: str) -> tuple[Conta, object]:
+    def __call__(self, email: str, nome: str | None = None) -> tuple[Conta, object]:
         if email in self.emails:
             raise ErroEmailDuplicado(f"e-mail já cadastrado: email={email!r}")
         self.emails.append(email)
+        self.nomes.append(nome)
         conta = Conta(
             conta_id=f"CONTA_{len(self.emails)}",
             email=email,
@@ -95,6 +97,12 @@ class _RepositorioContasDublê:
     def bloquear(self, conta_id: str) -> None:
         if conta_id not in self.bloqueadas:
             self.bloqueadas.append(conta_id)
+
+    def completar_nome(self, conta_id: str, nome: str) -> None:
+        """Mesma regra do `WHERE nome IS NULL` do adaptador real."""
+        indice = int(conta_id.removeprefix("CONTA_")) - 1
+        if self._provisionamento.nomes[indice] is None:
+            self._provisionamento.nomes[indice] = nome
 
     def buscar_por_id(self, conta_id: str) -> Conta | None:  # pragma: no cover
         raise NotImplementedError
@@ -348,14 +356,21 @@ _PRODUTO_ID: Final[str] = "7079006"
 
 
 def _payload_hotmart(
-    *, evento: str = "PURCHASE_APPROVED", produto_id: str = _PRODUTO_ID, email: str = _EMAIL
+    *,
+    evento: str = "PURCHASE_APPROVED",
+    produto_id: str = _PRODUTO_ID,
+    email: str = _EMAIL,
+    nome: str | None = None,
 ) -> dict[str, object]:
     """Só os campos que a rota lê — a Hotmart manda muito mais, mas o
     restante do payload real (`purchase`, `producer`, `commissions`...)
     é irrelevante para este teste."""
+    comprador: dict[str, str] = {"email": email}
+    if nome is not None:
+        comprador["name"] = nome
     return {
         "event": evento,
-        "data": {"product": {"id": produto_id}, "buyer": {"email": email}},
+        "data": {"product": {"id": produto_id}, "buyer": comprador},
     }
 
 
@@ -499,6 +514,62 @@ def test_hotmart_compra_repetida_reprovisiona_sem_erro(ambiente_hotmart: Ambient
         assert resposta.status_code == 200
 
     assert tokens.emitidos == ["CONTA_1", "CONTA_1"]
+
+
+def test_hotmart_compra_aprovada_grava_nome_do_comprador_aparado(
+    ambiente_hotmart: Ambiente,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """`T-332` (`RF-112`, `OQ-68`): `data.buyer.name` vai para a conta,
+    aparado — e nunca para o log."""
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(nome="  Maria da Silva  "),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert provisionamento.nomes == ["Maria da Silva"]
+    assert "Maria" not in capsys.readouterr().out
+    assert "Maria" not in resposta.text
+
+
+@pytest.mark.parametrize("payload_nome", [None, "", "   "])
+def test_hotmart_sem_nome_provisiona_com_nome_nulo(
+    ambiente_hotmart: Ambiente, payload_nome: str | None
+) -> None:
+    """`T-332`: sem `buyer.name` (ou só espaços), a conta nasce sem nome."""
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    resposta = cliente.post(
+        "/api/provisionamento/hotmart",
+        json=_payload_hotmart(nome=payload_nome),
+        headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+    )
+
+    assert resposta.status_code == 200
+    assert provisionamento.emails == [_EMAIL]
+    assert provisionamento.nomes == [None]
+
+
+def test_hotmart_conta_existente_sem_nome_ganha_nome_e_nao_perde(
+    ambiente_hotmart: Ambiente,
+) -> None:
+    """`T-332`: compra repetida completa o nome de conta sem nome; depois,
+    nem nome vazio nem nome diferente sobrescrevem o gravado."""
+    cliente, provisionamento, _contas, _tokens = ambiente_hotmart
+
+    for nome in (None, "Maria da Silva", "   ", "Outro Nome"):
+        resposta = cliente.post(
+            "/api/provisionamento/hotmart",
+            json=_payload_hotmart(nome=nome),
+            headers={_NOME_HEADER_HOTTOK: _HOTTOK},
+        )
+        assert resposta.status_code == 200
+
+    assert provisionamento.nomes == ["Maria da Silva"]
 
 
 def test_hotmart_sem_email_no_payload_recusa(ambiente_hotmart: Ambiente) -> None:

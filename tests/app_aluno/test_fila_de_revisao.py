@@ -416,7 +416,8 @@ def test_reprovar_registra_autor_e_data_nao_libera_e_nao_toca_snapshot_liberado_
     repositorio_eventos: RepositorioEventosCasoArquivo,
 ) -> None:
     """Critério 2 (`EC-12`): reprovar registra autor e data, não libera nada
-    ao aluno (`estado` vai a `REPROVADO_EM_REVISAO`, nunca `PLANO_LIBERADO`,
+    ao aluno (`estado` passa por `REPROVADO_EM_REVISAO` e volta à coleta,
+    `RF-113` — nunca `PLANO_LIBERADO`,
     e `snapshot_liberado_id` permanece `None`) e o snapshot fica inalterado —
     esta função nunca grava em `RepositorioSnapshots`."""
     _preparar_caso_aguardando_revisao(repositorio_casos, snapshot_real)
@@ -432,6 +433,7 @@ def test_reprovar_registra_autor_e_data_nao_libera_e_nao_toca_snapshot_liberado_
         repositorio_revisoes=repositorio_revisoes,
         repositorio_casos=repositorio_casos,
         repositorio_eventos=repositorio_eventos,
+        mensagem_aluno="Confira a taxa do cheque especial",
         classificacao_erro=CLASSIFICACAO_ERRO.CALCULO,
         observacao="ordem projetada diverge do gabarito",
     )
@@ -442,8 +444,10 @@ def test_reprovar_registra_autor_e_data_nao_libera_e_nao_toca_snapshot_liberado_
     assert registro_gravado.autor == "revisor@piq.invalido"
     assert registro_gravado.decidido_em == agora
     assert registro_gravado.classificacao_erro is CLASSIFICACAO_ERRO.CALCULO
+    assert registro_gravado.mensagem_aluno == "Confira a taxa do cheque especial"
 
-    assert caso_reprovado.estado is ESTADO_CASO.REPROVADO_EM_REVISAO
+    # `T-333` (RF-113): reprovado e, no mesmo ato, devolvido à coleta.
+    assert caso_reprovado.estado is ESTADO_CASO.COLETA_INICIAL
     assert caso_reprovado.snapshot_liberado_id is None
 
     # O snapshot em si nunca é tocado — comparação de igualdade estrutural
@@ -508,8 +512,8 @@ def test_liberar_apos_reprovar_e_recusado(
 ) -> None:
     """Extensão do critério 3: uma vez que o caso saiu de
     `AGUARDANDO_REVISAO` por REPROVAÇÃO, uma tentativa de LIBERAR o mesmo
-    caso também é recusada — não existe transição de volta a
-    `AGUARDANDO_REVISAO` na máquina (`app/casos/maquina.py`)."""
+    caso também é recusada — a reprovação o devolve à coleta (`RF-113`), e
+    só um novo cálculo o traz de volta à fila."""
     _preparar_caso_aguardando_revisao(repositorio_casos, snapshot_real)
     reprovar(
         revisao_id="revisao-t68-reprovacao-previa",
@@ -520,6 +524,7 @@ def test_liberar_apos_reprovar_e_recusado(
         repositorio_revisoes=repositorio_revisoes,
         repositorio_casos=repositorio_casos,
         repositorio_eventos=repositorio_eventos,
+        mensagem_aluno="Confira os dados",
     )
 
     with pytest.raises(ErroRevisaoJaDecidida):
@@ -537,7 +542,7 @@ def test_liberar_apos_reprovar_e_recusado(
 
     caso_final = repositorio_casos.buscar(_CASO_ID)
     assert caso_final is not None
-    assert caso_final.estado is ESTADO_CASO.REPROVADO_EM_REVISAO
+    assert caso_final.estado is ESTADO_CASO.COLETA_INICIAL  # T-333, RF-113
     assert caso_final.snapshot_liberado_id is None
 
 

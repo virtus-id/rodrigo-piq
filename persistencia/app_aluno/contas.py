@@ -211,14 +211,21 @@ class RepositorioContas(Protocol):
         muda o timestamp original."""
         ...
 
+    def completar_nome(self, conta_id: str, nome: str) -> None:
+        """Grava `nome` só se a conta ainda não tem nome (`T-332`, migração
+        `009`) — compra nova de quem já tem conta nunca troca o nome."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class ContaDoCaso:
     """`T-331` — o recorte da conta dona de um caso que as telas da equipe
-    usam: quem é (e-mail) e se é da equipe (`e_revisor`)."""
+    usam: quem é (e-mail) e se é da equipe (`e_revisor`). `nome` (`T-332`,
+    `RF-112`) é o do comprador na Hotmart — `None` se não veio."""
 
     email: str | None
     e_revisor: bool
+    nome: str | None = None
 
 
 class RepositorioContasSupabase:
@@ -351,7 +358,7 @@ class RepositorioContasSupabase:
         }
 
     def contas_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, ContaDoCaso]:
-        """`RF-112`, T-331 — e-mail e `e_revisor` da conta dona de cada caso,
+        """`RF-112`, T-331 — e-mail, `e_revisor` e nome (`T-332`) da conta dona de cada caso,
         na MESMA consulta que `emails_dos_casos` usa: o painel tira os
         revisores sem uma ida ao banco por caso. Caso sem conta não aparece
         no dict."""
@@ -360,7 +367,7 @@ class RepositorioContasSupabase:
         with _conectar() as conexao, conexao.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT c."CASO_ID", ct.email, ct.e_revisor
+                SELECT c."CASO_ID", ct.email, ct.e_revisor, ct.nome
                 FROM app_aluno.casos c
                 JOIN app_aluno.contas ct ON ct.conta_id = c.conta_id
                 WHERE c."CASO_ID" = ANY(%s)
@@ -371,9 +378,11 @@ class RepositorioContasSupabase:
 
         return {
             str(caso_id): ContaDoCaso(
-                email=str(email) if email is not None else None, e_revisor=bool(e_revisor)
+                email=str(email) if email is not None else None,
+                e_revisor=bool(e_revisor),
+                nome=str(nome) if nome is not None else None,
             )
-            for caso_id, email, e_revisor in linhas
+            for caso_id, email, e_revisor, nome in linhas
         }
 
     def autenticar(self, email: str, senha: str) -> Conta | None:
@@ -425,6 +434,26 @@ class RepositorioContasSupabase:
             raise
         except psycopg.Error as erro:
             raise ErroGravacaoConta(f"falha ao bloquear conta_id={conta_id!r}: {erro}") from erro
+
+    def completar_nome(self, conta_id: str, nome: str) -> None:
+        """`nome IS NULL` no `WHERE`: nome existente nunca é sobrescrito
+        (`T-332`). A mensagem de erro nomeia a conta, nunca o nome."""
+        try:
+            with _conectar() as conexao, conexao.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE app_aluno.contas
+                    SET nome = %s
+                    WHERE conta_id = %s AND nome IS NULL
+                    """,
+                    (nome, conta_id),
+                )
+        except ErroConexaoAusente:
+            raise
+        except psycopg.Error as erro:
+            raise ErroGravacaoConta(
+                f"falha ao gravar nome conta_id={conta_id!r}: {erro}"
+            ) from erro
 
 
 def promover_a_revisor(email: str) -> None:

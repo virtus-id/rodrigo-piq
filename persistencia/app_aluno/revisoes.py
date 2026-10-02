@@ -35,6 +35,10 @@ continua `text`, sem migração de schema (T-21 já a criava como texto
 livre); a validação de domínio fechado acontece inteiramente no tipo
 Python, na fronteira deste adaptador (`_linha_para_registro`/`gravar`).
 
+**`mensagem_aluno` (`RF-113`, `T-333`).** Coluna de
+`persistencia/supabase/migracoes/010_mensagem_ao_aluno.sql` — o texto do
+revisor para o aluno, separado da `observacao` interna.
+
 Direção de dependência: este módulo importa de `app.revisao.fila` (os tipos
 `RegistroRevisao`/`DECISAO_REVISAO`/`CLASSIFICACAO_ERRO`) e de
 `psycopg`/stdlib — nunca de `engine/` (escopo desta feature não toca o
@@ -100,6 +104,7 @@ def _linha_para_registro(linha: tuple[Any, ...]) -> RegistroRevisao:
         decidido_em,
         classificacao_erro,
         observacao,
+        mensagem_aluno,
     ) = linha
     return RegistroRevisao(
         SNAPSHOT_ID=snapshot_id,
@@ -111,6 +116,7 @@ def _linha_para_registro(linha: tuple[Any, ...]) -> RegistroRevisao:
             CLASSIFICACAO_ERRO(classificacao_erro) if classificacao_erro is not None else None
         ),
         observacao=observacao,
+        mensagem_aluno=mensagem_aluno,
     )
 
 
@@ -154,8 +160,8 @@ class RepositorioRevisoesSupabase:
                     """
                     INSERT INTO app_aluno.revisoes (
                         revisao_id, snapshot_id, "CASO_ID", decisao, autor,
-                        decidido_em, classificacao_erro, observacao
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                        decidido_em, classificacao_erro, observacao, mensagem_aluno
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """,
                     (
                         revisao_id,
@@ -170,6 +176,7 @@ class RepositorioRevisoesSupabase:
                             else None
                         ),
                         registro.observacao,
+                        registro.mensagem_aluno,
                     ),
                 )
         except ErroConexaoAusente:
@@ -185,7 +192,7 @@ class RepositorioRevisoesSupabase:
             cursor.execute(
                 """
                 SELECT revisao_id, snapshot_id, "CASO_ID", decisao, autor,
-                       decidido_em, classificacao_erro, observacao
+                       decidido_em, classificacao_erro, observacao, mensagem_aluno
                 FROM app_aluno.revisoes
                 WHERE revisao_id = %s
                 """,
@@ -200,7 +207,7 @@ class RepositorioRevisoesSupabase:
             cursor.execute(
                 """
                 SELECT revisao_id, snapshot_id, "CASO_ID", decisao, autor,
-                       decidido_em, classificacao_erro, observacao
+                       decidido_em, classificacao_erro, observacao, mensagem_aluno
                 FROM app_aluno.revisoes
                 WHERE "CASO_ID" = %s
                 ORDER BY decidido_em ASC

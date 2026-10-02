@@ -3,8 +3,9 @@
  * `TelaOperador` — o Painel de usuários (`RF-112`, `T-331`; e-mail do aluno
  * de `RF-111` e, `T-327`).
  *
- * Tabela E-mail · Etapa · Status, uma linha por aluno. A etapa chega do
- * servidor por rótulo — a tela não traduz código. Sem coluna Nome (`OQ-68`).
+ * Tabela Nome · E-mail · Etapa · Status, uma linha por aluno. A etapa chega
+ * do servidor por rótulo — a tela não traduz código. Nome do comprador na
+ * Hotmart (`T-332`, `OQ-68`); sem nome, "—".
  */
 import { render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -26,7 +27,7 @@ const LINHA: LinhaDoPainel = {
 }
 
 describe('TelaOperador — Painel de usuários (T-331, RF-112)', () => {
-  it('título e tabela E-mail · Etapa · Status, sem coluna Nome', async () => {
+  it('título e tabela Nome · E-mail · Etapa · Status', async () => {
     vi.spyOn(api, 'obterPainelDoOperador').mockResolvedValue({
       linhas: [{ ...LINHA, email_do_aluno: 'fulano@exemplo.com' }],
     })
@@ -37,21 +38,22 @@ describe('TelaOperador — Painel de usuários (T-331, RF-112)', () => {
     const colunas = within(tabela)
       .getAllByRole('columnheader')
       .map((th) => th.textContent)
-    expect(colunas).toEqual(['E-mail', 'Etapa', 'Status'])
+    expect(colunas).toEqual(['Nome', 'E-mail', 'Etapa', 'Status'])
     expect(within(tabela).getAllByRole('columnheader')[0]).toHaveAttribute('scope', 'col')
   })
 
-  it('a linha traz e-mail, etapa por rótulo (nunca o código) e o tempo parado', async () => {
+  it('a linha traz nome, e-mail, etapa por rótulo (nunca o código) e o tempo parado', async () => {
     vi.spyOn(api, 'obterPainelDoOperador').mockResolvedValue({
-      linhas: [{ ...LINHA, email_do_aluno: 'fulano@exemplo.com' }],
+      linhas: [{ ...LINHA, nome_do_aluno: 'Fulano de Tal', email_do_aluno: 'fulano@exemplo.com' }],
     })
     render(<TelaOperador voltar={vi.fn()} />)
 
     const linha = (await screen.findAllByRole('row'))[1]
     const celulas = within(linha).getAllByRole('cell')
-    expect(celulas[0]).toHaveTextContent('fulano@exemplo.com')
-    expect(celulas[1]).toHaveTextContent(LINHA.etapa)
-    expect(celulas[2]).toHaveTextContent('parado há 2 horas')
+    expect(celulas[0]).toHaveTextContent('Fulano de Tal')
+    expect(celulas[1]).toHaveTextContent('fulano@exemplo.com')
+    expect(celulas[2]).toHaveTextContent(LINHA.etapa)
+    expect(celulas[3]).toHaveTextContent('parado há 2 horas')
     expect(linha).not.toHaveTextContent('COLETA_INICIAL')
     expect(linha).not.toHaveTextContent('CASO-1')
   })
@@ -69,7 +71,7 @@ describe('TelaOperador — Painel de usuários (T-331, RF-112)', () => {
     })
     render(<TelaOperador voltar={vi.fn()} />)
 
-    const status = within((await screen.findAllByRole('row'))[1]).getAllByRole('cell')[2]
+    const status = within((await screen.findAllByRole('row'))[1]).getAllByRole('cell')[3]
     expect(status).toHaveTextContent('Aguarda conferência')
     expect(status).toHaveTextContent('Cálculo bloqueado: inventário incompleto')
     expect(status).toHaveTextContent('agora mesmo')
@@ -82,6 +84,16 @@ describe('TelaOperador — Painel de usuários (T-331, RF-112)', () => {
     render(<TelaOperador voltar={vi.fn()} />)
 
     expect(await screen.findByText('CASO-1')).toBeTruthy()
+  })
+
+  it('sem nome, a célula Nome mostra "—" (T-332)', async () => {
+    vi.spyOn(api, 'obterPainelDoOperador').mockResolvedValue({
+      linhas: [{ ...LINHA, email_do_aluno: 'fulano@exemplo.com', nome_do_aluno: null }],
+    })
+    render(<TelaOperador voltar={vi.fn()} />)
+
+    const celulas = within((await screen.findAllByRole('row'))[1]).getAllByRole('cell')
+    expect(celulas[0]).toHaveTextContent('—')
   })
 
   it('nenhum aluno: estado vazio, sem tabela', async () => {
