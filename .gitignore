@@ -27,3 +27,6 @@ frontend/.vite/
 
 # macOS
 .DS_Store
+
+# Dados reais de alunos — nunca versionar
+alunos/
