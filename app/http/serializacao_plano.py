@@ -36,6 +36,7 @@ from collection.respostas import RespostasCaso
 from report.plano import (
     ContextoCampo,
     ContextoEstadoInputs,
+    ContextoMesDaJornada,
     ContextoPlano,
     TextosCanonicosPlano,
     VocabularioDoCaso,
@@ -90,16 +91,30 @@ def vocabulario_do_caso(
     return VocabularioDoCaso(rotulos_de_opcao=rotulos, credores=credores)
 
 
+def _mes_da_grade(item: ContextoMesDaJornada) -> dict[str, Any]:
+    """Um mês da grade, igual na grade de cartões e no calendário por ano."""
+    return {
+        "mes": item.mes,
+        "tipo": item.tipo,
+        "alvo": item.alvo,
+        "valor_extra": item.valor_extra,
+        "dividas_quitadas": list(item.dividas_quitadas),
+        "eh_primeira_vitoria": item.eh_primeira_vitoria,
+        "tem_aporte": item.tem_aporte,
+    }
+
+
 def serializar_plano(
     contexto: ContextoPlano,
     fontes: Mapping[str, str] | None = None,
     orientacoes_seguro: Mapping[str, str] | None = None,
+    textos: TextosCanonicosPlano | None = None,
     *,
     para_revisor: bool = False,
 ) -> dict[str, Any]:
     """`ContextoPlano` → JSON, campo a campo.
 
-    `titulo` e `corpo` são a redação canônica de `Q-03`, carregada de
+    `titulo` e `corpo` são a redação canônica carregada de
     `textos-canonicos.yaml` — transportada verbatim, jamais reescrita aqui
     (`AC-14`: caractere por caractere).
 
@@ -119,7 +134,12 @@ def serializar_plano(
 
     `T-326` (`RF-111`): a dívida vai por `nome` ("tipo — credor"); o
     `DIVIDA_ID` segue como identificador. `metodo` e `cenario` são rótulos.
-    """
+
+    `textos` (plano amigável, 2026-10-03) — só para os textos FIXOS que não
+    variam por caso (título de seções, explicação do Mês 1, dúvidas comuns,
+    nota de rodapé): nenhum deles é campo de `ContextoPlano`, porque não
+    dependem do snapshot. `None` omite essas chaves do payload (compatível
+    com chamadores que ainda não as usam, como a tela do revisor)."""
     fontes = fontes or {}
     orientacoes_seguro = orientacoes_seguro or {}
     return {
@@ -144,6 +164,9 @@ def serializar_plano(
                 "explicacao": posicao.explicacao,
                 # `T-304` (`DE-08`): lido do cronograma; `None` = não disponível.
                 "mes_de_quitacao": posicao.mes_de_quitacao,
+                # Revisão de design: os números fixos de toda dívida
+                # (deve hoje, parcela, juros), lidos e formatados.
+                "fatos": [{"rotulo": rotulo, "valor": valor} for rotulo, valor in posicao.fatos],
                 "fonte": fontes.get(posicao.DIVIDA_ID),
                 "orientacao_seguro": orientacoes_seguro.get(posicao.DIVIDA_ID),
                 "valores_de_apoio": [
@@ -154,6 +177,10 @@ def serializar_plano(
             for posicao in contexto.ordem
         ],
         "PRAZO_TOTAL": contexto.PRAZO_TOTAL,
+        # Plano amigável — inteiro cru, só para a geometria dos gráficos no
+        # cliente (ver "Regra de geometria" em `report/templates/plano/
+        # visuais.html`); nunca exibido como número.
+        "PRAZO_TOTAL_INT": contexto.PRAZO_TOTAL_INT,
         "CUSTO_FUTURO_TOTAL": contexto.CUSTO_FUTURO_TOTAL,
         "valor_mensal_destinado": contexto.valor_mensal_destinado,
         "ENGINE_VERSION": contexto.ENGINE_VERSION,
@@ -198,13 +225,141 @@ def serializar_plano(
             "CUSTO_FUTURO_TOTAL": contexto.cenario_adicional.CUSTO_FUTURO_TOTAL,
             "ordem": list(contexto.cenario_adicional.ordem),
             "itens": [
-                {"ITEM_ID": item.ITEM_ID, "mes": item.mes, "valor": item.valor}
+                {
+                    # `T-306`/`T-326` — o `ITEM_ID` (`EXT001`) continua só
+                    # como detalhe para o revisor; o aluno nunca lê um
+                    # código. Sem nome próprio para o recurso no motor, o
+                    # rótulo é genérico ("o valor extra que você nos
+                    # contou"), igual ao usado em `jornada`.
+                    **({"ITEM_ID": item.ITEM_ID} if para_revisor else {}),
+                    "mes": item.mes,
+                    "valor": item.valor,
+                }
                 for item in contexto.cenario_adicional.itens
             ],
         },
         "nao_projetados": [
             {"ITEM_ID": item_id, "motivo": motivo} for item_id, motivo in contexto.nao_projetados
         ],
+        # Plano amigável (2026-10-03) — campos novos da "consultoria
+        # individual", lidos de `ContextoPlano` sem nenhum cálculo.
+        "passo_atual": None
+        if contexto.passo_atual is None
+        else {
+            "alvo": contexto.passo_atual.alvo,
+            "valor_extra": contexto.passo_atual.valor_extra,
+            "parcelas": [
+                {"nome": parcela.nome, "valor": parcela.valor}
+                for parcela in contexto.passo_atual.parcelas
+            ],
+        },
+        "primeira_vitoria": None
+        if contexto.primeira_vitoria is None
+        else {
+            "mes": contexto.primeira_vitoria.mes,
+            "divida": contexto.primeira_vitoria.divida,
+        },
+        "jornada": [
+            {
+                "tipo": etapa.tipo,
+                "mes_inicio": etapa.mes_inicio,
+                "mes_fim": etapa.mes_fim,
+                "alvo": etapa.alvo,
+                "valor": etapa.valor,
+                # `valor_bruto` (plano amigável): string decimal crua, só
+                # para a geometria do gráfico de degraus no cliente — a
+                # tela nunca exibe este campo como número.
+                "valor_bruto": etapa.valor_bruto,
+                "divida_quitada": etapa.divida_quitada,
+                "parcela_liberada": etapa.parcela_liberada,
+                "destino": etapa.destino,
+                "sobra": etapa.sobra,
+            }
+            for etapa in contexto.jornada
+        ],
+        # Redesenho (2026-10-03) — grade por mês individual, no lugar da
+        # lista de frases: cada mês já chega com o `tipo` que decide o
+        # ícone/cor do cartão no cliente, sem nenhuma frase a montar.
+        # Revisão de design (2026-10-03) — personalização: primeiro nome e
+        # os números do mês do aluno, todos lidos e já formatados.
+        "nome_do_aluno": contexto.nome_do_aluno,
+        "ponto_de_partida": None
+        if contexto.ponto_de_partida is None
+        else {
+            "renda": contexto.ponto_de_partida.renda,
+            "gastos": contexto.ponto_de_partida.gastos,
+            "gastos_ocasionais": contexto.ponto_de_partida.gastos_ocasionais,
+            "parcelas": contexto.ponto_de_partida.parcelas,
+            "valor_extra": contexto.ponto_de_partida.valor_extra,
+            "quantidade_de_dividas": contexto.ponto_de_partida.quantidade_de_dividas,
+        },
+        "grade_meses": [_mes_da_grade(item) for item in contexto.grade_meses],
+        "grade_anos": [
+            {
+                "numero": ano.numero,
+                "mes_inicio": ano.mes_inicio,
+                "mes_fim": ano.mes_fim,
+                "meses": [_mes_da_grade(item) for item in ano.meses],
+                "valores_extras": list(ano.valores_extras),
+                "quitacoes": [{"mes": mes, "nome": nome} for mes, nome in ano.quitacoes],
+            }
+            for ano in contexto.grade_anos
+        ],
+        "como_funciona": list(contexto.como_funciona),
+        "pendencias_acionaveis": [
+            {
+                "DIVIDA_ID": pendencia.DIVIDA_ID,
+                "nome_divida": pendencia.nome_divida,
+                "rotulo": pendencia.rotulo,
+                "onde_achar": pendencia.onde_achar,
+                # `ID_PERGUNTA` (maiúsculo): mesma convenção de chave de
+                # DETALHE já usada pelo payload de decisão (`T-328`) — um
+                # código, nunca texto principal.
+                "ID_PERGUNTA": pendencia.id_pergunta,
+            }
+            for pendencia in contexto.pendencias_acionaveis
+        ],
+        # Textos fixos que não variam por caso — só quando `textos` é
+        # passado (compatível com chamadores que ainda não os usam).
+        **(
+            {
+                "explicacao_mes_1": textos.explicacao_mes_1,
+                "como_funciona_titulo": textos.como_funciona_titulo,
+                "jornada_titulo": textos.jornada_titulo,
+                # Modelos de frase por tipo de etapa — o CLIENTE interpola
+                # os `{placeholders}` com os campos já formatados de cada
+                # `EtapaJornada` (nenhuma redação nova no código: a fonte
+                # continua `textos-canonicos.yaml`, só a interpolação final
+                # roda no cliente, mesmo padrão de `instrucao_ataque`).
+                "jornada_modelos": dict(textos.jornada),
+                # Redesenho (2026-10-03) — rótulos curtos da grade por mês e
+                # da legenda/rótulos da linha do tempo.
+                "grade_meses_textos": dict(textos.grade_meses),
+                "linha_do_tempo_textos": dict(textos.linha_do_tempo),
+                # Revisão de design — cabeçalho, títulos das seções, resumo,
+                # ponto de partida, passos do Mês 1, quadros de "Como
+                # funciona" e cartão de cada dívida.
+                "cabecalho_textos": dict(textos.cabecalho),
+                "secoes": dict(textos.secoes),
+                "resumo_textos": dict(textos.resumo),
+                "ponto_de_partida_textos": dict(textos.ponto_de_partida),
+                "primeiro_passo_textos": dict(textos.primeiro_passo),
+                "como_funciona_rotulos": list(textos.como_funciona_rotulos),
+                "dividas_textos": dict(textos.textos_das_dividas),
+                "primeiro_passo_titulo": textos.primeiro_passo.get("titulo", ""),
+                "como_pagar_a_mais": textos.primeiro_passo.get("como_pagar_a_mais", ""),
+                "primeira_vitoria_titulo": textos.primeira_vitoria.get("titulo", ""),
+                "primeira_vitoria_complemento": textos.primeira_vitoria.get("complemento", ""),
+                "reserva_explicacao": textos.reserva_explicacao,
+                "duvidas": [
+                    {"pergunta": pergunta, "resposta": resposta}
+                    for pergunta, resposta in textos.duvidas
+                ],
+                "sobre_este_plano": textos.sobre_este_plano,
+            }
+            if textos is not None
+            else {}
+        ),
     }
 
 

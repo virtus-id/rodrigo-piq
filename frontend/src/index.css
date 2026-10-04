@@ -788,6 +788,78 @@
   }
 
   /* -------------------------------------------------------------------
+   * Plano amigável — componentes visuais lúdicos (2026-10-03).
+   *
+   * `frontend/src/componentes/visuais/*`: Gantt, degraus, mapa da jornada
+   * e conquistas, todos SVG inline desenhados em código, com as cores e
+   * fontes do design system — nenhuma biblioteca nova. `.visual` é o
+   * wrapper comum: o SVG nunca ultrapassa a largura do cartão, inclusive
+   * a 360px (`max-width: 100%` em vez de uma largura fixa).
+   * ------------------------------------------------------------------- */
+  .visual {
+    @apply w-full overflow-hidden;
+  }
+
+  .visual svg {
+    @apply block w-full;
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* "Seu primeiro passo" — mesmo padrão visual de `.cartao-proximo`, com
+     um selo numerado à esquerda do título. */
+  .passo-numero {
+    @apply selo;
+  }
+
+  /* Prateleira de conquistas — selos em contorno, um por dívida do plano.
+     Nenhum é preenchido aqui: a confirmação de quitação é fora de escopo
+     desta tarefa (ver plano aprovado). */
+  .conquista {
+    @apply flex flex-col items-center gap-1 text-center;
+  }
+
+  .conquista .marca {
+    @apply border-2 border-accent bg-surface;
+  }
+
+  /* Desenho progressivo das barras/caminho na primeira exibição — cada
+     `.visual` entra com um leve crescimento, nunca uma animação contínua.
+     Suprimido para quem pede menos movimento (regra abaixo, com as demais
+     — mesma razão de ordem já documentada no bloco final deste arquivo:
+     Tailwind emite por ordem de aparição, e uma regra posterior vence). */
+  .visual svg {
+    animation: visual-entra 0.3s ease-out;
+    transform-origin: left center;
+  }
+
+  @keyframes visual-entra {
+    from {
+      opacity: 0;
+      transform: scaleX(0.96);
+    }
+  }
+
+  /* Selo de "primeira vitória" — um leve "pop" na primeira exibição. */
+  .selo-vitoria {
+    animation: selo-vitoria-entra 0.4s ease-out;
+  }
+
+  @keyframes selo-vitoria-entra {
+    from {
+      opacity: 0;
+      transform: scale(0.85);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .visual svg,
+    .selo-vitoria {
+      animation: none;
+    }
+  }
+
+  /* -------------------------------------------------------------------
    * Supressão de movimento nos controles — `RF-76`, `AC-113` (T-165).
    *
    * **Este bloco fica no FIM de propósito.** O Tailwind emite os

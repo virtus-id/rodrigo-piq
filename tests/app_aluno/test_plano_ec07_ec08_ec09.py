@@ -85,6 +85,7 @@ from report.plano import (
     CENARIO_APRESENTACAO,
     ContextoAcaoRequerida,
     ContextoPlano,
+    TextosCanonicosPlano,
     carregar_textos_canonicos,
     decidir_cenario_apresentacao,
     montar_contexto_plano,
@@ -101,30 +102,47 @@ _DIRETORIO_TEMPLATES_PLANO = (
 _VERSAO_PARAMETROS_REAL = "1.0.1"
 
 
-def _renderizar_plano_html_com_contexto(contexto: ContextoPlano) -> str:
+def _renderizar_plano_html_com_contexto(
+    contexto: ContextoPlano, textos: TextosCanonicosPlano | None = None
+) -> str:
     """Mesmo padrão de `tests/app_aluno/test_plano.py::
     _renderizar_plano_html_com_contexto` (T-60), estendido com os campos
-    novos de T-62 — nunca `dataclasses.asdict` (que converteria `ordem`/
-    `acoes`/`pendencias`, dataclasses aninhados, em dicts sem atributo,
-    incompatível com o acesso `posicao.indice` etc. dos templates)."""
+    de T-62 e do plano amigável (2026-10-03, `report/pdf.py::
+    renderizar_html_do_plano`) — nunca `dataclasses.asdict` (que
+    converteria `ordem`/`acoes`/`pendencias`, dataclasses aninhados, em
+    dicts sem atributo, incompatível com o acesso `posicao.indice` etc.
+    dos templates). `textos`: `carregar_textos_canonicos()` por padrão."""
     ambiente = Environment(
         loader=FileSystemLoader(str(_DIRETORIO_TEMPLATES_PLANO)),
         autoescape=select_autoescape(["html"]),
     )
     template = ambiente.get_template("plano.html")
+    textos = textos or carregar_textos_canonicos()
     return template.render(
         titulo=contexto.titulo,
         corpo=contexto.corpo,
         ordem=contexto.ordem,
         PRAZO_TOTAL=contexto.PRAZO_TOTAL,
+        PRAZO_TOTAL_INT=contexto.PRAZO_TOTAL_INT,
         CUSTO_FUTURO_TOTAL=contexto.CUSTO_FUTURO_TOTAL,
         ENGINE_VERSION=contexto.ENGINE_VERSION,
         PARAMETROS_VERSION=contexto.PARAMETROS_VERSION,
         cenario=contexto.cenario,
         acoes=contexto.acoes,
         pendencias=contexto.pendencias,
+        pendencias_acionaveis=contexto.pendencias_acionaveis,
         MODO_ESTABILIZACAO=contexto.MODO_ESTABILIZACAO,
         RESULTADO_CAIXA_OBSERVADO=contexto.RESULTADO_CAIXA_OBSERVADO,
+        reserva_mobilizavel=contexto.reserva_mobilizavel,
+        metodo=contexto.metodo,
+        valor_mensal_destinado=contexto.valor_mensal_destinado,
+        cenario_adicional=contexto.cenario_adicional,
+        passo_atual=contexto.passo_atual,
+        primeira_vitoria=contexto.primeira_vitoria,
+        jornada=contexto.jornada,
+        grade_meses=contexto.grade_meses,
+        como_funciona=contexto.como_funciona,
+        textos=textos,
     )
 
 
@@ -171,8 +189,11 @@ def test_ec07_ordem_quitacao_vazia_escolhe_cenario_ordem_vazia() -> None:
     # Nenhuma seção de posição (posicao.html) é renderizada — a ordem está
     # vazia, e o HTML não pode sugerir uma ordem sem explicação.
     assert "Posição 1 de" not in html
-    # O bloco de ordem_vazia.html (a explicação) está presente.
-    assert "Nenhuma dívida pronta para ataque" in html
+    # O bloco de ordem_vazia.html (a explicação) está presente. Plano
+    # amigável (2026-10-03): o heading passou a ser "Primeiro, o que
+    # precisa ser resolvido" — o mesmo texto já usado pela tela React
+    # (`frontend/tests/e2e/plano.spec.ts`), agora também no PDF.
+    assert "Primeiro, o que precisa ser resolvido" in html
 
 
 def test_ec07_ordem_acoes_e_o_conteudo_principal_quando_presente() -> None:

@@ -28,6 +28,11 @@
     omite o item — omitir seria a mesma conversão silenciosa, só que
     invisível.
 
+    **Plano amigável (2026-10-03).** Quando a reserva TEM valor, uma frase
+    de apoio (`textos.reserva_explicacao`) diz o que o número significa —
+    decisão do produto: um número solto sem contexto não diz ao aluno o
+    que ele representa no plano.
+
     Nenhuma decisão de valor é tomada aqui: as três regras da §13.1 já foram
     aplicadas pelo motor (engine/ataque_imediato.py::
     derivar_RESERVA_MOBILIZAVEL) e `report/plano.py` só LEU o resultado com
@@ -57,20 +62,36 @@
     │ O conteúdo abaixo é INSUMO EXTERNO PENDENTE, não esquecimento.        │
     └───────────────────────────────────────────────────────────────────────┘
 #}
-<section>
-    <h2>Reserva disponível para o plano</h2>
+{% import "visuais.html" as visuais %}
+{# Revisão de design (2026-10-03): seção numerada como as demais; o valor
+   em destaque e a frase que diz o que ele significa. Continua NUNCA
+   exibindo `R$ 0,00` no estado pendente (AC-70). #}
+<section class="secao" aria-labelledby="titulo-reserva">
+    <div class="secao-cabecalho">
+        {% if ns is defined %}<span class="secao-numero">{{ ns.n }}</span>{% endif %}
+        <h2 id="titulo-reserva">{{ textos.secoes.get("reserva", "Sua reserva") if textos is defined else "Sua reserva" }}</h2>
+        <span class="secao-icone">{{ visuais.icone("reserva") }}</span>
+    </div>
 
     {% if reserva_mobilizavel.pendente_de_decisao %}
     {# OQ-21 (ABERTA) — ponto de encaixe da redação ao aluno. O texto abaixo
        é PROVISÓRIO e existe só para que o estado seja visível e testável:
        nunca `R$ 0,00`, nunca item omitido. Substituir pela redação do
        especialista quando `OQ-21` for respondida. #}
-    <p data-pendencia-redacao="OQ-21">
-        Você ainda não decidiu quanto da sua reserva quer considerar neste
-        plano. Este ponto continua em aberto e será retomado com você.
-    </p>
+    <div class="aviso">
+        <p data-pendencia-redacao="OQ-21" style="margin: 0;">
+            <strong>Decisão pendente.</strong> Você ainda não decidiu quanto
+            da sua reserva quer usar neste plano. Esse ponto continua em
+            aberto e será retomado com você.
+        </p>
+    </div>
     {% else %}
     {# T-177: o valor chega com "R$" de `report/plano.py`. #}
-    <p>Valor da reserva considerado neste plano: {{ reserva_mobilizavel.valor }}.</p>
+    <div class="destaque">
+        <div class="numero-valor">{{ reserva_mobilizavel.valor }}</div>
+        {% if textos is defined and textos.reserva_explicacao %}
+        <p class="muted" style="margin: 2mm 0 0;">{{ textos.reserva_explicacao }}</p>
+        {% endif %}
+    </div>
     {% endif %}
 </section>

@@ -109,7 +109,7 @@ def test_html_do_pdf_e_identico_ao_html_da_tela_para_o_mesmo_snapshot() -> None:
     contexto_da_tela = montar_contexto_plano(snapshot, textos)
     from report.pdf import renderizar_html_do_plano
 
-    html_da_tela = renderizar_html_do_plano(contexto_da_tela)
+    html_da_tela = renderizar_html_do_plano(contexto_da_tela, textos)
 
     assert html_do_pdf == html_da_tela
 
@@ -140,7 +140,7 @@ def test_ac14_ac16_titulo_corpo_q03_e_carimbo_de_versao_presentes_no_pdf() -> No
     html = gerar_html_do_plano_liberado(caso, snapshot, textos)
 
     assert f"<h1>{textos.titulo}</h1>" in html
-    assert f"<p>{textos.corpo}</p>" in html
+    assert f'<p class="lead">{textos.corpo}</p>' in html
     assert snapshot.ENGINE_VERSION in html
     assert snapshot.PARAMETROS_VERSION in html
 

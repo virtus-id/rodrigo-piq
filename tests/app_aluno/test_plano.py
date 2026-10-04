@@ -1,15 +1,22 @@
 """Testes de `report/plano.py` e `report/templates/plano/plano.html` — a
-redação canônica de `Q-03` em um único template (`RF-21`, `AC-14`, `AC-15`,
-T-59) e a renderização da ordem a partir de um `SnapshotOrdem` real
-(`RF-20`, `RF-22`, `AC-16`, `AC-17`, `AC-42`, T-60).
+redação canônica em um único template (`RF-21`, `AC-14`, `AC-15`, T-59) e a
+renderização da ordem a partir de um `SnapshotOrdem` real (`RF-20`, `RF-22`,
+`AC-16`, `AC-17`, `AC-42`, T-60).
 
-Cobre os dois critérios de aceite normativos de T-59:
+**Plano amigável (2026-10-03).** O título e o corpo deixaram de ser a
+transcrição literal de `Q-03` ("Sua ordem projetada de quitação…") e
+passaram a ser a redação de "consultoria individual" aprovada pelo usuário
+nesta conversa: "Seu plano inteligente de quitação de dívidas" / "Montamos
+este plano a partir do que você nos contou…". `Q-02` continua valendo — a
+ordem nunca é qualificada de "definitiva"/"final"/"fixa" — mas o termo que
+a qualifica passou de "projetada" para "inteligente". `AC-14`/`AC-15`
+continuam cumpridos sobre a NOVA redação, abaixo:
 
-1. `AC-14` — o título renderizado é exatamente "Sua ordem projetada de
-   quitação" e o texto é exatamente o corpo de `Q-03`, caractere por
-   caractere (igualdade de string, nunca `in`/substring).
-2. `AC-15` — a palavra "projetada" aparece no HTML renderizado, e nenhuma das
-   palavras "definitiva", "final" ou "fixa" (busca sem diferenciar
+1. `AC-14` — o título renderizado é exatamente o novo título e o texto é
+   exatamente o novo corpo, caractere por caractere (igualdade de string,
+   nunca `in`/substring).
+2. `AC-15` — a palavra "inteligente" aparece no HTML renderizado, e nenhuma
+   das palavras "definitiva", "final" ou "fixa" (busca sem diferenciar
    maiúsculas/minúsculas) aparece qualificando a ordem.
 
 Mais dois testes de estrutura, não normativos, mas exigidos pela tarefa:
@@ -54,6 +61,7 @@ from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from report.plano import (
     CAMINHO_TEXTOS_CANONICOS,
     ContextoPlano,
+    TextosCanonicosPlano,
     carregar_textos_canonicos,
     montar_contexto_plano,
 )
@@ -67,14 +75,17 @@ _DIRETORIO_TEMPLATES_PLANO = (
     Path(__file__).resolve().parent.parent.parent / "report" / "templates" / "plano"
 )
 
-# Transcrição de Q-03 (specs/piq-app-spec.md) usada SÓ para comparação no
-# teste — não é uma segunda fonte da redação: `report/plano.py` continua
-# sendo a única leitura de `textos-canonicos.yaml` em código de produção.
-_TITULO_Q03 = "Sua ordem projetada de quitação"
+# Transcrição da redação vigente de `textos-canonicos.yaml` (plano amigável,
+# 2026-10-03), usada SÓ para comparação no teste — não é uma segunda fonte
+# da redação: `report/plano.py` continua sendo a única leitura do YAML em
+# código de produção.
+_TITULO_Q03 = "Seu plano inteligente de quitação de dívidas"
 _CORPO_Q03 = (
-    "Com os dados e condições atuais, o PIQ projeta a seguinte sequência de "
-    "quitação. A ordem poderá ser recalculada se ocorrer alguma mudança "
-    "material durante a execução."
+    "Montamos este plano a partir das informações que você nos passou. Ele "
+    "mostra, mês a mês, quanto pagar e em qual dívida, até a última ser "
+    "quitada. Se algo importante mudar na sua vida financeira, como a renda, "
+    "uma dívida nova ou um dinheiro extra, o plano é refeito para continuar "
+    "adequado à sua realidade."
 )
 
 _PALAVRAS_PROIBIDAS = ("definitiva", "final", "fixa")
@@ -87,12 +98,12 @@ def _renderizar_plano_html() -> str:
     )
     template = ambiente.get_template("plano.html")
     textos = carregar_textos_canonicos()
-    return template.render(titulo=textos.titulo, corpo=textos.corpo, ordem=[])
+    return template.render(titulo=textos.titulo, corpo=textos.corpo, ordem=[], textos=textos)
 
 
 def test_ac14_titulo_e_corpo_carregados_sao_exatamente_q03() -> None:
-    """AC-14: `carregar_textos_canonicos` devolve o título e o texto de
-    `Q-03` caractere por caractere — igualdade exata de string."""
+    """AC-14: `carregar_textos_canonicos` devolve o título e o texto
+    vigentes caractere por caractere — igualdade exata de string."""
     textos = carregar_textos_canonicos()
 
     assert textos.titulo == _TITULO_Q03
@@ -101,23 +112,24 @@ def test_ac14_titulo_e_corpo_carregados_sao_exatamente_q03() -> None:
 
 def test_ac14_template_renderiza_titulo_e_corpo_exatos_de_q03() -> None:
     """AC-14: o HTML produzido por `plano.html` contém o título em `<title>`/
-    `<h1>` e o corpo em `<p>`, exatamente como `Q-03` define — nenhuma
-    paráfrase introduzida pelo template."""
+    `<h1>` e o corpo em `<p>`, exatamente como `textos-canonicos.yaml`
+    define — nenhuma paráfrase introduzida pelo template."""
     html = _renderizar_plano_html()
 
     assert f"<title>{_TITULO_Q03}</title>" in html
     assert f"<h1>{_TITULO_Q03}</h1>" in html
-    assert f"<p>{_CORPO_Q03}</p>" in html
+    assert f'<p class="lead">{_CORPO_Q03}</p>' in html
 
 
 def test_ac15_palavra_projetada_aparece_e_nenhum_qualificador_proibido() -> None:
-    """AC-15: "projetada" aparece no HTML renderizado; nenhuma das palavras
-    "definitiva", "final" ou "fixa" qualifica a ordem — nem no título/corpo
-    canônicos, nem em qualquer texto fixo do próprio template."""
+    """AC-15: "inteligente" (o novo termo que qualifica a ordem) aparece no
+    HTML renderizado; nenhuma das palavras "definitiva", "final" ou "fixa"
+    qualifica a ordem — nem no título/corpo vigentes, nem em qualquer texto
+    fixo do próprio template."""
     html = _renderizar_plano_html()
     html_minusculo = html.lower()
 
-    assert "projetada" in html_minusculo
+    assert "inteligente" in html_minusculo
 
     for palavra_proibida in _PALAVRAS_PROIBIDAS:
         assert palavra_proibida not in html_minusculo, (
@@ -162,6 +174,38 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "rotulos_de_comprovacao",
         # `T-276` (RF-98): rótulo da seção do cenário adicional, não da ordem.
         "cenario_adicional",
+        # Plano amigável (2026-10-03) — textos novos da "consultoria
+        # individual": nenhum deles renomeia ORDEM_QUITACAO, são seções
+        # próprias (resumo, primeiro passo, jornada, dúvidas etc.).
+        "resumo",
+        "primeiro_passo",
+        "explicacao_mes_1",
+        "primeira_vitoria",
+        "como_funciona_titulo",
+        "como_funciona",
+        "jornada_titulo",
+        "jornada",
+        # Redesenho (2026-10-03) — grade de cartões por mês e legenda/
+        # rótulos da linha do tempo; nenhum renomeia a ordem.
+        "grade_meses",
+        "linha_do_tempo",
+        # Revisão de design (2026-10-03) — cabeçalho personalizado,
+        # títulos das seções, ponto de partida, quadros de "Como
+        # funciona", cartão de cada dívida, checklist e nome curto do
+        # tipo de dívida; nenhum renomeia a ordem.
+        "cabecalho",
+        "secoes",
+        "ponto_de_partida",
+        "como_funciona_rotulos",
+        "textos_das_dividas",
+        "checklist",
+        "rotulo_do_tipo_no_plano",
+        "reserva_explicacao",
+        "onde_achar",
+        "pergunta_do_campo",
+        "duvidas",
+        "sobre_este_plano",
+        "estabilizacao",
         # `T-245` (RF-82): orientação por dívida com seguro, não da ordem.
         "orientacao_seguro_prestamista",
         # `T-326` (RF-111): nome da dívida, descrição das ações e rótulos
@@ -354,18 +398,44 @@ def test_prazo_e_custo_exibidos_correspondem_exatamente_aos_campos_do_snapshot()
     assert "R$ R$" not in html
 
 
-def _renderizar_plano_html_com_contexto(contexto: ContextoPlano) -> str:
+def _renderizar_plano_html_com_contexto(
+    contexto: ContextoPlano, textos: TextosCanonicosPlano | None = None
+) -> str:
+    """Mesmo padrão de `tests/app_aluno/test_plano_ec07_ec08_ec09.py::
+    _renderizar_plano_html_com_contexto`, estendido com os campos do plano
+    amigável (2026-10-03, `report/pdf.py::renderizar_html_do_plano`) —
+    `textos` por padrão é `carregar_textos_canonicos()`, a mesma fonte que
+    `montar_contexto_plano` já usou para montar `contexto`."""
     ambiente = Environment(
         loader=FileSystemLoader(str(_DIRETORIO_TEMPLATES_PLANO)),
         autoescape=select_autoescape(["html"]),
     )
     template = ambiente.get_template("plano.html")
+    textos = textos or carregar_textos_canonicos()
     return template.render(
         titulo=contexto.titulo,
         corpo=contexto.corpo,
         ordem=contexto.ordem,
         PRAZO_TOTAL=contexto.PRAZO_TOTAL,
+        PRAZO_TOTAL_INT=contexto.PRAZO_TOTAL_INT,
         CUSTO_FUTURO_TOTAL=contexto.CUSTO_FUTURO_TOTAL,
         ENGINE_VERSION=contexto.ENGINE_VERSION,
         PARAMETROS_VERSION=contexto.PARAMETROS_VERSION,
+        cenario=contexto.cenario,
+        acoes=contexto.acoes,
+        pendencias=contexto.pendencias,
+        pendencias_acionaveis=contexto.pendencias_acionaveis,
+        MODO_ESTABILIZACAO=contexto.MODO_ESTABILIZACAO,
+        RESULTADO_CAIXA_OBSERVADO=contexto.RESULTADO_CAIXA_OBSERVADO,
+        reserva_mobilizavel=contexto.reserva_mobilizavel,
+        metodo=contexto.metodo,
+        valor_mensal_destinado=contexto.valor_mensal_destinado,
+        cenario_adicional=contexto.cenario_adicional,
+        passo_atual=contexto.passo_atual,
+        primeira_vitoria=contexto.primeira_vitoria,
+        jornada=contexto.jornada,
+        grade_meses=contexto.grade_meses,
+        grade_anos=contexto.grade_anos,
+        como_funciona=contexto.como_funciona,
+        textos=textos,
     )

@@ -23,9 +23,11 @@ import { abrirTela, interceptarBase } from './apoio/navegacao'
 
 const CASO = 'CASO-PLANO-E2E'
 
-const TITULO_Q03 = 'Sua ordem projetada de quitação'
+// Plano amigável (2026-10-03): título e corpo vigentes de
+// `textos-canonicos.yaml` — já não é a transcrição literal de `Q-03`.
+const TITULO_Q03 = 'Seu plano inteligente de quitação de dívidas'
 const CORPO_Q03 =
-  'Com os dados e condições de hoje, esta é a ordem projetada para quitar suas dívidas.'
+  'Montamos este plano a partir do que você nos contou. Ele mostra, mês a mês, quanto pagar e em qual dívida. Se algo importante mudar — sua renda, uma dívida nova, um dinheiro extra — o plano é refeito para continuar certo para você.'
 
 const PLANO_LIBERADO = {
   CASO_ID: CASO,
@@ -56,6 +58,7 @@ const PLANO_LIBERADO = {
       },
     ],
     PRAZO_TOTAL: '18',
+    PRAZO_TOTAL_INT: 18,
     CUSTO_FUTURO_TOTAL: '1200.00',
     valor_mensal_destinado: 'R$ 512,34',
     ENGINE_VERSION: '1.0.1',
@@ -107,14 +110,14 @@ test.describe('plano liberado', () => {
     await expect(page.getByText(CORPO_Q03, { exact: true })).toBeVisible()
   })
 
-  test('AC-15: "projetada" está na tela e os qualificadores proibidos não', async ({
+  test('AC-15: "inteligente" está na tela e os qualificadores proibidos não', async ({
     page,
   }) => {
     await abrirPlano(page)
     await expect(page.getByRole('heading', { name: TITULO_Q03 })).toBeVisible()
 
     const textoDaTela = (await page.locator('body').innerText()).toLowerCase()
-    expect(textoDaTela).toContain('projetada')
+    expect(textoDaTela).toContain('inteligente')
     for (const proibida of ['definitiva', 'fixa']) {
       expect(textoDaTela).not.toContain(proibida)
     }
@@ -209,8 +212,12 @@ test.describe('plano liberado', () => {
   }) => {
     await abrirPlano(page)
 
-    await expect(page.getByText('Quitação prevista: mês 9 do plano')).toBeVisible()
-    await expect(page.getByText('Quitação prevista: não disponível')).toBeVisible()
+    // Revisão de design (2026-10-03): o mês de quitação é o quadro "Termina
+    // no" do cartão de cada dívida, à vista.
+    const cartao = (nome: string) => page.locator('li.cartao').filter({ hasText: nome })
+    const [primeira, segunda] = PLANO_LIBERADO.plano.ordem
+    await expect(cartao(primeira.nome).getByText('Mês 9', { exact: true })).toBeVisible()
+    await expect(cartao(segunda.nome).getByText('não disponível', { exact: true })).toBeVisible()
     await expect(page.locator('.cartao-destaque')).toContainText('R$ 512,34')
   })
 

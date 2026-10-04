@@ -116,9 +116,8 @@ def _snapshot_reserva_conhecida() -> SnapshotOrdem:
 def _html_do_plano(snapshot: SnapshotOrdem) -> str:
     """O HTML que o aluno vê, pela MESMA função de renderização de tela e PDF
     (`report/pdf.py::renderizar_html_do_plano`)."""
-    return renderizar_html_do_plano(
-        montar_contexto_plano(snapshot, carregar_textos_canonicos())
-    )
+    textos = carregar_textos_canonicos()
+    return renderizar_html_do_plano(montar_contexto_plano(snapshot, textos), textos)
 
 
 def _bloco_da_reserva(html: str) -> str:
@@ -129,9 +128,14 @@ def _bloco_da_reserva(html: str) -> str:
     inteiro pode legitimamente exibir `R$ 0,00` em outro campo (um custo, um
     resultado de caixa), e uma busca no documento todo ora falharia por
     motivo alheio à reserva, ora esconderia o bug quando o valor coincidisse.
-    A âncora é o heading estrutural, não a redação de `OQ-21`."""
-    secoes: list[str] = re.findall(r"<section>.*?</section>", html, flags=re.DOTALL)
-    blocos = [secao for secao in secoes if "Reserva disponível para o plano" in secao]
+    A âncora é o heading estrutural, não a redação de `OQ-21`.
+
+    Plano amigável (2026-10-03): o heading passou de "Reserva disponível
+    para o plano" para "Sua reserva", e a `<section>` passou a ter atributos
+    (`class`/`aria-labelledby`) — a âncora de recorte segue a mesma, só o
+    regex de abertura de `<section` ficou mais tolerante a atributos."""
+    secoes: list[str] = re.findall(r"<section[^>]*>.*?</section>", html, flags=re.DOTALL)
+    blocos = [secao for secao in secoes if "Sua reserva" in secao]
     assert len(blocos) == 1, (
         f"esperado exatamente 1 bloco de reserva no HTML do plano, encontrados "
         f"{len(blocos)}"
@@ -216,8 +220,9 @@ def test_ec18_nenhum_caminho_de_exibicao_levanta_excecao_com_desconhecido() -> N
 
     # Se qualquer etapa levantasse, o teste falharia aqui — sem
     # `pytest.raises`, porque o critério é a AUSÊNCIA de exceção.
-    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
-    html = renderizar_html_do_plano(contexto)
+    textos = carregar_textos_canonicos()
+    contexto = montar_contexto_plano(snapshot, textos)
+    html = renderizar_html_do_plano(contexto, textos)
 
     assert isinstance(html, str)
     assert html != ""

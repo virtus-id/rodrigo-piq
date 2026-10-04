@@ -297,7 +297,7 @@ def test_ac175_pedir_correcao_devolve_ao_aluno_e_reenvio_volta_a_fila_como_v2(
             "mensagem": _MENSAGEM,
             "dados_a_conferir": [
                 {
-                    "nome": "Cheque especial — CAIXA ECONOMICA FEDERAL",
+                    "nome": "Cheque especial (CAIXA ECONOMICA FEDERAL)",
                     "enunciado": "Você sabe qual é a taxa de juros desta operação?",
                     "ID_PERGUNTA": "B5.D01",
                     "item_id": "D001",

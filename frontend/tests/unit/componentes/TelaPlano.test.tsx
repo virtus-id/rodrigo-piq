@@ -48,6 +48,7 @@ function plano(
       },
     ],
     PRAZO_TOTAL: '14 meses',
+    PRAZO_TOTAL_INT: 14,
     CUSTO_FUTURO_TOTAL: 'R$ 3.333,33',
     ENGINE_VERSION: 'e',
     PARAMETROS_VERSION: 'p',
@@ -79,7 +80,11 @@ describe('TelaPlano — cenário adicional (AC-152)', () => {
     const secao = await screen.findByRole('region', { name: ADICIONAL.rotulo })
     expect(within(secao).getByText('9 meses')).toBeInTheDocument()
     expect(within(secao).getByText('R$ 1.111,11')).toBeInTheDocument()
-    expect(within(secao).getByText(/EXT001/)).toBeInTheDocument()
+    expect(within(secao).getByText('R$ 2.000,00 no Mês 3')).toBeInTheDocument()
+    // Plano amigável (2026-10-03): o código do item (`EXT001`) não aparece
+    // ao aluno — só o revisor recebe (`para_revisor=True`), a mesma
+    // disciplina de `DIVIDA_ID`/`JUSTIFICATIVA_POSICAO` (T-305/T-306).
+    expect(secao.textContent).not.toMatch(/EXT001/)
   })
 
   it('nenhum número do cenário adicional fora da sua seção', async () => {
@@ -88,7 +93,7 @@ describe('TelaPlano — cenário adicional (AC-152)', () => {
     const secao = await screen.findByRole('region', { name: ADICIONAL.rotulo })
     const fora = container.cloneNode(true) as HTMLElement
     fora.querySelector('section[aria-labelledby="titulo-cenario-adicional"]')?.remove()
-    for (const numero of ['9 meses', 'R$ 1.111,11', 'R$ 2.000,00', 'EXT001']) {
+    for (const numero of ['9 meses', 'R$ 1.111,11', 'R$ 2.000,00']) {
       expect(fora.textContent).not.toContain(numero)
     }
     expect(fora.textContent).toContain('14 meses')
@@ -134,18 +139,33 @@ describe('TelaPlano — mês de quitação e valor mensal (T-304, DE-08)', () =>
     return render(<TelaPlano casoId="CASO-1" />)
   }
 
+  /** O cartão da dívida (o `<li>` que contém o nome dela). */
+  async function cartaoDaDivida() {
+    const nome = await screen.findByText('Cheque especial — CAIXA ECONOMICA FEDERAL')
+    const cartao = nome.closest('li')
+    expect(cartao).not.toBeNull()
+    return cartao as HTMLElement
+  }
+
   it('mostra o mês previsto de cada dívida e o valor mensal destinado', async () => {
     mostrarCom({ mes_de_quitacao: 7 }, { valor_mensal_destinado: 'R$ 500,00' })
 
-    expect(await screen.findByText('Quitação prevista: mês 7 do plano')).toBeInTheDocument()
-    expect(screen.getByText('a cada mês para quitar, além das parcelas')).toBeInTheDocument()
+    // Revisão de design (2026-10-03): o mês de quitação é um quadro do
+    // cartão da dívida ("Termina no" / "Mês 7"), à vista, como no PDF.
+    const cartao = await cartaoDaDivida()
+    expect(within(cartao).getByText('Termina no')).toBeInTheDocument()
+    expect(within(cartao).getByText('Mês 7')).toBeInTheDocument()
+    expect(screen.getByText('a mais todo mês, além das parcelas')).toBeInTheDocument()
     expect(screen.getByText('R$ 500,00')).toBeInTheDocument()
   })
 
   it('sem o dado no snapshot, "não disponível" — nunca um mês estimado', async () => {
     mostrarCom({ mes_de_quitacao: null })
 
-    expect(await screen.findByText('Quitação prevista: não disponível')).toBeInTheDocument()
+    const cartao = await cartaoDaDivida()
+    expect(within(cartao).getByText('Termina no')).toBeInTheDocument()
+    expect(within(cartao).getByText('não disponível')).toBeInTheDocument()
+    expect(within(cartao).queryByText(/^Mês \d+$/)).not.toBeInTheDocument()
   })
 })
 

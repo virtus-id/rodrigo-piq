@@ -24,22 +24,23 @@ estendida agora à tela do plano.
 **O que este arquivo faz em vez disso — substituto PARCIAL, declarado como
 tal, adaptado às duas telas.**
 
-1. **Contraste** — `plano.html` (o PDF) NÃO carrega
-   `app/http/estaticos/estilo.css` (confirmado por leitura dos templates:
-   nenhum `<link rel="stylesheet">` nem `<style>` inline nas duas árvores de
-   `report/templates/plano/` e `report/templates/revisao/`) — diferente da
-   coleta, onde T-48 recalculava contraste sobre cores declaradas naquele
-   CSS. As únicas classes visuais introduzidas por esta feature nestas duas
-   telas são `.sinal-politica`/`.sinal-metodologico` (`fila.html`, T-69), que
-   também não têm nenhuma regra de cor em `estilo.css` nem em qualquer outro
-   CSS do projeto — são `<span>` sem estilo (texto puro, cor herdada do
-   navegador). Sem NENHUMA declaração de cor própria a auditar, não há razão
-   de contraste calculável por fórmula estática aqui: o substituto honesto
-   para "nenhuma violação de contraste introduzida por este HTML" é confirmar
-   que nenhuma das duas telas declara COR PRÓPRIA (nem `style=`, nem
-   `<style>`, nem referência a folha de estilo) — texto puro sobre o fundo
-   padrão do navegador nunca reprova a regra `color-contrast` do `axe-core`
-   por definição (não há cor customizada para reprovar).
+1. **Contraste.** Até o plano amigável (2026-10-03), `plano.html` (o PDF)
+   não declarava NENHUMA cor própria, e por isso o substituto honesto era
+   confirmar a AUSÊNCIA de `<style>`/`style=`/folha de estilo — texto puro
+   sobre o fundo padrão do navegador nunca reprova `color-contrast` por
+   definição. Essa versão trocou isso por um PDF com identidade visual
+   (cores, trilha da jornada), decisão de produto desta conversa ("PDF
+   bonito, com cores e trilha"), então a auditoria agora faz o que
+   `test_acessibilidade_coleta.py` já faz para o CSS da coleta: **extrai
+   toda cor hex declarada em `<style>`/`style=` do HTML renderizado e
+   calcula a razão de contraste pela fórmula normativa da WCAG** (a mesma
+   que o `axe-core` usa em `color-contrast`) para cada par texto/fundo
+   plausível — nunca mais confirma ausência de cor, confirma que a cor
+   declarada é segura. Nenhuma cor nova: `plano.html` só usa os hex já
+   validados em `frontend/tailwind.config.js` (`bg`, `surface`, `ink`,
+   `muted`, `line`, `accent`/`accent.ink`/`accent.soft`, `warn`/`warn.soft`,
+   `bad`/`bad.soft`) — o PDF reaproveita a mesma paleta da tela, nunca uma
+   segunda paleta divergente.
 2. **Rótulo** — as duas telas são de LEITURA (nenhum `<input>`/`<select>`/
    `<textarea>` — confirmado por varredura do HTML real renderizado abaixo),
    diferente da coleta, que é toda formulário. A regra `label` do
@@ -173,7 +174,7 @@ def _html_do_plano_real(snapshot: SnapshotOrdem) -> str:
     contexto inventada por este teste."""
     textos = carregar_textos_canonicos()
     contexto = montar_contexto_plano(snapshot, textos)
-    return renderizar_html_do_plano(contexto)
+    return renderizar_html_do_plano(contexto, textos)
 
 
 @pytest.fixture(scope="module")
@@ -192,21 +193,93 @@ def html_do_plano(snapshot_real: SnapshotOrdem) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_tela_do_plano_nao_declara_cor_propria(html_do_plano: str) -> None:
-    """Sem `style=` com `color`/`background` e sem `<link rel="stylesheet">`/
-    `<style>` em nenhuma das duas telas, não há regra de cor própria capaz de
-    reprovar `color-contrast` — texto puro sobre o fundo padrão do navegador
-    nunca viola essa regra. Isto é o inverso da checagem de T-48 (que
-    RECALCULAVA contraste porque `estilo.css` declarava cor); aqui a
-    ausência de qualquer declaração de cor é o próprio resultado a provar."""
-    for html, origem in ((html_do_plano, "plano.html"),):
-        assert "stylesheet" not in html.lower(), f"{origem}: referencia folha de estilo"
-        assert "<style" not in html.lower(), f"{origem}: declara <style> inline"
-        estilos_inline = re.findall(r'style="([^"]*)"', html)
-        for estilo in estilos_inline:
-            assert "color" not in estilo.lower() and "background" not in estilo.lower(), (
-                f"{origem}: style= inline declara cor ({estilo!r})"
-            )
+def test_pdf_do_plano_nao_referencia_folha_de_estilo_externa(html_do_plano: str) -> None:
+    """O PDF é um documento autocontido — `<style>` inline é permitido
+    (decisão de produto desta conversa), mas `<link rel="stylesheet">`
+    nunca: o WeasyPrint não teria de onde buscar uma folha externa, e o PDF
+    sairia sem estilo nenhum."""
+    assert "<link" not in html_do_plano.lower(), (
+        "plano.html: não deve referenciar folha de estilo externa"
+    )
+
+
+def _canal_linear(valor_8bit: int) -> float:
+    """Mesma fórmula normativa de `test_acessibilidade_coleta.py` — ver lá
+    a referência à WCAG 2.1. Duplicada aqui (não importada) porque os dois
+    arquivos auditam árvores de template diferentes e não compartilham
+    módulo de apoio — mesmo precedente de duplicação deliberada já usado
+    entre os dois arquivos para `_snapshot_real_com_duas_dividas`."""
+    c = valor_8bit / 255.0
+    if c <= 0.03928:
+        return c / 12.92
+    return float(((c + 0.055) / 1.055) ** 2.4)
+
+
+def _luminancia_relativa(cor_hex: str) -> float:
+    cor_hex = cor_hex.lstrip("#")
+    r, g, b = (int(cor_hex[i : i + 2], 16) for i in (0, 2, 4))
+    r_lin, g_lin, b_lin = _canal_linear(r), _canal_linear(g), _canal_linear(b)
+    return 0.2126 * r_lin + 0.7152 * g_lin + 0.0722 * b_lin
+
+
+def _razao_de_contraste(cor_a: str, cor_b: str) -> float:
+    luminancia_clara = max(_luminancia_relativa(cor_a), _luminancia_relativa(cor_b))
+    luminancia_escura = min(_luminancia_relativa(cor_a), _luminancia_relativa(cor_b))
+    return (luminancia_clara + 0.05) / (luminancia_escura + 0.05)
+
+
+# Os mesmos hex de `frontend/tailwind.config.js` — o PDF reaproveita a
+# paleta já validada da tela, nunca uma segunda paleta divergente. Pares
+# plausíveis de texto/fundo que `plano.html`/`visuais.html` podem usar.
+_PARES_DE_COR_DO_PDF: Final[tuple[tuple[str, str, str], ...]] = (
+    ("texto sobre o fundo da página", "#FAFAF7", "#1B2A2F"),
+    ("texto sobre cartão", "#FFFFFF", "#1B2A2F"),
+    ("texto secundário sobre o fundo", "#FAFAF7", "#5E6E72"),
+    ("destaque sobre fundo suave (accent)", "#E3F1EB", "#0F6E56"),
+    ("aviso de atenção", "#FFF4DC", "#8A5A00"),
+    ("aviso de erro", "#FBE8E4", "#A63A2C"),
+    ("texto branco sobre accent", "#0F6E56", "#FFFFFF"),
+)
+
+
+@pytest.mark.parametrize(("par", "fundo", "texto"), _PARES_DE_COR_DO_PDF)
+def test_pdf_do_plano_usa_pares_de_cor_com_contraste_aa(
+    par: str, fundo: str, texto: str
+) -> None:
+    """Os pares de cor que `plano.html` pode usar (a mesma paleta de
+    `frontend/tailwind.config.js`, já validada para a tela) atendem ao
+    limiar de 4.5:1 da WCAG 2.1 AA — a mesma fórmula do `axe-core`. Ao
+    contrário da versão anterior desta suíte (que confirmava AUSÊNCIA de
+    cor), esta confirma que a cor usada é SEGURA — decisão de produto desta
+    conversa ("PDF bonito, com cores")."""
+    razao = _razao_de_contraste(fundo, texto)
+    assert razao >= LIMIAR_CONTRASTE_AA, (
+        f"{par}: contraste {razao:.2f}:1 abaixo do limiar AA "
+        f"({LIMIAR_CONTRASTE_AA}:1) — fundo={fundo} texto={texto}"
+    )
+
+
+# Tokens usados só como traço/trilha decorativa (nunca como texto sobre um
+# fundo, então sem par de contraste a provar) — `line` de
+# `frontend/tailwind.config.js`, usado em `visuais.html` para o trilho de
+# fundo do Gantt/mapa da jornada.
+_CORES_DECORATIVAS_DO_PDF: Final[frozenset[str]] = frozenset({"#D9E0DC"})
+
+
+def test_pdf_do_plano_so_declara_cor_dos_tokens_validados(html_do_plano: str) -> None:
+    """Toda cor hex (`#RRGGBB`) que aparece em `<style>`/`style=` no HTML
+    renderizado do plano está entre os hex já validados acima (ou é uma das
+    decorativas sem par de contraste) — nenhuma cor nova, não testada, pode
+    entrar no PDF."""
+    cores_permitidas = {
+        cor.upper() for _, fundo, texto in _PARES_DE_COR_DO_PDF for cor in (fundo, texto)
+    } | _CORES_DECORATIVAS_DO_PDF
+    cores_no_html = {cor.upper() for cor in re.findall(r"#[0-9a-fA-F]{6}\b", html_do_plano)}
+    desconhecidas = cores_no_html - cores_permitidas
+    assert not desconhecidas, (
+        f"plano.html declara cor fora da paleta validada: {sorted(desconhecidas)} "
+        f"— adicione o par à lista _PARES_DE_COR_DO_PDF e confirme o contraste AA"
+    )
 
 
 def test_estilo_css_nao_e_carregado_pelas_telas_de_plano_e_fila() -> None:
@@ -285,14 +358,24 @@ def test_templates_do_plano_e_da_fila_nao_declaram_width_fixo_acima_de_360px() -
     """Nenhum template (`.html`) de `report/templates/plano/` ou
     `report/templates/revisao/` declara `width` fixo (`style="width: Npx"`)
     acima de 360px — o padrão mais comum de rolagem horizontal em telas
-    estreitas, mesmo limiar de `test_css_360px.py`."""
+    estreitas, mesmo limiar de `test_css_360px.py`.
+
+    `(?<!max-)` isenta `max-width` — mesmo lookbehind de
+    `tests/estatica/test_css_360px.py::
+    test_nenhum_width_fixo_acima_de_360px_no_css_da_interface`: um
+    `max-width: 600px` só define um TETO (o SVG nunca ultrapassa 600px de
+    largura real, mas encolhe livremente abaixo disso, inclusive a
+    360px) — o oposto de um `width` fixo, que força a largura mesmo
+    quando o viewport é menor (plano amigável, 2026-10-03: SVGs de
+    `visuais.html` usam `width:100%;max-width:600px` para caber em
+    qualquer tela)."""
     limiar_px = 360
     for diretorio in (RAIZ_PROJETO / "report" / "templates" / "plano",):
         for arquivo in diretorio.glob("*.html"):
             conteudo = arquivo.read_text(encoding="utf-8")
             violacoes = [
                 int(valor)
-                for valor in re.findall(r"width\s*:\s*(\d+)px", conteudo)
+                for valor in re.findall(r"(?<!max-)width\s*:\s*(\d+)px", conteudo)
                 if int(valor) > limiar_px
             ]
             assert not violacoes, f"{arquivo.name}: width fixo acima de {limiar_px}px: {violacoes}"

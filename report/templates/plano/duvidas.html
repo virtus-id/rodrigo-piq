@@ -1,0 +1,20 @@
+{#
+    Perguntas frequentes — revisão de design (2026-10-03). No papel nada se
+    abre com um toque, então cada pergunta vem com a resposta logo abaixo,
+    sempre visível (na tela elas continuam recolhíveis).
+
+    Recebe `textos` (`textos.duvidas`: tupla de (pergunta, resposta), de
+    `textos-canonicos.yaml`), `ns` e `cabecalho_da_secao`.
+#}
+{% import "visuais.html" as visuais %}
+{% if textos is defined and textos.duvidas %}
+<section class="secao">
+    {{ visuais.cabecalho_da_secao(ns.n if ns is defined else "", textos.secoes.get("duvidas", "Perguntas frequentes"), "duvida") }}
+    {% for pergunta, resposta in textos.duvidas %}
+    <div class="pergunta">
+        <h3>{{ pergunta }}</h3>
+        <p class="muted" style="margin: 0;">{{ resposta }}</p>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}

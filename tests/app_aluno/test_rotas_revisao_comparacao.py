@@ -192,8 +192,9 @@ def test_ac29_plano_e_estado_inputs_aparecem_na_mesma_resposta(
 
     assert resposta.status_code == 200
     corpo = resposta.text
-    # Lado do plano: a redação canônica de Q-03 (AC-14), a mesma do aluno.
-    assert "Sua ordem projetada de quitação" in corpo
+    # Lado do plano: a redação vigente (plano amigável, 2026-10-03), a
+    # mesma do aluno (AC-14).
+    assert "Seu plano inteligente de quitação de dívidas" in corpo
     # Lado do estado_inputs: um campo qualquer de EstadoFinanceiro, lido do
     # próprio snapshot.
     assert snapshot.estado_inputs.dividas[0].DIVIDA_ID in corpo

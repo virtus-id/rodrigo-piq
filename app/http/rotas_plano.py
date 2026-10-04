@@ -51,7 +51,7 @@ REGRAS: `RF-20`, `RF-21`, `RF-23`, `AC-14`, `AC-16`, `AC-25`
 
 from __future__ import annotations
 
-from typing import Annotated, Final
+from typing import Annotated, Final, Protocol
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
@@ -63,7 +63,9 @@ from collection.carga import ColecaoDeRegistros
 from collection.respostas import RespostasCaso
 from engine.portas import RepositorioSnapshots
 from persistencia.app_aluno.casos import RepositorioCasos
+from persistencia.app_aluno.contas import ContaDoCaso, RepositorioContasSupabase
 from persistencia.app_aluno.respostas import RepositorioRespostas
+from persistencia.supabase.conexao import ErroConexaoAusente
 from persistencia.supabase.repositorio_snapshots import (
     ErroSnapshotNaoEncontrado,
     RepositorioSnapshotsSupabase,
@@ -99,6 +101,33 @@ def obter_repositorio_snapshots() -> RepositorioSnapshots:
     return RepositorioSnapshotsSupabase()
 
 
+class ContasDosCasos(Protocol):
+    """Recorte de `RepositorioContasSupabase` que o plano usa para chamar o
+    aluno pelo nome (revisão de design, 2026-10-03): a mesma consulta do
+    painel da equipe (`T-331`/`T-332`), aqui para UM caso."""
+
+    def contas_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, ContaDoCaso]: ...
+
+
+def obter_contas_dos_casos() -> ContasDosCasos:
+    """Ponto único de injeção — sobrescrito nos testes."""
+    return RepositorioContasSupabase()
+
+
+def nome_do_dono_do_caso(contas: ContasDosCasos, caso_id: str) -> str | None:
+    """O nome da conta dona do caso (vindo da compra), ou `None`.
+
+    O nome é personalização, nunca condição para o plano existir: sem
+    `DATABASE_URL` (testes e ambiente local com adaptadores de arquivo) o
+    repositório levanta `ErroConexaoAusente` na hora, e o plano sai sem
+    nome em vez de falhar."""
+    try:
+        conta = contas.contas_dos_casos((caso_id,)).get(caso_id)
+    except ErroConexaoAusente:
+        return None
+    return conta.nome if conta is not None else None
+
+
 @roteador.get("/{CASO_ID}/plano/pdf")
 def exportar_pdf_do_plano(
     CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
@@ -108,6 +137,7 @@ def exportar_pdf_do_plano(
     ],
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio_respostas: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
+    contas: Annotated[ContasDosCasos, Depends(obter_contas_dos_casos)],
 ) -> Response:
     """Serve o PDF do snapshot **liberado** do caso — nunca o último
     calculado (`AC-25`). Chama `report.pdf.gerar_pdf_do_plano`, que por sua
@@ -137,7 +167,9 @@ def exportar_pdf_do_plano(
     )
 
     try:
-        pdf_bytes = gerar_pdf_do_plano(caso, snapshot, textos, vocabulario)
+        pdf_bytes = gerar_pdf_do_plano(
+            caso, snapshot, textos, vocabulario, nome_do_dono_do_caso(contas, CASO_ID)
+        )
     except ErroSnapshotNaoLiberado as erro:
         # Defensivo: `caso.snapshot_liberado_id` já filtrou isso acima — só
         # ocorreria se o snapshot obtido não bater com o SNAPSHOT_ID pedido,

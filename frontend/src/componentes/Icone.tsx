@@ -45,6 +45,12 @@ export type NomeDoIcone =
   | 'baixar'
   | 'reserva'
   | 'sair'
+  // Plano amigável (2026-10-03) — "Seu primeiro passo", "Sua primeira
+  // vitória", marcos da jornada e "Dúvidas comuns".
+  | 'passo'
+  | 'trofeu'
+  | 'bandeira'
+  | 'duvida'
 
 /**
  * Traçado aberto, 20×20, `stroke` herdando `currentColor`.
@@ -69,6 +75,14 @@ const TRACADO: Readonly<Record<NomeDoIcone, string>> = {
   reserva: 'M4 7.5h12v8H4zM7 7.5V5.2h6v2.3M10 10.4v2.2',
   // Porta (moldura aberta à direita) + seta saindo — encerrar sessão (`T-190`).
   sair: 'M8 4H4v12h4M8 10h7M12 6l4 4-4 4',
+  // Pegada — "Seu primeiro passo deste mês" (plano amigável).
+  passo: 'M7 4.5a1.6 1.6 0 11-.1 3.2 1.6 1.6 0 01.1-3.2zM12.5 10a1.6 1.6 0 11-.1 3.2 1.6 1.6 0 01.1-3.2zM6.6 9.2c.5 1.6.3 3-1 4M13.2 14.5c-.5-1.6-.3-3 1-4',
+  // Taça — "Sua primeira vitória".
+  trofeu: 'M6 4h8v3.5a4 4 0 01-8 0V4zM4 5.5h2M14 5.5h2M4 5.5a2 2 0 002 2M16 5.5a2 2 0 01-2 2M8.5 11.3v2.2h3v-2.2M7 16h6',
+  // Bandeira — marco de quitação na jornada.
+  bandeira: 'M5 3v14M5 4h9l-2.5 3L14 10H5',
+  // Ponto de interrogação num círculo — "Dúvidas comuns".
+  duvida: 'M7.5 7.8a2.5 2.5 0 114.6 1.4c-.5.8-1.6 1-1.6 2.3M10.4 14h.1',
 }
 
 /** Ícones cujo desenho inclui um círculo além do traçado. */

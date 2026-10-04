@@ -1,0 +1,64 @@
+{#
+    "O que fazer no Mês 1" — revisão de design (2026-10-03). Três passos
+    numerados, um por bloco, no lugar de um parágrafo corrido: (1) pagar as
+    parcelas de sempre, com a lista de cada dívida e o valor; (2) o valor
+    extra em destaque, apontando para a dívida da vez; (3) guardar o
+    comprovante. Depois, como pedir o pagamento extra ao credor.
+
+    Recebe do contexto de `plano.html`: `passo_atual`
+    (`ContextoPassoAtual | None`; nada é exibido sem ele), `textos`, `ns`
+    (contador de seções) e a macro `cabecalho_da_secao`. Todo valor é
+    leitura do que `report/plano.py` já formatou (AC-42).
+#}
+{% import "visuais.html" as visuais %}
+{% if passo_atual %}
+{% if ns is defined %}{% set ns.n = ns.n + 1 %}{% endif %}
+{% set pp = textos.primeiro_passo %}
+<section class="secao">
+    {{ visuais.cabecalho_da_secao(ns.n if ns is defined else "", textos.secoes.get("primeiro_passo", "O que fazer no Mês 1"), "passo") }}
+    <p class="intro">{{ pp.get("introducao", "") }}</p>
+
+    <div class="caixa passo">
+        <div class="passo-numero">1</div>
+        <div class="passo-corpo">
+            <h3>{{ pp.get("passo_1_titulo", "") }}</h3>
+            <p class="muted">{{ pp.get("passo_1_texto", "") }}</p>
+            {% if passo_atual.parcelas %}
+            <div class="parcelas">
+                {% for parcela in passo_atual.parcelas %}
+                <div class="parcela"><span>{{ parcela.nome }}</span><strong>{{ parcela.valor }}</strong></div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if passo_atual.alvo %}
+    <div class="destaque passo">
+        <div class="passo-numero">2</div>
+        <div class="passo-corpo">
+            <h3>{{ pp.get("passo_2_titulo", "") }}</h3>
+            <p class="muted">{{ pp.get("passo_2_texto", "").format(valor=passo_atual.valor_extra, alvo=passo_atual.alvo) }}</p>
+            <div class="alvo">
+                <span class="alvo-valor">{{ passo_atual.valor_extra }}</span>
+                <span class="alvo-seta">{{ visuais.icone("avancar") }}</span>
+                <span class="alvo-divida">{{ passo_atual.alvo }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="caixa passo">
+        <div class="passo-numero">3</div>
+        <div class="passo-corpo">
+            <h3>{{ pp.get("passo_3_titulo", "") }}</h3>
+            <p class="muted" style="margin: 0;">{{ pp.get("passo_3_texto", "") }}</p>
+        </div>
+    </div>
+
+    <div class="aviso">
+        <strong>{{ pp.get("como_pagar_titulo", "") }}</strong>
+        <p style="margin: 1mm 0 0;">{{ pp.get("como_pagar_a_mais", "") }}</p>
+    </div>
+    {% endif %}
+</section>
+{% endif %}

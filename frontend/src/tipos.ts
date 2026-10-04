@@ -293,6 +293,12 @@ export interface PosicaoDaOrdem {
    */
   orientacao_seguro?: string | null
   valores_de_apoio: ValorDeApoio[]
+  /**
+   * Revisão de design (2026-10-03) — os números fixos de toda dívida,
+   * qualquer que seja o método: quanto deve hoje, a parcela que paga hoje
+   * e a taxa de juros. Já formatados; "Não informado" quando o dado falta.
+   */
+  fatos?: ValorDeApoio[]
 }
 
 export interface AcaoRequerida {
@@ -318,11 +324,18 @@ export interface ReservaMobilizavel {
 }
 
 export interface Plano {
-  /** Redação canônica de `Q-03` — vem do servidor, nunca reescrita aqui. */
+  /** Redação vigente de `textos-canonicos.yaml` — vem do servidor, nunca reescrita aqui. */
   titulo: string
   corpo: string
   ordem: PosicaoDaOrdem[]
   PRAZO_TOTAL: string
+  /**
+   * Plano amigável (2026-10-03) — o mesmo prazo, como inteiro cru. Serve só
+   * à GEOMETRIA dos gráficos (posição relativa de uma barra/marca na linha
+   * do tempo e no mapa da jornada) — nunca exibido como número; o texto
+   * que o aluno lê continua sendo `PRAZO_TOTAL`, já formatado.
+   */
+  PRAZO_TOTAL_INT: number
   CUSTO_FUTURO_TOTAL: string
   /** `T-304` (`DE-08`): valor por mês destinado ao ataque, já formatado. */
   valor_mensal_destinado?: string
@@ -346,6 +359,163 @@ export interface Plano {
   cenario_adicional?: CenarioAdicional | null
   /** Itens que a projeção-base deixou de fora, com o motivo do motor. */
   nao_projetados?: { ITEM_ID: string; motivo: string }[]
+  /**
+   * Plano amigável — "Seu primeiro passo" (Mês 1). `null` em ordem vazia
+   * ou sem mês simulado (estabilização).
+   */
+  passo_atual?: PassoAtual | null
+  /** Plano amigável — "Sua primeira vitória". `null` sem primeira quitação. */
+  primeira_vitoria?: PrimeiraVitoria | null
+  /** Plano amigável — "Sua jornada mês a mês". Vazia sem mês simulado. */
+  jornada?: EtapaJornada[]
+  /**
+   * Redesenho (2026-10-03) — a MESMA jornada, em grade por mês individual
+   * ("bater o olho e entender", sem frase corrida). Substitui `jornada` na
+   * exibição; `jornada` continua existindo para o mapa SVG da trilha.
+   */
+  grade_meses?: MesDaGrade[]
+  /**
+   * A mesma grade em calendário por ano (12 meses por linha). Vazia em
+   * plano de até 12 meses, que fica com os cartões grandes.
+   */
+  grade_anos?: AnoDaGrade[]
+  /** Plano amigável — "Como o seu plano funciona", passos em português. */
+  como_funciona?: string[]
+  /** Plano amigável — pendências com "onde achar" e o ID da pergunta. */
+  pendencias_acionaveis?: PendenciaAcionavel[]
+  /** Plano amigável — textos fixos que não variam por caso. */
+  explicacao_mes_1?: string
+  como_funciona_titulo?: string
+  jornada_titulo?: string
+  /**
+   * Modelos de frase por tipo de etapa da jornada ("fase_um_mes",
+   * "quitacao", "aporte", "chegada"…), com `{placeholders}` — o cliente
+   * interpola com os campos já formatados de cada `EtapaJornada`
+   * (`jornada.ts::textoDaEtapa`). A fonte da redação continua
+   * `textos-canonicos.yaml`.
+   */
+  jornada_modelos?: Record<string, string>
+  /** Redesenho — rótulos curtos da grade por mês ("Mês", "a mais"…). */
+  grade_meses_textos?: Record<string, string>
+  /**
+   * Revisão de design (2026-10-03) — personalização: o primeiro nome do
+   * aluno (`null` sem nome na conta) e os números do mês dele.
+   */
+  nome_do_aluno?: string | null
+  ponto_de_partida?: PontoDePartida | null
+  /** Textos do cabeçalho ("Plano preparado para {nome}"). */
+  cabecalho_textos?: Record<string, string>
+  /** Títulos das seções, na ordem do documento. */
+  secoes?: Record<string, string>
+  /** Rótulos e explicações dos três números do resumo. */
+  resumo_textos?: Record<string, string>
+  /** Rótulos da seção "Seu ponto de partida". */
+  ponto_de_partida_textos?: Record<string, string>
+  /** Títulos e textos dos três passos do Mês 1. */
+  primeiro_passo_textos?: Record<string, string>
+  /** Títulos curtos dos quadros de "Como o seu plano funciona". */
+  como_funciona_rotulos?: string[]
+  /** Textos do cartão de cada dívida ("Termina no", "Por que…"). */
+  dividas_textos?: Record<string, string>
+  /** Redesenho — título e legenda da linha do tempo. */
+  linha_do_tempo_textos?: Record<string, string>
+  primeiro_passo_titulo?: string
+  como_pagar_a_mais?: string
+  primeira_vitoria_titulo?: string
+  primeira_vitoria_complemento?: string
+  reserva_explicacao?: string
+  duvidas?: { pergunta: string; resposta: string }[]
+  sobre_este_plano?: string
+}
+
+/** Os números do mês do aluno — todos lidos do cálculo e já formatados. */
+export interface PontoDePartida {
+  renda: string
+  gastos: string
+  gastos_ocasionais: string
+  parcelas: string
+  valor_extra: string
+  quantidade_de_dividas: number
+}
+
+export interface ParcelaDoPasso {
+  nome: string
+  valor: string
+}
+
+export interface PassoAtual {
+  /** Nome da dívida-alvo ("tipo — credor"); `null` sem dívida-alvo. */
+  alvo: string | null
+  valor_extra: string
+  parcelas: ParcelaDoPasso[]
+}
+
+export interface PrimeiraVitoria {
+  mes: number
+  divida: string
+}
+
+/**
+ * Uma etapa de "Sua jornada mês a mês" — `tipo` decide quais campos usar.
+ * `FASE`: meses consecutivos com o mesmo alvo e valor extra (`alvo`,
+ * `valor`). `QUITACAO`: marco de dívida quitada (`divida_quitada`,
+ * `parcela_liberada`, `destino`, `sobra?`). `APORTE`: recurso extraordinário
+ * que chegou (`alvo`, `valor`). `CHEGADA`: fim do cronograma (só meses).
+ */
+export interface EtapaJornada {
+  tipo: 'FASE' | 'QUITACAO' | 'APORTE' | 'CHEGADA'
+  mes_inicio: number
+  mes_fim: number
+  alvo: string | null
+  valor: string | null
+  /**
+   * String decimal crua (plano amigável) — só para a altura do degrau em
+   * "Bola de neve em degraus" (geometria de desenho); nunca exibida como
+   * número. `null` fora de uma etapa `FASE`.
+   */
+  valor_bruto: string | null
+  divida_quitada: string | null
+  parcela_liberada: string | null
+  destino: string | null
+  sobra: string | null
+}
+
+/**
+ * Redesenho (2026-10-03) — um cartão de grade por mês INDIVIDUAL. `tipo`
+ * decide o ícone/cor do cartão: `ATAQUE` (mês comum, pagando o extra),
+ * `QUITACAO` (uma ou mais dívidas acabaram), `APORTE` (chegou um valor
+ * extraordinário) ou `CHEGADA` (fim do plano). Rótulos sempre curtos —
+ * nunca frase corrida.
+ */
+export interface MesDaGrade {
+  mes: number
+  tipo: 'ATAQUE' | 'QUITACAO' | 'APORTE' | 'CHEGADA'
+  alvo: string | null
+  valor_extra: string | null
+  dividas_quitadas: string[]
+  eh_primeira_vitoria: boolean
+  tem_aporte: boolean
+}
+
+export interface AnoDaGrade {
+  numero: number
+  mes_inicio: number
+  mes_fim: number
+  meses: MesDaGrade[]
+  /** Valores extras distintos do ano, na ordem em que aparecem. */
+  valores_extras: string[]
+  quitacoes: { mes: number; nome: string }[]
+}
+
+export interface PendenciaAcionavel {
+  DIVIDA_ID: string
+  nome_divida: string
+  rotulo: string
+  onde_achar: string
+  /** ID da pergunta do Bloco 5 que grava o campo — alimenta o botão
+   * "Responder agora" (`navegacao.ts`, rota `respostas`). `null` sem
+   * pergunta mapeada. */
+  ID_PERGUNTA: string | null
 }
 
 export interface CenarioAdicional {
@@ -355,7 +525,8 @@ export interface CenarioAdicional {
   PRAZO_TOTAL: string
   CUSTO_FUTURO_TOTAL: string
   ordem: string[]
-  itens: { ITEM_ID: string; mes: number; valor: string }[]
+  /** `ITEM_ID` só no payload do REVISOR (`T-306`/plano amigável). */
+  itens: { ITEM_ID?: string; mes: number; valor: string }[]
 }
 
 export interface RespostaPlano {
