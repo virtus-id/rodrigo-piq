@@ -1343,9 +1343,23 @@ function partesComRespostas(): ParteDeTeste[] {
   return partes
 }
 
-/** Um cartão de parte da revisão, pelo rótulo que o servidor mandou. */
-function parteDaRevisao(page: Page, rotulo: string) {
-  return page.locator('details').filter({ hasText: rotulo })
+/** O botão do menu para uma parte, pelo rótulo que o servidor mandou (`T-334`). */
+function menuDaParte(page: Page, rotulo: string) {
+  return page
+    .getByRole('navigation', { name: 'Partes das respostas' })
+    .getByRole('button')
+    .filter({ hasText: rotulo })
+}
+
+/** O painel com as respostas da parte aberta. */
+function painelDaParte(page: Page) {
+  return page.locator('section[aria-labelledby="titulo-da-parte"]')
+}
+
+/** Abre uma parte pelo menu e devolve o painel. */
+async function abrirParte(page: Page, rotulo: string) {
+  await menuDaParte(page, rotulo).click()
+  return painelDaParte(page)
 }
 
 test('AC-100: a revisão mostra pergunta e VALOR respondido, agrupados por parte', async ({
@@ -1356,9 +1370,12 @@ test('AC-100: a revisão mostra pergunta e VALOR respondido, agrupados por parte
   await abrirTela(page, CASO_REVISAO, 'respostas')
 
   // As cinco partes, sempre — é contrato da rota, não filtro da tela.
-  await expect(page.locator('details')).toHaveCount(5)
+  await expect(
+    page.getByRole('navigation', { name: 'Partes das respostas' }).getByRole('button'),
+  ).toHaveCount(5)
 
-  const primeira = parteDaRevisao(page, ROTULOS_DAS_PARTES[0])
+  // A primeira parte COM respostas nasce aberta.
+  const primeira = painelDaParte(page)
 
   // **A asserção que carrega o requisito é o VALOR.** Uma lista só com os
   // enunciados passaria por uma tela que mostra as perguntas respondidas sem
@@ -1380,12 +1397,12 @@ test('AC-100: cada parte traz a sua contagem de respostas', async ({ page }) => 
   await interceptarRespostas(page, CASO_REVISAO, partesComRespostas())
   await abrirTela(page, CASO_REVISAO, 'respostas')
 
-  await expect(parteDaRevisao(page, ROTULOS_DAS_PARTES[0])).toContainText(
+  await expect(menuDaParte(page, ROTULOS_DAS_PARTES[0])).toContainText(
     '2 respostas de 10 perguntas',
   )
   // Singular correto: "1 respostas" é o tipo de detalhe que faz a tela
   // parecer um rascunho para quem já desconfia do sistema.
-  await expect(parteDaRevisao(page, ROTULOS_DAS_PARTES[4])).toContainText(
+  await expect(menuDaParte(page, ROTULOS_DAS_PARTES[4])).toContainText(
     '1 resposta de 10 perguntas',
   )
 })
@@ -1398,14 +1415,14 @@ test('AC-101: a parte sem respostas DIZ que está vazia — não some da lista',
   await abrirTela(page, CASO_REVISAO, 'respostas')
 
   // A parte 2 não tem nenhuma resposta no payload. Ela continua na lista...
-  const vazia = parteDaRevisao(page, ROTULOS_DAS_PARTES[1])
+  const vazia = menuDaParte(page, ROTULOS_DAS_PARTES[1])
   await expect(vazia).toHaveCount(1)
-  await expect(vazia).toContainText('0 respostas de 10 perguntas')
+  await expect(vazia).toContainText('Vazia')
 
   // ...e diz por que está vazia. Uma lista em branco sugeriria erro de
   // carregamento; sumir da tela faria o aluno procurar onde a parte foi parar.
-  await vazia.locator('summary').click()
-  await expect(vazia).toContainText('ainda não respondeu nada desta parte')
+  const painel = await abrirParte(page, ROTULOS_DAS_PARTES[1])
+  await expect(painel).toContainText('ainda não respondeu nada desta parte')
 })
 
 test('AC-101: a revisão de um caso sem NENHUMA resposta ainda mostra as cinco partes', async ({
@@ -1415,9 +1432,8 @@ test('AC-101: a revisão de um caso sem NENHUMA resposta ainda mostra as cinco p
   await interceptarRespostas(page, CASO_REVISAO, partesVazias())
   await abrirTela(page, CASO_REVISAO, 'respostas')
 
-  await expect(page.locator('details')).toHaveCount(5)
   for (const rotulo of ROTULOS_DAS_PARTES) {
-    await expect(parteDaRevisao(page, rotulo)).toHaveCount(1)
+    await expect(menuDaParte(page, rotulo)).toHaveCount(1)
   }
 })
 
@@ -1429,10 +1445,11 @@ test('AC-100: a lista é navegável por teclado', async ({ page }) => {
   // A parte 2 nasce fechada (só a primeira COM respostas abre). Abri-la pelo
   // teclado é o que prova que a lista não depende de mouse — NFR de
   // acessibilidade, e a persona pode estar num leitor de tela.
-  const vazia = parteDaRevisao(page, ROTULOS_DAS_PARTES[1])
-  await vazia.locator('summary').focus()
+  const vazia = menuDaParte(page, ROTULOS_DAS_PARTES[1])
+  await vazia.focus()
   await page.keyboard.press('Enter')
-  await expect(vazia).toHaveAttribute('open', '')
+  await expect(vazia).toHaveAttribute('aria-current', 'page')
+  await expect(page).toHaveURL(/#respostas\/bloco\/2/)
 })
 
 /**
@@ -1510,10 +1527,7 @@ test('AC-102: "Editar" abre a pergunta certa, com o valor anterior preenchido', 
   })
 
   await abrirTela(page, CASO_REVISAO, 'respostas')
-  await parteDaRevisao(page, ROTULOS_DAS_PARTES[0])
-    .getByRole('button', { name: 'Editar' })
-    .first()
-    .click()
+  await painelDaParte(page).getByRole('button', { name: 'Editar' }).first().click()
 
   await expect(page).toHaveURL(/#respostas\/B1\.01/)
   await expect(page.getByLabel('Primeira pergunta do compromisso?')).toHaveValue(
@@ -1529,8 +1543,7 @@ test('AC-102: a edição de uma ficha repetível leva o item na rota', async ({ 
   })
 
   await abrirTela(page, CASO_REVISAO, 'respostas')
-  const parte = parteDaRevisao(page, ROTULOS_DAS_PARTES[4])
-  await parte.locator('summary').click()
+  const parte = await abrirParte(page, ROTULOS_DAS_PARTES[4])
   await parte.getByRole('button', { name: 'Editar' }).click()
 
   // `D001` na rota não é detalhe: a mesma pergunta rende uma resposta por
@@ -1601,12 +1614,36 @@ test('AC-103: gravada a correção, a revisão reabre com o valor NOVO', async (
   // Volta para a revisão, que é de onde o aluno veio — não para o meio da
   // coleta, que ele não pediu.
   await expect(page).toHaveURL(/#respostas/)
-  const primeira = parteDaRevisao(page, ROTULOS_DAS_PARTES[0])
+  const primeira = painelDaParte(page)
   await expect(primeira).toContainText('O que eu escolhi depois')
   await expect(primeira).not.toContainText('A escolha que eu fiz')
 
   // E o total de respondidas NÃO subiu: continuam duas.
   await expect(primeira).toContainText('2 respostas de 10 perguntas')
+})
+
+test('T-334: gravada a correção, a revisão volta à MESMA parte de onde o aluno saiu', async ({
+  page,
+}) => {
+  await interceptarBase(page, CASO_REVISAO)
+  await interceptarRespostas(page, CASO_REVISAO, partesComRespostas())
+  await page.route(`**/caso/${CASO_REVISAO}/pergunta/B5.B03*`, async (rota) => {
+    await rota.fulfill({ json: PERGUNTA_B5B03 })
+  })
+  await page.route(`**/caso/${CASO_REVISAO}/resposta`, async (rota) => {
+    await rota.fulfill({
+      json: { ID_PERGUNTA: 'B5.B03', aviso: null, avanco_permitido: true, total_pendencias: 0 },
+    })
+  })
+
+  await abrirTela(page, CASO_REVISAO, 'respostas')
+  const parte = await abrirParte(page, ROTULOS_DAS_PARTES[4])
+  await parte.getByRole('button', { name: 'Editar' }).click()
+  await acaoPrincipal(page, 'Salvar a correção').click()
+
+  // Sem isto o aluno caía na primeira parte com resposta e perdia o lugar.
+  await expect(page).toHaveURL(/#respostas\/bloco\/5/)
+  await expect(menuDaParte(page, ROTULOS_DAS_PARTES[4])).toHaveAttribute('aria-current', 'page')
 })
 
 test('AC-104: correção recusada mostra a mensagem do servidor e não apaga o valor', async ({
@@ -1640,9 +1677,7 @@ test('AC-104: correção recusada mostra a mensagem do servidor e não apaga o v
   await expect(campo).toHaveValue('mil reais')
 
   await abrirTela(page, CASO_REVISAO, 'respostas')
-  await expect(parteDaRevisao(page, ROTULOS_DAS_PARTES[0])).toContainText(
-    'A escolha que eu fiz',
-  )
+  await expect(painelDaParte(page)).toContainText('A escolha que eu fiz')
 })
 
 /**

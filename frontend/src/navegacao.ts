@@ -60,7 +60,7 @@ export type Rota =
    * para a lista. Um mesmo hash com dois destinos depois do "Continuar" é a
    * ambiguidade que `AC-91` manda evitar.
    */
-  | { tela: 'respostas'; idPergunta?: string; itemId?: string }
+  | { tela: 'respostas'; idPergunta?: string; itemId?: string; bloco?: number }
   | { tela: 'pergunta'; idPergunta?: string; itemId?: string }
   | { tela: 'calculando' }
   | { tela: 'aguardando' }
@@ -122,6 +122,12 @@ export function rotaParaHash(rota: Rota): string {
   switch (rota.tela) {
     case 'pergunta':
     case 'respostas': {
+      // `T-334`: `#respostas/bloco/{n}` — a parte aberta da lista, para
+      // recarregar ou voltar de uma correção sem perder o lugar. O literal
+      // `bloco` no primeiro segmento não colide com um ID de pergunta.
+      if (rota.tela === 'respostas' && rota.bloco && !rota.idPergunta) {
+        return `respostas/bloco/${rota.bloco}`
+      }
       // A pergunta viaja com o alvo da retomada (`pergunta`) ou da correção
       // (`respostas`), para que recarregar a página não perca o lugar. Os
       // dois são opcionais: sem eles, `pergunta` deixa o servidor decidir
@@ -178,8 +184,13 @@ export function hashParaRota(hash: string): Rota {
     case 'equipe-painel':
       return { tela }
     case 'pergunta':
-    case 'respostas':
+    case 'respostas': {
+      if (tela === 'respostas' && resto[0] === 'bloco') {
+        const bloco = Number(resto[1])
+        return Number.isInteger(bloco) && bloco > 0 ? { tela, bloco } : { tela }
+      }
       return { tela, idPergunta: resto[0] || undefined, itemId: resto[1] || undefined }
+    }
     case 'fichas': {
       const [escopo, ...seguintes] = resto.filter(Boolean)
       if (!escopo) return { tela }

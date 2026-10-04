@@ -21,8 +21,15 @@
  * navega para `#pergunta/{ID}/{item_id}`, a mesma tela de coleta, que grava
  * pela mesma rota de sempre. Uma segunda via de gravação seria uma segunda
  * regra de validação, e `EC-01` deixaria de ser soberano.
+ *
+ * **Menu de partes + painel (`T-334`).** As cinco partes ficam num menu
+ * sempre visível; clicar numa mostra só as respostas dela. A parte aberta vive
+ * na rota (`#respostas/bloco/{n}`): recarregar, ou voltar de uma correção,
+ * reabre a MESMA parte em vez de jogar o aluno de volta ao topo. O menu é
+ * deste componente e não da trilha da jornada/coleta — aquelas continuam
+ * informativas (`AC-115`, `RF-100`).
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
@@ -33,8 +40,11 @@ import type { ParteDasRespostas, RespostaDada, RespostasDoCaso } from '../tipos'
 interface TelaRespostasProps {
   casoId: string
   voltar: () => void
+  /** A parte aberta, vinda da rota. Ausente ⇒ a primeira que tem resposta. */
+  bloco?: number
+  escolherBloco: (bloco: number) => void
   /** Abre a pergunta para correção — `RF-69`, `AC-102`. */
-  editar: (idPergunta: string, itemId: string | null) => void
+  editar: (idPergunta: string, itemId: string | null, bloco: number) => void
 }
 
 /**
@@ -68,99 +78,169 @@ function contagemDaParte(parte: ParteDasRespostas): string {
   return `${dadas} ${plural} de ${parte.total_de_perguntas} perguntas`
 }
 
+/** Um grupo de respostas: soltas (`item_id` nulo) ou de um item de ficha. */
+export interface GrupoDeRespostas {
+  itemId: string | null
+  /** `null` para as soltas; "Dívida 1", "Dívida 2"… para as fichas. */
+  titulo: string | null
+  respostas: RespostaDada[]
+}
+
 /**
- * Uma parte da coleta — `<details>` por parte, com a primeira aberta.
+ * Junta as respostas de uma mesma ficha — `T-334`.
  *
- * **`<details>` e não um acordeão próprio**: o elemento nativo já é navegável
- * por teclado (Tab alcança o `<summary>`, Enter/Espaço abre), já anuncia
- * estado a leitor de tela, e funciona sem JavaScript. Escrever um acordeão à
- * mão significaria reimplementar `aria-expanded`, foco e teclas — e errar
- * algum.
- *
- * **`AC-95` não é contrariado.** Aquele critério proíbe a TRILHA dentro de
- * `<details>`: o mapa da jornada não pode ser escondido. Aqui o que fecha é
- * uma lista de respostas dadas, que é consulta sob demanda; o que precisa
- * estar sempre visível — quais são as cinco partes e quantas respostas tem
- * cada uma — está no `<summary>`, que nunca fecha.
+ * O servidor entrega a pergunta 1 de todas as dívidas, depois a pergunta 2 de
+ * todas… (`T-297`): ótimo para contar, ruim para ler "tudo da dívida X". Aqui
+ * as soltas vão primeiro e cada `item_id` vira um cartão, na ordem em que
+ * aparece e SEM reordenar as perguntas dentro dele. O título é só um ordinal:
+ * o nome real da dívida já vem no enunciado de cada pergunta.
  */
-function ParteDaRevisao({
-  parte,
-  comecaAberta,
+export function agruparPorItem(respondidas: readonly RespostaDada[]): GrupoDeRespostas[] {
+  const soltas = respondidas.filter((r) => r.item_id === null)
+  const porItem = new Map<string, RespostaDada[]>()
+  for (const r of respondidas) {
+    if (r.item_id !== null) porItem.set(r.item_id, [...(porItem.get(r.item_id) ?? []), r])
+  }
+  const grupos: GrupoDeRespostas[] = []
+  if (soltas.length) grupos.push({ itemId: null, titulo: null, respostas: soltas })
+  let n = 0
+  for (const [itemId, respostas] of porItem) {
+    n += 1
+    grupos.push({
+      itemId,
+      titulo: `${itemId.startsWith('D') ? 'Dívida' : 'Item'} ${n}`,
+      respostas,
+    })
+  }
+  return grupos
+}
+
+/** A resposta em formato de ficha: enunciado pequeno, valor grande. */
+function FichaDaResposta({
+  resposta,
   editar,
 }: {
-  parte: ParteDasRespostas
-  /**
-   * Abre no primeiro render — `defaultOpen`, não `open`.
-   *
-   * **`open={...}` prendia o elemento.** Com o atributo controlado e sem
-   * handler de `onToggle`, o React o reimpõe a cada render: clicar no
-   * `<summary>` abria e o próximo render fechava de volta. O aluno via a
-   * primeira parte aberta e **nenhuma outra abria** — a tela existia para ele
-   * reler tudo, e só deixava reler um quinto.
-   *
-   * `defaultOpen` entrega o elemento ao navegador: ele guarda o estado, o
-   * teclado funciona (Tab no `<summary>`, Enter/Espaço), e o React não
-   * interfere. Era o uso certo desde o começo — `<details>` foi escolhido
-   * justamente por ser nativo.
-   */
-  comecaAberta: boolean
-  editar: (idPergunta: string, itemId: string | null) => void
+  resposta: RespostaDada
+  editar: () => void
 }) {
   return (
-    <details
-      className="cartao"
-      // `ref` em vez de `open`: o atributo é posto UMA vez, no nó real, e
-      // depois o navegador é dono dele. Com `open` no JSX — mesmo
-      // condicional — o React o reimpõe a cada render e o clique no
-      // `<summary>` não persiste.
-      ref={(no) => {
-        if (no && comecaAberta && !no.dataset.iniciada) {
-          no.open = true
-          no.dataset.iniciada = '1'
-        }
-      }}
-    >
-      <summary className="cursor-pointer">
-        <span className="font-bold">{parte.rotulo}</span>
-        <small className="block text-muted">{contagemDaParte(parte)}</small>
-      </summary>
-
-      {parte.respondidas.length === 0 ? (
-        // `AC-101`: a parte vazia DIZ que está vazia. Uma lista em branco
-        // sugeriria erro de carregamento, e sumir da tela faria o aluno
-        // procurar onde a parte foi parar.
-        <p className="nota">Você ainda não respondeu nada desta parte.</p>
-      ) : (
-        <ul className="lista list-none p-0">
-          {parte.respondidas.map((resposta) => (
-            <li
-              // `ID` sozinho não é único: numa ficha repetível a mesma
-              // pergunta rende uma linha por dívida. O par com `item_id` é o
-              // que identifica a resposta.
-              key={`${resposta.ID}/${resposta.item_id ?? ''}`}
-              className="item flex-col items-stretch gap-2"
-            >
-              <div>{resposta.enunciado}</div>
-              <strong className="break-words">{textoDaResposta(resposta)}</strong>
-              <Botao
-                variante="discreto"
-                className="self-start"
-                onClick={() => editar(resposta.ID, resposta.item_id)}
-              >
-                Editar
-              </Botao>
-            </li>
-          ))}
-        </ul>
-      )}
-    </details>
+    <li className="item flex-col items-stretch gap-1">
+      <small className="text-muted">{resposta.enunciado}</small>
+      <strong className="break-words text-lg">
+        {textoDaResposta(resposta)}
+        {resposta.respondida_como_nao_sei && (
+          <span className="chip chip-mudo ml-2 align-middle">Não sei</span>
+        )}
+      </strong>
+      <Botao variante="discreto" className="self-start" onClick={editar}>
+        Editar
+      </Botao>
+    </li>
   )
 }
 
-export default function TelaRespostas({ casoId, voltar, editar }: TelaRespostasProps) {
+/**
+ * O menu das cinco partes — `T-334`.
+ *
+ * Botões de verdade (`<nav>` + `aria-current="page"`): é navegação dentro da
+ * tela, e por isso não é a trilha da coleta, que continua só informativa.
+ * No celular é uma faixa que rola na horizontal; a partir de `lg:` é a coluna
+ * lateral. A parte vazia leva "Vazia", e não some: `AC-101`.
+ */
+function MenuDasPartes({
+  partes,
+  ativa,
+  escolher,
+}: {
+  partes: readonly ParteDasRespostas[]
+  ativa: number | undefined
+  escolher: (bloco: number) => void
+}) {
+  return (
+    <nav aria-label="Partes das respostas">
+      <ul className="m-0 flex list-none gap-2 overflow-x-auto p-0 lg:flex-col lg:overflow-visible">
+        {partes.map((parte) => {
+          const eAtiva = parte.bloco === ativa
+          const vazia = parte.respondidas.length === 0
+          return (
+            <li key={parte.bloco} className="flex-none lg:flex-auto">
+              <button
+                type="button"
+                aria-current={eAtiva ? 'page' : undefined}
+                onClick={() => escolher(parte.bloco)}
+                className={`w-full rounded-xl border px-3 py-2 text-left ${
+                  eAtiva ? 'border-accent bg-accent-soft' : 'border-line bg-transparent'
+                }`}
+              >
+                <span className="block font-bold">{parte.rotulo}</span>
+                <small className="block text-muted">
+                  {vazia ? 'Vazia' : contagemDaParte(parte)}
+                </small>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
+
+/** As respostas de UMA parte — o painel à direita do menu. */
+function PainelDaParte({
+  parte,
+  editar,
+  titulo,
+}: {
+  parte: ParteDasRespostas
+  editar: (idPergunta: string, itemId: string | null) => void
+  titulo: React.RefObject<HTMLHeadingElement | null>
+}) {
+  return (
+    <section aria-labelledby="titulo-da-parte" className="flex flex-col gap-3">
+      <div>
+        <h2 id="titulo-da-parte" ref={titulo} tabIndex={-1} className="m-0">
+          {parte.rotulo}
+        </h2>
+        <small className="block text-muted">{contagemDaParte(parte)}</small>
+      </div>
+
+      {parte.respondidas.length === 0 ? (
+        // `AC-101`: a parte vazia DIZ que está vazia. Uma lista em branco
+        // sugeriria erro de carregamento.
+        <p className="nota">Você ainda não respondeu nada desta parte.</p>
+      ) : (
+        agruparPorItem(parte.respondidas).map((grupo) => (
+          <div key={grupo.itemId ?? 'soltas'} className={grupo.titulo ? 'cartao' : undefined}>
+            {grupo.titulo && <span className="eyebrow">{grupo.titulo}</span>}
+            <ul className="lista list-none p-0">
+              {grupo.respostas.map((resposta) => (
+                <FichaDaResposta
+                  // `ID` sozinho não é único: numa ficha repetível a mesma
+                  // pergunta rende uma linha por dívida.
+                  key={`${resposta.ID}/${resposta.item_id ?? ''}`}
+                  resposta={resposta}
+                  editar={() => editar(resposta.ID, resposta.item_id)}
+                />
+              ))}
+            </ul>
+          </div>
+        ))
+      )}
+    </section>
+  )
+}
+
+export default function TelaRespostas({
+  casoId,
+  voltar,
+  bloco,
+  escolherBloco,
+  editar,
+}: TelaRespostasProps) {
   const [respostas, setRespostas] = useState<RespostasDoCaso | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
+  const tituloDaParte = useRef<HTMLHeadingElement>(null)
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -178,6 +258,22 @@ export default function TelaRespostas({ casoId, voltar, editar }: TelaRespostasP
     void carregar()
   }, [carregar])
 
+  // A parte da rota, se existir; senão a primeira que TEM resposta; senão a
+  // primeira. Abrir tudo faria a tela nascer com cem linhas.
+  const partes = respostas?.partes ?? []
+  const ativa =
+    partes.find((parte) => parte.bloco === bloco) ??
+    partes.find((parte) => parte.respondidas.length > 0) ??
+    partes[0]
+
+  // Trocar de parte move o foco para o título do painel (leitor de tela). Só
+  // na TROCA: no primeiro render quem foca é o `<h1>` da `Tela` (`AC-84`).
+  const parteAnterior = useRef(ativa?.bloco)
+  useEffect(() => {
+    if (ativa && parteAnterior.current !== ativa.bloco) tituloDaParte.current?.focus()
+    parteAnterior.current = ativa?.bloco
+  }, [ativa])
+
   if (carregando) {
     return (
       <Tela titulo="Minhas respostas" voltar={voltar}>
@@ -186,7 +282,7 @@ export default function TelaRespostas({ casoId, voltar, editar }: TelaRespostasP
     )
   }
 
-  if (!respostas) {
+  if (!respostas || !ativa) {
     return (
       <Tela titulo="Minhas respostas" voltar={voltar}>
         <p role="alert" className="aviso-erro">
@@ -196,35 +292,23 @@ export default function TelaRespostas({ casoId, voltar, editar }: TelaRespostasP
     )
   }
 
-  // A primeira parte que TEM resposta abre por padrão; se nenhuma tiver, abre
-  // a primeira. Abrir todas faria a tela nascer com cem linhas, e abrir
-  // nenhuma daria ao aluno cinco caixas fechadas onde ele veio ler algo.
-  const indiceAberto = Math.max(
-    0,
-    respostas.partes.findIndex((parte) => parte.respondidas.length > 0),
-  )
-
   return (
     <Tela
       titulo="Minhas respostas"
       voltar={voltar}
       acoes={<Botao onClick={voltar}>Voltar ao início</Botao>}
+      lateral={<MenuDasPartes partes={partes} ativa={ativa.bloco} escolher={escolherBloco} />}
     >
       <p className="lead">
         Tudo o que você já respondeu fica aqui. Mudou de ideia, ou errou um número? É só
         editar.
       </p>
 
-      <div className="lista">
-        {respostas.partes.map((parte, indice) => (
-          <ParteDaRevisao
-            key={parte.bloco}
-            parte={parte}
-            comecaAberta={indice === indiceAberto}
-            editar={editar}
-          />
-        ))}
-      </div>
+      <PainelDaParte
+        parte={ativa}
+        titulo={tituloDaParte}
+        editar={(id, item) => editar(id, item, ativa.bloco)}
+      />
     </Tela>
   )
 }

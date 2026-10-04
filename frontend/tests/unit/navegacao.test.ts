@@ -17,6 +17,7 @@ describe('rotaParaHash ↔ hashParaRota', () => {
     { tela: 'respostas', itemId: 'D001' },
     { tela: 'respostas', idPergunta: 'B1.01' },
     { tela: 'respostas' },
+    { tela: 'respostas', bloco: 3 },
     { tela: 'fichas' },
     { tela: 'fichas', escopo: 'RENDA_ADICIONAL_ID' },
     { tela: 'fichas', escopo: 'VINCULO_ID', seguintes: ['MARGEM_ID'] },

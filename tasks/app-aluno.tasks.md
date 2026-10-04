@@ -13578,3 +13578,27 @@ Na conferência: "Mensagem para o aluno" e "Obrigatória para pedir correção. 
 este texto; a observação, não."
 
 **Status:** `[x] concluída (2026-10-02)` — migração `010` ainda não aplicada no banco
+
+---
+
+### `T-334` — "Minhas respostas": menu de blocos, ficha visual e volta ao mesmo bloco
+
+- **Tipo:** `UX` · **Dependências:** `T-160` · **Rastreia:** `RF-68`, `RF-69`, `AC-100`, `AC-101`, `AC-102`, `AC-103`
+- **Arquivos (previstos):** `frontend/src/telas/TelaRespostas.tsx`,
+  `frontend/src/navegacao.ts`, `frontend/src/App.tsx`, `frontend/src/index.css`
+  + testes (`TelaRespostas.test.tsx`, `navegacao.test.ts`, E2E de correção)
+
+Relato de uso (2026-10-03): o aluno não acha o que preencheu e, ao editar uma
+resposta, volta ao topo da lista e perde o lugar. **Só frontend**: o payload de
+`GET /caso/{id}/respostas` não muda, e nenhuma regra da spec muda. As trilhas
+(`AC-115`, `RF-100`) seguem não clicáveis; o menu é um componente novo, só
+desta tela.
+
+- [x] Menu de blocos (`<nav>`, `aria-current`) com contagem e estado (✓ / parcial / vazia); respostas só do bloco escolhido
+- [x] Bloco na rota: `#respostas/bloco/{n}`; editar e gravar volta ao MESMO bloco (`AC-103`)
+- [x] Resposta em formato de ficha (enunciado pequeno, valor grande, "não sei" com selo)
+- [x] Respostas de ficha agrupadas por `item_id`, um cartão por item ("Dívida 1, 2…")
+- [x] Parte vazia continua dizendo que está vazia (`AC-101`); "Editar" continua navegando para a mesma tela de coleta (`RF-69`)
+- [x] Testes + typecheck/lint/vitest
+
+**Status:** `[x] concluída (2026-10-03)` — destaque da linha recém-editada ficou de fora (opcional no plano)

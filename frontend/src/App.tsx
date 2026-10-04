@@ -21,7 +21,7 @@
  * reverifica, a cada requisição, se a sessão possui aquele caso — informar um
  * `CASO_ID` alheio devolve `404`, indistinguível de inexistente.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ContextoDoAlerta } from './componentes/AlertaInventario'
 import Esqueleto from './componentes/Esqueleto'
@@ -240,6 +240,14 @@ export default function App() {
    * porque nada foi respondido ainda.
    */
   const [boasVindasVistas, setBoasVindasVistas] = useState(false)
+
+  /**
+   * `T-334`: a parte de "Minhas respostas" de onde o aluno saiu para corrigir
+   * uma resposta. A rota de correção não carrega o bloco (o hash fica
+   * `#respostas/{ID}/{item}`), então ele espera aqui até a gravação devolver o
+   * aluno à lista — e é consumido lá, para não vazar para outra visita.
+   */
+  const blocoDaRevisao = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     if (!casoId) return
@@ -592,7 +600,11 @@ export default function App() {
      */
     case 'respostas': {
       if (rota.idPergunta) {
-        const voltarARevisao = () => irPara({ tela: 'respostas' })
+        const voltarARevisao = () => {
+          const bloco = blocoDaRevisao.current
+          blocoDaRevisao.current = undefined
+          irPara({ tela: 'respostas', bloco })
+        }
         return (
           <TelaPergunta
             casoId={casoId}
@@ -613,9 +625,12 @@ export default function App() {
         <TelaRespostas
           casoId={casoId}
           voltar={voltarAoInicio}
-          editar={(id, item) =>
+          bloco={rota.bloco}
+          escolherBloco={(bloco) => irPara({ tela: 'respostas', bloco })}
+          editar={(id, item, bloco) => {
+            blocoDaRevisao.current = bloco
             irPara({ tela: 'respostas', idPergunta: id, itemId: item ?? undefined })
-          }
+          }}
         />
       )
     }
