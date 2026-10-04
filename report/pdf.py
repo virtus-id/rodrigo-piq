@@ -121,17 +121,23 @@ def _ambiente_templates_plano() -> Environment:
     )
 
 
-def renderizar_html_do_plano(contexto: ContextoPlano) -> str:
+def renderizar_html_do_plano(contexto: ContextoPlano, textos: TextosCanonicosPlano) -> str:
     """Renderiza `plano.html` a partir de um `ContextoPlano` já montado —
     a MESMA função de renderização que a tela (T-64) chama. Nenhuma cópia do
     HTML/CSS existe neste módulo: só a passagem do contexto ao template
-    único de `report/templates/plano/plano.html`."""
+    único de `report/templates/plano/plano.html`.
+
+    `textos` (plano amigável, 2026-10-03) — só os textos FIXOS que não são
+    campo de `ContextoPlano` (títulos de seção, explicação do Mês 1,
+    dúvidas comuns, nota de rodapé): o mesmo `TextosCanonicosPlano` que
+    montou `contexto`, repassado ao template sem releitura do YAML."""
     template = _ambiente_templates_plano().get_template("plano.html")
     return template.render(
         titulo=contexto.titulo,
         corpo=contexto.corpo,
         ordem=contexto.ordem,
         PRAZO_TOTAL=contexto.PRAZO_TOTAL,
+        PRAZO_TOTAL_INT=contexto.PRAZO_TOTAL_INT,
         CUSTO_FUTURO_TOTAL=contexto.CUSTO_FUTURO_TOTAL,
         ENGINE_VERSION=contexto.ENGINE_VERSION,
         PARAMETROS_VERSION=contexto.PARAMETROS_VERSION,
@@ -144,6 +150,22 @@ def renderizar_html_do_plano(contexto: ContextoPlano) -> str:
         # `plano.html` e precisa do contexto tanto na tela quanto no PDF:
         # esta é a ÚNICA função de renderização das duas apresentações.
         reserva_mobilizavel=contexto.reserva_mobilizavel,
+        metodo=contexto.metodo,
+        valor_mensal_destinado=contexto.valor_mensal_destinado,
+        cenario_adicional=contexto.cenario_adicional,
+        # Plano amigável (2026-10-03) — seções novas da "consultoria
+        # individual"; `textos` traz só os títulos/textos fixos que não são
+        # campo de `ContextoPlano` (ver docstring).
+        passo_atual=contexto.passo_atual,
+        primeira_vitoria=contexto.primeira_vitoria,
+        jornada=contexto.jornada,
+        grade_meses=contexto.grade_meses,
+        grade_anos=contexto.grade_anos,
+        nome_do_aluno=contexto.nome_do_aluno,
+        ponto_de_partida=contexto.ponto_de_partida,
+        como_funciona=contexto.como_funciona,
+        pendencias_acionaveis=contexto.pendencias_acionaveis,
+        textos=textos,
     )
 
 
@@ -152,6 +174,7 @@ def gerar_html_do_plano_liberado(
     snapshot: SnapshotOrdem,
     textos: TextosCanonicosPlano,
     vocabulario: VocabularioDoCaso | None = None,
+    nome_do_aluno: str | None = None,
 ) -> str:
     """Monta o contexto (`report/plano.py::montar_contexto_plano` — a MESMA
     montagem que a tela usa, Lei nº 3: só leitura de campo do snapshot) e
@@ -167,9 +190,10 @@ def gerar_html_do_plano_liberado(
     if not snapshot_tem_liberacao_registrada(caso, snapshot):
         raise ErroSnapshotNaoLiberado(caso.CASO_ID, snapshot.SNAPSHOT_ID)
 
-    # `T-326`: o vocabulário do caso dá às dívidas o nome "tipo — credor".
-    contexto = montar_contexto_plano(snapshot, textos, vocabulario)
-    return renderizar_html_do_plano(contexto)
+    # `T-326`: o vocabulário do caso dá às dívidas o nome "tipo (credor)".
+    # Revisão de design: o nome do aluno personaliza o cabeçalho.
+    contexto = montar_contexto_plano(snapshot, textos, vocabulario, nome_do_aluno)
+    return renderizar_html_do_plano(contexto, textos)
 
 
 def gerar_pdf_do_plano(
@@ -177,6 +201,7 @@ def gerar_pdf_do_plano(
     snapshot: SnapshotOrdem,
     textos: TextosCanonicosPlano,
     vocabulario: VocabularioDoCaso | None = None,
+    nome_do_aluno: str | None = None,
 ) -> bytes:
     """Gera os bytes do PDF do plano — `weasyprint.HTML(string=...).
     write_pdf()`, a API pública documentada da versão instalada
@@ -192,7 +217,7 @@ def gerar_pdf_do_plano(
     plano`/`gerar_html_do_plano_liberado` continuem plenamente testáveis e
     utilizáveis (inclusive pela tela, T-64) sem que a mera importação deste
     módulo por outro código exija a biblioteca nativa presente."""
-    html = gerar_html_do_plano_liberado(caso, snapshot, textos, vocabulario)
+    html = gerar_html_do_plano_liberado(caso, snapshot, textos, vocabulario, nome_do_aluno)
 
     from weasyprint import HTML
 

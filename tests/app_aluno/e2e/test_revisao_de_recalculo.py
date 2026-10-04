@@ -389,7 +389,7 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
         # -----------------------------------------------------------------
         resposta_plano_antes = cliente_aluno.get(f"/caso/{caso_id}/api/plano")
         assert resposta_plano_antes.status_code == 200
-        assert "Sua ordem projetada de quitação" in resposta_plano_antes.text
+        assert "Seu plano inteligente de quitação de dívidas" in resposta_plano_antes.text
         caso_antes_do_recalculo = repositorio_casos.buscar(caso_id)
         assert caso_antes_do_recalculo is not None
         assert caso_antes_do_recalculo.snapshot_liberado_id == snapshot_raiz.SNAPSHOT_ID
@@ -506,7 +506,7 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
 
         resposta_plano_depois = cliente_aluno.get(f"/caso/{caso_id}/api/plano")
         assert resposta_plano_depois.status_code == 200
-        assert "Sua ordem projetada de quitação" in resposta_plano_depois.text
+        assert "Seu plano inteligente de quitação de dívidas" in resposta_plano_depois.text
         for posicao in snapshot_recalculado.ORDEM_QUITACAO:
             assert posicao.DIVIDA_ID in resposta_plano_depois.text
 

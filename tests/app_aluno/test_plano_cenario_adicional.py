@@ -116,7 +116,21 @@ def test_ac152_incerto_so_no_cenario_adicional_separado_e_rotulado(certeza: str)
         adicional_do_snapshot.CUSTO_FUTURO_TOTAL
     )
     assert str(adicional_do_snapshot.PRAZO_TOTAL) in adicional["PRAZO_TOTAL"]
-    assert [(i["ITEM_ID"], i["mes"]) for i in adicional["itens"]] == [
+    # Plano amigável (2026-10-03): ao ALUNO, `ITEM_ID` (`EXT001`) não
+    # aparece — nenhum código chega ao texto principal (AC-174). Só `mes`/
+    # `valor` seguem, na mesma ordem dos aportes do snapshot.
+    assert "ITEM_ID" not in json.dumps(adicional["itens"], default=str)
+    assert [i["mes"] for i in adicional["itens"]] == [
+        a.mes for a in adicional_do_snapshot.aportes
+    ]
+    # Ao REVISOR (`para_revisor=True`), o `ITEM_ID` continua disponível
+    # como detalhe de auditoria.
+    plano_revisor = serializar_plano(
+        montar_contexto_plano(snapshot, carregar_textos_canonicos()), para_revisor=True
+    )
+    adicional_revisor = plano_revisor["cenario_adicional"]
+    assert isinstance(adicional_revisor, dict)
+    assert [(i["ITEM_ID"], i["mes"]) for i in adicional_revisor["itens"]] == [
         (a.ITEM_ID, a.mes) for a in adicional_do_snapshot.aportes
     ]
 

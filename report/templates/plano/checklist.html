@@ -1,0 +1,26 @@
+{#
+    "Seu checklist do Mês 1" — última página do PDF, para imprimir e marcar.
+    Usa o MESMO `passo_atual` já montado por `report/plano.py` (nenhum dado
+    novo). Os quadrados são desenhados em CSS, nunca campo de formulário
+    (`test_acessibilidade_plano.py` audita a ausência de `<input>`).
+
+    Recebe `passo_atual`, `textos`, `ns` e `cabecalho_da_secao`.
+#}
+{% import "visuais.html" as visuais %}
+{% if passo_atual %}
+{% if ns is defined %}{% set ns.n = ns.n + 1 %}{% endif %}
+{% set ck = textos.checklist %}
+<section class="secao nova-pagina">
+    {{ visuais.cabecalho_da_secao(ns.n if ns is defined else "", textos.secoes.get("checklist", "Seu checklist do Mês 1"), "concluido") }}
+    <p class="intro">{{ ck.get("introducao", "") }}</p>
+    <ul class="checklist">
+        {% for parcela in passo_atual.parcelas %}
+        <li><span class="quadrado"></span><span>{{ ck.get("pagar_parcela", "").format(nome=parcela.nome, valor=parcela.valor) }}</span></li>
+        {% endfor %}
+        {% if passo_atual.alvo %}
+        <li><span class="quadrado"></span><span><strong>{{ ck.get("pagar_extra", "").format(valor=passo_atual.valor_extra, alvo=passo_atual.alvo) }}</strong></span></li>
+        <li><span class="quadrado"></span><span>{{ ck.get("guardar", "") }}</span></li>
+        {% endif %}
+    </ul>
+</section>
+{% endif %}

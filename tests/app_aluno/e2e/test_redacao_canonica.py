@@ -100,15 +100,17 @@ _VERSAO_PARAMETROS_REAL = "1.0.1"
 _CONTA_ID = "CONTA-T65-REDACAO-CANONICA"
 _CASO_ID = "CASO-T65-REDACAO-CANONICA"
 
-# Transcrição de Q-03 (specs/piq-app-spec.md), usada SÓ para comparação neste
-# teste — mesmo precedente de `tests/app_aluno/test_plano.py`: não é uma
-# segunda fonte de produção, `report/plano.py` continua sendo a única leitura
-# de `textos-canonicos.yaml` em código de produção.
-_TITULO_Q03 = "Sua ordem projetada de quitação"
+# Transcrição da redação vigente de `textos-canonicos.yaml` (plano amigável,
+# 2026-10-03), usada SÓ para comparação neste teste — mesmo precedente de
+# `tests/app_aluno/test_plano.py`: não é uma segunda fonte de produção,
+# `report/plano.py` continua sendo a única leitura do YAML em produção.
+_TITULO_Q03 = "Seu plano inteligente de quitação de dívidas"
 _CORPO_Q03 = (
-    "Com os dados e condições atuais, o PIQ projeta a seguinte sequência de "
-    "quitação. A ordem poderá ser recalculada se ocorrer alguma mudança "
-    "material durante a execução."
+    "Montamos este plano a partir das informações que você nos passou. Ele "
+    "mostra, mês a mês, quanto pagar e em qual dívida, até a última ser "
+    "quitada. Se algo importante mudar na sua vida financeira, como a renda, "
+    "uma dívida nova ou um dinheiro extra, o plano é refeito para continuar "
+    "adequado à sua realidade."
 )
 
 _PALAVRAS_PROIBIDAS = ("definitiva", "final", "fixa")
@@ -343,7 +345,7 @@ def test_ac14_titulo_e_corpo_de_q03_sao_identicos_por_igualdade_exata_na_tela_e_
 
     html_pdf = _html_que_a_rota_de_pdf_serviria(snapshot)
     assert f"<h1>{_TITULO_Q03}</h1>" in html_pdf
-    assert f"<p>{_CORPO_Q03}</p>" in html_pdf
+    assert f'<p class="lead">{_CORPO_Q03}</p>' in html_pdf
 
     # **A prova que substitui `html_tela == html_pdf`.** Tela e PDF não são
     # mais o mesmo documento (uma é JSON para o React, o outro é HTML para o
@@ -356,7 +358,7 @@ def test_ac14_titulo_e_corpo_de_q03_sao_identicos_por_igualdade_exata_na_tela_e_
     assert plano["titulo"] == textos.titulo
     assert plano["corpo"] == textos.corpo
     assert f"<h1>{textos.titulo}</h1>" in html_pdf
-    assert f"<p>{textos.corpo}</p>" in html_pdf
+    assert f'<p class="lead">{textos.corpo}</p>' in html_pdf
 
     pdf_bytes = _tentar_pdf_real(cliente)
     if pdf_bytes is None:
@@ -372,7 +374,8 @@ def test_ac14_titulo_e_corpo_de_q03_sao_identicos_por_igualdade_exata_na_tela_e_
 
 
 # ---------------------------------------------------------------------------
-# AC-15 — "projetada" presente; "definitiva", "final" e "fixa" ausentes como
+# AC-15 — "inteligente" presente (o novo termo que qualifica a ordem, plano
+# amigável 2026-10-03); "definitiva", "final" e "fixa" ausentes como
 # qualificador da ordem, nas duas rotas reais.
 # ---------------------------------------------------------------------------
 
@@ -390,7 +393,7 @@ def test_ac15_projetada_presente_e_qualificadores_proibidos_ausentes_na_tela_e_n
     html_pdf = _html_que_a_rota_de_pdf_serviria(snapshot)
 
     for html, origem in ((texto_da_tela, "tela"), (html_pdf, "PDF")):
-        assert "projetada" in html.lower(), f"'projetada' ausente na saída de {origem}"
+        assert "inteligente" in html.lower(), f"'inteligente' ausente na saída de {origem}"
         for palavra_proibida in _PALAVRAS_PROIBIDAS:
             assert palavra_proibida not in html.lower(), (
                 f"'{palavra_proibida}' não deveria qualificar a ordem (AC-15), "

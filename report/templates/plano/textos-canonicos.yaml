@@ -7,14 +7,30 @@
 # (T-35) e `collection/registros/*.yaml` (T-08/T-17): redação é dado, nunca
 # `.py` nem template.
 #
-# Transcrição caractere por caractere de `specs/piq-app-spec.md` (regra
-# `Q-03`, linha "Título ao usuário: ... Texto: ..."). Nenhuma paráfrase.
-# O termo é sempre "projetada" (Q-02) — nunca "definitiva"/"final"/"fixa".
-titulo: "Sua ordem projetada de quitação"
+# Decisão de produto (2026-10-03): substitui a redação literal de `Q-03` por
+# uma versão de tom de consultoria individual, aprovada pelo usuário nesta
+# conversa — "autoexplicativo, com linguagem madura que transmita confiança".
+# `Q-02` continua valendo: o termo é sempre "projetada"/"inteligente" como
+# qualificador da ordem — nunca "definitiva"/"final"/"fixa". A redação
+# anterior (transcrição literal de `specs/piq-app-spec.md`, regra `Q-03`)
+# fica registrada abaixo, comentada, para referência e para uma eventual
+# reversão:
+#
+#   titulo: "Sua ordem projetada de quitação"
+#   corpo: >-
+#     Com os dados e condições atuais, o PIQ projeta a seguinte sequência de
+#     quitação. A ordem poderá ser recalculada se ocorrer alguma mudança
+#     material durante a execução.
+titulo: "Seu plano inteligente de quitação de dívidas"
+# Revisão de redação (2026-10-03, pedido do usuário): sem travessão, sem
+# emoji e sem frase de efeito em todo texto que o aluno lê. O especialista
+# revisa o português; frases curtas, uma ideia por frase.
 corpo: >-
-  Com os dados e condições atuais, o PIQ projeta a seguinte sequência de
-  quitação. A ordem poderá ser recalculada se ocorrer alguma mudança material
-  durante a execução.
+  Montamos este plano a partir das informações que você nos passou. Ele
+  mostra, mês a mês, quanto pagar e em qual dívida, até a última ser
+  quitada. Se algo importante mudar na sua vida financeira, como a renda,
+  uma dívida nova ou um dinheiro extra, o plano é refeito para continuar
+  adequado à sua realidade.
 
 # ---------------------------------------------------------------------------
 # Rótulos dos valores de apoio — T-177.
@@ -32,12 +48,12 @@ corpo: >-
 # aluno é dado, nunca literal em código (AC-37). Uma chave nova no motor sem
 # rótulo aqui aparece com o nome técnico — visível, nunca silenciosa.
 rotulos_de_apoio:
-  SALDO_DEVEDOR_ATUAL: "Quanto você ainda deve"
-  VALOR_RELEVANTE_PARA_QUITACAO: "Valor considerado para quitar"
-  PAGAMENTO_MENSAL_EFETIVO: "Quanto você paga por mês"
+  SALDO_DEVEDOR_ATUAL: "Quanto você deve hoje"
+  VALOR_RELEVANTE_PARA_QUITACAO: "Valor de quitação usado no plano"
+  PAGAMENTO_MENSAL_EFETIVO: "Parcela que você paga hoje"
   TAXA_EFETIVA_MENSAL_NORMALIZADA: "Taxa de juros"
-  CET: "Custo efetivo total"
-  PESO_EMOCIONAL: "O quanto esta dívida pesa para você"
+  CET: "Custo efetivo total (CET)"
+  PESO_EMOCIONAL: "Quanto esta dívida pesa para você"
 
 # ---------------------------------------------------------------------------
 # Por que esta dívida vem nesta posição — T-177, decisão do especialista.
@@ -65,27 +81,30 @@ rotulos_de_apoio:
 explicacao_da_posicao:
   BOLA_DE_NEVE:
     primeira: >-
-      É a de menor valor entre as suas dívidas. Quitá-la primeiro libera
-      mais cedo a parcela que você paga por ela — e essa parcela passa a
-      reforçar o ataque à próxima.
+      É a menor das suas dívidas. Quitando esta primeiro, você se livra mais
+      cedo da parcela dela, e esse dinheiro passa a ajudar a pagar a
+      próxima.
     seguintes: >-
-      Entra depois das anteriores por ter valor maior que o delas. Quando as
-      de cima forem quitadas, as parcelas liberadas se somam ao ataque desta.
+      Vem depois das anteriores porque o valor dela é maior. Quando as de
+      cima forem quitadas, as parcelas que você pagava nelas passam a ajudar
+      a quitar esta.
   AVALANCHE:
     primeira: >-
-      É a que mais custa em juros entre as suas dívidas. Atacá-la primeiro é
-      o que reduz mais o total que você vai pagar até o fim.
+      É a dívida que mais cobra juros de você. Quitando esta primeiro, você
+      diminui o total que ainda vai pagar até o fim do plano.
     seguintes: >-
-      Entra depois das anteriores por ter custo de juros menor que o delas.
-      Quando as de cima forem quitadas, as parcelas liberadas se somam ao
-      ataque desta.
+      Vem depois das anteriores porque cobra menos juros que elas. Quando as
+      de cima forem quitadas, as parcelas que você pagava nelas passam a
+      ajudar a quitar esta.
   HIBRIDO:
     primeira: >-
-      É a dívida que mais destrava o seu orçamento agora. Quitá-la primeiro
-      é o que abre espaço para atacar as demais.
+      É a dívida que você consegue quitar mais rápido sem aumentar de forma
+      relevante o custo total. Quitar uma dívida logo no começo dá fôlego ao
+      seu orçamento para seguir com as outras.
     seguintes: >-
-      Entra depois das anteriores, pela ordem de custo de juros. Quando as de
-      cima forem quitadas, as parcelas liberadas se somam ao ataque desta.
+      Vem depois das anteriores, na ordem de quem cobra mais juros. Quando as
+      de cima forem quitadas, as parcelas que você pagava nelas passam a
+      ajudar a quitar esta.
 
 # ---------------------------------------------------------------------------
 # O que falta para o plano deixar de ser provisório — T-177.
@@ -113,7 +132,7 @@ rotulos_de_pendencia:
 # aprovada pelo produto (`T-289`, 2026-09-30). As chaves são
 # `collection.registro.NIVEL_COMPROVACAO`.
 rotulos_de_comprovacao:
-  COMPROVADO: "Comprovado por documento/registro"
+  COMPROVADO: "Comprovado por documento ou registro"
   INFORMADO: "Informado pelo aluno, sem comprovação"
   PENDENTE_DE_CONFIRMACAO: "Pendente de confirmação"
   NAO_INFORMADO: "Não informado"
@@ -144,8 +163,8 @@ orientacao_seguro_prestamista: >-
   o valor total do prêmio, a forma de cobrança (junto da parcela ou à parte)
   e se a contratação era facultativa. Se não quiser mais o seguro e o
   contrato permitir, peça o cancelamento das cobranças futuras e pergunte
-  sobre a restituição proporcional do período não usado — ela depende das
-  condições da apólice e não é garantida.
+  sobre a restituição proporcional do período não usado. Essa restituição
+  depende das condições da apólice e não é garantida.
 
 # ---------------------------------------------------------------------------
 # Plano e conferência em linguagem humana — RF-111, AC-174 (T-326).
@@ -158,7 +177,24 @@ orientacao_seguro_prestamista: >-
 # Como a dívida é chamada no plano e na conferência. `{tipo}` é o rótulo da
 # opção de `B5.A02` (registro); `{credor}`, a resposta de `CREDOR`. Sem
 # credor, só o tipo.
-nome_da_divida: "{tipo} — {credor}"
+# Revisão de redação (2026-10-03): parênteses no lugar do travessão.
+nome_da_divida: "{tipo} ({credor})"
+# Nome curto do tipo de dívida no plano, por `TIPO_DIVIDA`. Tem prioridade
+# sobre o rótulo da opção de `B5.A02`, que é texto de PERGUNTA ("Cartão de
+# crédito — saldo rotativo") e não deve ser editado para caber no plano.
+rotulo_do_tipo_no_plano:
+  CONSIGNADO: "Empréstimo consignado"
+  PESSOAL: "Empréstimo pessoal"
+  FIN_VEICULO: "Financiamento de veículo"
+  FIN_IMOBILIARIO: "Financiamento imobiliário"
+  CARTAO_ROTATIVO: "Cartão de crédito rotativo"
+  CARTAO_PARCELADO: "Parcelamento da fatura do cartão"
+  CHEQUE_ESPECIAL: "Cheque especial"
+  PARCELAMENTO_COMPRA: "Parcelamento de compra"
+  TRIBUTARIA: "Dívida de impostos"
+  PESSOA_FISICA: "Dívida com familiar ou conhecido"
+  ACORDO: "Acordo ou renegociação"
+  OUTRA: "Outra dívida"
 # `T-328`: dívidas com o mesmo nome (ex.: 9 consignados da CAIXA) ganham a
 # parcela; sem parcela (ou com parcela igual), o ordinal na ordem do caso.
 nome_com_parcela: "{nome} · parcela {parcela}"
@@ -355,3 +391,294 @@ criterio_do_metodo:
   BOLA_DE_NEVE: >-
     Cada dívida entra quando é a de menor valor a quitar, entre as que
     restam; empates seguem a regra de desempate do método.
+
+
+# ---------------------------------------------------------------------------
+# Plano do aluno: textos de "consultoria individual" (2026-10-03).
+#
+# Revisão pedida pelo usuário: o documento precisa parecer feito para a
+# pessoa, dividido em seções fáceis de ver, com texto mais detalhado e sem
+# marcas de texto gerado (travessão, emoji, exclamação de efeito, frase de
+# motivação vazia). O especialista revisa o português: frases curtas, uma
+# ideia por frase, vocabulário do dia a dia.
+#
+# Toda redação vive AQUI (AC-37) e é lida por `report/plano.py`. Textos de
+# orientação (como pagar a mais, perguntas frequentes) são SUGESTÃO, ainda
+# não validados pelo especialista do método: podem mudar sem mudar código.
+#
+# Placeholders `{...}` recebem valores já formatados pelo servidor. Nenhum
+# número é calculado a partir destes textos.
+
+# Cabeçalho personalizado. `{nome}` é o primeiro nome do aluno, vindo da
+# compra (Hotmart, migração 009); sem nome, usa a versão sem nome.
+cabecalho:
+  preparado_para: "Plano preparado para {nome}"
+  preparado_sem_nome: "Plano preparado para você"
+
+explicacao_mes_1: >-
+  Os meses do plano são contados a partir de quando você começa a segui-lo.
+  O Mês 1 é o primeiro mês em que você faz o que está descrito aqui, e não
+  um mês específico do calendário.
+
+# Títulos das seções do documento, na ordem em que aparecem.
+secoes:
+  resumo: "Seu plano em números"
+  ponto_de_partida: "Seu ponto de partida"
+  primeiro_passo: "O que fazer no Mês 1"
+  primeira_vitoria: "Sua primeira dívida quitada"
+  como_funciona: "Como o seu plano funciona"
+  jornada: "Seu plano, mês a mês"
+  linha_do_tempo: "Quando cada dívida termina"
+  dividas: "Suas dívidas, uma a uma"
+  reserva: "Sua reserva"
+  pendencias: "O que falta informar"
+  duvidas: "Perguntas frequentes"
+  checklist: "Seu checklist do Mês 1"
+  sobre: "Sobre este plano"
+
+# Resumo do topo. `*_rotulo` vai embaixo do número; `*_explicacao`, em
+# letra menor, diz o que o número significa.
+resumo:
+  prazo_rotulo: "para quitar todas as dívidas do plano"
+  prazo_explicacao: >-
+    É o tempo até a última dívida acabar, seguindo o plano todos os meses.
+  valor_mensal_rotulo: "a mais todo mês, além das parcelas"
+  valor_mensal_explicacao: >-
+    É o valor que você separa todo mês, além das parcelas que já paga, para
+    quitar as dívidas mais rápido.
+  custo_futuro_rotulo: "é o total que você ainda vai pagar"
+  custo_futuro_explicacao: >-
+    Soma de todas as parcelas e de todos os juros, do Mês 1 até a última
+    dívida ser quitada.
+
+# "Seu ponto de partida": os números do mês do aluno, lidos do cálculo.
+ponto_de_partida:
+  introducao: >-
+    Estes são os números do seu mês, de acordo com as suas respostas. Eles
+    são a base de tudo o que vem a seguir.
+  renda: "Sua renda no mês"
+  gastos: "Seus gastos do dia a dia"
+  gastos_ocasionais: "Gastos que não acontecem todo mês, em média mensal"
+  parcelas: "Parcelas de dívidas que você já paga"
+  quantidade_dividas: "Dívidas incluídas neste plano"
+  valor_extra: "Valor extra para quitar as dívidas"
+  nota_seguranca: >-
+    O valor extra foi calculado com uma margem de segurança e nunca passa do
+    valor que você disse que consegue separar. Assim, você paga as dívidas
+    sem deixar faltar dinheiro para o essencial.
+
+# "O que fazer no Mês 1": três passos, um por cartão. `{valor}` é o extra
+# do Mês 1; `{alvo}`, o nome da dívida da vez. Sugestão, a validar.
+primeiro_passo:
+  titulo: "O que fazer no Mês 1"
+  introducao: "Neste primeiro mês, você faz três coisas, nesta ordem."
+  passo_1_titulo: "Pague as parcelas de sempre"
+  passo_1_texto: >-
+    Continue pagando a parcela de cada dívida, como já faz hoje. Nenhuma
+    delas pode atrasar.
+  passo_2_titulo: "Coloque o valor extra em uma dívida só"
+  passo_2_texto: >-
+    Depois das parcelas, use {valor} para abater {alvo}. Não divida esse
+    valor entre as dívidas: ele vai inteiro para esta.
+  passo_3_titulo: "Guarde o comprovante"
+  passo_3_texto: >-
+    Guarde o comprovante do pagamento extra. Ele mostra que o valor foi
+    abatido e ajuda se for preciso conferir depois.
+  como_pagar_titulo: "Como fazer o pagamento extra"
+  como_pagar_a_mais: >-
+    Peça ao credor para abater esse valor direto do saldo da dívida, como
+    amortização ou quitação antecipada, e não para adiantar uma parcela.
+    Confira no comprovante se o saldo diminuiu.
+  # Chaves anteriores, mantidas para chamadores que ainda as usam.
+  instrucao_parcelas: "Pague normalmente as parcelas de todas as suas dívidas."
+  instrucao_ataque: "Depois, coloque {valor} a mais em {alvo}."
+
+primeira_vitoria:
+  titulo: "Sua primeira dívida quitada"
+  texto: "No Mês {mes}, a dívida {divida} estará quitada."
+  complemento: >-
+    A partir daí, a parcela que você pagava nela passa a ajudar a quitar a
+    próxima dívida. É o primeiro sinal de que o plano está funcionando.
+
+# "Como o seu plano funciona": três quadros. `como_funciona_rotulos` são os
+# títulos curtos dos quadros; a lista por método é o texto de cada um.
+como_funciona_rotulos:
+  - "Uma dívida de cada vez"
+  - "A dívida acaba"
+  - "O valor extra cresce"
+como_funciona:
+  titulo: "Como o seu plano funciona"
+  HIBRIDO:
+    - >-
+      Todo o valor extra vai primeiro para uma dívida que pode ser quitada
+      logo. As outras recebem só a parcela de sempre.
+    - "Quando essa dívida acaba, a parcela que você pagava nela fica livre."
+    - >-
+      Essa parcela se junta ao valor extra, que fica maior e passa para a
+      próxima dívida. Assim, cada dívida acaba mais rápido que a anterior.
+  AVALANCHE:
+    - >-
+      Todo o valor extra vai para a dívida que mais cobra juros. As outras
+      recebem só a parcela de sempre.
+    - "Quando essa dívida acaba, a parcela que você pagava nela fica livre."
+    - >-
+      Essa parcela se junta ao valor extra, que fica maior e passa para a
+      próxima dívida. Assim, cada dívida acaba mais rápido que a anterior.
+  BOLA_DE_NEVE:
+    - >-
+      Todo o valor extra vai para a menor dívida. As outras recebem só a
+      parcela de sempre.
+    - "Quando essa dívida acaba, a parcela que você pagava nela fica livre."
+    - >-
+      Essa parcela se junta ao valor extra, que fica maior e passa para a
+      próxima dívida. Assim, cada dívida acaba mais rápido que a anterior.
+
+# Modelos de frase por etapa (`report/plano.py::montar_jornada`). Não são
+# mais exibidos como lista no documento (a grade por mês os substituiu),
+# mas seguem no contrato da API.
+jornada:
+  titulo: "Seu plano, mês a mês"
+  fase_um_mes: "Mês {mes_inicio}: {valor} a mais em {alvo}."
+  fase_varios_meses: "Do Mês {mes_inicio} ao Mês {mes_fim}: {valor} a mais em {alvo}, todo mês."
+  quitacao: "Mês {mes_fim}: {divida} quitada."
+  quitacao_com_reforco: >-
+    A parcela de {parcela} que você pagava nela passa a ajudar a quitar
+    {destino}.
+  quitacao_com_sobra: "Os {sobra} que restarem neste mês já vão para {destino}."
+  aporte: "Mês {mes_fim}: entra o dinheiro extra que você informou, e {valor} vão para {alvo}."
+  chegada: "Mês {mes_fim}: todas as dívidas do plano quitadas."
+
+# Grade de cartões por mês e a legenda dos símbolos.
+grade_meses:
+  titulo: "Seu plano, mês a mês"
+  introducao: >-
+    Cada quadro é um mês do plano. O símbolo mostra o que acontece naquele
+    mês, e a legenda logo abaixo explica cada um.
+  rotulo_mes: "Mês"
+  ataque: "a mais"
+  quitada: "dívida quitada"
+  aporte: "dinheiro extra"
+  chegada: "fim das dívidas"
+  primeira_vitoria: "1ª quitação"
+  legenda_ataque: "Mês de pagamento. O valor é o extra que vai para a dívida da vez."
+  legenda_quitacao: "Mês em que uma dívida é quitada."
+  legenda_aporte: "Mês em que entra o dinheiro extra que você informou."
+  legenda_chegada: "Último mês do plano. Todas as dívidas quitadas."
+  # Plano com mais de 12 meses: calendário por ano, uma linha por ano.
+  introducao_anos: >-
+    Cada linha é um ano do plano, com os doze meses lado a lado. Os quadros
+    brancos são meses de pagamento. Os quadros coloridos marcam os meses em
+    que algo muda, e a legenda logo abaixo explica cada um.
+  rotulo_ano: "Ano"
+  meses_do_ano: "Mês {inicio} a {fim}"
+  mes_unico_do_ano: "Mês {inicio}"
+  valor_do_ano: "Valor extra de cada mês: {valores}"
+  separador_de_valores: ", depois "
+  quitacao_do_ano: "Mês {mes}: quitação de {divida}"
+  legenda_comum: >-
+    Mês de pagamento. Você paga as parcelas e coloca o valor extra na dívida
+    da vez.
+  legenda_primeira_vitoria: "Mês da primeira dívida quitada."
+
+linha_do_tempo:
+  titulo: "Quando cada dívida termina"
+  introducao: >-
+    Cada barra é uma dívida. Ela começa no Mês 1 e termina no mês em que a
+    dívida é quitada.
+  legenda_atacando: "Dívida da vez"
+  legenda_aguardando: "Aguardando a vez"
+  legenda_quitada: "Mês em que termina"
+  comeca_aqui: "Começa aqui"
+  termina_aqui: "Termina aqui"
+  rotulo_ano: "Ano"
+
+# "Suas dívidas, uma a uma": cartão de cada dívida.
+dividas:
+  introducao: >-
+    Esta é a ordem em que as suas dívidas serão quitadas. Para cada uma,
+    explicamos por que ela está nesta posição e mostramos os números que
+    usamos.
+  posicao: "{indice}ª dívida a ser quitada"
+  por_que: "Por que ela está nesta posição"
+  numeros: "Números desta dívida"
+  termina_no: "Termina no"
+  termina_no_valor: "Mês {mes}"
+  nao_disponivel: "não disponível"
+
+reserva_explicacao: >-
+  É a parte da sua reserva que você decidiu usar neste plano. Esse dinheiro
+  ajuda a quitar as dívidas mais rápido. O restante continua guardado para
+  emergências.
+
+# Pendências: onde o aluno encontra cada dado que falta, e a pergunta do
+# Bloco 5 que grava o campo (botão "Responder agora" na tela).
+onde_achar:
+  SALDO_DEVEDOR_ATUAL: "No aplicativo ou no extrato do credor, procure por \"saldo devedor\" ou \"saldo a pagar\"."
+  VALOR_QUITACAO_HOJE: "No aplicativo do credor, procure a opção \"quitação antecipada\" ou \"liquidação\"."
+  TAXA_EFETIVA_MENSAL_NORMALIZADA: "No contrato ou no aplicativo do credor, procure por \"taxa de juros mensal\"."
+  CET: "No contrato, procure por \"CET\" ou \"custo efetivo total\"."
+  PARCELA_CONTRATUAL: "No contrato ou no aplicativo do credor, procure o valor da parcela combinada."
+  PAGAMENTO_MENSAL_EFETIVO: "No seu extrato bancário, veja quanto realmente saiu por mês para esta dívida."
+  CUSTO_SEGURO: "No contrato ou na fatura, procure por \"seguro prestamista\" ou \"seguro do contrato\"."
+
+pergunta_do_campo:
+  SALDO_DEVEDOR_ATUAL: "B5.B03"
+  VALOR_QUITACAO_HOJE: "B5.B05A"
+  PARCELA_CONTRATUAL: "B5.C02"
+  PAGAMENTO_MENSAL_EFETIVO: "B5.C06"
+  TAXA_EFETIVA_MENSAL_NORMALIZADA: "B5.D01A"
+  CET: "B5.D03A"
+  CUSTO_SEGURO: "B5.D05A"
+
+# Perguntas frequentes, sempre abertas no documento impresso. Alinhadas às
+# regras de recálculo da spec (R-01). Sugestão, a validar.
+duvidas:
+  - pergunta: "Quando o meu plano muda?"
+    resposta: >-
+      O plano só é refeito quando algo importante acontece: uma dívida é
+      quitada, a sua renda muda, surge uma dívida nova ou você recebe um
+      dinheiro extra. A simples passagem dos meses não muda o plano.
+  - pergunta: "O que acontece com as outras dívidas enquanto eu pago uma?"
+    resposta: >-
+      Você continua pagando a parcela normal de todas elas, sem atraso. Só
+      o valor extra do mês vai para a dívida da vez.
+  - pergunta: "E se eu não conseguir separar o valor extra em algum mês?"
+    resposta: >-
+      Pague ao menos as parcelas normais de todas as dívidas e avise a
+      equipe. O plano pode ser ajustado à sua nova situação.
+  - pergunta: "E se eu receber um dinheiro extra?"
+    resposta: >-
+      Avise a equipe. Dependendo do valor e de quando ele chegar, o plano é
+      refeito para usar esse dinheiro na quitação das dívidas.
+  - pergunta: "E se eu tiver uma dívida nova?"
+    resposta: >-
+      Avise a equipe o quanto antes. Uma dívida nova muda a ordem e o valor
+      do plano, por isso ele precisa ser refeito.
+  - pergunta: "Por que não começar pela maior dívida?"
+    resposta: >-
+      A ordem foi definida para que você pague o menor valor total possível
+      ou quite a primeira dívida mais cedo, de acordo com o seu perfil.
+      Começar pela maior dívida costuma deixar o caminho mais longo e mais
+      caro.
+
+checklist:
+  introducao: "Marque cada item quando concluir."
+  pagar_parcela: "Pagar a parcela de {nome}: {valor}"
+  pagar_extra: "Pagar {valor} a mais em {alvo}"
+  guardar: "Guardar o comprovante do pagamento extra"
+
+sobre_este_plano: >-
+  Este plano foi calculado com as informações que você nos passou. Quanto
+  mais completas e corretas elas estiverem, mais preciso ele fica. Antes de
+  chegar até você, ele foi conferido pela nossa equipe.
+
+# Estabilização: explica RESULTADO_CAIXA_OBSERVADO em palavras, nunca com a
+# palavra "sobra" (GAB-04). Sugestão, a validar.
+estabilizacao:
+  titulo: "Primeiro, equilibrar o seu mês"
+  texto: >-
+    Hoje, considerando o que entra e o que sai, o resultado do seu mês é de
+    {valor}. Esse valor ainda não pode ser usado para quitar dívidas. Nesta
+    fase, o objetivo é equilibrar as contas do mês. Quando isso acontecer,
+    começa a segunda fase do plano, em que as dívidas passam a ser quitadas
+    uma a uma.

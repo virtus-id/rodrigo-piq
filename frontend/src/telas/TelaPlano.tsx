@@ -2,21 +2,34 @@
  * O plano do aluno — telas `plano`, `plano-estab` e `plano-vazio` do
  * protótipo (`RF-50`, `AC-14`, `AC-16`, `AC-70`).
  *
- * **Todo texto normativo vem do servidor, verbatim.** `titulo` e `corpo` são
- * a redação canônica de `Q-03`, carregada de `textos-canonicos.yaml` e
- * transportada sem uma vírgula de diferença — `AC-14` exige caractere por
- * caractere, e `AC-15` proíbe "definitiva"/"final"/"fixa" no lugar de
- * "projetada". Este componente **nunca** reescreve nem resume esses campos,
- * e isso vale também para o `titulo` que sobe à casca.
+ * **Plano amigável (2026-10-03).** O título e o corpo deixaram de ser a
+ * transcrição literal de `Q-03` e passaram a ser a redação de
+ * "consultoria individual" aprovada pelo usuário nesta conversa — mas a
+ * disciplina continua a mesma: **todo texto vem do servidor, verbatim.**
+ * `titulo` e `corpo` são transportados sem uma vírgula de diferença — o
+ * termo que qualifica o plano agora é "inteligente", nunca
+ * "definitiva"/"final"/"fixa". Este componente **nunca** reescreve nem
+ * resume esses campos.
  *
  * **Nenhum número é calculado aqui** (Lei nº 3): prazo, custo e valores de
- * apoio são leitura de campo do snapshot, já formatados pelo servidor.
+ * apoio são leitura de campo do snapshot, já formatados pelo servidor. A
+ * única conta client-side é GEOMETRIA DE DESENHO dos gráficos SVG
+ * (`frontend/src/componentes/visuais/*`), nunca um valor exibido.
  */
 import { useCallback, useEffect, useState } from 'react'
 
+import ComoFunciona from '../componentes/ComoFunciona'
+import DuvidasDoPlano from '../componentes/DuvidasDoPlano'
 import Esqueleto from '../componentes/Esqueleto'
 import Icone from '../componentes/Icone'
+import JornadaDoPlano from '../componentes/JornadaDoPlano'
+import PrimeiraVitoria from '../componentes/PrimeiraVitoria'
+import PontoDePartida from '../componentes/PontoDePartida'
+import PrimeiroPasso from '../componentes/PrimeiroPasso'
+import ResumoDoPlano from '../componentes/ResumoDoPlano'
 import Tela from '../componentes/Tela'
+import Conquistas from '../componentes/visuais/Conquistas'
+import LinhaDoTempoDividas from '../componentes/visuais/LinhaDoTempoDividas'
 import { obterPlano } from '../services/api'
 import type { Plano } from '../tipos'
 
@@ -86,6 +99,17 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
     )
   }
 
+  const ordemVazia = plano.ordem.length === 0
+  const secoes = plano.secoes ?? {}
+  const textosDasDividas = plano.dividas_textos ?? {}
+  const cabecalho = plano.cabecalho_textos ?? {}
+  const preparadoPara = plano.nome_do_aluno
+    ? (cabecalho.preparado_para ?? 'Plano preparado para {nome}').replace(
+        '{nome}',
+        plano.nome_do_aluno,
+      )
+    : (cabecalho.preparado_sem_nome ?? 'Plano preparado para você')
+
   return (
     <Tela
       titulo={plano.titulo}
@@ -114,176 +138,270 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
         </a>
       }
     >
-      {/* Redação canônica — do servidor, sem reescrita. */}
+      {/* Revisão de design (2026-10-03): o plano chama o aluno pelo nome. */}
+      <p className="eyebrow m-0">{preparadoPara}</p>
+
+      {/* Redação vigente — do servidor, sem reescrita. */}
       <p className="lead">{plano.corpo}</p>
+
+      {plano.explicacao_mes_1 && <p className="text-muted text-sm">{plano.explicacao_mes_1}</p>}
 
       {plano.MODO_ESTABILIZACAO && (
         <div className="aviso-atencao" role="status">
           <div>
-            <strong className="block">Antes de atacar as dívidas.</strong>
-            Nesta fase o objetivo é equilibrar o mês. O caixa observado é{' '}
-            {plano.RESULTADO_CAIXA_OBSERVADO}.
+            <strong className="block">Primeiro, equilibrar o seu mês.</strong>
+            Hoje, considerando o que entra e o que sai, o resultado do seu mês é de{' '}
+            {plano.RESULTADO_CAIXA_OBSERVADO}. Esse valor ainda não pode ser usado para
+            quitar dívidas. Nesta fase, o objetivo é equilibrar as contas do mês.
           </div>
         </div>
       )}
 
-      {/*
-        O resumo vem ANTES do detalhe — `RF-73`, `AC-109` (T-167).
+      {!plano.MODO_ESTABILIZACAO && (
+        <ResumoDoPlano
+          prazoTotal={plano.PRAZO_TOTAL}
+          custoFuturoTotal={plano.CUSTO_FUTURO_TOTAL}
+          valorMensalDestinado={plano.valor_mensal_destinado}
+          mostrarValorMensal={!ordemVazia}
+          textos={plano.resumo_textos ?? {}}
+        />
+      )}
 
-        **Por que subiu.** Prazo e custo ficavam num `<dl>` de duas colunas
-        DEPOIS da ordem, no mesmo cartão cinza de qualquer outra tela. Mas é
-        esta a resposta que o aluno abriu a tela para ver: quanto tempo, e
-        quanto custa. A ordem de quitação é o detalhe que sustenta a
-        resposta, não a resposta.
+      {plano.ponto_de_partida && (
+        <PontoDePartida
+          ponto={plano.ponto_de_partida}
+          textos={plano.ponto_de_partida_textos ?? {}}
+          titulo={secoes.ponto_de_partida ?? ''}
+          mostrarValorExtra={!plano.MODO_ESTABILIZACAO && !ordemVazia}
+        />
+      )}
 
-        **Nenhum número é calculado aqui** (Lei nº 3). `PRAZO_TOTAL` e
-        `CUSTO_FUTURO_TOTAL` chegam do snapshot já formatados pelo servidor
-        e são exibidos verbatim — esta tarefa move e redimensiona, não
-        recalcula nem reformata.
-      */}
-      <div className="cartao-destaque">
-        <span className="eyebrow">Se você seguir este plano</span>
-        {/*
-          `flex-col-reverse` põe o VALOR acima do RÓTULO na tela, mantendo a
-          ordem exigida pelo HTML no DOM (`<dt>` antes de `<dd>`). Inverter
-          no DOM leria "até a última quitação" depois do número num leitor
-          de tela — e um `<dd>` antes do seu `<dt>` é HTML inválido.
-        */}
-        <dl className="flex flex-wrap gap-x-8 gap-y-4">
-          <div className="flex min-w-[120px] flex-1 flex-col-reverse">
-            <dt className="rotulo-hero">até a última quitação</dt>
-            <dd className="valor-hero m-0">{plano.PRAZO_TOTAL}</dd>
-          </div>
-          <div className="flex min-w-[120px] flex-1 flex-col-reverse">
-            <dt className="rotulo-hero">de custo futuro</dt>
-            <dd className="valor-hero m-0">{plano.CUSTO_FUTURO_TOTAL}</dd>
-          </div>
-          {/* `T-304` (`DE-08`): a capacidade que alimenta o cronograma, lida
-              do snapshot. Fora da estabilização: nessa fase não há ataque. */}
-          {!plano.MODO_ESTABILIZACAO && (
-            <div className="flex min-w-[120px] flex-1 flex-col-reverse">
-              <dt className="rotulo-hero">a cada mês para quitar, além das parcelas</dt>
-              <dd className="valor-hero m-0">
-                {plano.valor_mensal_destinado || NAO_DISPONIVEL}
-              </dd>
-            </div>
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
+        <PrimeiroPasso
+          passo={plano.passo_atual}
+          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ''}
+          textos={
+            plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
+          }
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
+        <PrimeiraVitoria
+          primeiraVitoria={plano.primeira_vitoria}
+          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
+          complemento={plano.primeira_vitoria_complemento ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.como_funciona?.length ?? 0) > 0 && (
+        <ComoFunciona
+          passos={plano.como_funciona ?? []}
+          rotulos={plano.como_funciona_rotulos ?? []}
+          titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.grade_meses?.length ?? 0) > 0 && (
+        <JornadaDoPlano
+          grade={plano.grade_meses ?? []}
+          anos={plano.grade_anos ?? []}
+          textos={plano.grade_meses_textos ?? {}}
+          titulo={secoes.jornada ?? plano.jornada_titulo ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
+        <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
+          <h2 id="titulo-linha-do-tempo">
+            {plano.linha_do_tempo_textos?.titulo || 'Quando cada dívida termina'}
+          </h2>
+          {plano.linha_do_tempo_textos?.introducao && (
+            <p className="text-muted m-0">{plano.linha_do_tempo_textos.introducao}</p>
           )}
-        </dl>
-      </div>
+          <LinhaDoTempoDividas
+            ordem={plano.ordem}
+            prazoTotalMeses={plano.PRAZO_TOTAL_INT}
+            textos={plano.linha_do_tempo_textos ?? {}}
+          />
+        </section>
+      )}
 
       {plano.ordem.length > 0 ? (
-        <ol className="lista list-none p-0">
-          {plano.ordem.map((posicao) => (
-            <li key={posicao.DIVIDA_ID} className="cartao">
-              <div className="flex items-baseline gap-4">
-                {/* Não é `.item .num`: aquele seletor só vale dentro de
-                    `.item`, e a ordem do plano é cartão, não linha de lista. */}
-                <span className="font-serif text-[1.5rem] font-semibold text-accent">
-                  {posicao.indice}
-                </span>
-                <div className="min-w-0 flex-1">
-                  {/* `T-326` (`RF-111`): "tipo — credor", nunca o código. */}
-                  <p className="font-bold">{posicao.nome}</p>
+        <>
+          <h2>{secoes.dividas ?? 'Suas dívidas, uma a uma'}</h2>
+          {textosDasDividas.introducao && (
+            <p className="text-muted m-0">{textosDasDividas.introducao}</p>
+          )}
+          <ol className="lista list-none p-0">
+            {plano.ordem.map((posicao) => {
+              const fatos = posicao.fatos ?? []
+              const rotulosDosFatos = new Set(fatos.map((fato) => fato.rotulo))
+              // Os valores de apoio sustentam a POSIÇÃO (`AC-17`); os que já
+              // aparecem nos números fixos não se repetem.
+              const outrosValores = posicao.valores_de_apoio.filter(
+                (apoio) => !rotulosDosFatos.has(apoio.rotulo),
+              )
+              return (
+                <li key={posicao.DIVIDA_ID} className="cartao">
+                  <div className="flex items-center gap-3">
+                    <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-accent font-bold text-accent-ink">
+                      {posicao.indice}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      {textosDasDividas.posicao && (
+                        <span className="eyebrow block">
+                          {textosDasDividas.posicao.replace('{indice}', String(posicao.indice))}
+                        </span>
+                      )}
+                      {/* `T-326` (`RF-111`): "tipo (credor)", nunca o código. */}
+                      <p className="m-0 font-bold">{posicao.nome}</p>
+                    </div>
+                  </div>
                   {/*
                     `T-177`: o ALUNO lê a explicação em português. A
-                    `JUSTIFICATIVA_POSICAO` técnica ("método BOLA_DE_NEVE,
-                    critério: menor VALOR_RELEVANTE_PARA_QUITACAO… desempate
-                    O-05") é texto de auditoria: desde `T-305` só o revisor a
-                    recebe, e esta tela não a mostra nem como fallback.
+                    `JUSTIFICATIVA_POSICAO` técnica é texto de auditoria:
+                    desde `T-305` só o revisor a recebe, e esta tela não a
+                    mostra nem como fallback.
                   */}
-                  <p className="text-muted">{posicao.explicacao}</p>
-                  {/* `T-304` (`DE-08`): lido do cronograma gravado. */}
-                  <p className="text-muted">
-                    Quitação prevista:{' '}
-                    {posicao.mes_de_quitacao
-                      ? `mês ${posicao.mes_de_quitacao} do plano`
-                      : NAO_DISPONIVEL}
-                  </p>
+                  <p className="m-0">{posicao.explicacao}</p>
+                  {/* Revisão de design: os números de toda dívida ficam à
+                      vista, inclusive o mês em que ela termina (`T-304`,
+                      lido do cronograma gravado). */}
+                  <dl className="m-0 grid grid-cols-2 gap-2">
+                    {fatos.map((fato) => (
+                      <div key={fato.rotulo} className="rounded-piq border border-line p-2">
+                        <dt className="text-muted text-xs">{fato.rotulo}</dt>
+                        <dd className="m-0 whitespace-nowrap font-bold tabular-nums">{fato.valor}</dd>
+                      </div>
+                    ))}
+                    <div className="rounded-piq border border-accent bg-accent-soft p-2">
+                      <dt className="text-muted text-xs">
+                        {textosDasDividas.termina_no ?? 'Termina no'}
+                      </dt>
+                      <dd className="m-0 font-bold">
+                        {posicao.mes_de_quitacao
+                          ? `Mês ${posicao.mes_de_quitacao}`
+                          : NAO_DISPONIVEL}
+                      </dd>
+                    </div>
+                  </dl>
                   {/* `RF-92` (T-267): nível 2 ou 3 não bloqueia, mas fica
                       visível por dívida. */}
                   {posicao.fonte && (
-                    <p className="text-muted">
-                      Fonte de comprovação: {posicao.fonte}
-                    </p>
+                    <p className="text-muted m-0 text-sm">Fonte das informações: {posicao.fonte}</p>
                   )}
                   {/* `RF-82` (T-245): só na dívida com seguro prestamista. */}
                   {posicao.orientacao_seguro && (
-                    <p className="text-muted">{posicao.orientacao_seguro}</p>
+                    <p className="text-muted m-0 text-sm">{posicao.orientacao_seguro}</p>
                   )}
-                </div>
-              </div>
-              {posicao.valores_de_apoio.length > 0 && (
-                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-                  {posicao.valores_de_apoio.map((apoio) => (
-                    <div key={apoio.rotulo} className="contents">
-                      <dt className="text-muted">{apoio.rotulo}</dt>
-                      <dd className="m-0 tabular-nums">{apoio.valor}</dd>
-                    </div>
-                  ))}
-                </dl>
-              )}
-            </li>
-          ))}
-        </ol>
+                  {/* Na tela, os demais números ficam a um toque; no PDF
+                      eles aparecem abertos. */}
+                  {outrosValores.length > 0 && (
+                    <details>
+                      <summary>Ver outros números desta dívida</summary>
+                      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                        {outrosValores.map((apoio) => (
+                          <div key={apoio.rotulo} className="contents">
+                            <dt className="text-muted">{apoio.rotulo}</dt>
+                            <dd className="m-0 tabular-nums">{apoio.valor}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </details>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+          {!plano.MODO_ESTABILIZACAO && <Conquistas ordem={plano.ordem} />}
+        </>
       ) : (
-        // `EC-07`: ordem vazia nunca aparece como lista vazia sem contexto —
+        // `EC-07`: ordem vazia nunca aparece como lista vazia sem contexto;
         // o que precisa ser resolvido antes vem em primeiro plano.
         <div className="flex flex-col gap-3">
           <h2>Primeiro, o que precisa ser resolvido</h2>
           <ul className="lista list-none p-0">
             {plano.acoes.map((acao, i) => (
               <li key={`${acao.DIVIDA_ID ?? 'sem-divida'}-${i}`} className="cartao">
-                {/* `T-306`: o que fazer, em português, por `TIPO_ACAO` — o
+                {/* `T-306`: o que fazer, em português, por `TIPO_ACAO`; o
                     motivo técnico do gate não vem ao aluno. */}
                 <p>{acao.descricao}</p>
-                {acao.nome_divida && (
-                  <small className="text-muted">{acao.nome_divida}</small>
-                )}
+                {acao.nome_divida && <small className="text-muted">{acao.nome_divida}</small>}
               </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* O cartão "Por mês" saiu daqui em T-167: os dois valores que ele
-          mostrava são agora o resumo NO TOPO da tela (`AC-109`). Mantê-lo
-          aqui repetiria prazo e custo na mesma tela, com duas formatações
-          diferentes — que é exatamente a confusão que a Rodada 6 removeu do
-          Início quando tirou a barra de progresso duplicada. */}
-
       {/* `AC-70`: reserva desconhecida é estado explícito, nunca R$ 0,00. */}
-      <div className="cartao">
-        <span className="eyebrow">
-          <Icone nome="reserva" /> Sua reserva
-        </span>
+      <section className="cartao" aria-labelledby="titulo-reserva">
+        <h2 id="titulo-reserva" className="flex items-center gap-2">
+          <Icone nome="reserva" /> {secoes.reserva ?? 'Sua reserva'}
+        </h2>
         {plano.reserva_mobilizavel.pendente_de_decisao ? (
-          <p>
+          <p className="m-0">
             <strong>Decisão pendente.</strong> Essa parte do plano fica em aberto até
             você decidir.
           </p>
         ) : (
-          <p className="tabular-nums">{plano.reserva_mobilizavel.valor}</p>
+          <>
+            <p className="valor-hero m-0 tabular-nums">{plano.reserva_mobilizavel.valor}</p>
+            {plano.reserva_explicacao && (
+              <p className="text-muted m-0">{plano.reserva_explicacao}</p>
+            )}
+          </>
         )}
-      </div>
+      </section>
 
-      {plano.pendencias && (
+      {(plano.pendencias_acionaveis?.length ?? 0) > 0 ? (
         <div className="aviso-atencao" role="status">
           <div>
-            <strong className="block">Este plano está provisório.</strong>
-            {plano.pendencias.inventario_incompleto && 'O inventário ainda não está completo. '}
-            {plano.pendencias.campos_faltantes_por_divida.map((p) => (
-              <span key={p.DIVIDA_ID} className="block">
-                {p.nome}: falta {p.campos.join(', ')}
-              </span>
-            ))}
+            <strong className="block">Este plano ainda é provisório.</strong>
+            Faltam algumas informações sobre as suas dívidas. Assim que você as informar, o
+            plano é refeito.
+            {plano.pendencias?.inventario_incompleto &&
+              ' O cadastro das suas dívidas ainda não foi confirmado como completo.'}
+            <ul className="lista mt-2 list-none p-0">
+              {(plano.pendencias_acionaveis ?? []).map((pendencia, i) => (
+                <li key={`${pendencia.DIVIDA_ID}-${pendencia.rotulo}-${i}`}>
+                  <strong>{pendencia.nome_divida}</strong>: falta informar {pendencia.rotulo}.
+                  {pendencia.onde_achar && (
+                    <span className="text-muted block">Onde encontrar: {pendencia.onde_achar}</span>
+                  )}
+                  {pendencia.ID_PERGUNTA && (
+                    <a
+                      className="btn-discreto"
+                      href={`#respostas/${pendencia.ID_PERGUNTA}/${pendencia.DIVIDA_ID}`}
+                    >
+                      Responder agora
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
+      ) : (
+        plano.pendencias && (
+          <div className="aviso-atencao" role="status">
+            <div>
+              <strong className="block">Este plano ainda é provisório.</strong>
+              {plano.pendencias.inventario_incompleto && 'O inventário ainda não está completo. '}
+              {plano.pendencias.campos_faltantes_por_divida.map((p) => (
+                <span key={p.DIVIDA_ID} className="block">
+                  {p.nome}: falta {p.campos.join(', ')}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
       )}
 
       {/*
         `RF-98`, `AC-152` (`T-277`): o cenário adicional é uma seção PRÓPRIA,
-        abaixo do plano e rotulada — nunca mistura os seus números ao resumo
-        e à ordem acima, que são da projeção-base. Tudo lido do snapshot e
+        abaixo do plano e rotulada; nunca mistura os seus números ao resumo e
+        à ordem acima, que são da projeção-base. Tudo lido do snapshot e
         formatado pelo servidor (Lei nº 3).
       */}
       {plano.cenario_adicional && (
@@ -291,18 +409,18 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
           <h2 id="titulo-cenario-adicional">{plano.cenario_adicional.rotulo}</h2>
           <p className="text-muted">{plano.cenario_adicional.explicacao}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            <dt className="text-muted">até a última quitação</dt>
+            <dt className="text-muted">para quitar todas as dívidas</dt>
             <dd className="m-0 tabular-nums">{plano.cenario_adicional.PRAZO_TOTAL}</dd>
-            <dt className="text-muted">de custo futuro</dt>
+            <dt className="text-muted">total que você pagaria</dt>
             <dd className="m-0 tabular-nums">{plano.cenario_adicional.CUSTO_FUTURO_TOTAL}</dd>
-            <dt className="text-muted">ordem</dt>
-            <dd className="m-0">{plano.cenario_adicional.ordem.join(' → ')}</dd>
+            <dt className="text-muted">ordem de quitação</dt>
+            <dd className="m-0">{plano.cenario_adicional.ordem.join(', ')}</dd>
           </dl>
           {plano.cenario_adicional.itens.length > 0 && (
             <ul className="lista list-none p-0">
-              {plano.cenario_adicional.itens.map((item) => (
-                <li key={item.ITEM_ID} className="tabular-nums">
-                  {item.ITEM_ID}: {item.valor} no mês {item.mes}
+              {plano.cenario_adicional.itens.map((item, i) => (
+                <li key={item.ITEM_ID ?? `${item.mes}-${i}`} className="tabular-nums">
+                  {item.valor} no Mês {item.mes}
                 </li>
               ))}
             </ul>
@@ -310,14 +428,17 @@ export default function TelaPlano({ casoId, voltar }: TelaPlanoProps) {
         </section>
       )}
 
+      <DuvidasDoPlano duvidas={plano.duvidas ?? []} titulo={secoes.duvidas ?? ''} />
+
+      {plano.sobre_este_plano && (
+        <section className="cartao" aria-labelledby="titulo-sobre">
+          <h2 id="titulo-sobre">{secoes.sobre ?? 'Sobre este plano'}</h2>
+          <p className="text-muted m-0">{plano.sobre_este_plano}</p>
+        </section>
+      )}
+
       {/* `AC-16`: carimbo de versão na saída. Uma tela sem carimbo não diz
           de qual cálculo veio. */}
-      {/* O ícone entra ANTES do texto e é `aria-hidden`: `plano.spec.ts:121`
-          casa `/versão do cálculo 1\.0\.1/` por regex sobre o texto, que
-          segue idêntico. */}
-      {/* `T-306`: o carimbo dizia "método ORDEM_VAZIA" — o código do
-          cenário. Agora, o rótulo do método, e só quando há ordem a seguir:
-          na ordem vazia e na estabilização o método ainda não está em uso. */}
       <p className="carimbo flex items-center gap-2">
         <Icone nome="conferencia" />
         <span>

@@ -1,39 +1,45 @@
 {#
-    Uma posição de ORDEM_QUITACAO — RF-20, RF-22, AC-16, AC-17, AC-42 (T-60).
+    Cartão de uma dívida da ordem — RF-20, RF-22, AC-16, AC-17, AC-42
+    (T-60); revisão de design (2026-10-03).
 
-    Incluído por `plano.html` uma vez por posição, via
-    `{% include "posicao.html" %}` dentro do `{% for %}` que itera `ordem`
-    (report/plano.py::ContextoPlano.ordem, montado por
-    `montar_contexto_plano`) — caminho relativo ao mesmo diretório de
-    `plano.html` (`report/templates/plano/`), o mesmo nível que
-    `FileSystemLoader` já usa em `tests/app_aluno/test_plano.py` (T-59).
-    Recebe UMA variável de contexto por iteração:
+    Incluído por `plano.html` uma vez por posição de `ordem`
+    (`report.plano.ContextoPosicao`). No papel nada se clica, então TODOS os
+    números aparecem abertos: primeiro os fixos de toda dívida (`fatos`:
+    quanto deve hoje, parcela, juros) e o mês em que ela termina; depois os
+    valores de apoio que sustentam a posição (`valores_de_apoio`, AC-17),
+    sem repetir um rótulo que já esteja em `fatos`.
 
-        posicao — report.plano.ContextoPosicao
-
-    Todo valor aqui é LEITURA de `posicao.*`, já formatado por
-    `report/plano.py::_formatar_valor_de_apoio` (que aplica
-    `engine.precisao.quantizar_exibicao` a qualquer `Decimal`) — este
-    template NUNCA soma, arredonda ou reformata nada por conta própria
-    (AC-42). "posicao.indice de posicao.total" é contagem de itens da
-    sequência para exibição ("1 de 3"), não aritmética sobre valor
-    financeiro.
+    "indice de total" é contagem de itens da sequência, não aritmética sobre
+    valor financeiro (AC-42). A justificativa técnica do motor fica só com o
+    revisor (T-305); o aluno lê `explicacao`.
 #}
-<section>
-    <h2>Posição {{ posicao.indice }} de {{ posicao.total }} — {{ posicao.nome }}</h2>
+{% set dt = textos.textos_das_dividas if textos is defined else {} %}
+{% set rotulos_dos_fatos = posicao.fatos | map(attribute=0) | list %}
+<div class="divida">
+    <div class="divida-topo">
+        <span class="divida-posicao">{{ posicao.indice }}</span>
+        <div>
+            <div class="divida-ordem">{{ dt.get("posicao", "").format(indice=posicao.indice) }}</div>
+            <h3>{{ posicao.nome }}</h3>
+        </div>
+    </div>
 
-    {# T-177: o PDF é do ALUNO — mesma redação da tela. A justificativa
-       técnica continua no payload do revisor (`AC-29`), não aqui — nem
-       como fallback (`T-305`): todo método tem redação cadastrada, o que
-       `test_todo_metodo_do_motor_tem_explicacao_ao_aluno` garante. #}
+    <div class="subtitulo">{{ dt.get("por_que", "") }}</div>
     <p>{{ posicao.explicacao }}</p>
 
-    {% if posicao.valores_de_apoio %}
-    <dl>
-        {% for nome, valor in posicao.valores_de_apoio %}
-        <dt>{{ nome }}</dt>
-        <dd>{{ valor }}</dd>
+    <div class="subtitulo">{{ dt.get("numeros", "") }}</div>
+    <div class="fatos">
+        {% for rotulo, valor in posicao.fatos %}
+        <div class="fato"><div class="fato-rotulo">{{ rotulo }}</div><div class="fato-valor">{{ valor }}</div></div>
         {% endfor %}
-    </dl>
-    {% endif %}
-</section>
+        {% for rotulo, valor in posicao.valores_de_apoio %}
+        {% if rotulo not in rotulos_dos_fatos %}
+        <div class="fato"><div class="fato-rotulo">{{ rotulo }}</div><div class="fato-valor">{{ valor }}</div></div>
+        {% endif %}
+        {% endfor %}
+        <div class="fato fato-forte">
+            <div class="fato-rotulo">{{ dt.get("termina_no", "Termina no") }}</div>
+            <div class="fato-valor">{% if posicao.mes_de_quitacao %}{{ dt.get("termina_no_valor", "Mês {mes}").format(mes=posicao.mes_de_quitacao) }}{% else %}{{ dt.get("nao_disponivel", "não disponível") }}{% endif %}</div>
+        </div>
+    </div>
+</div>

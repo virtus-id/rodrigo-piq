@@ -35,7 +35,7 @@ from app.http.aplicacao import criar_aplicacao
 from app.http.isolamento import exigir_papel_revisor, obter_repositorio_casos
 from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_coleta import obter_repositorio_itens, obter_repositorio_respostas
-from app.http.rotas_plano import obter_repositorio_snapshots
+from app.http.rotas_plano import obter_contas_dos_casos, obter_repositorio_snapshots
 from app.http.rotas_revisao import (
     obter_repositorio_casos_da_fila,
     obter_repositorio_snapshots_da_fila,
@@ -258,6 +258,10 @@ def _cliente(
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
         emails_dos_casos=lambda _caso_ids: {}
     )
+    # Sem banco, nenhum nome: o plano sai sem "Plano preparado para".
+    aplicacao.dependency_overrides[obter_contas_dos_casos] = lambda: SimpleNamespace(
+        contas_dos_casos=lambda _caso_ids: {}
+    )
 
     @aplicacao.post("/_teste/abrir-sessao")
     def abrir_sessao(request: Request) -> dict[str, str]:
@@ -297,12 +301,12 @@ def test_ac174_conferencia_em_linguagem_humana(monkeypatch: pytest.MonkeyPatch) 
     plano, entradas, fila = corpo["plano"], corpo["estado_inputs"], corpo["fila"]
 
     cheque = next(p for p in plano["ordem"] if p["DIVIDA_ID"] == "D011")
-    assert cheque["nome"] == f"Cheque especial — {_CAIXA}"
+    assert cheque["nome"] == f"Cheque especial ({_CAIXA})"
     assert cheque["explicacao"]
     assert cheque["JUSTIFICATIVA_POSICAO"]  # detalhe técnico, só ao revisor
 
     divida_entrada = next(d for d in entradas["dividas"] if d["DIVIDA_ID"] == "D001")
-    assert divida_entrada["nome"] == "Empréstimo consignado — BANCO DO BRASIL"
+    assert divida_entrada["nome"] == "Empréstimo consignado (BANCO DO BRASIL)"
     cet = _campo(divida_entrada["campos"], "CET")
     assert cet == {"nome": "Custo efetivo total (CET)", "valor": "Não informado", "codigo": "CET"}
     assert _campo(divida_entrada["campos"], "TIPO_DIVIDA")["valor"] == "Empréstimo consignado"
@@ -360,7 +364,7 @@ def test_ac174_plano_do_aluno_sem_codigo(monkeypatch: pytest.MonkeyPatch) -> Non
 
     plano = cliente.get(f"/caso/{_CASO_ID}/api/plano").json()["plano"]
 
-    assert f"Cheque especial — {_CAIXA}" in [p["nome"] for p in plano["ordem"]]
+    assert f"Cheque especial ({_CAIXA})" in [p["nome"] for p in plano["ordem"]]
     assert all("JUSTIFICATIVA_POSICAO" not in p for p in plano["ordem"])
     assert all("motivo" not in a for a in plano["acoes"])
     assert _codigos_no_texto_principal(plano) == []
@@ -404,8 +408,8 @@ def test_ac174_pendencias_nomeiam_a_divida(monkeypatch: pytest.MonkeyPatch) -> N
     }
 
     assert nomes == {
-        "D011": f"Cheque especial — {_CAIXA}",
-        "D001": "Empréstimo consignado — BANCO DO BRASIL",
+        "D011": f"Cheque especial ({_CAIXA})",
+        "D001": "Empréstimo consignado (BANCO DO BRASIL)",
     }
 
 

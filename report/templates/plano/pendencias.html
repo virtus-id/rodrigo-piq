@@ -1,40 +1,47 @@
 {#
-    Bloco de pendências do plano PROVISORIA — EC-08, RF-16, RF-21 (T-62).
+    O que falta para o plano deixar de ser provisório — EC-08, RF-16, RF-21
+    (T-62); revisão de design (2026-10-03).
 
-    Incluído por `plano.html` sempre que `pendencias is not None`
-    (report/plano.py::ContextoPlano.pendencias, montado por
-    `report/plano.py::_pendencias` quando snapshot.ORDEM_STATUS ==
-    ORDEM_STATUS.PROVISORIA) — independente do `cenario` escolhido, porque
-    um plano pode estar PROVISORIA tanto no fluxo normal quanto em
-    ORDEM_VAZIA/ESTABILIZACAO. Lista as informações faltantes tal como
-    LIDAS do snapshot (snapshot.estado_inputs) — nenhum recálculo, nenhuma
-    inferência sobre o que falta (AC-42, RF-16).
+    Incluído por `plano.html` sempre que houver pendências, em qualquer
+    cenário. Lista as informações faltantes LIDAS do snapshot
+    (`snapshot.estado_inputs`), nunca recalculadas (AC-42, RF-16). Cada item
+    diz onde o aluno encontra o dado (`pendencias_acionaveis`); sem esse
+    detalhe, usa a lista simples de `pendencias`.
 
-    Recebe do contexto de `plano.html` (report/plano.py::ContextoPlano):
-
-        pendencias — report.plano.ContextoPendencias | None
+    Recebe `pendencias`, `pendencias_acionaveis`, `textos`, `ns` e
+    `cabecalho_da_secao`.
 #}
-{% if pendencias %}
-<section>
-    <h2>Seu plano ainda é provisório</h2>
+{% import "visuais.html" as visuais %}
+<section class="secao">
+    {{ visuais.cabecalho_da_secao(ns.n if ns is defined else "", textos.secoes.get("pendencias", "O que falta informar"), "duvida") }}
+    <div class="aviso">
+        <p style="margin: 0;">
+            <strong>Este plano ainda é provisório.</strong> Faltam algumas
+            informações sobre as suas dívidas. Assim que você as informar, o
+            plano é refeito e deixa de ser provisório.
+        </p>
+    </div>
 
-    <p>
-        Este plano é provisório porque faltam algumas informações. Assim
-        que elas forem informadas, o plano deixa de ser provisório.
-    </p>
+    {% if pendencias and pendencias.inventario_incompleto %}
+    <p style="margin-top: 3mm;">O cadastro das suas dívidas ainda não foi confirmado como completo.</p>
+    {% endif %}
 
-    <ul>
-        {% if pendencias.inventario_incompleto %}
-        <li>O cadastro das suas dívidas ainda não foi confirmado como completo.</li>
+    {% if pendencias_acionaveis %}
+    {% for pendencia in pendencias_acionaveis %}
+    <div class="caixa" style="margin-top: 3mm;">
+        <p style="margin: 0 0 1mm;"><strong>{{ pendencia.nome_divida }}</strong></p>
+        <p style="margin: 0 0 1mm;">Falta informar {{ pendencia.rotulo }}.</p>
+        {% if pendencia.onde_achar %}
+        <p class="muted pequeno" style="margin: 0;">Onde encontrar: {{ pendencia.onde_achar }}</p>
         {% endif %}
-
-        {# T-326: a dívida por "tipo — credor", não pelo código. #}
+    </div>
+    {% endfor %}
+    {% elif pendencias %}
+    <ul class="lista" style="margin-top: 3mm;">
+        {# T-326: a dívida por "tipo (credor)", não pelo código. #}
         {% for divida_id, nome, campos in pendencias.campos_faltantes_por_divida %}
-        <li>
-            <strong>{{ nome }}</strong>: falta informar
-            {{ campos | join(", ") }}.
-        </li>
+        <li><strong>{{ nome }}</strong>: falta informar {{ campos | join(", ") }}.</li>
         {% endfor %}
     </ul>
+    {% endif %}
 </section>
-{% endif %}

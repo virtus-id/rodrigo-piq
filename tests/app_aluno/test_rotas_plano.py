@@ -285,7 +285,8 @@ def test_tela_do_plano_exibe_o_snapshot_liberado(monkeypatch: pytest.MonkeyPatch
     assert resposta.status_code == 200
     plano = resposta.json()["plano"]
     assert plano is not None
-    assert plano["titulo"] == "Sua ordem projetada de quitação"
+    # Plano amigável (2026-10-03): título vigente de `textos-canonicos.yaml`.
+    assert plano["titulo"] == "Seu plano inteligente de quitação de dívidas"
     assert plano["ENGINE_VERSION"] == snapshot.ENGINE_VERSION
     assert plano["PARAMETROS_VERSION"] == snapshot.PARAMETROS_VERSION
 

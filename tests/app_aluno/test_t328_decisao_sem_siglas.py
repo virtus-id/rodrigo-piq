@@ -37,8 +37,8 @@ from tests.app_aluno.test_t326_linguagem_humana import (
     _snapshot,
 )
 
-_CHEQUE = f"Cheque especial — {_CAIXA}"
-_CONSIGNADO = "Empréstimo consignado — BANCO DO BRASIL"
+_CHEQUE = f"Cheque especial ({_CAIXA})"
+_CONSIGNADO = "Empréstimo consignado (BANCO DO BRASIL)"
 
 
 class _Itens:
@@ -118,7 +118,7 @@ def _nomes(*parcelas: Decimal | None) -> dict[str, str]:
 
 
 def test_t328_nome_unico_fica_como_esta() -> None:
-    assert _nomes(Decimal("292.55"))["D101"].endswith(f" — {_CAIXA}")
+    assert _nomes(Decimal("292.55"))["D101"].endswith(f" ({_CAIXA})")
 
 
 def test_t328_repetidos_ganham_a_parcela() -> None:

@@ -175,7 +175,7 @@ pytestmark = pytest.mark.e2e
 _CHAVE_TESTE = "chave-de-teste-para-assinatura-de-sessao-t95-ciclo-completo"
 _VERSAO_PARAMETROS_REAL = "1.0.1"
 _SENHA_TESTE = "senha-de-teste-t95"
-_TITULO_Q03 = "Sua ordem projetada de quitação"
+_TITULO_Q03 = "Seu plano inteligente de quitação de dívidas"
 
 
 # ---------------------------------------------------------------------------
@@ -482,7 +482,8 @@ def test_ciclo_completo_us01_us04_cadastro_a_plano_liberado_ac14_ac15_ac16_ac17_
 
     # -----------------------------------------------------------------
     # AC-25 (parte 1) — ANTES de qualquer liberação, a rota do plano NÃO
-    # mostra "Sua ordem projetada de quitação": exibe a tela de estado.
+    # mostra o título do plano ("Seu plano inteligente de quitação de
+    # dívidas"): exibe a tela de estado.
     # -----------------------------------------------------------------
     resposta_plano_antes = cliente.get(f"/caso/{caso_id}/api/plano")
     assert resposta_plano_antes.status_code == 200
@@ -703,8 +704,9 @@ def test_ciclo_completo_us01_us04_cadastro_a_plano_liberado_ac14_ac15_ac16_ac17_
     # é React e recebe JSON; antes isto era `<title>`/`<h1>` no HTML).
     assert resposta_plano.json()["plano"]["titulo"] == _TITULO_Q03
 
-    # AC-15 — "projetada" presente; qualificadores proibidos ausentes.
-    assert "projetada" in html.lower()
+    # AC-15 — "inteligente" presente (plano amigável, 2026-10-03);
+    # qualificadores proibidos ausentes.
+    assert "inteligente" in html.lower()
     for palavra_proibida in ("definitiva", "final", "fixa"):
         assert palavra_proibida not in html.lower()
 

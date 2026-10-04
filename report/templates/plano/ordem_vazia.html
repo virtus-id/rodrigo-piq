@@ -26,28 +26,30 @@
     (`acao.nome_divida`) e a descrição por `TIPO_ACAO`, de
     `textos-canonicos.yaml`; o código e o motivo técnico não chegam ao aluno.
 #}
-<section>
-    <h2>Nenhuma dívida pronta para ataque no momento</h2>
-
-    <p>
-        Sua ordem projetada de quitação está vazia porque nenhuma dívida
-        ficou pronta para entrar no ataque depois da triagem. As ações
-        abaixo são o que precisa ser resolvido antes de existir uma ordem
-        de ataque.
+{% import "visuais.html" as visuais %}
+{# Revisão de design (2026-10-03): seção numerada, cada ação como um passo
+   numerado, no lugar de uma lista corrida. #}
+<section class="secao">
+    {{ visuais.cabecalho_da_secao(ns.n if ns is defined else "", "Primeiro, o que precisa ser resolvido", "passo") }}
+    <p class="intro">
+        Antes de começar a quitar as suas dívidas, é preciso resolver os
+        pontos abaixo. Assim que estiverem resolvidos, o plano é refeito com
+        a ordem de quitação.
     </p>
 
     {% if acoes %}
-    <ul>
-        {% for acao in acoes %}
-        <li>
-            <strong>{{ acao.nome_divida if acao.nome_divida is not none else "—" }}</strong>
-            — {{ acao.descricao }}
+    {% for acao in acoes %}
+    <div class="caixa passo">
+        <div class="passo-numero">{{ loop.index }}</div>
+        <div class="passo-corpo">
+            {% if acao.nome_divida %}<h3>{{ acao.nome_divida }}</h3>{% endif %}
+            <p style="margin: 0;">{{ acao.descricao }}</p>
             {% if acao.prioridade_excepcional %}
-            <em>(prioridade excepcional)</em>
+            <p class="pequeno" style="margin: 1mm 0 0; color: #8A5A00;"><strong>Prioridade alta</strong></p>
             {% endif %}
-        </li>
-        {% endfor %}
-    </ul>
+        </div>
+    </div>
+    {% endfor %}
     {% else %}
     <p>Nenhuma ação pendente identificada para as dívidas informadas.</p>
     {% endif %}

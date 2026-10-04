@@ -1,0 +1,209 @@
+{#
+    Macros SVG do plano amigável — 2026-10-03, decisão de produto desta
+    conversa ("componentes visuais lúdicos", "PDF bonito, com cores e
+    trilha"). Equivalentes estáticos dos componentes React de
+    `frontend/src/componentes/visuais/`: mesma geometria, mesma paleta.
+
+    **Regra de geometria (Lei nº 3).** Toda proporção aqui (posição de uma
+    barra, altura de um degrau) é GEOMETRIA DE DESENHO — razão entre dois
+    inteiros já existentes no contexto (mês ÷ prazo total, por exemplo),
+    nunca um valor financeiro recalculado. Nenhum número produzido por essa
+    conta é exibido como dado: o texto ao lado de cada barra/degrau é
+    sempre o campo já formatado pelo servidor (`posicao.mes_de_quitacao`,
+    `etapa.valor`…). As macros Jinja ficam FORA de `report/plano.py`
+    (`.py`, onde o teste de AST de `test_sem_aritmetica_sobre_snapshot.py`
+    vigia) justamente para que essa distinção — geometria de desenho versus
+    aritmética sobre campo financeiro — não dependa de uma exceção naquele
+    teste: aqui é Jinja2, nunca Python, e o teste não varre `.html`.
+
+    Paleta: só os hex de `frontend/tailwind.config.js`, os mesmos já
+    validados para a tela (ver `tests/app_aluno/e2e/
+    test_acessibilidade_plano.py::_PARES_DE_COR_DO_PDF`). Nenhuma cor nova.
+
+    Todo gráfico recebe `role="img"` e `aria-label` com um equivalente em
+    texto — a trilha/lista de dívidas abaixo do gráfico já traz a mesma
+    informação por extenso, então o gráfico é reforço visual, nunca a
+    única fonte do dado (acessibilidade, decisão de produto).
+#}
+
+{# ---------------------------------------------------------------------
+   Linha do tempo das dívidas (estilo Gantt) — uma barra por posição de
+   `ordem`, do Mês 1 até `posicao.mes_de_quitacao` (ou até `prazo_total`
+   quando a dívida não quita dentro do horizonte simulado — `None`).
+   `prazo_total` é um inteiro (contagem de meses), já lido pelo chamador
+   de `Cenario.PRAZO_TOTAL` antes de chegar à macro — a macro só divide
+   dois inteiros para achar a largura relativa de cada barra, a mesma
+   operação que um CSS `width: calc()` faria no navegador. ------------- #}
+{% macro linha_do_tempo(ordem, prazo_total, aria_label, textos) %}
+{# Redesenho (2026-10-03, feedback do usuário: "tem a informação mas eu
+   não sei do que se trata essa informação") — legenda fixa acima, régua
+   de meses abaixo das barras e rótulos de início/fim nas pontas. #}
+{% set altura_regua = 36 %}
+{% set altura = 36 * (ordem | length) + altura_regua + 16 %}
+{% set y_regua = 36 * (ordem | length) + 14 %}
+{% set marcos = ([1, (prazo_total / 2) | round(0, 'ceil') | int, prazo_total] | unique | select('ge', 1) | list) if prazo_total else [] %}
+<figure class="visual" role="img" aria-label="{{ aria_label }}">
+    <div style="display:flex;flex-wrap:wrap;gap:4mm;font-size:8pt;color:#5E6E72;margin-bottom:2mm">
+        <span><span style="display:inline-block;width:5mm;height:2mm;border-radius:2mm;background:#0F6E56"></span> {{ textos.legenda_atacando if textos else "Sendo atacada agora" }}</span>
+        <span><span style="display:inline-block;width:5mm;height:2mm;border-radius:2mm;background:#E3F1EB;border:1px solid #0F6E56"></span> {{ textos.legenda_aguardando if textos else "Aguardando a vez" }}</span>
+        <span><span style="display:inline-block;width:2mm;height:2mm;border-radius:2mm;background:#0F6E56"></span> {{ textos.legenda_quitada if textos else "Mês da quitação" }}</span>
+    </div>
+    <svg viewBox="0 0 600 {{ altura }}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" style="width:100%;max-width:600px;height:auto">
+        {% for posicao in ordem %}
+        {% set fim = posicao.mes_de_quitacao if posicao.mes_de_quitacao else prazo_total %}
+        {% set x_fim = 560 * (fim / prazo_total) if prazo_total else 0 %}
+        {% set y = 36 * loop.index0 + 10 %}
+        <text x="0" y="{{ y + 14 }}" font-size="13" fill="#1B2A2F">{{ loop.index }}. {{ posicao.nome }}</text>
+        <rect x="0" y="{{ y + 18 }}" width="560" height="8" rx="4" fill="#D9E0DC"></rect>
+        <rect x="0" y="{{ y + 18 }}" width="{{ x_fim }}" height="8" rx="4"
+              fill="{{ '#0F6E56' if loop.index == 1 else '#E3F1EB' }}"
+              stroke="{{ '' if loop.index == 1 else '#0F6E56' }}" stroke-width="1"></rect>
+        {% if posicao.mes_de_quitacao %}
+        <circle cx="{{ x_fim }}" cy="{{ y + 22 }}" r="6" fill="#0F6E56"></circle>
+        {% endif %}
+        {% endfor %}
+        <line x1="0" y1="{{ y_regua }}" x2="560" y2="{{ y_regua }}" stroke="#D9E0DC" stroke-width="1"></line>
+        {% if prazo_total and prazo_total > 24 %}
+        {# Plano de mais de dois anos: a régua marca o fim de cada ano e
+           escreve "Ano N" no meio da faixa (geometria de desenho; o rótulo
+           só aparece se a faixa tiver espaço, ao menos 6 meses). #}
+        {% for inicio in range(0, prazo_total, 12) %}
+        {% set fim = [inicio + 12, prazo_total] | min %}
+        {% set x = 560 * (fim / prazo_total) %}
+        <line x1="{{ x }}" y1="{{ y_regua }}" x2="{{ x }}" y2="{{ y_regua + 5 }}" stroke="#5E6E72" stroke-width="1"></line>
+        {% if fim - inicio >= 6 %}
+        <text x="{{ 560 * ((inicio + fim) / 2 / prazo_total) }}" y="{{ y_regua + 15 }}" font-size="10" fill="#5E6E72" text-anchor="middle">{{ textos.rotulo_ano if textos and textos.rotulo_ano else "Ano" }} {{ loop.index }}</text>
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        {% for mes in marcos %}
+        {% set x = 560 * (mes / prazo_total) if prazo_total else 0 %}
+        <line x1="{{ x }}" y1="{{ y_regua }}" x2="{{ x }}" y2="{{ y_regua + 5 }}" stroke="#5E6E72" stroke-width="1"></line>
+        <text x="{{ x }}" y="{{ y_regua + 17 }}" font-size="10" fill="#5E6E72" text-anchor="middle">{{ mes }}</text>
+        {% endfor %}
+        {% endif %}
+        <text x="0" y="{{ altura - 2 }}" font-size="10" fill="#5E6E72" text-anchor="start">{{ textos.comeca_aqui if textos else "Começa aqui" }}</text>
+        <text x="560" y="{{ altura - 2 }}" font-size="10" fill="#5E6E72" text-anchor="end">{{ textos.termina_aqui if textos else "Termina aqui" }}</text>
+    </svg>
+</figure>
+{% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Grade de cartões por mês — redesenho (2026-10-03). Um cartão por mês
+   INDIVIDUAL de `grade_meses` (report/plano.py::montar_grade_meses):
+   número do mês, um símbolo do que acontece e um rótulo curto — nunca
+   frase corrida. Equivalente estático de
+   frontend/src/componentes/JornadaDoPlano.tsx. ------------------------ #}
+{# Ícone que corresponde a cada tipo de mês da grade. #}
+{% set ICONE_DO_MES = {"ATAQUE": "dinheiro", "QUITACAO": "concluido", "APORTE": "reserva", "CHEGADA": "bandeira"} %}
+
+{% macro grade_meses_html(grade, textos) %}
+{# Revisão de design (2026-10-03): ícone desenhado em cada cartão, no
+   lugar de um símbolo de texto (o "€" que aparecia era um erro: a moeda é
+   o real). As cores vêm das classes `.mes-*` do `<style>` de plano.html. #}
+<div class="grade-meses">
+    {% for mes_da_grade in grade %}
+    <div class="mes mes-{{ mes_da_grade.tipo | lower }}">
+        <div class="mes-rotulo">{{ textos.get("rotulo_mes", "Mês") }}</div>
+        <div class="mes-numero">{{ mes_da_grade.mes }}</div>
+        <div class="mes-icone">{{ icone(ICONE_DO_MES[mes_da_grade.tipo]) }}</div>
+        {% if mes_da_grade.tipo == "ATAQUE" %}
+        <div class="mes-valor">{{ mes_da_grade.valor_extra }}</div>
+        <div class="mes-texto">{{ textos.get("ataque", "a mais") }}</div>
+        {% elif mes_da_grade.tipo == "QUITACAO" %}
+        <div class="mes-texto">{{ textos.get("quitada", "dívida quitada") }}</div>
+        {% elif mes_da_grade.tipo == "APORTE" %}
+        <div class="mes-texto">{{ textos.get("aporte", "dinheiro extra") }}</div>
+        {% else %}
+        <div class="mes-texto">{{ textos.get("chegada", "fim das dívidas") }}</div>
+        {% endif %}
+        {% if mes_da_grade.eh_primeira_vitoria %}
+        <div class="mes-selo">{{ textos.get("primeira_vitoria", "1ª quitação") }}</div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+<div class="legenda">
+    <div class="legenda-item"><span class="legenda-icone mes-ataque">{{ icone("dinheiro") }}</span>{{ textos.get("legenda_ataque", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-quitacao">{{ icone("concluido") }}</span>{{ textos.get("legenda_quitacao", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-aporte">{{ icone("reserva") }}</span>{{ textos.get("legenda_aporte", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-chegada">{{ icone("bandeira") }}</span>{{ textos.get("legenda_chegada", "") }}</div>
+</div>
+{% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Calendário por ano (2026-10-03) — plano com mais de 12 meses. Uma
+   linha por ano de `grade_anos` (report/plano.py::agrupar_grade_por_ano),
+   com os 12 meses lado a lado: mês comum em branco, só com o número; mês
+   com acontecimento em cor e com o ícone da legenda. Embaixo de cada
+   linha, o valor extra do ano e as quitações, em texto curto. Mesma
+   leitura de frontend/src/componentes/JornadaDoPlano.tsx. ------------- #}
+{% macro calendario_por_ano(anos, textos) %}
+<div class="calendario">
+    {% for ano in anos %}
+    <div class="ano">
+        <div class="ano-cabeca">
+            <span class="ano-titulo">{{ textos.get("rotulo_ano", "Ano") }} {{ ano.numero }}</span>
+            <span class="ano-meses">{{ (textos.get("meses_do_ano", "Mês {inicio} a {fim}") if ano.mes_inicio != ano.mes_fim else textos.get("mes_unico_do_ano", "Mês {inicio}")) | replace("{inicio}", ano.mes_inicio | string) | replace("{fim}", ano.mes_fim | string) }}</span>
+        </div>
+        <div class="ano-grade">
+            {% for mes_da_grade in ano.meses %}
+            {% set icone_nome = "trofeu" if mes_da_grade.eh_primeira_vitoria else ICONE_DO_MES[mes_da_grade.tipo] %}
+            <div class="dia mes-{{ mes_da_grade.tipo | lower }}{% if mes_da_grade.eh_primeira_vitoria %} mes-vitoria{% endif %}">
+                <span class="dia-numero">{{ mes_da_grade.mes }}</span>
+                {% if mes_da_grade.tipo != "ATAQUE" %}<span class="dia-icone">{{ icone(icone_nome) }}</span>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="ano-notas">
+            {% if ano.valores_extras %}
+            <div>{{ textos.get("valor_do_ano", "{valores}") | replace("{valores}", ano.valores_extras | join(textos.get("separador_de_valores", ", depois "))) }}</div>
+            {% endif %}
+            {% for quitacao in ano.quitacoes %}
+            <div class="ano-quitacao">{{ icone("concluido") }} {{ textos.get("quitacao_do_ano", "Mês {mes}: {divida}") | replace("{mes}", quitacao[0] | string) | replace("{divida}", quitacao[1]) }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+<div class="legenda">
+    <div class="legenda-item"><span class="legenda-icone mes-ataque legenda-numero">1</span>{{ textos.get("legenda_comum", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-quitacao">{{ icone("concluido") }}</span>{{ textos.get("legenda_quitacao", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-quitacao mes-vitoria">{{ icone("trofeu") }}</span>{{ textos.get("legenda_primeira_vitoria", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-aporte">{{ icone("reserva") }}</span>{{ textos.get("legenda_aporte", "") }}</div>
+    <div class="legenda-item"><span class="legenda-icone mes-chegada">{{ icone("bandeira") }}</span>{{ textos.get("legenda_chegada", "") }}</div>
+</div>
+{% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Ícones do documento — os MESMOS traçados de
+   frontend/src/componentes/Icone.tsx (20×20, contorno em currentColor),
+   para que tela e PDF falem a mesma língua visual. Sempre decorativos:
+   `aria-hidden` e `focusable="false"`, e o texto ao lado diz o que é. --- #}
+{% set TRACADO = {
+    "dinheiro": "M3 6h14v8H3zM10 12.2a2.2 2.2 0 100-4.4 2.2 2.2 0 000 4.4",
+    "concluido": "M4 10.5l4 4 8-8.5",
+    "reserva": "M4 7.5h12v8H4zM7 7.5V5.2h6v2.3M10 10.4v2.2",
+    "bandeira": "M5 3v14M5 4h9l-2.5 3L14 10H5",
+    "trofeu": "M6 4h8v3.5a4 4 0 01-8 0V4zM4 5.5h2M14 5.5h2M4 5.5a2 2 0 002 2M16 5.5a2 2 0 01-2 2M8.5 11.3v2.2h3v-2.2M7 16h6",
+    "passo": "M7 4.5a1.6 1.6 0 11-.1 3.2 1.6 1.6 0 01.1-3.2zM12.5 10a1.6 1.6 0 11-.1 3.2 1.6 1.6 0 01.1-3.2zM6.6 9.2c.5 1.6.3 3-1 4M13.2 14.5c-.5-1.6-.3-3 1-4",
+    "avancar": "M4 10h12M11 5l5 5-5 5",
+    "prazo": "M10 6.2v4l2.6 1.6",
+    "taxa": "M4 14L9 8.5l3 3L16 6",
+    "conferencia": "M10 2.6l6 2.7v4.3c0 3.6-2.5 6.3-6 7.8-3.5-1.5-6-4.2-6-7.8V5.3z",
+    "duvida": "M7.5 7.8a2.5 2.5 0 114.6 1.4c-.5.8-1.6 1-1.6 2.3M10.4 14h.1",
+} %}
+{% macro icone(nome) %}<svg class="icone" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{% if nome == "prazo" %}<circle cx="10" cy="10" r="7"></circle>{% endif %}<path d="{{ TRACADO[nome] }}"></path></svg>{% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Faixa de título de cada seção do documento: número, título (h2) e
+   ícone. Fica aqui, e não em plano.html, para que cada parte incluída
+   também possa ser renderizada sozinha (testes de EC-07/EC-08/EC-09):
+   fora do documento, `numero` chega vazio e o círculo não aparece. ---- #}
+{% macro cabecalho_da_secao(numero, titulo, icone_nome, id_do_titulo="") %}
+<div class="secao-cabecalho">
+    {% if numero %}<span class="secao-numero">{{ numero }}</span>{% endif %}
+    <h2{% if id_do_titulo %} id="{{ id_do_titulo }}"{% endif %}>{{ titulo }}</h2>
+    <span class="secao-icone">{{ icone(icone_nome) }}</span>
+</div>
+{% endmacro %}

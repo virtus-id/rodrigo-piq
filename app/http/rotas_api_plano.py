@@ -55,7 +55,12 @@ from app.http.rotas_operador import (
     obter_repositorio_itens_do_painel,
     obter_repositorio_respostas_do_painel,
 )
-from app.http.rotas_plano import obter_repositorio_snapshots
+from app.http.rotas_plano import (
+    ContasDosCasos,
+    nome_do_dono_do_caso,
+    obter_contas_dos_casos,
+    obter_repositorio_snapshots,
+)
 from app.http.rotas_revisao import (
     obter_repositorio_casos_da_fila,
     obter_repositorio_snapshots_da_fila,
@@ -147,6 +152,7 @@ def plano_do_aluno(
         RepositorioRespostas, Depends(obter_repositorio_respostas_da_coleta)
     ],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens_da_coleta)],
+    contas: Annotated[ContasDosCasos, Depends(obter_contas_dos_casos)],
 ) -> JSONResponse:
     """`AC-25` — sempre o snapshot **liberado**, nunca o último calculado.
 
@@ -213,7 +219,11 @@ def plano_do_aluno(
     respostas_do_caso = RespostasCaso(respostas=respostas)
     # `T-326` (`RF-111`): a dívida por "tipo — credor", nunca pelo código.
     contexto = montar_contexto_plano(
-        snapshot, textos, _vocabulario(colecao, respostas_do_caso, snapshot)
+        snapshot,
+        textos,
+        _vocabulario(colecao, respostas_do_caso, snapshot),
+        # Revisão de design: o plano chama o aluno pelo nome.
+        nome_do_dono_do_caso(contas, CASO_ID),
     )
     niveis = niveis_por_ficha(colecao.registros, respostas_do_caso, itens_por_escopo)
     # `T-245` (`RF-82`): orientação só na dívida com seguro prestamista.
@@ -227,7 +237,7 @@ def plano_do_aluno(
             "CASO_ID": CASO_ID,
             "estado": caso.estado.value,
             "plano": serializar_plano(
-                contexto, fontes_por_divida(niveis, textos), orientacoes_seguro
+                contexto, fontes_por_divida(niveis, textos), orientacoes_seguro, textos
             ),
         }
     )

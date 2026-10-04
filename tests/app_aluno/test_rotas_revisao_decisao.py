@@ -463,7 +463,7 @@ def test_apos_liberar_o_plano_fica_acessivel_ao_aluno(
     cliente_aluno = _montar_cliente_com_sessao(aplicacao, conta_id=conta_id_aluno)
     resposta_antes = cliente_aluno.get(f"/caso/{caso_id}/api/plano")
     assert resposta_antes.status_code == 200
-    assert "Sua ordem projetada de quitação" not in resposta_antes.text
+    assert "Seu plano inteligente de quitação de dívidas" not in resposta_antes.text
 
     resposta_decisao = cliente_revisor.post(
         f"/revisao/caso/{caso_id}/decisao",
@@ -477,7 +477,7 @@ def test_apos_liberar_o_plano_fica_acessivel_ao_aluno(
     # snapshot_liberado_id.
     resposta_depois = cliente_aluno.get(f"/caso/{caso_id}/api/plano")
     assert resposta_depois.status_code == 200
-    assert "Sua ordem projetada de quitação" in resposta_depois.text
+    assert "Seu plano inteligente de quitação de dívidas" in resposta_depois.text
 
     caso_apos = repositorio_casos.buscar(caso_id)
     assert caso_apos is not None
@@ -517,7 +517,7 @@ def test_apos_reprovar_o_plano_nao_fica_acessivel_ao_aluno(
     cliente_aluno = _montar_cliente_com_sessao(aplicacao, conta_id=conta_id_aluno)
     resposta_aluno = cliente_aluno.get(f"/caso/{caso_id}/api/plano")
     assert resposta_aluno.status_code == 200
-    assert "Sua ordem projetada de quitação" not in resposta_aluno.text
+    assert "Seu plano inteligente de quitação de dívidas" not in resposta_aluno.text
 
     caso_apos = repositorio_casos.buscar(caso_id)
     assert caso_apos is not None
