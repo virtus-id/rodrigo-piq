@@ -37,7 +37,7 @@ from fastapi.responses import JSONResponse
 from app.casos.maquina import ESTADO_CASO, ErroTransicaoNaoDeclarada
 from app.casos.progresso import transicionar_e_registrar
 from app.concorrencia import duas_em_paralelo
-from app.http.edicao import ESTADOS_SOMENTE_LEITURA
+from app.http.edicao import ESTADOS_COM_PLANO_LIBERADO, ESTADOS_SOMENTE_LEITURA
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.jornada import PARTES
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
@@ -258,11 +258,6 @@ def obter_repositorio_eventos_da_retomada() -> RepositorioEventosCaso:
 
 _MENSAGEM_NAO_EM_CONFERENCIA: Final[str] = "Seu plano não está em conferência."
 
-#: `RF-118`: de onde o aluno pode pedir um plano novo. `COLETA_DIRIGIDA` e
-#: `CONFIRMACAO_ATAQUE` são etapas do próprio fluxo e ficam de fora.
-ESTADOS_COM_PLANO_LIBERADO: Final[frozenset[ESTADO_CASO]] = frozenset(
-    {ESTADO_CASO.PLANO_LIBERADO, ESTADO_CASO.ACOMPANHAMENTO}
-)
 _MENSAGEM_AINDA_NAO_LIBERADO: Final[str] = "Seu plano ainda não foi liberado."
 
 

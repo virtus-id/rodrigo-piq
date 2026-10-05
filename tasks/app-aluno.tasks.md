@@ -13730,3 +13730,31 @@ Relato de uso (2026-10-05): no desktop a tela deixava muito espaço vazio; a col
 - [x] Testes (vitest) e gates
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-343` — Servidor: o Início diz se há respostas atualizadas
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-341`, `T-336` · **Rastreia:** `RF-120`, `AC-185`, `AC-188`
+- **Arquivos (previstos):** `app/http/atualizacoes.py` (novo), `app/http/rotas_inicio.py` + testes
+
+- [x] `respostas_atualizadas`: estado montado atual × `estado_inputs` do plano liberado
+- [x] `pode_refazer_plano` e `pode_retomar_edicao` no `/inicio`
+- [x] Falha da comparação vira `null` (nunca derruba o Início)
+- [x] Testes de `AC-185` e `AC-188`; gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-344` — Frontend: plano novo e edição no Início
+
+- **Tipo:** `UX` · **Dependências:** `T-343`, `T-342` · **Rastreia:** `RF-120`, `AC-186`, `AC-187`
+- **Arquivos (previstos):** `frontend/src/componentes/CartoesDoPlano.tsx` (novo), `frontend/src/telas/TelaInicio.tsx`,
+  `frontend/src/telas/TelaRespostas.tsx`, `frontend/src/tipos.ts`, `frontend/src/App.tsx` + testes
+
+- [x] Cartões compartilhados (plano novo; retirar da conferência), usados no Início e em "Minhas respostas"
+- [x] Início: aviso "Você atualizou suas respostas depois do seu plano." + ação, e "Quero editar minhas respostas" em conferência
+- [x] Testes (vitest) e gates
+
+**Status:** `[x] concluída (2026-10-05)`

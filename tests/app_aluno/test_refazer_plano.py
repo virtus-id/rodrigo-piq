@@ -196,3 +196,70 @@ def test_ac181_de_acompanhamento_tambem_pode_refazer(cenario: Cenario) -> None: 
         assert cliente.get(f"/caso/{CASO_ID}/respostas").json()["pode_refazer_plano"] is True
         assert cliente.post(f"/caso/{CASO_ID}/refazer-plano").status_code == 200
         assert _caso(casos).estado is ESTADO_CASO.COLETA_INICIAL
+
+
+# --------------------------------------------------------------------------- AC-185 · AC-188
+
+
+def test_ac185_inicio_diz_se_as_respostas_mudaram_desde_o_plano(
+    cenario: Cenario,  # noqa: F811
+) -> None:
+    cliente, casos, _, respostas, _ = cenario
+    with cliente:
+        _liberar_v1(cliente, casos, cenario)
+
+        # Recém-liberado: o estado montado de agora é o do plano.
+        inicio = cliente.get(f"/caso/{CASO_ID}/inicio").json()
+        assert inicio["pode_refazer_plano"] is True
+        assert inicio["pode_retomar_edicao"] is False
+        assert inicio["respostas_atualizadas"] is False
+
+        # Regravar o MESMO valor não é mudança.
+        respostas.corrigir_no_item("D001", {"QUALIDADE_TAXA_INFORMADA": "DESCONHECIDA"})
+        assert cliente.get(f"/caso/{CASO_ID}/inicio").json()["respostas_atualizadas"] is False
+
+        # Mudar o que o plano lê é.
+        respostas.corrigir_no_item(
+            "D001",
+            {
+                "QUALIDADE_TAXA_INFORMADA": "CONFIRMADA",
+                "TAXA_INFORMADA": converter_para_taxa("8"),
+                "PERIODICIDADE_TAXA": "MENSAL",
+            },
+        )
+        inicio = cliente.get(f"/caso/{CASO_ID}/inicio").json()
+        assert inicio["respostas_atualizadas"] is True
+        assert inicio["pode_refazer_plano"] is True
+
+
+def test_ac185_fora_do_plano_liberado_nao_afirma_nada(cenario: Cenario) -> None:  # noqa: F811
+    cliente, casos, _, _, _ = cenario
+    with cliente:
+        inicio = cliente.get(f"/caso/{CASO_ID}/inicio").json()  # COLETA_INICIAL, sem plano
+        assert inicio["respostas_atualizadas"] is None
+        assert inicio["pode_refazer_plano"] is False
+        assert inicio["pode_retomar_edicao"] is False
+
+        casos.transicionar_estado(CASO_ID, ESTADO_CASO.CALCULANDO)
+        casos.transicionar_estado(CASO_ID, ESTADO_CASO.AGUARDANDO_REVISAO)
+        inicio = cliente.get(f"/caso/{CASO_ID}/inicio").json()
+        assert inicio["pode_retomar_edicao"] is True  # `AC-187`
+        assert inicio["pode_refazer_plano"] is False
+        assert inicio["respostas_atualizadas"] is None
+
+
+def test_ac188_se_a_comparacao_e_impossivel_o_inicio_responde_e_nao_afirma_mudanca(
+    cenario: Cenario,  # noqa: F811
+) -> None:
+    cliente, casos, _, respostas, _ = cenario
+    with cliente:
+        _liberar_v1(cliente, casos, cenario)
+        # Uma resposta sem a qual a montagem do cálculo recusa.
+        respostas.respostas = [r for r in respostas.respostas if r.ID_PERGUNTA != "RENDA_PRINCIPAL"]
+
+        resposta = cliente.get(f"/caso/{CASO_ID}/inicio")
+
+        assert resposta.status_code == 200, "a falha da comparação nunca derruba o Início"
+        corpo = resposta.json()
+        assert corpo["respostas_atualizadas"] is None
+        assert corpo["pode_refazer_plano"] is True, "a ação neutra continua oferecida"

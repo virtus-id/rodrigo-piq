@@ -445,6 +445,7 @@ com a redação canônica obrigatória.
 | `RF-117` | **A pergunta de renda diz o que informar.** `B3.01` pede o valor **depois do imposto de renda e da previdência e antes de empréstimos e consignados**, com a orientação de que as parcelas dessas dívidas são cadastradas no Bloco 5 e que plano de saúde, sindicato e outros descontos de folha entram nas despesas. O motivo é que o motor desconta as parcelas das dívidas da renda (`RENDA_TOTAL_RECORRENTE`): informar o que cai na conta contaria cada consignado duas vezes | Decisão do produto (2026-10-05) · `RF-79`, `B3.01`, `B3.S` · `T-338` | essencial |
 | `RF-118` | **O aluno pede um plano novo depois da liberação.** Em `PLANO_LIBERADO` e `ACOMPANHAMENTO`, "Minhas respostas" oferece **"Gerar um novo plano com as minhas respostas"**. Antes de confirmar, o aluno lê: o plano atual continua disponível; o novo será calculado com **todas** as respostas de agora e **conferido pela equipe de novo**, o que pode levar o tempo da fila; quando ficar pronto, substitui o atual. Confirmada a ação, o caso volta a `COLETA_INICIAL` (gatilho `aluno_refaz_plano`, evento na trilha), o plano liberado fica **intacto e visível** (`OQ-09`: o aluno só vê plano liberado) e o cálculo é disparado pelo reenvio de sempre, que gera a versão seguinte **encadeada** à anterior (`V-01`, como em `RF-113`). **Só o aluno pede**: o revisor não edita o plano, apenas o devolve com mensagem (`RF-113`). Os dados já informados nos Blocos 7, 8, 10 e 11 ficam preservados | Decisão do produto (2026-10-05): depois da liberação, editar uma resposta não gerava plano novo · `RF-113`, `RF-114`, `RF-115`, `OQ-09`, `V-01` · `T-341`, `T-342` | essencial |
 | `RF-119` | **O plano novo nasce das respostas atuais.** O `estado_inputs` da versão nova reflete cada resposta alterada desde a anterior (renda, despesas, dívidas, taxas); nada vem do snapshot anterior além do encadeamento. A versão anterior continua gravada como estava (append-only) | `RF-14`, `RF-118`, `V-01` · `T-341` | essencial |
+| `RF-120` | **O Início oferece o plano novo e avisa quando há respostas atualizadas.** Com plano liberado (`PLANO_LIBERADO`, `ACOMPANHAMENTO`), o Início mostra a ação **"Gerar um novo plano"** com a mesma confirmação de `RF-118`; quando as respostas mudaram desde o cálculo do plano, a ação vira um **aviso**: "Você atualizou suas respostas depois do seu plano. Quer enviá-las para gerar um novo plano?". Quem decide é o servidor, comparando o estado financeiro montado das respostas atuais com o `estado_inputs` do plano liberado (`respostas_atualizadas`); se a comparação não for possível (a montagem recusa uma resposta), o servidor não afirma mudança (`null`) e o Início oferece só a ação neutra. Em conferência (`AGUARDANDO_REVISAO`) o Início oferece **"Quero editar minhas respostas"** com a confirmação de `RF-115`. Confirmada qualquer das ações, a tela segue para onde o fluxo pede: o cálculo (plano novo) ou "Minhas respostas" (editar) | Decisão do produto (2026-10-05): a opção precisa estar no Início, onde o aluno chega | `RF-115`, `RF-118`, `RF-119`, `RF-58` · `T-343`, `T-344` | essencial |
 
 ## 3. User Stories
 
@@ -726,7 +727,7 @@ Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
 
 > Como **aluno**, quero **pedir um plano novo depois de corrigir ou atualizar minhas respostas**, sabendo que ele será conferido de novo e que o atual continua valendo até lá, para **que o plano reflita a minha vida de agora sem eu perder o que já tenho**.
 
-Atende: `RF-118`, `RF-119`
+Atende: `RF-118`, `RF-119`, `RF-120`
 
 ## 4. Acceptance Criteria
 
@@ -1042,7 +1043,7 @@ Atende: `RF-118`, `RF-119`
 
 ### Rodada 14 (2026-10-05) — Plano novo depois da liberação
 
-> **Rastreabilidade `RF` → `AC`.** `RF-118` → `AC-181`, `AC-182`, `AC-184` · `RF-119` → `AC-183`.
+> **Rastreabilidade `RF` → `AC`.** `RF-118` → `AC-181`, `AC-182`, `AC-184` · `RF-119` → `AC-183` · `RF-120` → `AC-185`, `AC-186`, `AC-187`, `AC-188`.
 
 | ID | Story | Critério (verificável) |
 | --- | --- | --- |
@@ -1050,6 +1051,10 @@ Atende: `RF-118`, `RF-119`
 | `AC-182` | `US-35` | Dado um caso fora de `PLANO_LIBERADO` e `ACOMPANHAMENTO` (em `CALCULANDO`, `AGUARDANDO_REVISAO` ou `COLETA_INICIAL`, por exemplo), quando o aluno pede o plano novo, então a rota responde `409` com "Seu plano ainda não foi liberado.", o estado não muda e nenhum evento é gravado |
 | `AC-183` | `US-35` | Dado um caso liberado (v1) cuja taxa do cheque especial foi alterada de 4% para 8% depois da liberação, quando o aluno pede o plano novo e envia, então nasce a v2 com `versao = 2` encadeada à v1, o `estado_inputs` da v2 traz 8% e o da v1 continua com 4%, e o caso volta à fila de conferência |
 | `AC-184` | `US-35` | Dado o aluno prestes a confirmar, quando a confirmação aparece, então o texto diz que o plano atual continua disponível, que o novo será conferido de novo pela equipe e que isso pode levar o tempo da fila; e, depois de confirmar, o Início continua oferecendo "Ver meu plano" enquanto o novo não é liberado |
+| `AC-185` | `US-35` | Dado um caso em `PLANO_LIBERADO` ou `ACOMPANHAMENTO` cujo estado financeiro montado das respostas atuais difere do `estado_inputs` do plano liberado, quando o aluno abre o Início, então `GET /inicio` traz `respostas_atualizadas: true` e `pode_refazer_plano: true`; com estado igual, `respostas_atualizadas: false`; fora desses estados `pode_refazer_plano` é falso e `respostas_atualizadas` é `null` |
+| `AC-186` | `US-35` | Dado `respostas_atualizadas: true`, quando o Início é exibido, então ele mostra "Você atualizou suas respostas depois do seu plano." e a ação "Gerar um novo plano"; ao confirmar (texto de `AC-184`) o pedido é feito e a tela vai ao cálculo; com `respostas_atualizadas: false` ou `null`, a ação aparece sem o aviso de atualização |
+| `AC-187` | `US-35` | Dado um caso em `AGUARDANDO_REVISAO`, quando o aluno abre o Início, então há a ação "Quero editar minhas respostas" com a confirmação de `RF-115`; confirmada, o caso volta a `COLETA_INICIAL` e a tela vai a "Minhas respostas" |
+| `AC-188` | `US-35` | Dado um caso liberado em que a montagem recusa alguma resposta (a comparação é impossível), quando `GET /inicio`, então a rota responde `200` com `respostas_atualizadas: null` — a falha da comparação nunca derruba o Início — e o Início não afirma mudança |
 
 ## 5. Non-Functional Requirements
 

@@ -695,6 +695,15 @@ export interface Inicio {
    * interna do revisor nunca vem para cá.
    */
   correcao_pedida?: CorrecaoPedida | null
+  /** `RF-120`: plano liberado — o aluno pode pedir um plano novo. */
+  pode_refazer_plano?: boolean
+  /** `RF-120`: em conferência — o aluno pode retirar o plano para editar. */
+  pode_retomar_edicao?: boolean
+  /**
+   * `RF-120`: as respostas mudaram desde o plano? `null` = o servidor não soube
+   * comparar (não se afirma nada); ausente = servidor antigo.
+   */
+  respostas_atualizadas?: boolean | null
 }
 
 /** Um dado a conferir — pendência de homologação (`RF-93`), por nome. */

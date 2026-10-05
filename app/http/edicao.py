@@ -36,6 +36,12 @@ ESTADOS_SOMENTE_LEITURA: Final[frozenset[ESTADO_CASO]] = frozenset(
 # Montadas por `join` de pedaços curtos: nenhum literal isolado passa do
 # limiar de "possível enunciado de pergunta" de `T-08`/`AC-37` — são mensagens
 # de estado, não conteúdo do questionário.
+#: `RF-118`: de onde o aluno pode pedir um plano novo. `COLETA_DIRIGIDA` e
+#: `CONFIRMACAO_ATAQUE` são etapas do próprio fluxo e ficam de fora.
+ESTADOS_COM_PLANO_LIBERADO: Final[frozenset[ESTADO_CASO]] = frozenset(
+    {ESTADO_CASO.PLANO_LIBERADO, ESTADO_CASO.ACOMPANHAMENTO}
+)
+
 MENSAGEM_EM_CONFERENCIA: Final[str] = " ".join(
     (
         "Seu plano está em conferência.",

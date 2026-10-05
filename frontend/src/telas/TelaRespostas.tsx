@@ -32,9 +32,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import Botao from '../componentes/Botao'
+import { CartaoPlanoNovo, CartaoRetirarDaConferencia } from '../componentes/CartoesDoPlano'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
-import { obterRespostasDoCaso, refazerPlano, retomarEdicao } from '../services/api'
+import { obterRespostasDoCaso } from '../services/api'
 import { formatarDecimalDoServidor, formatarTaxaDoServidor } from '../mascaras'
 import type { ParteDasRespostas, RespostaDada, RespostasDoCaso } from '../tipos'
 
@@ -304,48 +305,6 @@ export default function TelaRespostas({
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const tituloDaParte = useRef<HTMLHeadingElement>(null)
-  // `RF-115`: a retirada do plano da conferência pede confirmação em linha.
-  const [confirmando, setConfirmando] = useState(false)
-  const [retirando, setRetirando] = useState(false)
-  const [erroRetirada, setErroRetirada] = useState<string | null>(null)
-
-  // `RF-118`: pedir o plano novo depois da liberação, também com confirmação.
-  const [confirmandoPlanoNovo, setConfirmandoPlanoNovo] = useState(false)
-  const [pedindoPlanoNovo, setPedindoPlanoNovo] = useState(false)
-  const [erroPlanoNovo, setErroPlanoNovo] = useState<string | null>(null)
-
-  async function pedirPlanoNovo() {
-    setPedindoPlanoNovo(true)
-    setErroPlanoNovo(null)
-    try {
-      await refazerPlano(casoId)
-      aoPedirPlanoNovo?.()
-    } catch (falha) {
-      setErroPlanoNovo(
-        falha instanceof Error ? falha.message : 'Não foi possível pedir o plano novo agora.',
-      )
-    } finally {
-      setPedindoPlanoNovo(false)
-    }
-  }
-
-  async function retirarDaConferencia() {
-    setRetirando(true)
-    setErroRetirada(null)
-    try {
-      await retomarEdicao(casoId)
-      setConfirmando(false)
-      // Relê: o servidor devolve `editavel: true` e a lista volta a ter "Editar".
-      await carregar()
-    } catch (falha) {
-      setErroRetirada(
-        falha instanceof Error ? falha.message : 'Não foi possível retirar o plano agora.',
-      )
-    } finally {
-      setRetirando(false)
-    }
-  }
-
   const carregar = useCallback(async () => {
     setCarregando(true)
     setErro(null)
@@ -416,104 +375,24 @@ export default function TelaRespostas({
           Tudo o que você já respondeu fica aqui. Mudou de ideia, ou errou um número? É só
           editar.
         </p>
+      ) : respostas.pode_retomar_edicao ? (
+        <CartaoRetirarDaConferencia
+          casoId={casoId}
+          explicacao="Por isso as respostas estão só para leitura: a equipe confere exatamente o que você enviou. Se perceber algo errado, você pode retirar o plano da conferência e editar."
+          aoRetirar={() => void carregar()}
+        />
       ) : (
-        <section className="cartao" aria-label="Plano em conferência">
-          <strong>
-            {respostas.pode_retomar_edicao
-              ? 'Seu plano está em conferência.'
-              : 'Estamos montando o seu plano.'}
-          </strong>
+        <section className="cartao" aria-label="Plano em cálculo">
+          <strong>Estamos montando o seu plano.</strong>
           <p className="nota">
-            {respostas.pode_retomar_edicao
-              ? 'Por isso as respostas estão só para leitura: a equipe confere exatamente o que você enviou. Se perceber algo errado, você pode retirar o plano da conferência e editar.'
-              : 'Assim que o cálculo terminar, o plano segue para a conferência. Até lá, as respostas ficam só para leitura.'}
+            Assim que o cálculo terminar, o plano segue para a conferência. Até lá, as respostas
+            ficam só para leitura.
           </p>
-
-          {respostas.pode_retomar_edicao && !confirmando && (
-            <Botao variante="discreto" className="self-start" onClick={() => setConfirmando(true)}>
-              Quero editar minhas respostas
-            </Botao>
-          )}
-
-          {respostas.pode_retomar_edicao && confirmando && (
-            <div className="flex flex-col gap-2" role="group" aria-label="Confirmar a retirada">
-              <p>
-                <strong>
-                  Seu plano sai da conferência. Quando você enviar de novo, ele volta para a
-                  fila.
-                </strong>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Botao onClick={() => void retirarDaConferencia()} disabled={retirando}>
-                  Retirar o plano e editar
-                </Botao>
-                <Botao
-                  variante="discreto"
-                  onClick={() => setConfirmando(false)}
-                  disabled={retirando}
-                >
-                  Cancelar
-                </Botao>
-              </div>
-            </div>
-          )}
-
-          {erroRetirada && (
-            <p role="alert" className="aviso-erro">
-              {erroRetirada}
-            </p>
-          )}
         </section>
       )}
 
       {respostas.pode_refazer_plano && (
-        <section className="cartao" aria-label="Plano novo">
-          <strong>Mudou algo? Você pode pedir um plano novo.</strong>
-          <p className="nota">
-            Seu plano atual continua disponível. Se você corrigiu ou atualizou respostas, um
-            plano novo leva isso em conta.
-          </p>
-
-          {!confirmandoPlanoNovo && (
-            <Botao
-              variante="discreto"
-              className="self-start"
-              onClick={() => setConfirmandoPlanoNovo(true)}
-            >
-              Gerar um novo plano com as minhas respostas
-            </Botao>
-          )}
-
-          {confirmandoPlanoNovo && (
-            <div className="flex flex-col gap-2" role="group" aria-label="Confirmar o plano novo">
-              <p>
-                <strong>
-                  Seu plano atual continua disponível. O plano novo será calculado com todas as suas
-                  respostas e conferido de novo pela equipe, o que pode levar o tempo da fila.
-                  Quando ficar pronto, ele substitui o atual.
-                </strong>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Botao onClick={() => void pedirPlanoNovo()} disabled={pedindoPlanoNovo}>
-                  Pedir o plano novo
-                </Botao>
-                <Botao
-                  variante="discreto"
-                  onClick={() => setConfirmandoPlanoNovo(false)}
-                  disabled={pedindoPlanoNovo}
-                >
-                  Cancelar
-                </Botao>
-              </div>
-            </div>
-          )}
-
-          {erroPlanoNovo && (
-            <p role="alert" className="aviso-erro">
-              {erroPlanoNovo}
-            </p>
-          )}
-        </section>
+        <CartaoPlanoNovo casoId={casoId} aoPedir={() => aoPedirPlanoNovo?.()} />
       )}
 
       <PainelDaParte

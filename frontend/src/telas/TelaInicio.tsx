@@ -15,6 +15,7 @@
  * o TEXTO e o enquadramento visual de cada fase, que é trabalho de interface.
  */
 import Botao from '../componentes/Botao'
+import { CartaoPlanoNovo, CartaoRetirarDaConferencia } from '../componentes/CartoesDoPlano'
 import Esqueleto from '../componentes/Esqueleto'
 import Icone from '../componentes/Icone'
 import Tela from '../componentes/Tela'
@@ -349,6 +350,16 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
         </div>
       )}
 
+      {/* `RF-120` (T-344): as respostas mudaram depois do plano — o aviso vem ANTES
+          da próxima etapa, porque é o que o aluno precisa saber ao chegar. */}
+      {inicio.pode_refazer_plano && inicio.respostas_atualizadas === true && (
+        <CartaoPlanoNovo
+          casoId={inicio.CASO_ID}
+          atualizado
+          aoPedir={() => irPara({ tela: 'calculando' })}
+        />
+      )}
+
       <div className="cartao-proximo">
         <div className="flex items-start gap-3">
           <span className="selo">
@@ -377,6 +388,23 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
         <div className="aviso-ok" role="status">
           <div>{inicio.mensagem}</div>
         </div>
+      )}
+
+      {/* `RF-120`: a ação neutra — sem afirmar que algo mudou — e a retirada da
+          conferência. Quem decide quando cada uma existe é o servidor. */}
+      {inicio.pode_refazer_plano && inicio.respostas_atualizadas !== true && (
+        <CartaoPlanoNovo
+          casoId={inicio.CASO_ID}
+          atualizado={inicio.respostas_atualizadas ?? null}
+          aoPedir={() => irPara({ tela: 'calculando' })}
+        />
+      )}
+      {inicio.pode_retomar_edicao && (
+        <CartaoRetirarDaConferencia
+          casoId={inicio.CASO_ID}
+          explicacao="Se quiser mudar uma resposta, retire o plano da conferência: ele sai da fila e volta quando você enviar de novo."
+          aoRetirar={() => irPara({ tela: 'respostas' })}
+        />
       )}
     </Tela>
   )

@@ -2991,3 +2991,30 @@ Blocos 7/8/10/11 ficam como estão e entram no cálculo.
 ## R14.6. Rastreabilidade
 
 `RF-118` → R14.1–R14.3 · `AC-181`, `AC-182`, `AC-184`, `EC-44` | `RF-119` → R14.2 · R14.4 · `AC-183`.
+
+---
+
+## R14.7. O Início oferece o plano novo (`RF-120`)
+
+O aluno chega pelo Início, não por "Minhas respostas". A mesma oferta passa a viver nele.
+
+**Servidor — `GET /inicio` ganha três campos:**
+
+| Campo | Valor |
+| --- | --- |
+| `pode_refazer_plano` | `true` em `PLANO_LIBERADO`/`ACOMPANHAMENTO` |
+| `pode_retomar_edicao` | `true` em `AGUARDANDO_REVISAO` |
+| `respostas_atualizadas` | `true`/`false` com plano liberado; `null` fora dele ou quando a comparação não é possível |
+
+`respostas_atualizadas` compara o **estado financeiro montado das respostas de agora** (a mesma
+montagem do cálculo: `_montar_estado_financeiro_do_caso`) com o `estado_inputs` do snapshot
+liberado. Não usa data: regravar o mesmo valor não conta como mudança, e mudar o que o plano não
+lê também não. Qualquer falha na montagem vira `null` e é registrada no log — **o Início nunca
+cai por causa dessa comparação** (`AC-188`). Código em `app/http/atualizacoes.py`.
+
+**Frontend:** dois cartões compartilhados (`componentes/CartoesDoPlano.tsx`), usados no Início e em
+"Minhas respostas": `CartaoPlanoNovo` (confirmação de `RF-118`, com o aviso de atualização no
+Início) e `CartaoRetirarDaConferencia` (confirmação de `RF-115`). Confirmado o plano novo → `#calculando`;
+confirmada a retirada → `#respostas`.
+
+**Rastreabilidade:** `RF-120` → R14.7 · `AC-185`–`AC-188`.

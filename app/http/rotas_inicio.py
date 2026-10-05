@@ -66,12 +66,15 @@ from app.casos.progresso import (
     proxima_pergunta_nao_respondida,
 )
 from app.concorrencia import tres_em_paralelo
+from app.http.atualizacoes import respostas_mudaram_desde_o_plano
+from app.http.edicao import ESTADOS_COM_PLANO_LIBERADO
 from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.mensagens_de_estado import (
     MENSAGEM_COLETA_COMPLETA,
     MENSAGEM_CORRECAO_PEDIDA,
     mensagem_do_estado_do_caso,
 )
+from app.http.rotas_calculo import ParametrosExternosDoBloco6, obter_parametros_externos_do_bloco6
 from app.http.rotas_coleta import (
     _itens_por_escopo,
     faltam_fichas_de_divida,
@@ -406,6 +409,9 @@ def inicio_do_caso(
     repositorio_revisoes: Annotated[
         RepositorioRevisoes, Depends(obter_repositorio_revisoes_do_inicio)
     ],
+    parametros_externos: Annotated[
+        ParametrosExternosDoBloco6, Depends(obter_parametros_externos_do_bloco6)
+    ],
 ) -> JSONResponse:
     """`RF-58`, `RF-60`, `AC-81` — a fase do caso e a ÚNICA próxima etapa.
 
@@ -492,6 +498,17 @@ def inicio_do_caso(
             "versao_do_plano": snapshot.versao if snapshot is not None else None,
             # `T-333` (RF-113): `null` fora da correção pedida.
             "correcao_pedida": correcao_pedida,
+            # `RF-120` (T-343): o que o Início oferece além da próxima etapa.
+            "pode_refazer_plano": caso.estado in ESTADOS_COM_PLANO_LIBERADO,
+            "pode_retomar_edicao": caso.estado is ESTADO_CASO.AGUARDANDO_REVISAO,
+            "respostas_atualizadas": respostas_mudaram_desde_o_plano(
+                caso=caso,
+                snapshot=snapshot,
+                respostas=respostas,
+                itens_por_escopo=itens_por_escopo,
+                colecao=colecao,
+                parametros_externos=parametros_externos,
+            ),
         }
     )
 
