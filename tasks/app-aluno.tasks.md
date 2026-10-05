@@ -13812,3 +13812,19 @@ Relato de uso (2026-10-05): no desktop a tela deixava muito espaço vazio; a col
 - [x] Testes (vitest) e gates
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-349` — Conferência do revisor aproveita a tela inteira
+
+- **Tipo:** `UX` · **Dependências:** `T-347`, `T-348` · **Rastreia:** `RF-121`
+- **Arquivos:** `frontend/src/componentes/Tela.tsx`, `frontend/src/componentes/ListaDeDados.tsx`, `frontend/src/telas/TelaEquipeCaso.tsx`
+
+Relato de uso (2026-10-05): na conferência, a coluna de detalhes do revisor ficava achatada (cerca de 450px) e a tela deixava espaço sem uso.
+
+- [x] `Tela` ganha `largura="total"` (sem teto de largura), só para a conferência; as outras telas da equipe e as do aluno não mudam (`AC-87`, `AC-106`)
+- [x] O plano do aluno segue na coluna fixa de 760px; o painel do revisor ocupa todo o resto (cerca de 610px a 1440px)
+- [x] A partir de 1800px o painel abre em duas colunas; os cartões largos (pendências, dados de entrada, chips) ocupam as duas
+- [x] Dados de entrada em linhas (rótulo à esquerda, valor à direita, filete embaixo), em até três colunas quando há espaço
+
+**Status:** `[x] concluída (2026-10-05)`

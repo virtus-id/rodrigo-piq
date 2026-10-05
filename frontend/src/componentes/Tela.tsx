@@ -82,8 +82,11 @@ interface TelaProps {
    * telas de CONSULTA densa, como "Minhas respostas" (`T-340`), em que o
    * aluno varre cem linhas e a tela larga é espaço para ler mais por vez.
    * Quem responde uma pergunta de cada vez continua na coluna de leitura.
+   * `total` = a tela inteira, sem teto de largura — só a conferência do
+   * revisor (`T-349`), que põe o plano do aluno ao lado de um painel de
+   * dados e precisa de todo o monitor para os dois.
    */
-  largura?: 'aluno' | 'equipe' | 'ampla'
+  largura?: 'aluno' | 'equipe' | 'ampla' | 'total'
   /**
    * `false` quando a tela desenha o próprio título — a de pergunta, cujo
    * `<legend>` já é o enunciado. O `<h1>` continua existindo, invisível:
@@ -137,6 +140,8 @@ export default function Tela({
   children,
 }: TelaProps) {
   const cabecalho = useRef<HTMLHeadingElement>(null)
+  // As telas da equipe (900px e `total`) não são do aluno: sem alerta de inventário.
+  const daEquipe = largura === 'equipe' || largura === 'total'
 
   // `[chave, titulo]`, NUNCA `[]` — `AC-84`. Com `[]`, trocar o conteúdo
   // dentro de um componente já montado não refocaria o `<h1>`. E só
@@ -171,8 +176,10 @@ export default function Tela({
       */}
       <div
         className={`flex min-h-screen w-full flex-col ${
-          largura === 'equipe'
-            ? 'max-w-equipe xl:max-w-[1280px]'
+          largura === 'total'
+            ? 'max-w-none'
+            : largura === 'equipe'
+              ? 'max-w-equipe xl:max-w-[1280px]'
             : lateral
               ? largura === 'ampla'
                 ? 'max-w-tela lg:max-w-[1120px] xl:max-w-[1360px] 2xl:max-w-[1560px]'
@@ -183,7 +190,7 @@ export default function Tela({
         <div className="top">
           {voltar ? (
             <button type="button" className="back" onClick={voltar}>
-              {rotuloVoltar ?? (largura === 'equipe' ? '‹ Voltar' : '‹ Início')}
+              {rotuloVoltar ?? (daEquipe ? '‹ Voltar' : '‹ Início')}
             </button>
           ) : (
             // Não é decoração. O `.top` é `justify-between`: sem este span o
@@ -223,7 +230,7 @@ export default function Tela({
 
           {/* `T-251` (RF-86, AC-133): o alerta de inventário incompleto em
               toda tela do aluno — só renderiza com pendência do servidor. */}
-          {largura !== 'equipe' && <AlertaInventario />}
+          {!daEquipe && <AlertaInventario />}
 
           {lateral ? (
             /*

@@ -138,7 +138,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
 
   if (carregando) {
     return (
-      <Tela titulo="Conferir plano" voltar={voltar} largura="equipe">
+      <Tela titulo="Conferir plano" voltar={voltar} largura="total">
         <Esqueleto forma="resumo" anuncio="Carregando o caso" />
       </Tela>
     )
@@ -146,7 +146,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
 
   if (!dados) {
     return (
-      <Tela titulo="Conferir plano" voltar={voltar} largura="equipe">
+      <Tela titulo="Conferir plano" voltar={voltar} largura="total">
         <p role="alert" className="aviso-erro">
           {erro ?? 'Nada para conferir.'}
         </p>
@@ -168,7 +168,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
       titulo={`Conferir o plano de ${fila.email_do_aluno || dados.CASO_ID}`}
       voltar={voltar}
       onde={`${dados.CASO_ID} · plano v${fila.versao}`}
-      largura="equipe"
+      largura="total"
       acoes={
         <div className="flex flex-wrap gap-3">
           {/* `RF-93`: com pendência de homologação o botão fica desabilitado.
@@ -229,7 +229,10 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           </div>
         </section>
 
-        <aside aria-label="Painel do revisor" className="flex min-w-0 flex-col gap-4">
+        <aside
+          aria-label="Painel do revisor"
+          className="grid min-w-0 content-start items-start gap-4 min-[1800px]:grid-cols-2"
+        >
       {/* `T-330`: o método é do caso, não da dívida — um destaque só, com o
           critério em uma frase (do servidor). Substitui o "Detalhe técnico"
           que repetia o mesmo texto do motor em cada posição. */}
@@ -243,7 +246,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
 
       {/* `T-266` — redação aprovada pelo produto (`T-289`, 2026-09-30). */}
       {pendencias.length > 0 && (
-        <div role="alert" className="aviso-erro flex-col">
+        <div role="alert" className="aviso-erro flex-col min-[1800px]:col-span-2">
           <p className="font-bold">
             Não pode ser homologado ainda: confirme ou corrija estes dados antes de liberar.
           </p>
@@ -325,7 +328,7 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           (100% dos planos) e o campo `REVISAO_HUMANA_OBRIGATORIA` do motor
           (caso `S-04`) são motivos diferentes para o caso estar aqui, e
           combiná-los num selo só esconderia qual dos dois se aplica. */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 min-[1800px]:col-span-2">
         {fila.entra_por_politica && <span className="chip chip-mudo">Política 100%</span>}
         {fila.e_metodologico && (
           <span className="chip chip-atencao">S-04 · revisão obrigatória</span>
@@ -359,25 +362,25 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           </section>
         )}
 
-        <details className="cartao min-w-0" open>
+        <details className="cartao min-w-0 min-[1800px]:col-span-2" open>
           <summary className="eyebrow cursor-pointer">Dados que produziram o plano</summary>
           {/* Nenhum campo é omitido: o revisor compara o plano contra o
               estado COMPLETO, e campo fora da tela é campo que ninguém
               confere. Os valores já vêm formatados pelo servidor — inclusive
               `DESCONHECIDO`, que nunca pode aparecer como `0` (`AC-08`). */}
-          <ListaDeDados campos={entradas.campos} />
+          <ListaDeDados larga campos={entradas.campos} />
           {entradas.dividas.map((divida) => (
             <section key={divida.DIVIDA_ID} aria-label={divida.nome}>
               <h3>
                 {divida.nome}
               </h3>
-              <ListaDeDados campos={divida.campos} />
+              <ListaDeDados larga campos={divida.campos} />
             </section>
           ))}
           <h3>Como lida com os gastos</h3>
-          <ListaDeDados campos={entradas.perfil_comportamental} />
+          <ListaDeDados larga campos={entradas.perfil_comportamental} />
           <h3>Sinais de comportamento</h3>
-          <ListaDeDados campos={entradas.sinais_comportamentais} />
+          <ListaDeDados larga campos={entradas.sinais_comportamentais} />
         </details>
         </aside>
       </div>
