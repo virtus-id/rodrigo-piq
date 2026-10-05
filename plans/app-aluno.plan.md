@@ -2941,3 +2941,53 @@ Máquina (par declarado, par vizinho continua recusado) · guarda nas cinco rota
 ## R13.7. Rastreabilidade
 
 `RF-114` → R13.2 · R13.3 · `AC-176` | `RF-115` → R13.1 · R13.2 · R13.3 · `AC-177`, `AC-179` | `RF-116` → R13.2 · `AC-178`, `EC-42`, `EC-43` | `RF-117` → R13.4 · `AC-180`.
+
+---
+
+# Rodada 14 (2026-10-05) — Plano novo depois da liberação (`RF-118`, `RF-119`)
+
+Depois da liberação, editar uma resposta só mudava o dado: nenhuma rota levava o caso de
+volta ao cálculo (`POST /calculo` exige `COLETA_INICIAL`; o recálculo por evento
+`disparar_recalculo` não tem rota). Esta rodada espelha a retirada da conferência
+(`R13`) para o caso liberado.
+
+## R14.1. Máquina de estados
+
+| De | Para | Gatilho | Guarda |
+| --- | --- | --- | --- |
+| `PLANO_LIBERADO` | `COLETA_INICIAL` | `aluno_refaz_plano` | `RF-118`: aluno pede plano novo |
+| `ACOMPANHAMENTO` | `COLETA_INICIAL` | `aluno_refaz_plano` | `RF-118`: aluno pede plano novo |
+
+`COLETA_DIRIGIDA` e `CONFIRMACAO_ATAQUE` ficam de fora: são etapas em que o aluno responde
+blocos do próprio fluxo, e voltar delas é decisão de outra rodada.
+
+## R14.2. Servidor
+
+- `POST /caso/{id}/refazer-plano` (`rotas_respostas.py`, ao lado de `retomar-edicao`): lê o estado; em `PLANO_LIBERADO`/`ACOMPANHAMENTO` aplica `transicionar_e_registrar(de=estado, para=COLETA_INICIAL)`; `409` com a mensagem de `AC-182` nos demais ou se outra transição venceu.
+- `GET /respostas` acrescenta `pode_refazer_plano`.
+- **Não muda:** `snapshot_liberado_id` (o aluno segue vendo o plano liberado — `rotas_plano` e o Início só leem esse campo) e `snapshot_raiz_id` (a cadeia). O reenvio é o cálculo de sempre: `_snapshot_corrente` encadeia a v2 à v1 com o evento `INFORMACAO_MATERIAL_CONHECIDA`, e o caso entra na fila (`AC-26`).
+- `RF-114` não se aplica ao caso em `COLETA_INICIAL`: as respostas voltam a ser editáveis até o envio.
+
+## R14.3. Frontend
+
+- `api.ts`: `refazerPlano(casoId)`.
+- `TelaRespostas`: quando `pode_refazer_plano`, um cartão oferece **"Gerar um novo plano com as minhas respostas"**, com a confirmação de `AC-184`; confirmada, chama `refazerPlano` e navega para `#calculando` (a tela que já dispara o cálculo e mostra pendências, `T-196`/`T-197`).
+- `TelaInicio`: "Ver meu plano" passa a aparecer também em `COLETA_INICIAL` quando já existe plano liberado (`plano_liberado`), com uma nota de que o plano atual continua valendo.
+
+## R14.4. Cuidado com o dado de entrada
+
+O plano novo só faz sentido se as entradas fazem. Ao pedir o plano, valem as guardas de sempre
+(inventário completo, montagem). Para o caso piloto (Levi) a verificação das entradas —
+renda antes dos consignados, parcelas, taxas, despesas — é feita antes do envio e registrada
+no relatório da tarefa.
+
+## R14.5. Testes e riscos
+
+Máquina (2 pares novos) · rota (`200` nos dois estados, `409` nos demais, evento gravado, plano
+liberado intacto) · `AC-183`: v2 encadeada com a taxa nova e v1 intacta · vitest da confirmação ·
+e2e do texto. Risco: aluno em `ACOMPANHAMENTO` com ações em andamento — as respostas dos
+Blocos 7/8/10/11 ficam como estão e entram no cálculo.
+
+## R14.6. Rastreabilidade
+
+`RF-118` → R14.1–R14.3 · `AC-181`, `AC-182`, `AC-184`, `EC-44` | `RF-119` → R14.2 · R14.4 · `AC-183`.

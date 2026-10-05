@@ -148,6 +148,80 @@ describe('TelaRespostas — só leitura em conferência (T-337, RF-114/RF-115)',
   })
 })
 
+describe('TelaRespostas — plano novo depois da liberação (T-342, RF-118)', () => {
+  function montarLiberado(aoPedir = vi.fn()) {
+    vi.spyOn(api, 'obterRespostasDoCaso').mockResolvedValue({
+      CASO_ID: 'C1',
+      partes: PARTES,
+      editavel: true,
+      pode_refazer_plano: true,
+    })
+    render(
+      <TelaRespostas
+        casoId="C1"
+        voltar={vi.fn()}
+        bloco={1}
+        escolherBloco={vi.fn()}
+        editar={vi.fn()}
+        aoPedirPlanoNovo={aoPedir}
+      />,
+    )
+    return aoPedir
+  }
+
+  it('só o caso liberado vê a oferta; a edição segue livre', async () => {
+    montarLiberado()
+    expect(await screen.findByText('Mudou algo? Você pode pedir um plano novo.')).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'Editar' }).length).toBeGreaterThan(0)
+  })
+
+  it('sem o campo (caso em coleta) não há oferta', async () => {
+    montar()
+    await screen.findByRole('navigation', { name: 'Partes das respostas' })
+    expect(screen.queryByText('Mudou algo? Você pode pedir um plano novo.')).not.toBeInTheDocument()
+  })
+
+  it('a confirmação diz que o plano atual continua, que será conferido de novo e que há fila (AC-184)', async () => {
+    montarLiberado()
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar um novo plano com as minhas respostas' }))
+
+    const texto = screen.getByRole('group', { name: 'Confirmar o plano novo' }).textContent ?? ''
+    expect(texto).toContain('Seu plano atual continua disponível')
+    expect(texto).toContain('conferido de novo pela equipe')
+    expect(texto).toContain('tempo da fila')
+  })
+
+  it('confirmar pede o plano ao servidor e leva à tela do cálculo', async () => {
+    const refazer = vi.spyOn(api, 'refazerPlano').mockResolvedValue({ estado: 'COLETA_INICIAL' })
+    const aoPedir = montarLiberado()
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar um novo plano com as minhas respostas' }))
+    expect(refazer).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pedir o plano novo' }))
+
+    await vi.waitFor(() => expect(aoPedir).toHaveBeenCalledTimes(1))
+    expect(refazer).toHaveBeenCalledWith('C1')
+  })
+
+  it('o servidor recusa (409): mostra a mensagem e não navega', async () => {
+    vi.spyOn(api, 'refazerPlano').mockRejectedValue(new Error('Seu plano ainda não foi liberado.'))
+    const aoPedir = montarLiberado()
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar um novo plano com as minhas respostas' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pedir o plano novo' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Seu plano ainda não foi liberado.')
+    expect(aoPedir).not.toHaveBeenCalled()
+  })
+
+  it('cancelar não pede nada', async () => {
+    const refazer = vi.spyOn(api, 'refazerPlano')
+    montarLiberado()
+    fireEvent.click(await screen.findByRole('button', { name: 'Gerar um novo plano com as minhas respostas' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(refazer).not.toHaveBeenCalled()
+  })
+})
+
 describe('TelaRespostas — foco (T-339)', () => {
   it('abrir a tela não puxa o foco para o título da parte', async () => {
     montar()

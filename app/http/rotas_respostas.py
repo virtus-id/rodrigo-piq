@@ -244,6 +244,8 @@ def respostas_do_caso(
             "CASO_ID": CASO_ID,
             "editavel": estado not in ESTADOS_SOMENTE_LEITURA,
             "pode_retomar_edicao": estado is ESTADO_CASO.AGUARDANDO_REVISAO,
+            # `RF-118` (T-341): depois da liberação o aluno pode pedir plano novo.
+            "pode_refazer_plano": estado in ESTADOS_COM_PLANO_LIBERADO,
             "partes": partes,
         }
     )
@@ -255,6 +257,13 @@ def obter_repositorio_eventos_da_retomada() -> RepositorioEventosCaso:
 
 
 _MENSAGEM_NAO_EM_CONFERENCIA: Final[str] = "Seu plano não está em conferência."
+
+#: `RF-118`: de onde o aluno pode pedir um plano novo. `COLETA_DIRIGIDA` e
+#: `CONFIRMACAO_ATAQUE` são etapas do próprio fluxo e ficam de fora.
+ESTADOS_COM_PLANO_LIBERADO: Final[frozenset[ESTADO_CASO]] = frozenset(
+    {ESTADO_CASO.PLANO_LIBERADO, ESTADO_CASO.ACOMPANHAMENTO}
+)
+_MENSAGEM_AINDA_NAO_LIBERADO: Final[str] = "Seu plano ainda não foi liberado."
 
 
 @roteador.post("/{CASO_ID}/retomar-edicao")
@@ -290,4 +299,40 @@ def retomar_edicao(
         return JSONResponse({"erro": _MENSAGEM_NAO_EM_CONFERENCIA}, status_code=409)
     if atualizado is None:
         return JSONResponse({"erro": _MENSAGEM_NAO_EM_CONFERENCIA}, status_code=409)
+    return JSONResponse({"CASO_ID": CASO_ID, "estado": ESTADO_CASO.COLETA_INICIAL.value})
+
+
+@roteador.post("/{CASO_ID}/refazer-plano")
+def refazer_plano(
+    CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
+    repositorio_eventos: Annotated[
+        RepositorioEventosCaso, Depends(obter_repositorio_eventos_da_retomada)
+    ],
+) -> JSONResponse:
+    """`RF-118`, `AC-181`, `AC-182` — o aluno pede um plano novo depois da
+    liberação.
+
+    `PLANO_LIBERADO`/`ACOMPANHAMENTO → COLETA_INICIAL` pela MÁQUINA e pela
+    trava condicional de `RF-31` (`transicionar_e_registrar`). Não toca no plano
+    liberado (`snapshot_liberado_id`) nem na cadeia de snapshots: o aluno segue
+    vendo o plano atual, e o reenvio (o cálculo de sempre) gera a versão
+    seguinte encadeada à anterior e a põe na fila. Só o aluno pede — o revisor
+    devolve com mensagem (`RF-113`), nunca reabre o plano. Fora desses dois
+    estados a rota recusa sem mexer em nada."""
+    caso = repositorio_casos.buscar(CASO_ID)
+    if caso is None or caso.estado not in ESTADOS_COM_PLANO_LIBERADO:
+        return JSONResponse({"erro": _MENSAGEM_AINDA_NAO_LIBERADO}, status_code=409)
+    try:
+        atualizado = transicionar_e_registrar(
+            repositorio_casos=repositorio_casos,
+            repositorio_eventos=repositorio_eventos,
+            caso_id=CASO_ID,
+            de=caso.estado,
+            para=ESTADO_CASO.COLETA_INICIAL,
+        )
+    except ErroTransicaoNaoDeclarada:  # pragma: no cover — a tabela as declara
+        return JSONResponse({"erro": _MENSAGEM_AINDA_NAO_LIBERADO}, status_code=409)
+    if atualizado is None:
+        return JSONResponse({"erro": _MENSAGEM_AINDA_NAO_LIBERADO}, status_code=409)
     return JSONResponse({"CASO_ID": CASO_ID, "estado": ESTADO_CASO.COLETA_INICIAL.value})

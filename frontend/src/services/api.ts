@@ -174,6 +174,15 @@ export function retomarEdicao(casoId: string): Promise<{ estado: string }> {
   return pedir<{ estado: string }>(`/caso/${casoId}/retomar-edicao`, { method: 'POST' })
 }
 
+/**
+ * O aluno pede um plano novo depois da liberação — `RF-118`, `T-342`. O plano
+ * atual segue valendo; o servidor devolve o caso à coleta (`409` antes da
+ * liberação) e o cálculo é disparado pela tela seguinte.
+ */
+export function refazerPlano(casoId: string): Promise<{ estado: string }> {
+  return pedir<{ estado: string }>(`/caso/${casoId}/refazer-plano`, { method: 'POST' })
+}
+
 export function listarEscopos(casoId: string): Promise<EscoposDoCaso> {
   return pedir<EscoposDoCaso>(`/caso/${casoId}/escopos`)
 }

@@ -274,7 +274,9 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
               {fase === 'revisao' ? 'Ver minhas respostas' : 'Ver e editar minhas respostas'}
             </Botao>
           )}
-          {inicio.plano_liberado && fase !== 'coleta' && (
+          {/* `RF-118`: em coleta COM plano liberado o aluno pediu um plano novo —
+              o atual segue valendo e continua à vista. */}
+          {inicio.plano_liberado && (
             <Botao variante="discreto" onClick={() => irPara({ tela: 'plano' })}>
               Ver meu plano
             </Botao>
@@ -302,6 +304,17 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
         A borda de 2px do `.cartao-proximo` continua sendo o que marca esta
         tela (`RF-58`); o selo não a substitui.
       */}
+      {/* `RF-118` (T-342): o aluno pediu um plano novo depois da liberação — em
+          coleta COM plano liberado e sem correção pedida. O atual segue valendo. */}
+      {fase === 'coleta' && inicio.plano_liberado && !correcao && (
+        <div className="aviso-ok flex-col" role="status">
+          <strong>Seu plano atual continua disponível.</strong>
+          <p className="m-0">
+            Você pediu um plano novo: termine de atualizar as respostas e envie. Ele será
+            conferido pela equipe antes de substituir o atual.
+          </p>
+        </div>
+      )}
       {/* `T-333` (`RF-113`): a conferência devolveu o plano. Fixo enquanto o
           aluno não reenvia: a mensagem do revisor e os dados a conferir,
           cada um levando à pergunta pela rota de correção (`RF-69`). O

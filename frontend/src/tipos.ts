@@ -667,6 +667,8 @@ export interface RespostasDoCaso {
   editavel?: boolean
   /** `RF-115`: só a conferência permite retirar o plano para editar. */
   pode_retomar_edicao?: boolean
+  /** `RF-118`: depois da liberação o aluno pode pedir um plano novo. */
+  pode_refazer_plano?: boolean
   partes: ParteDasRespostas[]
 }
 

@@ -13701,3 +13701,32 @@ Relato de uso (2026-10-05): no desktop a tela deixava muito espaço vazio; a col
 - [x] Abaixo de `xl:` continua uma coluna; no celular, como antes
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-341` — Servidor: plano novo depois da liberação
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-333`, `T-336` · **Rastreia:** `RF-118`, `RF-119`, `AC-181`, `AC-182`, `AC-183`, `EC-44`
+- **Arquivos (previstos):** `app/casos/maquina.py`, `app/http/rotas_respostas.py` + testes
+
+- [x] Transições `PLANO_LIBERADO → COLETA_INICIAL` e `ACOMPANHAMENTO → COLETA_INICIAL` (`aluno_refaz_plano`)
+- [x] `POST /caso/{id}/refazer-plano` (`200`; `409` fora desses dois estados; evento na trilha; plano liberado intacto)
+- [x] `GET /respostas` com `pode_refazer_plano`
+- [x] `AC-183`: v2 encadeada à v1 com a taxa nova; v1 intacta
+- [x] Gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-342` — Frontend: "Gerar um novo plano com as minhas respostas"
+
+- **Tipo:** `UX` · **Dependências:** `T-341` · **Rastreia:** `RF-118`, `AC-181`, `AC-184`
+- **Arquivos (previstos):** `frontend/src/services/api.ts`, `frontend/src/telas/TelaRespostas.tsx`,
+  `frontend/src/telas/TelaInicio.tsx`, `frontend/src/App.tsx`, `frontend/src/tipos.ts` + testes
+
+- [x] Cartão e confirmação em "Minhas respostas" (texto de `AC-184`); depois de confirmar, vai para `#calculando`
+- [x] Início: "Ver meu plano" também em coleta quando há plano liberado, com a nota
+- [x] Testes (vitest) e gates
+
+**Status:** `[x] concluída (2026-10-05)`

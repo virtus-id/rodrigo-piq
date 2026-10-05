@@ -9,7 +9,7 @@ de `Transicao`, um par recusado como amostra, ausência de estado
    declaradas (`gatilho` nomeado a cada passo, nunca uma transição
    inventada pelo teste);
 2. o produto cartesiano DOS DOZE ESTADOS — 12×12 = 144 pares, EXAUSTIVO,
-   não amostrado — separa os 19 pares declarados (sucesso) dos 125
+   não amostrado — separa os 21 pares declarados (sucesso) dos 123
    restantes (recusa por `ErroTransicaoNaoDeclarada`, nomeando origem e
    destino);
 3. `ERRO_DE_CALCULO` volta a CADA UM dos quatro estados de origem de
@@ -35,7 +35,7 @@ from app.casos.maquina import (
     transicionar,
 )
 
-# Os 19 pares declarados na tabela — usados para a exaustão do produto
+# Os 21 pares declarados na tabela — usados para a exaustão do produto
 # cartesiano. Não é uma cópia solta: é derivado da própria TABELA_TRANSICOES,
 # para que o teste nunca divirja do módulo por edição manual desatualizada.
 _PARES_DECLARADOS: frozenset[tuple[ESTADO_CASO, ESTADO_CASO]] = frozenset(
@@ -43,13 +43,14 @@ _PARES_DECLARADOS: frozenset[tuple[ESTADO_CASO, ESTADO_CASO]] = frozenset(
 )
 
 
-def test_tabela_declara_exatamente_dezenove_transicoes() -> None:
+def test_tabela_declara_exatamente_vinte_e_uma_transicoes() -> None:
     """Pré-condição da exaustão: a tabela citada pela tarefa (17 linhas, 18
-    desde `T-333`, 19 desde `T-336`) tem 19 pares distintos. Se este número mudar, os testes abaixo
-    continuam corretos (derivam de `TABELA_TRANSICOES`), mas este teste
-    avisa explicitamente que a superfície declarada mudou."""
-    assert len(TABELA_TRANSICOES) == 19
-    assert len(_PARES_DECLARADOS) == 19
+    desde `T-333`, 19 desde `T-336`, 21 desde `T-341`) tem 21 pares distintos.
+    Se este número mudar, os testes abaixo continuam corretos (derivam de
+    `TABELA_TRANSICOES`), mas este teste avisa explicitamente que a
+    superfície declarada mudou."""
+    assert len(TABELA_TRANSICOES) == 21
+    assert len(_PARES_DECLARADOS) == 21
 
 
 def test_caminho_completo_do_plano_e_percorrivel_so_por_transicoes_declaradas() -> None:
@@ -147,8 +148,8 @@ def test_coleta_dirigida_e_confirmacao_ataque_tambem_convergem_para_calculando(
 
 def test_produto_cartesiano_completo_dos_doze_estados_e_exaustivo() -> None:
     """Critério 2 — EXAUSTIVO sobre os 12×12 = 144 pares (de, para), nenhuma
-    amostra: os 19 pares declarados sucedem e devolvem a `Transicao`
-    correta; os 125 restantes são recusados com `ErroTransicaoNaoDeclarada`
+    amostra: os 21 pares declarados sucedem e devolvem a `Transicao`
+    correta; os 123 restantes são recusados com `ErroTransicaoNaoDeclarada`
     nomeando origem e destino."""
     todos_os_pares = list(itertools.product(ESTADO_CASO, ESTADO_CASO))
     assert len(todos_os_pares) == 144  # 12 x 12, produto cartesiano completo
@@ -170,8 +171,8 @@ def test_produto_cartesiano_completo_dos_doze_estados_e_exaustivo() -> None:
             assert erro.para is para
             pares_recusados_vistos += 1
 
-    assert pares_declarados_vistos == 19
-    assert pares_recusados_vistos == 125
+    assert pares_declarados_vistos == 21
+    assert pares_recusados_vistos == 123
     assert pares_declarados_vistos + pares_recusados_vistos == 144
 
 
@@ -279,3 +280,15 @@ def test_aluno_retira_o_plano_da_conferencia_so_a_partir_de_aguardando_revisao()
     assert origens == {ESTADO_CASO.AGUARDANDO_REVISAO}
     with pytest.raises(ErroTransicaoNaoDeclarada):
         transicionar(ESTADO_CASO.CALCULANDO, ESTADO_CASO.COLETA_INICIAL)
+
+
+def test_aluno_refaz_o_plano_so_de_plano_liberado_e_acompanhamento() -> None:
+    """`RF-118` (T-341): `PLANO_LIBERADO`/`ACOMPANHAMENTO → COLETA_INICIAL` pelo
+    gatilho `aluno_refaz_plano`; as etapas de blocos dirigidos não voltam."""
+    origens = {t.de for t in TABELA_TRANSICOES if t.gatilho == "aluno_refaz_plano"}
+    assert origens == {ESTADO_CASO.PLANO_LIBERADO, ESTADO_CASO.ACOMPANHAMENTO}
+    for origem in origens:
+        assert transicionar(origem, ESTADO_CASO.COLETA_INICIAL).gatilho == "aluno_refaz_plano"
+    for fora in (ESTADO_CASO.COLETA_DIRIGIDA, ESTADO_CASO.CONFIRMACAO_ATAQUE):
+        with pytest.raises(ErroTransicaoNaoDeclarada):
+            transicionar(fora, ESTADO_CASO.COLETA_INICIAL)

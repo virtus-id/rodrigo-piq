@@ -631,6 +631,9 @@ export default function App() {
             blocoDaRevisao.current = bloco
             irPara({ tela: 'respostas', idPergunta: id, itemId: item ?? undefined })
           }}
+          // `RF-118`: o caso já voltou à coleta; `#calculando` dispara o cálculo
+          // (e mostra as pendências, se houver) — o plano atual segue valendo.
+          aoPedirPlanoNovo={() => irPara({ tela: 'calculando' })}
         />
       )
     }

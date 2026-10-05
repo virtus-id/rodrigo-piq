@@ -34,7 +34,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
-import { obterRespostasDoCaso, retomarEdicao } from '../services/api'
+import { obterRespostasDoCaso, refazerPlano, retomarEdicao } from '../services/api'
 import { formatarDecimalDoServidor, formatarTaxaDoServidor } from '../mascaras'
 import type { ParteDasRespostas, RespostaDada, RespostasDoCaso } from '../tipos'
 
@@ -46,6 +46,8 @@ interface TelaRespostasProps {
   escolherBloco: (bloco: number) => void
   /** Abre a pergunta para correção — `RF-69`, `AC-102`. */
   editar: (idPergunta: string, itemId: string | null, bloco: number) => void
+  /** `RF-118`: o plano novo foi pedido — a casca leva à tela que o calcula. */
+  aoPedirPlanoNovo?: () => void
 }
 
 /**
@@ -296,6 +298,7 @@ export default function TelaRespostas({
   bloco,
   escolherBloco,
   editar,
+  aoPedirPlanoNovo,
 }: TelaRespostasProps) {
   const [respostas, setRespostas] = useState<RespostasDoCaso | null>(null)
   const [erro, setErro] = useState<string | null>(null)
@@ -305,6 +308,26 @@ export default function TelaRespostas({
   const [confirmando, setConfirmando] = useState(false)
   const [retirando, setRetirando] = useState(false)
   const [erroRetirada, setErroRetirada] = useState<string | null>(null)
+
+  // `RF-118`: pedir o plano novo depois da liberação, também com confirmação.
+  const [confirmandoPlanoNovo, setConfirmandoPlanoNovo] = useState(false)
+  const [pedindoPlanoNovo, setPedindoPlanoNovo] = useState(false)
+  const [erroPlanoNovo, setErroPlanoNovo] = useState<string | null>(null)
+
+  async function pedirPlanoNovo() {
+    setPedindoPlanoNovo(true)
+    setErroPlanoNovo(null)
+    try {
+      await refazerPlano(casoId)
+      aoPedirPlanoNovo?.()
+    } catch (falha) {
+      setErroPlanoNovo(
+        falha instanceof Error ? falha.message : 'Não foi possível pedir o plano novo agora.',
+      )
+    } finally {
+      setPedindoPlanoNovo(false)
+    }
+  }
 
   async function retirarDaConferencia() {
     setRetirando(true)
@@ -438,6 +461,56 @@ export default function TelaRespostas({
           {erroRetirada && (
             <p role="alert" className="aviso-erro">
               {erroRetirada}
+            </p>
+          )}
+        </section>
+      )}
+
+      {respostas.pode_refazer_plano && (
+        <section className="cartao" aria-label="Plano novo">
+          <strong>Mudou algo? Você pode pedir um plano novo.</strong>
+          <p className="nota">
+            Seu plano atual continua disponível. Se você corrigiu ou atualizou respostas, um
+            plano novo leva isso em conta.
+          </p>
+
+          {!confirmandoPlanoNovo && (
+            <Botao
+              variante="discreto"
+              className="self-start"
+              onClick={() => setConfirmandoPlanoNovo(true)}
+            >
+              Gerar um novo plano com as minhas respostas
+            </Botao>
+          )}
+
+          {confirmandoPlanoNovo && (
+            <div className="flex flex-col gap-2" role="group" aria-label="Confirmar o plano novo">
+              <p>
+                <strong>
+                  Seu plano atual continua disponível. O plano novo será calculado com todas as suas
+                  respostas e conferido de novo pela equipe, o que pode levar o tempo da fila.
+                  Quando ficar pronto, ele substitui o atual.
+                </strong>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Botao onClick={() => void pedirPlanoNovo()} disabled={pedindoPlanoNovo}>
+                  Pedir o plano novo
+                </Botao>
+                <Botao
+                  variante="discreto"
+                  onClick={() => setConfirmandoPlanoNovo(false)}
+                  disabled={pedindoPlanoNovo}
+                >
+                  Cancelar
+                </Botao>
+              </div>
+            </div>
+          )}
+
+          {erroPlanoNovo && (
+            <p role="alert" className="aviso-erro">
+              {erroPlanoNovo}
             </p>
           )}
         </section>

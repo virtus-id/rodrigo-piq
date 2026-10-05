@@ -443,6 +443,8 @@ com a redação canônica obrigatória.
 | `RF-115` | **"Quero editar minhas respostas" retira o plano da conferência.** Em `AGUARDANDO_REVISAO`, "Minhas respostas" oferece a ação **"Quero editar minhas respostas"**, com confirmação ("Seu plano sai da conferência. Quando você enviar de novo, ele volta para a fila."). Confirmada, o caso **volta a `COLETA_INICIAL`** (gatilho `aluno_retoma_edicao`, evento na trilha), com todas as respostas preservadas, o snapshot intacto (append-only) e o caso **fora da fila do revisor**. O reenvio é o `bloco_6_executa` de sempre e gera a nova versão encadeada à anterior (`V-01`), como em `RF-113`. Em `CALCULANDO` a ação não existe: o aluno espera o cálculo terminar | Decisão do produto (2026-10-05) · `RF-113`, `RF-114`, `V-01`, `RF-31` · `T-336`, `T-337` | essencial |
 | `RF-116` | **Quem decide e quem retira não se atropelam.** Se o revisor tenta liberar ou reprovar um caso que o aluno já retirou da conferência, a decisão é recusada (`409`, "Este plano saiu da conferência: o aluno o retirou para editar ou ele foi devolvido. Ele volta à fila quando for reenviado.") e **nenhum registro de revisão é gravado**. Se os dois agem ao mesmo tempo, vence quem primeiro conseguir a transição de estado (mesma trava de `RF-31`); a decisão que perde fica só na trilha de auditoria, sem efeito sobre o estado | Decisão do produto (2026-10-05) · `RF-23`, `RF-24`, `RF-115` · `T-336`, `T-337` | essencial |
 | `RF-117` | **A pergunta de renda diz o que informar.** `B3.01` pede o valor **depois do imposto de renda e da previdência e antes de empréstimos e consignados**, com a orientação de que as parcelas dessas dívidas são cadastradas no Bloco 5 e que plano de saúde, sindicato e outros descontos de folha entram nas despesas. O motivo é que o motor desconta as parcelas das dívidas da renda (`RENDA_TOTAL_RECORRENTE`): informar o que cai na conta contaria cada consignado duas vezes | Decisão do produto (2026-10-05) · `RF-79`, `B3.01`, `B3.S` · `T-338` | essencial |
+| `RF-118` | **O aluno pede um plano novo depois da liberação.** Em `PLANO_LIBERADO` e `ACOMPANHAMENTO`, "Minhas respostas" oferece **"Gerar um novo plano com as minhas respostas"**. Antes de confirmar, o aluno lê: o plano atual continua disponível; o novo será calculado com **todas** as respostas de agora e **conferido pela equipe de novo**, o que pode levar o tempo da fila; quando ficar pronto, substitui o atual. Confirmada a ação, o caso volta a `COLETA_INICIAL` (gatilho `aluno_refaz_plano`, evento na trilha), o plano liberado fica **intacto e visível** (`OQ-09`: o aluno só vê plano liberado) e o cálculo é disparado pelo reenvio de sempre, que gera a versão seguinte **encadeada** à anterior (`V-01`, como em `RF-113`). **Só o aluno pede**: o revisor não edita o plano, apenas o devolve com mensagem (`RF-113`). Os dados já informados nos Blocos 7, 8, 10 e 11 ficam preservados | Decisão do produto (2026-10-05): depois da liberação, editar uma resposta não gerava plano novo · `RF-113`, `RF-114`, `RF-115`, `OQ-09`, `V-01` · `T-341`, `T-342` | essencial |
+| `RF-119` | **O plano novo nasce das respostas atuais.** O `estado_inputs` da versão nova reflete cada resposta alterada desde a anterior (renda, despesas, dívidas, taxas); nada vem do snapshot anterior além do encadeamento. A versão anterior continua gravada como estava (append-only) | `RF-14`, `RF-118`, `V-01` · `T-341` | essencial |
 
 ## 3. User Stories
 
@@ -719,6 +721,12 @@ Atende: `RF-98`
 > Como **aluno**, quero **poder editar minhas respostas quando percebo um erro, sabendo que meu plano sai da conferência e volta quando eu reenviar**, para **que o revisor nunca confira um plano calculado com dados que já mudaram**.
 
 Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
+
+### `US-35` — Refazer meu plano quando minha situação muda
+
+> Como **aluno**, quero **pedir um plano novo depois de corrigir ou atualizar minhas respostas**, sabendo que ele será conferido de novo e que o atual continua valendo até lá, para **que o plano reflita a minha vida de agora sem eu perder o que já tenho**.
+
+Atende: `RF-118`, `RF-119`
 
 ## 4. Acceptance Criteria
 
@@ -1032,6 +1040,17 @@ Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
 | `AC-179` | `US-34` | Dado um caso fora de `AGUARDANDO_REVISAO` (em `CALCULANDO`, por exemplo), quando o aluno pede para retomar a edição, então a rota responde `409`, o estado não muda e nenhum evento é gravado |
 | `AC-180` | `US-34` | Dada a pergunta `B3.01`, quando exibida, então o enunciado é exatamente "Quanto você recebe por mês, em média, depois do imposto de renda e da previdência, mas antes de empréstimos e consignados? (Não desconte parcelas de empréstimo nem consignado: você cadastra essas dívidas mais adiante. Plano de saúde, sindicato e outros descontos de folha entram nas despesas.)" |
 
+### Rodada 14 (2026-10-05) — Plano novo depois da liberação
+
+> **Rastreabilidade `RF` → `AC`.** `RF-118` → `AC-181`, `AC-182`, `AC-184` · `RF-119` → `AC-183`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-181` | `US-35` | Dado um caso em `PLANO_LIBERADO` ou `ACOMPANHAMENTO`, quando o aluno confirma "Gerar um novo plano com as minhas respostas", então o caso passa a `COLETA_INICIAL`, o evento `aluno_refaz_plano` é registrado, o plano liberado continua servido ao aluno e as respostas ficam intactas; e `GET /respostas` devolve `pode_refazer_plano: true` apenas nesses dois estados |
+| `AC-182` | `US-35` | Dado um caso fora de `PLANO_LIBERADO` e `ACOMPANHAMENTO` (em `CALCULANDO`, `AGUARDANDO_REVISAO` ou `COLETA_INICIAL`, por exemplo), quando o aluno pede o plano novo, então a rota responde `409` com "Seu plano ainda não foi liberado.", o estado não muda e nenhum evento é gravado |
+| `AC-183` | `US-35` | Dado um caso liberado (v1) cuja taxa do cheque especial foi alterada de 4% para 8% depois da liberação, quando o aluno pede o plano novo e envia, então nasce a v2 com `versao = 2` encadeada à v1, o `estado_inputs` da v2 traz 8% e o da v1 continua com 4%, e o caso volta à fila de conferência |
+| `AC-184` | `US-35` | Dado o aluno prestes a confirmar, quando a confirmação aparece, então o texto diz que o plano atual continua disponível, que o novo será conferido de novo pela equipe e que isso pode levar o tempo da fila; e, depois de confirmar, o Início continua oferecendo "Ver meu plano" enquanto o novo não é liberado |
+
 ## 5. Non-Functional Requirements
 
 - **Performance:** cada transição de pergunta responde em p95 < 500 ms. A
@@ -1164,6 +1183,7 @@ Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
 | `EC-41` | Soma das rendas líquidas dos vínculos diverge da renda informada no Bloco 3 (`DE-05`) | Divergência sinalizada ao aluno e ao revisor; nenhum valor é somado de novo nem substitui a renda do Bloco 3; não bloqueia (`OQ-58`, `AC-156`) |
 | `EC-42` | O aluno retira o plano da conferência no mesmo instante em que o revisor decide (`RF-116`) | Só uma das duas transições (`AGUARDANDO_REVISAO` → `COLETA_INICIAL` ou → `PLANO_LIBERADO`/`REPROVADO_EM_REVISAO`) é aplicada, pela trava de `RF-31`; quem perde recebe `409`. Se foi o revisor quem perdeu, o registro da decisão (gravado antes da transição, por auditoria) fica sem efeito sobre o estado |
 | `EC-43` | O revisor está com o caso aberto quando o aluno o retira (`RF-115`) | A tela do revisor continua mostrando o plano que ele abriu, mas liberar ou reprovar devolve a mensagem de `AC-178`; ao voltar à fila, o caso não está mais lá até ser reenviado |
+| `EC-44` | O aluno pede o plano novo, mas o inventário está incompleto ou a montagem recusa uma resposta (`RF-118`) | O caso fica em `COLETA_INICIAL` com o plano liberado intacto; o cálculo recusa como sempre (`400`/`422`, com as pendências) e o aluno corrige e envia de novo. Nada do plano atual se perde |
 | `EC-37` | O aluno troca o tipo de proposta de parcelada para à vista depois de responder `B7.07`–`B7.09` (`DE-07`) | As respostas do parcelamento deixam de ser exibidas, de contar no progresso e de chegar ao motor; nenhuma delas vira `DESCONHECIDO` por ter ficado inaplicável |
 | `EC-38` | Recurso extraordinário `CONFIRMADO` com valor "Não sei" ou janela "Ainda não sei" (`DE-02`) | Não entra na projeção (não há valor estimável nem mês previsto); o item continua cadastrado e visível ao revisor — nunca vira `0` nem ganha janela presumida |
 
@@ -1441,8 +1461,11 @@ Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
   inventa aqui.
 - **Travar a edição do plano já liberado.** `RF-114` fala de cálculo e conferência.
   Depois da liberação (`PLANO_LIBERADO`, `ACOMPANHAMENTO`) as respostas continuam
-  editáveis, e um plano novo só nasce pelos eventos do Bloco 11 (`AC-30`). Se o
-  produto quiser que editar reabra o plano liberado, é regra nova (decisão de 2026-10-05).
+  editáveis; um plano novo nasce quando o aluno o pede (`RF-118`) ou pelos eventos do
+  Bloco 11 (`AC-30`). Editar uma resposta, por si só, não reabre o plano.
+- **O revisor editar o plano ou as respostas do aluno.** Hoje ele só aprova ou devolve com
+  mensagem (`RF-113`). Edição manual pelo especialista é desejo registrado em 2026-10-05,
+  sem requisito ainda.
 
 ## 10. Open Questions
 

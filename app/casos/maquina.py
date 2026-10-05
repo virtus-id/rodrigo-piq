@@ -225,6 +225,21 @@ TABELA_TRANSICOES: Final[tuple[Transicao, ...]] = (
         gatilho="aluno_retoma_edicao",
         guarda="RF-115: aluno retira o plano",
     ),
+    # RF-118 (T-341): depois da liberação o aluno pede um plano novo. O plano
+    # liberado e a cadeia de snapshots não são tocados; o reenvio é o cálculo
+    # de sempre, que gera a versão seguinte encadeada.
+    Transicao(
+        de=ESTADO_CASO.PLANO_LIBERADO,
+        para=ESTADO_CASO.COLETA_INICIAL,
+        gatilho="aluno_refaz_plano",
+        guarda="RF-118: aluno pede plano novo",
+    ),
+    Transicao(
+        de=ESTADO_CASO.ACOMPANHAMENTO,
+        para=ESTADO_CASO.COLETA_INICIAL,
+        gatilho="aluno_refaz_plano",
+        guarda="RF-118: aluno pede plano novo",
+    ),
     Transicao(
         de=ESTADO_CASO.AGUARDANDO_REVISAO,
         para=ESTADO_CASO.PLANO_LIBERADO,
