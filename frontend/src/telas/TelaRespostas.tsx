@@ -140,15 +140,36 @@ export function agruparPorItem(respondidas: readonly RespostaDada[]): GrupoDeRes
 function FichaDaResposta({
   resposta,
   editar,
+  estreita = false,
 }: {
   resposta: RespostaDada
   /** Ausente ⇒ só leitura (`RF-114`): sem o botão. */
   editar?: () => void
+  /**
+   * Cartão que divide a linha com outro (monitor largo, `T-340`): a partir de
+   * `xl:` a linha volta a empilhar pergunta e resposta, porque o cartão já não
+   * tem largura para três colunas. Fora disso são três colunas desde `lg:`.
+   */
+  estreita?: boolean
 }) {
+  const linha = estreita
+    ? 'lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] lg:gap-x-6 xl:grid-cols-[minmax(0,1fr)_auto] xl:gap-x-4'
+    : 'lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] lg:gap-x-6'
+  const valor = estreita
+    ? 'lg:col-start-2 lg:row-start-1 lg:self-center xl:col-start-1 xl:row-start-auto xl:self-auto'
+    : 'lg:col-start-2 lg:row-start-1 lg:self-center'
+  const botao = estreita
+    ? 'lg:col-start-3 lg:row-span-1 xl:col-start-2 xl:row-span-2'
+    : 'lg:col-start-3 lg:row-span-1'
+
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-b border-line py-2 last:border-b-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] lg:gap-x-6">
-      <small className="col-start-1 text-muted lg:self-center">{resposta.enunciado}</small>
-      <strong className="col-start-1 break-words text-base lg:col-start-2 lg:row-start-1 lg:self-center">
+    <li
+      className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-b border-line py-1.5 last:border-b-0 ${linha}`}
+    >
+      <small className="col-start-1 text-muted lg:self-center xl:self-auto">
+        {resposta.enunciado}
+      </small>
+      <strong className={`col-start-1 break-words text-base ${valor}`}>
         {textoDaResposta(resposta)}
         {resposta.respondida_como_nao_sei && (
           <span className="chip chip-mudo ml-2 align-middle">Não sei</span>
@@ -157,7 +178,7 @@ function FichaDaResposta({
       {editar && (
         <Botao
           variante="discreto"
-          className="col-start-2 row-span-2 row-start-1 !w-auto !min-h-0 !border px-3 py-1 text-sm lg:col-start-3 lg:row-span-1"
+          className={`col-start-2 row-span-2 row-start-1 !w-auto !min-h-0 !border px-3 py-1 text-sm ${botao}`}
           onClick={editar}
         >
           Editar
@@ -238,29 +259,32 @@ function PainelDaParte({
         // sugeriria erro de carregamento.
         <p className="nota">Você ainda não respondeu nada desta parte.</p>
       ) : (
-        agruparPorItem(parte.respondidas).map((grupo) => (
-          <div
-            key={grupo.itemId ?? 'soltas'}
-            className={
-              grupo.titulo
-                ? 'cartao gap-1 p-3 lg:px-4'
-                : 'rounded-piq border border-line bg-surface px-3 lg:px-4'
-            }
-          >
-            {grupo.titulo && <span className="eyebrow">{grupo.titulo}</span>}
-            <ul className="m-0 list-none p-0">
-              {grupo.respostas.map((resposta) => (
-                <FichaDaResposta
-                  // `ID` sozinho não é único: numa ficha repetível a mesma
-                  // pergunta rende uma linha por dívida.
-                  key={`${resposta.ID}/${resposta.item_id ?? ''}`}
-                  resposta={resposta}
-                  editar={editar ? () => editar(resposta.ID, resposta.item_id) : undefined}
-                />
-              ))}
-            </ul>
-          </div>
-        ))
+        <div className="grid gap-2 xl:grid-cols-2 xl:items-start">
+          {agruparPorItem(parte.respondidas).map((grupo) => (
+            <div
+              key={grupo.itemId ?? 'soltas'}
+              className={
+                grupo.titulo
+                  ? 'cartao gap-1 p-3 lg:px-4'
+                  : 'rounded-piq border border-line bg-surface px-3 lg:px-4 xl:col-span-2'
+              }
+            >
+              {grupo.titulo && <span className="eyebrow">{grupo.titulo}</span>}
+              <ul className="m-0 list-none p-0">
+                {grupo.respostas.map((resposta) => (
+                  <FichaDaResposta
+                    // `ID` sozinho não é único: numa ficha repetível a mesma
+                    // pergunta rende uma linha por dívida.
+                    key={`${resposta.ID}/${resposta.item_id ?? ''}`}
+                    resposta={resposta}
+                    estreita={grupo.titulo !== null}
+                    editar={editar ? () => editar(resposta.ID, resposta.item_id) : undefined}
+                  />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       )}
     </section>
   )
@@ -360,6 +384,7 @@ export default function TelaRespostas({
     <Tela
       titulo="Minhas respostas"
       voltar={voltar}
+      largura="ampla"
       acoes={<Botao onClick={voltar}>Voltar ao início</Botao>}
       lateral={<MenuDasPartes partes={partes} ativa={ativa.bloco} escolher={escolherBloco} />}
     >

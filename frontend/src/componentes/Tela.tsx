@@ -76,8 +76,14 @@ interface TelaProps {
    * acessível do botão não muda com a largura da tela.
    */
   aoSair?: () => void
-  /** `aluno` = 560px (a coluna de leitura); `equipe` = 900px (`AC-87`). */
-  largura?: 'aluno' | 'equipe'
+  /**
+   * `aluno` = 560px (a coluna de leitura); `equipe` = 900px (`AC-87`);
+   * `ampla` = a do aluno, que cresce com o monitor (até 1560px) — só para
+   * telas de CONSULTA densa, como "Minhas respostas" (`T-340`), em que o
+   * aluno varre cem linhas e a tela larga é espaço para ler mais por vez.
+   * Quem responde uma pergunta de cada vez continua na coluna de leitura.
+   */
+  largura?: 'aluno' | 'equipe' | 'ampla'
   /**
    * `false` quando a tela desenha o próprio título — a de pergunta, cujo
    * `<legend>` já é o enunciado. O `<h1>` continua existindo, invisível:
@@ -168,7 +174,9 @@ export default function Tela({
           largura === 'equipe'
             ? 'max-w-equipe xl:max-w-[1280px]'
             : lateral
-              ? 'max-w-tela lg:max-w-[1120px]'
+              ? largura === 'ampla'
+                ? 'max-w-tela lg:max-w-[1120px] xl:max-w-[1360px] 2xl:max-w-[1560px]'
+                : 'max-w-tela lg:max-w-[1120px]'
               : 'max-w-tela lg:max-w-[760px]'
         }`}
       >

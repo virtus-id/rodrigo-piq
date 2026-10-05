@@ -13686,3 +13686,18 @@ de cada resposta; cem respostas viravam cem cartões.
 - [x] Corrigido: abrir a tela puxava o foco para o título da parte (borda de foco visível)
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-340` — "Minhas respostas" aproveita a largura do monitor
+
+- **Tipo:** `UX` · **Dependências:** `T-339` · **Rastreia:** `RF-68`, `RF-71`
+- **Arquivos:** `frontend/src/componentes/Tela.tsx`, `frontend/src/telas/TelaRespostas.tsx`
+
+Relato de uso (2026-10-05): no desktop a tela deixava muito espaço vazio; a coluna parava em 1120px.
+
+- [x] `Tela` ganha `largura="ampla"`: a coluna cresce com o monitor (1360px a partir de `xl:`, 1560px a partir de `2xl:`). Opt-in: só telas de consulta densa; as de resposta e a da equipe não mudam (`AC-87`, `AC-106`)
+- [x] "Minhas respostas": as respostas soltas ocupam a linha toda (três colunas); os cartões de dívida ficam **lado a lado** a partir de `xl:` (cada um com a linha empilhada, pergunta sobre resposta, "Editar" à direita)
+- [x] Abaixo de `xl:` continua uma coluna; no celular, como antes
+
+**Status:** `[x] concluída (2026-10-05)`
