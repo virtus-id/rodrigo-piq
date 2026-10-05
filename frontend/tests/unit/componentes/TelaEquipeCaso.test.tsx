@@ -6,7 +6,7 @@
  * A lista e os rótulos vêm do servidor (`GET .../decisao`); a tela só os
  * mostra e desabilita "Liberar" — a recusa de verdade é o `409`.
  */
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -208,7 +208,11 @@ describe('TelaEquipeCaso — linguagem humana (T-326, RF-111, AC-174)', () => {
   it('dados com rótulo e valor do servidor, sem o nome da variável', async () => {
     montar({ classificacoes_erro: [], pendencias_homologacao: [] }, casoComDados())
 
-    const cet = (await screen.findByText('Custo efetivo total (CET)', { exact: false })).closest('dt')
+    // `T-348`: o dado da dívida também aparece no cartão dela ("Para o revisor") —
+    // o rótulo existe nos dois lugares; qualquer um prova o rótulo legível.
+    const cet = (
+      await screen.findAllByText('Custo efetivo total (CET)', { exact: false })
+    )[0].closest('dt')
     expect(cet).toHaveTextContent(/^Custo efetivo total \(CET\)$/)
     expect(screen.queryByText('RENDA_TOTAL_RECORRENTE')).not.toBeInTheDocument()
     expect(cet?.nextElementSibling).toHaveTextContent('Não informado')
@@ -281,5 +285,130 @@ describe('TelaEquipeCaso — mensagem para o aluno (T-333, RF-113)', () => {
       observacao: 'taxa zerada',
       mensagemAluno: 'Informe a taxa do cheque especial',
     })
+  })
+})
+
+
+describe('TelaEquipeCaso — o plano como o aluno vai ver (T-347, RF-121, AC-190)', () => {
+  const comPlano: CasoParaRevisao = {
+    ...CASO,
+    plano: {
+      ...CASO.plano,
+      secoes: { dividas: 'Suas dívidas, uma a uma' },
+      pendencias_acionaveis: [
+        {
+          DIVIDA_ID: 'D001',
+          nome_divida: 'Cheque especial — CAIXA',
+          rotulo: 'a taxa de juros',
+          onde_achar: 'No app do banco',
+          ID_PERGUNTA: 'B5.D01',
+        },
+      ],
+      ordem: [
+        {
+          posicao: 1,
+          indice: 1,
+          total: 1,
+          DIVIDA_ID: 'D001',
+          nome: 'Cheque especial — CAIXA',
+          explicacao: 'É a dívida que mais destrava o seu orçamento agora.',
+          valores_de_apoio: [],
+          fatos: [{ rotulo: 'Quanto você deve hoje', valor: 'R$ 662,28' }],
+          mes_de_quitacao: 4,
+        },
+      ],
+    },
+    estado_inputs: {
+      campos: [],
+      perfil_comportamental: [],
+      sinais_comportamentais: [],
+      dividas: [
+        {
+          DIVIDA_ID: 'D001',
+          nome: 'Cheque especial — CAIXA',
+          campos: [{ nome: 'Taxa de juros ao mês', valor: '8%', codigo: 'TAXA_EFETIVA_MENSAL_NORMALIZADA' }],
+        },
+      ],
+    },
+  } as unknown as CasoParaRevisao
+
+  it('mostra o plano do aluno: a seção das dívidas, os números e a explicação', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, comPlano)
+
+    const plano = await screen.findByRole('region', { name: 'Como o aluno vai ver' })
+    expect(plano).toHaveTextContent('Suas dívidas, uma a uma')
+    expect(plano).toHaveTextContent('Quanto você deve hoje')
+    expect(plano).toHaveTextContent('R$ 662,28')
+    expect(plano).toHaveTextContent('É a dívida que mais destrava o seu orçamento agora.')
+  })
+
+  it('o que é só do aluno não aparece: nem "Baixar em PDF" nem "Responder agora"', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, comPlano)
+    await screen.findByRole('region', { name: 'Como o aluno vai ver' })
+
+    expect(screen.queryByRole('link', { name: 'Baixar em PDF' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Responder agora')).not.toBeInTheDocument()
+    // A pendência em si continua legível para o revisor.
+    expect(screen.getByText(/falta informar a taxa de juros/)).toBeInTheDocument()
+  })
+
+  it('a prévia do PDF é um link para a rota do revisor', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, comPlano)
+
+    const link = await screen.findByRole('link', { name: /Abrir prévia do PDF/ })
+    expect(link).toHaveAttribute('href', '/revisao/caso/CASO-1/plano/pdf')
+    expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('cada dívida traz "Para o revisor" com os dados DELA, e sem a justificativa técnica (AC-191)', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, {
+      ...comPlano,
+      plano: {
+        ...comPlano.plano,
+        ordem: comPlano.plano.ordem.map((p) => ({ ...p, JUSTIFICATIVA_POSICAO: 'JUSTIFICATIVA-TECNICA' })),
+      },
+    })
+
+    const plano = await screen.findByRole('region', { name: 'Como o aluno vai ver' })
+    const secao = within(plano).getByText('Para o revisor').closest('details')
+    expect(secao).not.toBeNull()
+    expect(secao).toHaveTextContent('Taxa de juros ao mês')
+    expect(secao).toHaveTextContent('8%')
+    expect(screen.queryByText(/JUSTIFICATIVA-TECNICA/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TelaEquipeCaso — o que mudou desde a versão anterior (T-348, RF-123, AC-192)', () => {
+  it('versão 1 (sem comparação): o cartão não existe', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, { ...CASO, mudancas: null })
+    await screen.findByRole('region', { name: 'Como o aluno vai ver' })
+
+    expect(screen.queryByText('O que mudou desde a versão anterior')).not.toBeInTheDocument()
+  })
+
+  it('versão 2: cada mudança com campo, valor anterior e atual; novo e removido marcados', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, {
+      ...CASO,
+      mudancas: [
+        { secao: 'Cheque especial — CAIXA', nome: 'Taxa de juros ao mês', de: '4%', para: '8%', situacao: 'alterado' },
+        { secao: 'Dados gerais', nome: 'Despesas do mês', de: null, para: 'R$ 4.085,05', situacao: 'novo' },
+        { secao: 'Dados gerais', nome: 'Campo antigo', de: 'R$ 1,00', para: null, situacao: 'removido' },
+      ],
+    })
+
+    const cartao = await screen.findByRole('region', { name: 'O que mudou desde a versão anterior' })
+    expect(cartao).toHaveTextContent('Taxa de juros ao mês')
+    expect(cartao).toHaveTextContent('4% → 8%')
+    expect(cartao).toHaveTextContent('Despesas do mês')
+    expect(within(cartao).getByText('novo')).toBeInTheDocument()
+    expect(within(cartao).getByText('removido')).toBeInTheDocument()
+  })
+
+  it('versão 2 sem nenhuma diferença: diz que nada mudou', async () => {
+    montar({ classificacoes_erro: [], pendencias_homologacao: [] }, { ...CASO, mudancas: [] })
+
+    expect(
+      await screen.findByText('Nada mudou nos dados de entrada desde a versão anterior.'),
+    ).toBeInTheDocument()
   })
 })

@@ -21,9 +21,11 @@ import { type ReactNode, useCallback, useEffect, useState } from 'react'
 
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
+import Icone from '../componentes/Icone'
+import ListaDeDados from '../componentes/ListaDeDados'
+import PlanoDoAluno from '../componentes/PlanoDoAluno'
 import Tela from '../componentes/Tela'
 import {
-  type CampoDeEntrada,
   type CasoParaRevisao,
   type OpcoesDeDecisao,
   decidirRevisao,
@@ -57,29 +59,6 @@ function textoDoItem(valor: unknown): ReactNode {
         <li key={linha}>{linha}</li>
       ))}
     </ul>
-  )
-}
-
-/**
- * Dados de entrada com rótulo e valor legíveis, ambos do servidor (`RF-111`,
- * `T-326`) — a tela não traduz código nenhum.
- */
-function ListaDeDados({ campos }: { campos: CampoDeEntrada[] }) {
-  return (
-    // `T-329`: uma coluna no celular, duas a partir de `sm`; nada estoura o
-    // cartão — o código técnico quebra em qualquer ponto.
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-      {campos.map((campo) => (
-        <div key={campo.codigo} className="contents">
-          {/* Só o rótulo: o nome técnico da variável (`campo.codigo`) não
-              ajuda o revisor a interpretar (relato do produto, 2026-10-02). */}
-          <dt className="min-w-0 text-muted">{campo.nome}</dt>
-          <dd className="m-0 mb-2 min-w-0 tabular-nums [overflow-wrap:anywhere] sm:mb-0">
-            {campo.valor}
-          </dd>
-        </div>
-      ))}
-    </dl>
   )
 }
 
@@ -223,6 +202,34 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         </p>
       )}
 
+      {/* `RF-121` (T-347): a conferência mostra o plano COMO O ALUNO O RECEBE — o
+          mesmo componente da tela dele — e, ao lado, o painel do revisor. No
+          monitor largo são duas colunas (plano do aluno na largura dele ·
+          painel); abaixo disso empilha, plano do aluno primeiro. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,760px)_minmax(0,1fr)] xl:items-start">
+        <section aria-label="Como o aluno vai ver" className="flex min-w-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="eyebrow">Como o aluno vai ver</span>
+            {/* `RF-124`: a prévia do PDF que o aluno receberá. Link de verdade:
+                o download usa a navegação nativa e o cookie de sessão. */}
+            <a
+              className="btn-discreto !w-auto no-underline"
+              href={`/revisao/caso/${casoId}/plano/pdf`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Icone nome="baixar" />
+              Abrir prévia do PDF
+            </a>
+          </div>
+          <div className="flex flex-col gap-4 rounded-piq border border-dashed border-line bg-surface p-4">
+            {/* Redação canônica do servidor — `AC-14`. Nunca reescrita aqui. */}
+            <h2 className="m-0">{plano.titulo}</h2>
+            <PlanoDoAluno plano={plano} revisor={{ entradas }} />
+          </div>
+        </section>
+
+        <aside aria-label="Painel do revisor" className="flex min-w-0 flex-col gap-4">
       {/* `T-330`: o método é do caso, não da dívida — um destaque só, com o
           critério em uma frase (do servidor). Substitui o "Detalhe técnico"
           que repetia o mesmo texto do motor em cada posição. */}
@@ -325,35 +332,35 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
         )}
       </div>
 
-      {/* `T-329`: lado a lado só no monitor largo; abaixo disso, empilhado. */}
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className="cartao min-w-0">
-          <span className="eyebrow">Como o aluno vai ver</span>
-          {/* Redação canônica do servidor — `AC-14`. Nunca reescrita aqui. */}
-          <h2>{plano.titulo}</h2>
-          <p className="nota">{plano.corpo}</p>
-          <div className="lista">
-            {plano.ordem.map((posicao) => (
-              <div className="item" key={posicao.DIVIDA_ID}>
-                <span className="num">{posicao.posicao}</span>
-                {/* `T-326`/`T-330` (`RF-111`): "tipo — credor" e a explicação
-                    que o aluno lê — o papel da dívida na ordem. O critério do
-                    método fica no destaque acima, uma vez. */}
-                <div className="flex-1">
-                  {posicao.nome}
-                  <p className="text-muted">{posicao.explicacao}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="carimbo">
-            Versão do cálculo{' '}
-            {plano.ENGINE_VERSION} · parâmetros {plano.PARAMETROS_VERSION}
-          </p>
-        </div>
+        {/* `RF-123` (T-348): o que mudou nos dados de entrada desde a versão
+            anterior — só em plano refeito. O servidor já manda tudo formatado. */}
+        {dados.mudancas && (
+          <section className="cartao" aria-labelledby="titulo-mudancas">
+            <h2 id="titulo-mudancas" className="eyebrow">
+              O que mudou desde a versão anterior
+            </h2>
+            {dados.mudancas.length === 0 ? (
+              <p className="m-0">Nada mudou nos dados de entrada desde a versão anterior.</p>
+            ) : (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {dados.mudancas.map((mudanca, i) => (
+                  <li key={`${mudanca.secao}-${mudanca.nome}-${i}`}>
+                    <span className="text-muted block text-xs">{mudanca.secao}</span>
+                    <strong>{mudanca.nome}</strong>:{' '}
+                    {mudanca.situacao === 'novo' && <span className="chip chip-atencao">novo</span>}
+                    {mudanca.situacao === 'removido' && <span className="chip chip-mudo">removido</span>}{' '}
+                    {mudanca.de !== null && <span className="text-muted tabular-nums">{mudanca.de}</span>}
+                    {mudanca.de !== null && mudanca.para !== null && ' → '}
+                    {mudanca.para !== null && <span className="tabular-nums font-bold">{mudanca.para}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
 
-        <div className="cartao min-w-0">
-          <span className="eyebrow">Dados que produziram o plano</span>
+        <details className="cartao min-w-0" open>
+          <summary className="eyebrow cursor-pointer">Dados que produziram o plano</summary>
           {/* Nenhum campo é omitido: o revisor compara o plano contra o
               estado COMPLETO, e campo fora da tela é campo que ninguém
               confere. Os valores já vêm formatados pelo servidor — inclusive
@@ -371,7 +378,8 @@ export default function TelaEquipeCaso({ casoId, voltar }: TelaEquipeCasoProps) 
           <ListaDeDados campos={entradas.perfil_comportamental} />
           <h3>Sinais de comportamento</h3>
           <ListaDeDados campos={entradas.sinais_comportamentais} />
-        </div>
+        </details>
+        </aside>
       </div>
 
       <div className="cartao">

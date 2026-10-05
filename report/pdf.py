@@ -121,7 +121,9 @@ def _ambiente_templates_plano() -> Environment:
     )
 
 
-def renderizar_html_do_plano(contexto: ContextoPlano, textos: TextosCanonicosPlano) -> str:
+def renderizar_html_do_plano(
+    contexto: ContextoPlano, textos: TextosCanonicosPlano, *, previa: bool = False
+) -> str:
     """Renderiza `plano.html` a partir de um `ContextoPlano` já montado —
     a MESMA função de renderização que a tela (T-64) chama. Nenhuma cópia do
     HTML/CSS existe neste módulo: só a passagem do contexto ao template
@@ -166,6 +168,8 @@ def renderizar_html_do_plano(contexto: ContextoPlano, textos: TextosCanonicosPla
         como_funciona=contexto.como_funciona,
         pendencias_acionaveis=contexto.pendencias_acionaveis,
         textos=textos,
+        # `RF-124`: só a prévia do revisor abre com a faixa; o plano liberado nunca.
+        previa=previa,
     )
 
 
@@ -194,6 +198,38 @@ def gerar_html_do_plano_liberado(
     # Revisão de design: o nome do aluno personaliza o cabeçalho.
     contexto = montar_contexto_plano(snapshot, textos, vocabulario, nome_do_aluno)
     return renderizar_html_do_plano(contexto, textos)
+
+
+def gerar_html_da_previa(
+    snapshot: SnapshotOrdem,
+    textos: TextosCanonicosPlano,
+    vocabulario: VocabularioDoCaso | None = None,
+    nome_do_aluno: str | None = None,
+) -> str:
+    """O HTML do plano para o REVISOR conferir antes de liberar — `RF-124`.
+
+    A MESMA montagem e o MESMO `plano.html` de `gerar_html_do_plano_liberado`
+    (`OQ-09`: um objeto revisado, duas apresentações); a única diferença é
+    não exigir liberação e abrir com a faixa "Prévia — ainda não liberado".
+    O PDF do aluno continua só do plano liberado (`AC-25`): esta função nunca
+    é chamada por rota de aluno."""
+    contexto = montar_contexto_plano(snapshot, textos, vocabulario, nome_do_aluno)
+    return renderizar_html_do_plano(contexto, textos, previa=True)
+
+
+def gerar_pdf_de_previa(
+    snapshot: SnapshotOrdem,
+    textos: TextosCanonicosPlano,
+    vocabulario: VocabularioDoCaso | None = None,
+    nome_do_aluno: str | None = None,
+) -> bytes:
+    """Os bytes do PDF da prévia — ver `gerar_html_da_previa`. Mesmo import
+    tardio de `weasyprint` de `gerar_pdf_do_plano` (dependência de sistema)."""
+    html = gerar_html_da_previa(snapshot, textos, vocabulario, nome_do_aluno)
+
+    from weasyprint import HTML
+
+    return bytes(HTML(string=html).write_pdf())
 
 
 def gerar_pdf_do_plano(

@@ -3018,3 +3018,34 @@ Início) e `CartaoRetirarDaConferencia` (confirmação de `RF-115`). Confirmado 
 confirmada a retirada → `#respostas`.
 
 **Rastreabilidade:** `RF-120` → R14.7 · `AC-185`–`AC-188`.
+
+---
+
+# Rodada 15 (2026-10-05) — Conferência com a visão do aluno (`RF-121`–`RF-124`)
+
+O especialista confere o plano e quer ver o que o aluno vai receber. A tela do revisor mostrava só
+`titulo`, `corpo` e uma lista de posições; o servidor entregava ao revisor um subconjunto do payload
+do aluno (`serializar_plano(contexto, para_revisor=True)` sem `textos`, `fontes`, `orientacoes_seguro` e
+sem nome), e `TelaPlano` mistura carregamento e desenho.
+
+## R15.1. Servidor
+
+| Peça | Mudança |
+| --- | --- |
+| `GET /api/revisao/caso/{id}` (`rotas_api_plano.py::caso_para_revisao`) | O `plano` passa a ser **o mesmo do aluno** (`textos`, `fonte` por dívida via `fontes_por_divida(niveis_por_ficha(...))`, `orientacoes_seguro`, `nome_do_aluno` por `emails.contas_dos_casos`) **mais** os extras do revisor de `para_revisor=True`. Ganha as dependências de itens que a rota do aluno já usa |
+| `mudancas` (novo campo da mesma resposta) | `app/http/mudancas_do_plano.py::mudancas_entre(atual, anterior, textos, vocabulario)`: compara os `ContextoEstadoInputs` (`montar_contexto_estado_inputs`) dos dois snapshots por `codigo` — escalares, perfil, sinais e cada dívida por `DIVIDA_ID`. Devolve `[{secao, nome, de, para}]` com valores **já formatados**; campo só de um lado → `de`/`para` = `null` com `situacao` "novo"/"removido". Versão 1 (sem `snapshot_anterior_id`) → `null`. Nenhuma conta nova (Lei nº 3) |
+| `GET /revisao/caso/{id}/plano/pdf` | Rota do revisor (`exigir_papel_revisor`, `403` para aluno). Usa `report.pdf.gerar_pdf_de_previa(contexto, textos)`: o MESMO `renderizar_html_do_plano` + WeasyPrint de `gerar_pdf_do_plano`, **sem** a guarda de liberação e com a marca "Prévia — ainda não liberado". `gerar_pdf_do_plano` e a rota do aluno não mudam (`AC-25`) |
+
+## R15.2. Frontend
+
+- `componentes/PlanoDoAluno.tsx` (extraído de `TelaPlano.tsx`): recebe `plano`, `casoId` e `revisor?: { entradas, previaDoPdf }`; devolve o conteúdo do plano, sem `Tela` e sem `fetch`. `TelaPlano` vira carregamento + `Tela` + este componente — visual do aluno idêntico.
+- No modo revisor: sem "Baixar em PDF" (entra "Abrir prévia do PDF") e sem "Responder agora"; cada cartão de dívida ganha `<details>` **"Para o revisor"** com os dados de entrada da dívida (`entradas.dividas` por `DIVIDA_ID`); a `JUSTIFICATIVA_POSICAO` segue fora da tela (`T-330`); ações mostram o `motivo`.
+- `TelaEquipeCaso`: de `xl:` em diante, duas colunas — plano do aluno (≈ 760px, na moldura "Como o aluno vai ver") e painel do revisor (método, homologação, pendências, fontes, "O que mudou desde a versão anterior", dados de entrada). Abaixo de `xl:` empilha, plano do aluno primeiro. A decisão segue fixa no rodapé.
+
+## R15.3. Testes e riscos
+
+Servidor: payload do revisor × do aluno nos campos comuns e `JUSTIFICATIVA_POSICAO` só no revisor; `mudancas` (4%→8% aparece, igual não, v1 `null`, campo só de um lado); PDF (`200`/`403`/`404`; PDF do aluno ainda `404` antes da liberação). Frontend: `PlanoDoAluno` (mesmo resultado nos dois usos, modo revisor), `plano.spec.ts` e e2e da equipe, capturas de tela. Risco: refatorar `TelaPlano` — coberto por `plano.spec.ts`.
+
+## R15.4. Rastreabilidade
+
+`RF-121` → R15.1–R15.2 · `AC-189`, `AC-190` | `RF-122` → R15.2 · `AC-191` | `RF-123` → R15.1 · `AC-192` | `RF-124` → R15.1 · `AC-193`.

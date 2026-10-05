@@ -13758,3 +13758,57 @@ Relato de uso (2026-10-05): no desktop a tela deixava muito espaço vazio; a col
 - [x] Testes (vitest) e gates
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-345` — Servidor: a conferência recebe o plano do aluno e o que mudou
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-70`, `T-341` · **Rastreia:** `RF-121`, `RF-122`, `RF-123`, `AC-189`, `AC-192`
+- **Arquivos (previstos):** `app/http/rotas_api_plano.py`, `app/http/mudancas_do_plano.py` (novo) + testes
+
+- [x] Payload do revisor = payload do aluno + extras do revisor (`textos`, `fonte`, orientação do seguro, nome)
+- [x] `mudancas` entre a versão atual e a anterior (`null` na versão 1)
+- [x] Testes de `AC-189` e `AC-192`; gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-346` — Servidor: prévia do PDF para o revisor
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-345` · **Rastreia:** `RF-124`, `AC-193`
+- **Arquivos (previstos):** `report/pdf.py`, `app/http/rotas_revisao.py` + testes
+
+- [x] `gerar_pdf_de_previa` (mesmo HTML do PDF liberado, sem guarda, com a marca de prévia)
+- [x] `GET /revisao/caso/{id}/plano/pdf` (revisor-only)
+- [x] Testes de `AC-193`; gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-347` — Frontend: `PlanoDoAluno` e a conferência lado a lado
+
+- **Tipo:** `UX` · **Dependências:** `T-345` · **Rastreia:** `RF-121`, `AC-190`
+- **Arquivos (previstos):** `frontend/src/componentes/PlanoDoAluno.tsx` (novo), `frontend/src/telas/TelaPlano.tsx`,
+  `frontend/src/telas/TelaEquipeCaso.tsx`, `frontend/src/tipos.ts`, `frontend/src/services/api.ts` + testes
+
+- [x] Extrair `PlanoDoAluno` de `TelaPlano` (visual do aluno idêntico)
+- [x] Conferência em duas colunas a partir de `xl:` (plano do aluno × painel do revisor); empilha abaixo
+- [x] Modo revisor sem "Baixar em PDF" e sem "Responder agora"; "Abrir prévia do PDF"
+- [x] Testes (vitest, e2e) e gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-348` — Frontend: dados por dívida e "o que mudou" para o revisor
+
+- **Tipo:** `UX` · **Dependências:** `T-347` · **Rastreia:** `RF-122`, `RF-123`, `AC-191`, `AC-192`
+- **Arquivos (previstos):** `frontend/src/componentes/PlanoDoAluno.tsx`, `frontend/src/telas/TelaEquipeCaso.tsx` + testes
+
+- [x] Seção "Para o revisor" em cada cartão de dívida (dados da dívida + justificativa técnica) e o motivo nas ações
+- [x] Cartão "O que mudou desde a versão anterior" no painel do revisor (só v2+)
+- [x] Testes (vitest) e gates
+
+**Status:** `[x] concluída (2026-10-05)`

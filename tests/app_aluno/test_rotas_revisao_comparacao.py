@@ -41,9 +41,14 @@ from app.http.rotas_revisao import (
     obter_repositorio_casos_da_fila,
     obter_repositorio_snapshots_da_fila,
 )
-from app.http.serializacao_plano import serializar_plano, vocabulario_do_caso
+from app.http.serializacao_plano import (
+    fontes_por_divida,
+    serializar_plano,
+    vocabulario_do_caso,
+)
 from app.montagem.estado import montar_divida, montar_estado_financeiro
 from app.motor.executor import ParametrosDoCalculo, executar_calculo
+from app.revisao.comprovacao import niveis_por_ficha
 from collection.carga import carregar_registros
 from collection.respostas import RespostasCaso
 from engine.estado import EstadoFinanceiro
@@ -155,7 +160,8 @@ def _montar_cliente(
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: "conta-revisor-teste"
     # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=lambda _caso_ids: {}
+        emails_dos_casos=lambda _caso_ids: {},
+        contas_dos_casos=lambda _caso_ids: {},
     )
     sem_respostas_nem_itens(aplicacao)  # `T-326`: credores lidos das respostas
     return TestClient(aplicacao, base_url="https://teste.local")
@@ -282,7 +288,19 @@ def test_plano_exibido_e_o_mesmo_html_de_montar_contexto_plano(
             (d.DIVIDA_ID for d in snapshot.estado_inputs.dividas),
         ),
     )
-    esperado = serializar_plano(contexto_plano, para_revisor=True)
+    # `RF-121`/`AC-189` (T-345): o revisor recebe o plano DO ALUNO (textos fixos,
+    # fonte por dívida) mais os extras dele (`para_revisor=True`). Caso sem
+    # respostas e sem nome de compra: sem fontes, sem orientação de seguro.
+    esperado = serializar_plano(
+        contexto_plano,
+        fontes_por_divida(
+            niveis_por_ficha(carregar_registros().registros, RespostasCaso(respostas=()), {}),
+            textos,
+        ),
+        {},
+        textos,
+        para_revisor=True,
+    )
 
     cliente = _montar_cliente(
         monkeypatch,

@@ -114,7 +114,8 @@ def aplicacao_e_dublê(
     aplicacao.dependency_overrides[obter_repositorio_contas_para_papel] = lambda: dublê
     # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=lambda _caso_ids: {}
+        emails_dos_casos=lambda _caso_ids: {},
+        contas_dos_casos=lambda _caso_ids: {},
     )
     # Nos cenários de recusa (sem sessão / sem papel), a fila não deve chegar
     # a consultar casos — um repositório que levanta em qualquer chamada

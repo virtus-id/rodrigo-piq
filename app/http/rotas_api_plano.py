@@ -24,8 +24,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Annotated, Final, Protocol
 
-from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, Response
 
 from app.casos.inventario import pendencias_de_inventario
 from app.casos.maquina import ESTADO_CASO
@@ -38,6 +38,7 @@ from app.http.isolamento import (
 )
 from app.http.jornada import parte_da_pergunta
 from app.http.mensagens_de_estado import mensagem_do_estado_do_caso
+from app.http.mudancas_do_plano import mudancas_entre
 from app.http.rotas_coleta import _itens_por_escopo
 from app.http.rotas_coleta import obter_colecao_de_registros as obter_colecao_da_coleta
 from app.http.rotas_coleta import obter_repositorio_itens as obter_repositorio_itens_da_coleta
@@ -87,7 +88,7 @@ from persistencia.app_aluno.contas import ContaDoCaso, RepositorioContasSupabase
 from persistencia.app_aluno.itens import RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 from persistencia.supabase.repositorio_snapshots import ErroSnapshotNaoEncontrado
-from report.pdf import snapshot_tem_liberacao_registrada
+from report.pdf import gerar_pdf_de_previa, snapshot_tem_liberacao_registrada
 from report.plano import (
     TextosCanonicosPlano,
     VocabularioDoCaso,
@@ -100,6 +101,9 @@ from report.plano import (
 REGRAS: Final[tuple[str, ...]] = ("RF-50", "RF-51", "AC-25", "AC-28")
 
 roteador = APIRouter(tags=["api-plano"])
+
+# A rota de prévia fica sob a raiz da conferência (nome curto: limiar de `AC-37`).
+_RAIZ_DA_CONFERENCIA: Final[str] = "/revisao/caso/{CASO_ID_REVISAO}"
 
 # Mensagens curtas de propósito — limiar de `AC-37` (T-08).
 _MENSAGEM_SEM_PLANO: Final[str] = "Nenhum plano liberado ainda."
@@ -287,10 +291,21 @@ def caso_para_revisao(
     repositorio_respostas: Annotated[
         RepositorioRespostas, Depends(obter_repositorio_respostas_da_coleta)
     ],
+    repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens_da_coleta)],
     emails: Annotated[EmailsDosAlunos, Depends(obter_emails_dos_alunos)],
 ) -> JSONResponse:
     """O plano como o aluno o verá, mais o carimbo — para a tela lado a lado
     do revisor (`AC-29`).
+
+    **O `plano` é o do aluno (`RF-121`, `AC-189`).** Mesmos `textos` fixos, mesma
+    `fonte` e orientação de seguro por dívida, mesmo nome — os campos comuns
+    saem idênticos aos de `plano_do_aluno`, para a tela do revisor reaproveitar
+    o desenho do aluno sem uma segunda redação. Só o revisor recebe, além
+    disso, `JUSTIFICATIVA_POSICAO`, o `motivo` das ações e o `ITEM_ID`
+    (`para_revisor=True`).
+
+    `mudancas` (`RF-123`, `AC-192`): o que mudou nos dados de entrada em
+    relação à versão anterior; `null` na versão 1.
 
     O parâmetro se chama `CASO_ID_REVISAO`, não `CASO_ID`, de propósito: a
     auditoria de isolamento casa pelo nome literal, e esta rota é do
@@ -313,24 +328,63 @@ def caso_para_revisao(
     snapshot = historico[-1]
 
     textos = carregar_textos_canonicos()
-    # `T-326` (`RF-111`): rótulos do registro e credores — o revisor lê
-    # "Cheque especial — CAIXA", não `D011`; o código fica como detalhe.
-    vocabulario = _vocabulario(
-        colecao,
-        RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID_REVISAO)),
-        snapshot,
+    respostas_brutas, itens_por_escopo = duas_em_paralelo(
+        lambda: repositorio_respostas.listar_do_caso(CASO_ID_REVISAO),
+        lambda: _itens_por_escopo(repositorio_itens, CASO_ID_REVISAO),
     )
-    contexto = montar_contexto_plano(snapshot, textos, vocabulario)
+    respostas_do_caso = RespostasCaso(respostas=respostas_brutas)
+
+    anterior = _snapshot_anterior(snapshot, repositorio_snapshots)
+
+    # `T-326` (`RF-111`): rótulos do registro e credores — o revisor lê
+    # "Cheque especial — CAIXA", não `D011`; o código fica como detalhe. Com
+    # versão anterior, o vocabulário cobre também as dívidas dela (uma dívida
+    # removida ainda precisa de nome na lista de mudanças).
+    vocabulario = vocabulario_do_caso(
+        colecao.registros,
+        respostas_do_caso,
+        {
+            divida.DIVIDA_ID
+            for versao in (snapshot, anterior)
+            if versao is not None
+            for divida in versao.estado_inputs.dividas
+        },
+    )
+
+    # `RF-121`: o plano chama o aluno pelo nome, como na tela dele.
+    nome_do_aluno = _nome_do_aluno(emails, CASO_ID_REVISAO)
+    contexto = montar_contexto_plano(snapshot, textos, vocabulario, nome_do_aluno)
+    niveis = niveis_por_ficha(colecao.registros, respostas_do_caso, itens_por_escopo)
+    orientacoes_seguro = {
+        posicao.DIVIDA_ID: textos.orientacao_seguro_prestamista
+        for posicao in contexto.ordem
+        if respostas_do_caso.valor_no_item(posicao.DIVIDA_ID, "SEGURO_PRESTAMISTA") == "SIM"
+    }
     item = montar_item_da_fila(CASO_ID_REVISAO, snapshot)
     # `AC-29`: plano e `estado_inputs` na MESMA resposta. O revisor compara
     # os dois lado a lado; se viessem de requisições diferentes, poderiam
     # ser de snapshots diferentes — e a comparação não provaria nada.
     estado_inputs = montar_contexto_estado_inputs(snapshot.estado_inputs, textos, vocabulario)
+    mudancas = (
+        None
+        if anterior is None
+        else mudancas_entre(
+            estado_inputs,
+            montar_contexto_estado_inputs(anterior.estado_inputs, textos, vocabulario),
+        )
+    )
     return JSONResponse(
         {
             "CASO_ID": CASO_ID_REVISAO,
-            "plano": serializar_plano(contexto, para_revisor=True),
+            "plano": serializar_plano(
+                contexto,
+                fontes_por_divida(niveis, textos),
+                orientacoes_seguro,
+                textos,
+                para_revisor=True,
+            ),
             "estado_inputs": serializar_estado_inputs(estado_inputs),
+            "mudancas": mudancas,
             "fila": serializar_item_da_fila(
                 item,
                 textos,
@@ -338,6 +392,63 @@ def caso_para_revisao(
             ),
         }
     )
+
+
+@roteador.get(_RAIZ_DA_CONFERENCIA + "/plano/pdf")
+def previa_do_pdf_do_plano(
+    CASO_ID_REVISAO: str,
+    _revisor: Annotated[str, Depends(exigir_papel_revisor)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos_da_fila)],
+    repositorio_snapshots: Annotated[
+        RepositorioSnapshots, Depends(obter_repositorio_snapshots_da_fila)
+    ],
+    colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_da_coleta)],
+    repositorio_respostas: Annotated[
+        RepositorioRespostas, Depends(obter_repositorio_respostas_da_coleta)
+    ],
+    emails: Annotated[EmailsDosAlunos, Depends(obter_emails_dos_alunos)],
+) -> Response:
+    """`RF-124`, `AC-193` — a prévia do PDF que o aluno receberá, para o revisor
+    abrir ANTES de liberar. Só quem tem papel de revisor (`401`/`403` pela mesma
+    guarda das outras rotas da equipe); o PDF do aluno (`/caso/{id}/plano/pdf`)
+    segue só do plano liberado. O snapshot é o último da cadeia, o mesmo que a
+    conferência mostra."""
+    caso = repositorio_casos.buscar(CASO_ID_REVISAO)
+    if caso is None or caso.snapshot_raiz_id is None:
+        raise HTTPException(status_code=404, detail=_MENSAGEM_SEM_PLANO)
+    historico = repositorio_snapshots.historico(caso.snapshot_raiz_id)
+    if not historico:
+        raise HTTPException(status_code=404, detail=_MENSAGEM_SEM_PLANO)
+    snapshot = historico[-1]
+
+    textos = carregar_textos_canonicos()
+    vocabulario = _vocabulario(
+        colecao,
+        RespostasCaso(respostas=repositorio_respostas.listar_do_caso(CASO_ID_REVISAO)),
+        snapshot,
+    )
+    pdf = gerar_pdf_de_previa(
+        snapshot, textos, vocabulario, _nome_do_aluno(emails, CASO_ID_REVISAO)
+    )
+    return Response(content=pdf, media_type="application/pdf")
+
+
+def _snapshot_anterior(
+    snapshot: SnapshotOrdem, repositorio_snapshots: RepositorioSnapshots
+) -> SnapshotOrdem | None:
+    """A versão anterior da cadeia, ou `None` na versão 1 (ou se ela sumiu)."""
+    if snapshot.snapshot_anterior_id is None:
+        return None
+    try:
+        return repositorio_snapshots.obter(snapshot.snapshot_anterior_id)
+    except ErroSnapshotNaoEncontrado:
+        return None
+
+
+def _nome_do_aluno(emails: EmailsDosAlunos, caso_id: str) -> str | None:
+    """O nome da compra, quando houver — personalização, nunca condição."""
+    conta = emails.contas_dos_casos((caso_id,)).get(caso_id)
+    return conta.nome if conta is not None else None
 
 
 def _etapa_do_caso(

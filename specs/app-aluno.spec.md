@@ -446,6 +446,10 @@ com a redação canônica obrigatória.
 | `RF-118` | **O aluno pede um plano novo depois da liberação.** Em `PLANO_LIBERADO` e `ACOMPANHAMENTO`, "Minhas respostas" oferece **"Gerar um novo plano com as minhas respostas"**. Antes de confirmar, o aluno lê: o plano atual continua disponível; o novo será calculado com **todas** as respostas de agora e **conferido pela equipe de novo**, o que pode levar o tempo da fila; quando ficar pronto, substitui o atual. Confirmada a ação, o caso volta a `COLETA_INICIAL` (gatilho `aluno_refaz_plano`, evento na trilha), o plano liberado fica **intacto e visível** (`OQ-09`: o aluno só vê plano liberado) e o cálculo é disparado pelo reenvio de sempre, que gera a versão seguinte **encadeada** à anterior (`V-01`, como em `RF-113`). **Só o aluno pede**: o revisor não edita o plano, apenas o devolve com mensagem (`RF-113`). Os dados já informados nos Blocos 7, 8, 10 e 11 ficam preservados | Decisão do produto (2026-10-05): depois da liberação, editar uma resposta não gerava plano novo · `RF-113`, `RF-114`, `RF-115`, `OQ-09`, `V-01` · `T-341`, `T-342` | essencial |
 | `RF-119` | **O plano novo nasce das respostas atuais.** O `estado_inputs` da versão nova reflete cada resposta alterada desde a anterior (renda, despesas, dívidas, taxas); nada vem do snapshot anterior além do encadeamento. A versão anterior continua gravada como estava (append-only) | `RF-14`, `RF-118`, `V-01` · `T-341` | essencial |
 | `RF-120` | **O Início oferece o plano novo e avisa quando há respostas atualizadas.** Com plano liberado (`PLANO_LIBERADO`, `ACOMPANHAMENTO`), o Início mostra a ação **"Gerar um novo plano"** com a mesma confirmação de `RF-118`; quando as respostas mudaram desde o cálculo do plano, a ação vira um **aviso**: "Você atualizou suas respostas depois do seu plano. Quer enviá-las para gerar um novo plano?". Quem decide é o servidor, comparando o estado financeiro montado das respostas atuais com o `estado_inputs` do plano liberado (`respostas_atualizadas`); se a comparação não for possível (a montagem recusa uma resposta), o servidor não afirma mudança (`null`) e o Início oferece só a ação neutra. Em conferência (`AGUARDANDO_REVISAO`) o Início oferece **"Quero editar minhas respostas"** com a confirmação de `RF-115`. Confirmada qualquer das ações, a tela segue para onde o fluxo pede: o cálculo (plano novo) ou "Minhas respostas" (editar) | Decisão do produto (2026-10-05): a opção precisa estar no Início, onde o aluno chega | `RF-115`, `RF-118`, `RF-119`, `RF-58` · `T-343`, `T-344` | essencial |
+| `RF-121` | **A conferência mostra o plano como o aluno vai recebê-lo.** A tela do revisor traz o plano com o **mesmo conteúdo e o mesmo visual** da tela do aluno (cabeçalho com o nome, resumo, ponto de partida, primeiro passo, primeira vitória, como funciona, jornada, linha do tempo, dívidas, reserva, pendências, cenário adicional, dúvidas e carimbo), com a **mesma redação canônica** (`AC-14`). No monitor largo o plano do aluno ocupa uma coluna e o painel do revisor (método, homologação, pendências, fontes, dados de entrada) a outra; em tela estreita o plano do aluno vem primeiro. O que é só do aluno (baixar o PDF liberado, "Responder agora") não aparece para o revisor | Decisão do produto (2026-10-05): o especialista valoriza ver o formato que o aluno recebe · `RF-26`, `AC-29`, `AC-14` · `T-345`, `T-347` | essencial |
+| `RF-122` | **Cada dívida do plano traz, para o revisor, os dados dela.** No cartão de cada dívida, uma seção recolhível **"Para o revisor"** mostra os dados de entrada **daquela dívida** (os mesmos de `AC-29`, já formatados, com `DESCONHECIDO` visível). A justificativa técnica da posição (`JUSTIFICATIVA_POSICAO`) continua fora da tela — o critério do método aparece uma vez (`T-330`) — e o aluno nunca a recebe. As ações mostram o motivo técnico, só para o revisor | Decisão do produto (2026-10-05) · `RF-26`, `T-305`, `AC-29` · `T-345`, `T-348` | essencial |
+| `RF-123` | **O revisor vê o que mudou desde a versão anterior.** Num plano refeito (versão 2 ou mais), a conferência lista, campo a campo, o que mudou nos dados de entrada em relação à versão anterior (renda, despesas, taxas, parcelas, saldos): nome do campo, valor anterior e valor atual, ambos formatados pelo servidor. Campo igual não aparece; campo que só existe de um lado aparece como "novo" ou "removido". Na versão 1 não há comparação | Decisão do produto (2026-10-05): o aluno pode pedir plano novo (`RF-118`) · `RF-118`, `V-01`, `AC-29` · `T-345`, `T-348` | importante |
+| `RF-124` | **O revisor abre a prévia do PDF.** Antes de liberar, o revisor abre o PDF que o aluno receberá, marcado "Prévia — ainda não liberado". É a **mesma** montagem do PDF liberado (`OQ-09`), sem exigir liberação, e só para quem tem papel de revisor. O PDF do aluno continua só do plano liberado (`AC-25`) | Decisão do produto (2026-10-05) · `OQ-09`, `AC-25`, `RF-23` · `T-346` | importante |
 
 ## 3. User Stories
 
@@ -728,6 +732,12 @@ Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
 > Como **aluno**, quero **pedir um plano novo depois de corrigir ou atualizar minhas respostas**, sabendo que ele será conferido de novo e que o atual continua valendo até lá, para **que o plano reflita a minha vida de agora sem eu perder o que já tenho**.
 
 Atende: `RF-118`, `RF-119`, `RF-120`
+
+### `US-36` — Conferir o plano como o aluno vai recebê-lo
+
+> Como **revisor**, quero **ver o plano com o mesmo visual e a mesma redação que o aluno vai receber, com os dados e o que mudou ao alcance**, para **liberar ou devolver sabendo exatamente o que ele vai ler**.
+
+Atende: `RF-121`, `RF-122`, `RF-123`, `RF-124`
 
 ## 4. Acceptance Criteria
 
@@ -1055,6 +1065,18 @@ Atende: `RF-118`, `RF-119`, `RF-120`
 | `AC-186` | `US-35` | Dado `respostas_atualizadas: true`, quando o Início é exibido, então ele mostra "Você atualizou suas respostas depois do seu plano." e a ação "Gerar um novo plano"; ao confirmar (texto de `AC-184`) o pedido é feito e a tela vai ao cálculo; com `respostas_atualizadas: false` ou `null`, a ação aparece sem o aviso de atualização |
 | `AC-187` | `US-35` | Dado um caso em `AGUARDANDO_REVISAO`, quando o aluno abre o Início, então há a ação "Quero editar minhas respostas" com a confirmação de `RF-115`; confirmada, o caso volta a `COLETA_INICIAL` e a tela vai a "Minhas respostas" |
 | `AC-188` | `US-35` | Dado um caso liberado em que a montagem recusa alguma resposta (a comparação é impossível), quando `GET /inicio`, então a rota responde `200` com `respostas_atualizadas: null` — a falha da comparação nunca derruba o Início — e o Início não afirma mudança |
+
+### Rodada 15 (2026-10-05) — Conferência com a visão do aluno
+
+> **Rastreabilidade `RF` → `AC`.** `RF-121` → `AC-189`, `AC-190` · `RF-122` → `AC-191` · `RF-123` → `AC-192` · `RF-124` → `AC-193`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-189` | `US-36` | Dado um caso em `AGUARDANDO_REVISAO`, quando o revisor abre `GET /api/revisao/caso/{id}`, então o `plano` traz **os mesmos campos e textos** que o plano do aluno (`secoes`, `resumo_textos`, `grade_meses_textos`, `fonte` e `orientacao_seguro` por dívida, `nome_do_aluno`), e além deles `JUSTIFICATIVA_POSICAO` por posição e `motivo` por ação, que a rota do aluno nunca devolve |
+| `AC-190` | `US-36` | Dado o revisor na conferência, quando a tela carrega, então ela exibe o plano do aluno (título, resumo, jornada, uma seção por dívida, reserva, dúvidas e carimbo) e **não** exibe "Baixar em PDF" nem "Responder agora"; e a tela do aluno continua exatamente como antes |
+| `AC-191` | `US-36` | Dado um plano com dívidas, quando o revisor abre a seção "Para o revisor" do cartão de uma dívida, então vê os dados de entrada **dessa** dívida, e a justificativa técnica da posição não aparece; o aluno não vê a seção |
+| `AC-192` | `US-36` | Dado um plano versão 2 cuja taxa do cheque especial passou de 4% para 8%, quando o revisor o abre, então `mudancas` lista essa taxa com o valor anterior e o atual e **não** lista campos iguais; na versão 1, `mudancas` é `null` |
+| `AC-193` | `US-36` | Dado um caso com snapshot, quando um revisor pede `GET /revisao/caso/{id}/plano/pdf`, então recebe um PDF marcado como prévia mesmo sem liberação; um aluno recebe `403`; caso sem snapshot, `404`; e `GET /caso/{id}/plano/pdf` do aluno segue `404` antes da liberação |
 
 ## 5. Non-Functional Requirements
 

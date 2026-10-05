@@ -6,16 +6,21 @@ O fluxo inteiro pelas rotas reais (a mesma montagem de `test_correcao_pedida.py`
 reenvio → v2 na fila, com a v1 intacta.
 
 REGRAS: `RF-118`, `RF-119`, `AC-181`, `AC-182`, `AC-183`
+
+No fim: a conferência do revisor sobre o plano liberado e sobre a v2 (`AC-189`,
+`AC-192`, `T-345`) — o mesmo cenário, visto do lado de quem confere.
 """
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from app.casos.maquina import ESTADO_CASO
+from app.http.rotas_api_plano import obter_emails_dos_alunos
 from app.http.rotas_calculo import (
     obter_colecao_de_registros as calculo_colecao,
 )
@@ -70,6 +75,9 @@ def _trilha_da_retomada(cenario: Cenario) -> None:  # noqa: F811
     # as de `rotas_calculo` — as mesmas instâncias, com outro nome de injeção.
     # O plano chama o aluno pelo nome (conta); aqui não há banco — sem nome.
     sobrescritas[obter_contas_dos_casos] = lambda: _SemContas()
+    sobrescritas[obter_emails_dos_alunos] = lambda: SimpleNamespace(
+        emails_dos_casos=lambda _ids: {}, contas_dos_casos=lambda _ids: {}
+    )
     for da_coleta, do_calculo in (
         (coleta_respostas, calculo_respostas),
         (coleta_itens, calculo_itens),
@@ -263,3 +271,145 @@ def test_ac188_se_a_comparacao_e_impossivel_o_inicio_responde_e_nao_afirma_mudan
         corpo = resposta.json()
         assert corpo["respostas_atualizadas"] is None
         assert corpo["pode_refazer_plano"] is True, "a ação neutra continua oferecida"
+
+
+# --------------------------------------------------------------------------- AC-189 · AC-192
+
+
+def _sem_extras_do_revisor(plano: dict[str, Any]) -> dict[str, Any]:
+    """O plano do revisor sem o que só ele recebe (`para_revisor=True`)."""
+    limpo = dict(plano)
+    limpo["ordem"] = [
+        {k: v for k, v in posicao.items() if k != "JUSTIFICATIVA_POSICAO"}
+        for posicao in plano["ordem"]
+    ]
+    limpo["acoes"] = [{k: v for k, v in a.items() if k != "motivo"} for a in plano["acoes"]]
+    if plano["cenario_adicional"] is not None:
+        itens = [
+            {k: v for k, v in item.items() if k != "ITEM_ID"}
+            for item in plano["cenario_adicional"]["itens"]
+        ]
+        limpo["cenario_adicional"] = {**plano["cenario_adicional"], "itens": itens}
+    return limpo
+
+
+def test_ac189_o_plano_do_revisor_e_o_do_aluno_mais_os_extras_dele(
+    cenario: Cenario,  # noqa: F811
+) -> None:
+    cliente, casos, _, _, _ = cenario
+    with cliente:
+        _liberar_v1(cliente, casos, cenario)
+
+        do_aluno = cliente.get(f"/caso/{CASO_ID}/api/plano").json()["plano"]
+        do_revisor = cliente.get(f"/api/revisao/caso/{CASO_ID}").json()["plano"]
+
+        # Os textos fixos que os componentes visuais do aluno precisam chegam ao revisor.
+        textos_fixos = (
+            "secoes",
+            "resumo_textos",
+            "grade_meses_textos",
+            "duvidas",
+            "sobre_este_plano",
+        )
+        for chave in textos_fixos:
+            assert chave in do_revisor, chave
+        # Campos comuns idênticos: nenhuma segunda redação.
+        assert _sem_extras_do_revisor(do_revisor) == do_aluno
+        # O que é só do revisor, só ele recebe.
+        assert all("JUSTIFICATIVA_POSICAO" in p for p in do_revisor["ordem"])
+        assert all("JUSTIFICATIVA_POSICAO" not in p for p in do_aluno["ordem"])
+
+
+def test_ac192_o_revisor_ve_o_que_mudou_desde_a_versao_anterior(
+    cenario: Cenario,  # noqa: F811
+) -> None:
+    cliente, casos, snapshots, respostas, _ = cenario
+    with cliente:
+        _liberar_v1(cliente, casos, cenario)
+        # v1: nada com que comparar.
+        assert cliente.get(f"/api/revisao/caso/{CASO_ID}").json()["mudancas"] is None
+
+        respostas.corrigir_no_item(
+            "D001",
+            {
+                "QUALIDADE_TAXA_INFORMADA": "CONFIRMADA",
+                "TAXA_INFORMADA": converter_para_taxa("8"),
+                "PERIODICIDADE_TAXA": "MENSAL",
+            },
+        )
+        assert cliente.post(f"/caso/{CASO_ID}/refazer-plano").status_code == 200
+        assert cliente.post(f"/caso/{CASO_ID}/calculo").status_code == 200
+        assert _esperar_sair_de_calculando(casos).estado is ESTADO_CASO.AGUARDANDO_REVISAO
+
+        corpo = cliente.get(f"/api/revisao/caso/{CASO_ID}").json()
+        mudancas = corpo["mudancas"]
+        assert mudancas, "a taxa mudou: a lista não pode vir vazia"
+        taxas = [m for m in mudancas if m["situacao"] == "alterado" and "axa" in m["nome"]]
+        assert taxas, f"a taxa nova precisa aparecer: {mudancas}"
+        assert all(m["de"] != m["para"] for m in mudancas if m["situacao"] == "alterado")
+        # Campo igual não aparece: o número de mudanças é bem menor que o de campos.
+        total_de_campos = len(corpo["estado_inputs"]["campos"]) + sum(
+            len(d["campos"]) for d in corpo["estado_inputs"]["dividas"]
+        )
+        assert len(mudancas) < total_de_campos
+
+
+# --------------------------------------------------------------------------- AC-193
+
+
+def test_ac193_o_revisor_abre_a_previa_do_pdf_antes_da_liberacao(
+    cenario: Cenario,  # noqa: F811
+) -> None:
+    cliente, casos, _, _, _ = cenario
+    with cliente:
+        assert cliente.post(f"/caso/{CASO_ID}/calculo").status_code == 200
+        assert _esperar_sair_de_calculando(casos).estado is ESTADO_CASO.AGUARDANDO_REVISAO
+
+        previa = cliente.get(f"/revisao/caso/{CASO_ID}/plano/pdf")
+        assert previa.status_code == 200
+        assert previa.headers["content-type"] == "application/pdf"
+        assert previa.content.startswith(b"%PDF")
+
+        # O PDF do ALUNO continua só do plano liberado (`AC-25`).
+        assert cliente.get(f"/caso/{CASO_ID}/plano/pdf").status_code == 404
+
+
+def test_ac193_a_faixa_de_previa_so_existe_no_html_da_previa(cenario: Cenario) -> None:  # noqa: F811
+    from report.pdf import gerar_html_da_previa
+    from report.plano import carregar_textos_canonicos
+
+    cliente, casos, snapshots, _, _ = cenario
+    with cliente:
+        assert cliente.post(f"/caso/{CASO_ID}/calculo").status_code == 200
+        caso = _esperar_sair_de_calculando(casos)
+        assert caso.snapshot_raiz_id is not None
+        (v1,) = snapshots.historico(caso.snapshot_raiz_id)
+
+        html = gerar_html_da_previa(v1, carregar_textos_canonicos())
+
+        assert "Prévia — ainda não liberado" in html
+        assert html.index("Prévia — ainda não liberado") < html.index(v1.ENGINE_VERSION)
+
+        # A montagem do plano liberado (o que o aluno recebe) nunca leva a faixa.
+        from report.pdf import renderizar_html_do_plano
+        from report.plano import montar_contexto_plano
+
+        textos = carregar_textos_canonicos()
+        do_aluno = renderizar_html_do_plano(montar_contexto_plano(v1, textos), textos)
+        assert "Prévia — ainda não liberado" not in do_aluno
+
+
+def test_ac193_sem_sessao_a_previa_nao_abre(cenario: Cenario) -> None:  # noqa: F811
+    """A guarda de papel é a das outras rotas da equipe: sem sessão, `401`."""
+    from fastapi.testclient import TestClient
+
+    from app.http.aplicacao import criar_aplicacao
+
+    anonimo = TestClient(criar_aplicacao(), base_url="https://teste.local")
+    assert anonimo.get(f"/revisao/caso/{CASO_ID}/plano/pdf").status_code == 401
+
+
+def test_ac193_caso_sem_snapshot_responde_404(cenario: Cenario) -> None:  # noqa: F811
+    cliente, _, _, _, _ = cenario
+    with cliente:
+        assert cliente.get(f"/revisao/caso/{CASO_ID}/plano/pdf").status_code == 404

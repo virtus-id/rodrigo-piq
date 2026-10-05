@@ -334,7 +334,8 @@ def test_us07_recalculo_passa_pela_fila_ac26_ac29_e_segunda_liberacao(
     aplicacao.dependency_overrides[obter_repositorio_contas_para_papel] = lambda: repositorio_contas
     # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=lambda _caso_ids: {}
+        emails_dos_casos=lambda _caso_ids: {},
+        contas_dos_casos=lambda _caso_ids: {},
     )
 
     # Bloco 11 (app/http/rotas_bloco11.py) — coleção REAL (nenhum filtro:

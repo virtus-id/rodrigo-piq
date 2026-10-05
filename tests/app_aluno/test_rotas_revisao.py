@@ -187,7 +187,8 @@ def _montar_cliente(
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: "conta-revisor-teste"
     # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=lambda _caso_ids: {}
+        emails_dos_casos=lambda _caso_ids: {},
+        contas_dos_casos=lambda _caso_ids: {},
     )
     return TestClient(aplicacao, base_url="https://teste.local")
 

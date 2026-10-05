@@ -256,7 +256,8 @@ def _cliente(
     aplicacao.dependency_overrides[exigir_papel_revisor] = lambda: "conta-revisor-teste"
     # `T-327`: sem banco, nenhum e-mail — as telas caem no `CASO_ID`.
     aplicacao.dependency_overrides[obter_emails_dos_alunos] = lambda: SimpleNamespace(
-        emails_dos_casos=lambda _caso_ids: {}
+        emails_dos_casos=lambda _caso_ids: {},
+        contas_dos_casos=lambda _caso_ids: {},
     )
     # Sem banco, nenhum nome: o plano sai sem "Plano preparado para".
     aplicacao.dependency_overrides[obter_contas_dos_casos] = lambda: SimpleNamespace(

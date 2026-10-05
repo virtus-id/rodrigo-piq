@@ -31,6 +31,9 @@ class _Emails:
         self._emails = emails
         self.consultas: list[tuple[str, ...]] = []
 
+    def contas_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, Any]:
+        return {}
+
     def emails_dos_casos(self, caso_ids: tuple[str, ...]) -> dict[str, str]:
         self.consultas.append(caso_ids)
         return {c: self._emails[c] for c in caso_ids if c in self._emails}

@@ -373,9 +373,20 @@
         }
         .nova-pagina { break-before: page; }
         .visual { margin: 0 0 3mm; }
+        /* `RF-124` (T-346): só na prévia do revisor — ver `previa` abaixo. */
+        .faixa-previa {
+            background: #fff4d6;
+            border: 1px solid #d9a400;
+            color: #5a4300;
+            padding: 6px 10px;
+            margin: 0 0 12px 0;
+            font-weight: 600;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
+{% if previa %}<div class="faixa-previa">Prévia — ainda não liberado</div>{% endif %}
     <div class="capa">
         <div class="capa-para">
             {% if nome_do_aluno %}{{ textos.cabecalho.get("preparado_para", "").format(nome=nome_do_aluno) }}{% else %}{{ textos.cabecalho.get("preparado_sem_nome", "") }}{% endif %}

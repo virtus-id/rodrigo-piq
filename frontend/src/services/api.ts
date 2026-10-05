@@ -423,11 +423,22 @@ export interface EstadoInputs {
   dividas: { DIVIDA_ID: string; nome: string; campos: CampoDeEntrada[] }[]
 }
 
+/** Uma mudança nos dados de entrada entre duas versões — `RF-123`. Tudo formatado pelo servidor. */
+export interface MudancaDeEntrada {
+  secao: string
+  nome: string
+  de: string | null
+  para: string | null
+  situacao: 'alterado' | 'novo' | 'removido'
+}
+
 export interface CasoParaRevisao {
   CASO_ID: string
   plano: Plano
   /** `AC-29`: vem na MESMA resposta do plano — ver a nota de `TelaEquipeCaso`. */
   estado_inputs: EstadoInputs
+  /** `RF-123`: o que mudou desde a versão anterior; `null` na versão 1. */
+  mudancas?: MudancaDeEntrada[] | null
   fila: ItemDaFila
 }
 
