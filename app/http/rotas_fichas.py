@@ -40,7 +40,8 @@ from app.casos.progresso import (
     percurso_da_coleta,
 )
 from app.concorrencia import duas_em_paralelo
-from app.http.isolamento import exigir_caso_da_sessao
+from app.http.edicao import exigir_coleta_editavel
+from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.jornada import trilha_da_coleta
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
@@ -58,6 +59,7 @@ from collection.carga import ColecaoDeRegistros
 from collection.registro import EscopoRepeticao, RegistroPergunta
 from collection.repeticao import escopo_pai
 from collection.respostas import RespostasCaso
+from persistencia.app_aluno.casos import RepositorioCasos
 from persistencia.app_aluno.itens import ItemRepetido, RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 
@@ -316,6 +318,7 @@ def concluir_item(
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
 ) -> JSONResponse:
     """`T-320` (RF-107, AC-169) — fecha o formulário da ficha curta: toda
     pergunta aberta do item precisa de resposta ou "Não sei" — os predicados
@@ -327,6 +330,7 @@ def concluir_item(
     `T-321` (RF-108, AC-170): concluído, `proximo_item` é o próximo item
     pendente do escopo (mesmo pai) — depois deste, senão o primeiro antes —,
     ou `None` quando todos estão concluídos e a lista reabre."""
+    exigir_coleta_editavel(CASO_ID, repositorio_casos)  # `RF-114`: em conferência, só leitura
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
@@ -390,6 +394,7 @@ def criar_ficha(
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
     dados: Annotated[dict[str, str], Depends(_ler_formulario)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
 ) -> JSONResponse:
     """`AC-04` — cria um item com identificador estável (`D001`, `M002`…).
 
@@ -404,6 +409,7 @@ def criar_ficha(
     `T-254` (`AC-137`): ficha de escopo com pai (a margem) exige
     `item_pai_id` de um item ATIVO do escopo pai neste caso — senão `422` e
     nada é criado."""
+    exigir_coleta_editavel(CASO_ID, repositorio_casos)  # `RF-114`: em conferência, só leitura
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
@@ -457,11 +463,13 @@ def remover_ficha(
     escopo: str,
     item_id: str,
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
 ) -> JSONResponse:
     """`AC-04` — marca o item como removido; **nunca** apaga a linha.
 
     É essa memória que impede o reaproveitamento do identificador. Remover
     a ficha `D002` não faz a próxima nascer `D002`."""
+    exigir_coleta_editavel(CASO_ID, repositorio_casos)  # `RF-114`: em conferência, só leitura
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)
@@ -485,12 +493,14 @@ def nomear_ficha(
     item_id: str,
     dados: Annotated[dict[str, str], Depends(_ler_formulario)],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
 ) -> JSONResponse:
     """`T-217` — o nome curto de "Outro" e da despesa não listada (§11,
     `B3.D01`–`D11`), que vira o título da ficha e o `[despesa]` de `B3.DF01`.
 
     Só item que pede nome aceita: os demais já têm o rótulo da opção
     marcada, e renomeá-los esconderia qual opção o aluno marcou."""
+    exigir_coleta_editavel(CASO_ID, repositorio_casos)  # `RF-114`: em conferência, só leitura
     membro = _escopo_valido(escopo)
     if membro is None:
         return JSONResponse({"erro": _MENSAGEM_ESCOPO_INVALIDO}, status_code=400)

@@ -2880,3 +2880,64 @@ integração de "caso não fica preso" antes de qualquer tela.
 slug** (R9-1 e R9-6: campos de motor que as specs pressupõem e não criam) e
 **três decisões de produto** antes das fatias correspondentes (R9-3, R9-4 e o
 risco 1 de `R9M.10`). Nenhum item deste plano existe sem `RF` que o peça.
+
+---
+
+# Rodada 13 (2026-10-05) — Conferência trava a edição (`RF-114`–`RF-117`)
+
+Relato de uso: a taxa do cheque especial foi corrigida depois do cálculo e não chegou ao
+revisor, porque a tela de conferência lê o **snapshot** (`estado_inputs`), congelado no
+cálculo (`rotas_api_plano.py::caso_para_revisao`). Respostas mudadas depois só entram num
+snapshot novo. Esta rodada impede a divergência em vez de tentar sincronizá-la.
+
+## R13.1. Máquina de estados
+
+Uma transição nova em `app/casos/maquina.py::TABELA_TRANSICOES`:
+
+| De | Para | Gatilho | Guarda |
+| --- | --- | --- | --- |
+| `AGUARDANDO_REVISAO` | `COLETA_INICIAL` | `aluno_retoma_edicao` | o aluno confirmou retirar o plano da conferência |
+
+Aplicada por `transicionar_e_registrar` (valida na tabela, persiste condicionada ao estado
+esperado — a trava de `RF-31` —, grava o evento na trilha). `None` = outra transição venceu
+a corrida → `409`. O snapshot não é tocado (append-only, `V-01`); o reenvio é o
+`bloco_6_executa` de sempre, e `_snapshot_corrente` encadeia a v2 à v1 (como em `T-333`).
+`CALCULANDO` não ganha saída: o aluno espera o cálculo terminar.
+
+## R13.2. Servidor: o que muda
+
+| Peça | Mudança |
+| --- | --- |
+| `app/http/edicao.py` (novo) | `ESTADOS_SOMENTE_LEITURA = {CALCULANDO, AGUARDANDO_REVISAO}`, a mensagem de `AC-176` e a dependência `exigir_coleta_editavel(CASO_ID)`: lê o estado do caso e levanta `HTTPException(409)` se estiver nesse conjunto. Caso inexistente passa adiante (quem nega é `exigir_caso_da_sessao`) |
+| Rotas de escrita | `POST /caso/{id}/resposta` e as quatro de ficha (`POST`, `PUT`, `DELETE` em `/fichas/{escopo}` e `POST /concluir`) declaram a dependência **depois** de `exigir_caso_da_sessao` (a posse é verificada primeiro: o `409` nunca vaza a existência de caso alheio) |
+| `POST /caso/{id}/retomar-edicao` (novo) | transição `aluno_retoma_edicao`; `200` com `{"estado": "COLETA_INICIAL"}`; `409` se o caso não está em `AGUARDANDO_REVISAO` (`AC-179`) |
+| `GET /caso/{id}/respostas` | acrescenta `editavel` e `pode_retomar_edicao` (o cliente não conhece estados: ele recebe o veredito) |
+| `rotas_revisao.py` | caso em `COLETA_INICIAL` (retirado pelo aluno ou devolvido): a decisão é recusada com `409` e a mensagem de `AC-178` ANTES de gravar o registro de revisão; na corrida, o estado é relido do banco para dar a mesma mensagem |
+| Fila do revisor | nenhuma mudança: ela lista `AGUARDANDO_REVISAO`; o caso retirado simplesmente sai |
+
+## R13.3. Frontend
+
+- `api.ts`: `retomarEdicao(casoId)`; `pedir` passa a ler também `detail` (string) dos `HTTPException`, para a mensagem do `409` chegar à tela.
+- `TelaRespostas`: com `editavel: false` não há "Editar"; um cartão explica ("Seu plano está em conferência…") e, com `pode_retomar_edicao`, oferece **"Quero editar minhas respostas"** com confirmação em linha (texto de `RF-115`); confirmado, volta ao Início, que já mostra a coleta.
+- `TelaInicio`: em fase `revisao` o botão passa de "Ver e editar minhas respostas" para "Ver minhas respostas".
+- `TelaEquipeCaso`: já mostra o `erro` da decisão; com o ajuste de `pedir`, a mensagem de `AC-178` aparece.
+
+## R13.4. Texto de `B3.01` (`RF-117`)
+
+Spec canônica (`piq-app-spec.md`) e `bloco-03.yaml` mudam juntos; nenhuma lógica muda.
+
+## R13.5. Testes
+
+Máquina (par declarado, par vizinho continua recusado) · guarda nas cinco rotas, nos dois estados e fora deles · `retomar-edicao` (`200`, `409` em `CALCULANDO`, evento gravado, snapshot intacto) · revisor `409` · `respostas` com `editavel` · vitest de `TelaRespostas` somente leitura, confirmação e chamada · enunciado de `B3.01` (`AC-180`).
+
+## R13.6. Riscos
+
+| Risco | Tratamento |
+| --- | --- |
+| Corrida revisor × aluno | trava de `transicionar_estado_se` (`EC-42`); teste com os dois pedidos em sequência sobre o mesmo estado |
+| Fakes de `RepositorioCasos` dos testes antigos sem `buscar` | acrescentar `buscar` aos fakes que usam as rotas de escrita |
+| Plano já liberado continua editável | fora de escopo (`RF-114` fala de cálculo e conferência); registrado em `§9` |
+
+## R13.7. Rastreabilidade
+
+`RF-114` → R13.2 · R13.3 · `AC-176` | `RF-115` → R13.1 · R13.2 · R13.3 · `AC-177`, `AC-179` | `RF-116` → R13.2 · `AC-178`, `EC-42`, `EC-43` | `RF-117` → R13.4 · `AC-180`.

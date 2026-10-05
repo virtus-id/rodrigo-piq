@@ -116,3 +116,27 @@ export function formatarDecimalDoServidor(valor: string | null): string {
   const [inteiro = '0', centavos = ''] = valor.split('.')
   return formatarMoeda(inteiro + centavos.padEnd(2, '0').slice(0, 2))
 }
+
+/**
+ * Uma `TAXA` do servidor (fração, `"0.08"`) → o percentual que o campo mostra
+ * (`"8"`) — `T-335`, `AC-76`.
+ *
+ * O servidor guarda a fração (`converter_para_taxa` divide por 100), e o campo
+ * já tem o "%" ao lado: mostrar `0.08` ali lê-se "0,08%". Aqui a vírgula do
+ * decimal anda duas casas para a direita, por TEXTO — mesma regra de
+ * `formatarDecimalDoServidor`: ponto flutuante nunca (`RF-13`).
+ *
+ * `"0.075"` → `"7,5"` · `"1.5258"` → `"152,58"` · `"8"` → `"800"`. Vazio e
+ * `null` devolvem vazio: desconhecido não é zero.
+ */
+export function formatarTaxaDoServidor(valor: string | null): string {
+  if (!valor) return ''
+  // Só a fração decimal do servidor; qualquer outra coisa (`NAO_SEI`, um
+  // código de opção) passa intacta — nunca vira número por acidente.
+  if (!/^\d+(\.\d+)?$/.test(valor)) return valor
+  const [inteiro = '0', decimais = ''] = valor.split('.')
+  const digitos = decimais.padEnd(2, '0')
+  const parteInteira = (inteiro + digitos.slice(0, 2)).replace(/^0+(?=\d)/, '')
+  const parteDecimal = digitos.slice(2).replace(/0+$/, '')
+  return parteDecimal ? `${parteInteira},${parteDecimal}` : parteInteira
+}

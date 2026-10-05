@@ -156,6 +156,9 @@ for (const caso of FASES) {
       'Ver meu progresso',
       'Ver meu plano',
       'Ver e editar minhas respostas',
+      // `T-337`: em conferência as respostas só se leem — mesma consulta,
+      // sem o "editar".
+      'Ver minhas respostas',
       'Sair',
     ]
     const rotulosDoRodape = await page

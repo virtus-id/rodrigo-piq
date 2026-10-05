@@ -270,7 +270,8 @@ export default function TelaInicio({ inicio, irPara, eRevisor, aoSair }: TelaIni
               leva a nada. */}
           {inicio.progresso.respondidas > 0 && (
             <Botao variante="discreto" onClick={() => irPara({ tela: 'respostas' })}>
-              Ver e editar minhas respostas
+              {/* `RF-114`: em cálculo ou conferência as respostas só se leem. */}
+              {fase === 'revisao' ? 'Ver minhas respostas' : 'Ver e editar minhas respostas'}
             </Botao>
           )}
           {inicio.plano_liberado && fase !== 'coleta' && (

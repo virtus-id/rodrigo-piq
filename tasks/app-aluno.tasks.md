@@ -13602,3 +13602,71 @@ desta tela.
 - [x] Testes + typecheck/lint/vitest
 
 **Status:** `[x] concluída (2026-10-03)` — destaque da linha recém-editada ficou de fora (opcional no plano)
+
+---
+
+### `T-335` — Taxa exibida e reaberta como percentual (8%, não 0,08)
+
+- **Tipo:** `FIX` · **Dependências:** `T-334` · **Rastreia:** `RF-68`, `RF-69`, `AC-76`, `AC-102`
+- **Arquivos (previstos):** `frontend/src/mascaras.ts`, `frontend/src/componentes/CamposDoItem.tsx`,
+  `frontend/src/telas/TelaRespostas.tsx`, `frontend/src/tipos.ts`, `app/http/rotas_respostas.py`
+  + testes (`mascaras.test.ts`, `TelaRespostas.test.tsx`, `test_rotas_respostas.py`)
+
+Relato de uso (2026-10-05): o aluno digita `8` num campo de taxa (que já tem o "%" ao
+lado) e o servidor grava a fração `0.08` (`converter_para_taxa`, `RF-13`). Ao reabrir a
+pergunta, o campo mostrava a fração crua (`0.08`) com o "%" ao lado — leitura: 0,08%.
+Quem "corrigia" digitando `800` gravou 8 (800% ao mês), e salvar sem mexer regravava
+`0.08` como 0,08%. "Minhas respostas" também mostrava o valor cru (`0.08`, `2276.76`).
+
+- [x] `formatarTaxaDoServidor`: fração do servidor → percentual por **texto**, sem float (`0.08` → `8`, `0.075` → `7,5`, `1.5258` → `152,58`)
+- [x] Reabrir pergunta `TAXA` com o percentual (`valorInicial`); salvar sem mexer regrava o mesmo valor
+- [x] "Minhas respostas": `TAXA` como "8%", `MOEDA` como "R$ 2.276,76" (o servidor passa o `tipo` da resposta)
+- [x] Testes + typecheck/lint/vitest e os testes de `rotas_respostas`
+
+**Status:** `[x] concluída (2026-10-05)` — falta publicar no servidor
+
+---
+
+### `T-336` — Servidor: travar a edição em conferência e retomar a edição
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-333` · **Rastreia:** `RF-114`, `RF-115`, `RF-116`, `AC-176`, `AC-177`, `AC-178`, `AC-179`, `EC-42`
+- **Arquivos (previstos):** `app/casos/maquina.py`, `app/http/edicao.py` (novo),
+  `app/http/rotas_coleta.py`, `app/http/rotas_fichas.py`, `app/http/rotas_respostas.py`,
+  `app/http/rotas_revisao.py`, `app/http/aplicacao.py` (registro da rota nova) + testes
+
+- [x] Transição `AGUARDANDO_REVISAO → COLETA_INICIAL` (`aluno_retoma_edicao`) na tabela da máquina
+- [x] `exigir_coleta_editavel` nas cinco rotas de escrita (`409` com a mensagem de `AC-176`)
+- [x] `POST /caso/{id}/retomar-edicao` (`200`; `409` fora de `AGUARDANDO_REVISAO`; evento na trilha; snapshot intacto)
+- [x] `GET /respostas` com `editavel` e `pode_retomar_edicao`
+- [x] Revisor: `409` com a mensagem de `AC-178` quando o caso foi retirado; nada gravado
+- [x] Testes de `AC-176`–`AC-179`; gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-337` — Frontend: somente leitura em conferência e "Quero editar minhas respostas"
+
+- **Tipo:** `UX` · **Dependências:** `T-336`, `T-334` · **Rastreia:** `RF-114`, `RF-115`, `RF-116`, `AC-176`, `AC-177`, `AC-178`
+- **Arquivos (previstos):** `frontend/src/services/api.ts`, `frontend/src/tipos.ts`,
+  `frontend/src/telas/TelaRespostas.tsx`, `frontend/src/telas/TelaInicio.tsx`, `frontend/src/App.tsx` + testes
+
+- [x] `pedir` lê `detail` (string) das recusas do servidor
+- [x] `TelaRespostas` sem "Editar" quando `editavel` é falso; cartão explicativo
+- [x] "Quero editar minhas respostas" com confirmação em linha; chama `retomarEdicao` e volta ao Início
+- [x] Início em conferência: "Ver minhas respostas"
+- [x] Testes (vitest) e gates
+
+**Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-338` — Texto de `B3.01`: renda antes de empréstimos e consignados
+
+- **Tipo:** `FIX` · **Dependências:** — · **Rastreia:** `RF-117`, `AC-180`
+- **Arquivos (previstos):** `specs/piq-app-spec.md`, `collection/registros/bloco-03.yaml` + teste
+
+- [x] Spec canônica e `bloco-03.yaml` com o enunciado aprovado (2026-10-05)
+- [x] Teste de `AC-180` (enunciado exato servido pela pergunta)
+
+**Status:** `[x] concluída (2026-10-05)`

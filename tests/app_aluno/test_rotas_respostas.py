@@ -199,6 +199,8 @@ def test_ac100_a_revisao_traz_o_enunciado_e_o_valor_respondido(
     assert linha["enunciado"], "a pergunta precisa vir por extenso"
     assert len(linha["enunciado"]) > 20, "enunciado truncado não é conferência"
     assert linha["valores"], "a resposta dada precisa vir"
+    # `T-335`: o tipo vai junto, para o cliente exibir `0.08` como "8%".
+    assert linha["tipo"] == "SELECAO_UNICA"
 
 
 def test_ac100_o_valor_vem_como_rotulo_nunca_como_valor_interno(

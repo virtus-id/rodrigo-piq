@@ -72,6 +72,106 @@ describe('agruparPorItem', () => {
   })
 })
 
+function montarEmConferencia(extra: { editavel?: boolean; pode_retomar_edicao?: boolean }) {
+  vi.spyOn(api, 'obterRespostasDoCaso').mockResolvedValue({
+    CASO_ID: 'C1',
+    partes: PARTES,
+    ...extra,
+  })
+  const editar = vi.fn()
+  render(
+    <TelaRespostas casoId="C1" voltar={vi.fn()} bloco={1} escolherBloco={vi.fn()} editar={editar} />,
+  )
+  return { editar }
+}
+
+describe('TelaRespostas — só leitura em conferência (T-337, RF-114/RF-115)', () => {
+  it('em conferência: sem "Editar", com o aviso e a ação de retirar o plano', async () => {
+    montarEmConferencia({ editavel: false, pode_retomar_edicao: true })
+
+    expect(await screen.findByText('Seu plano está em conferência.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(screen.getByText('Enunciado B1.01?')).toBeInTheDocument() // ler continua livre
+    expect(screen.getByRole('button', { name: 'Quero editar minhas respostas' })).toBeInTheDocument()
+  })
+
+  it('em cálculo: sem "Editar" e sem a ação de retirar', async () => {
+    montarEmConferencia({ editavel: false, pode_retomar_edicao: false })
+
+    expect(await screen.findByText('Estamos montando o seu plano.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Quero editar minhas respostas' })).not.toBeInTheDocument()
+  })
+
+  it('pede confirmação, retira o plano e a lista volta a ter "Editar"', async () => {
+    const retomar = vi.spyOn(api, 'retomarEdicao').mockResolvedValue({ estado: 'COLETA_INICIAL' })
+    const obter = vi
+      .spyOn(api, 'obterRespostasDoCaso')
+      .mockResolvedValueOnce({ CASO_ID: 'C1', partes: PARTES, editavel: false, pode_retomar_edicao: true })
+      .mockResolvedValue({ CASO_ID: 'C1', partes: PARTES, editavel: true, pode_retomar_edicao: false })
+    render(<TelaRespostas casoId="C1" voltar={vi.fn()} bloco={1} escolherBloco={vi.fn()} editar={vi.fn()} />)
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Quero editar minhas respostas' }))
+    // Nada acontece até confirmar: o texto de RF-115 aparece primeiro.
+    expect(retomar).not.toHaveBeenCalled()
+    expect(
+      screen.getByText('Seu plano sai da conferência. Quando você enviar de novo, ele volta para a fila.'),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retirar o plano e editar' }))
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument()
+    expect(retomar).toHaveBeenCalledWith('C1')
+    expect(obter).toHaveBeenCalledTimes(2)
+  })
+
+  it('cancelar não retira nada', async () => {
+    const retomar = vi.spyOn(api, 'retomarEdicao')
+    montarEmConferencia({ editavel: false, pode_retomar_edicao: true })
+    fireEvent.click(await screen.findByRole('button', { name: 'Quero editar minhas respostas' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(retomar).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Quero editar minhas respostas' })).toBeInTheDocument()
+  })
+
+  it('o servidor recusa (409): a mensagem dele aparece e o plano segue em conferência', async () => {
+    vi.spyOn(api, 'retomarEdicao').mockRejectedValue(new Error('Seu plano não está em conferência.'))
+    montarEmConferencia({ editavel: false, pode_retomar_edicao: true })
+    fireEvent.click(await screen.findByRole('button', { name: 'Quero editar minhas respostas' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Retirar o plano e editar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Seu plano não está em conferência.')
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument()
+  })
+
+  it('sem o campo (servidor antigo) a tela é editável como sempre', async () => {
+    montarEmConferencia({})
+    expect((await screen.findAllByRole('button', { name: 'Editar' })).length).toBeGreaterThan(0)
+  })
+})
+
+describe('TelaRespostas — taxa e dinheiro como o aluno digitou (T-335)', () => {
+  it('TAXA aparece como "8%" e MOEDA como "R$ 2.276,76"', async () => {
+    vi.spyOn(api, 'obterRespostasDoCaso').mockResolvedValue({
+      CASO_ID: 'C1',
+      partes: [
+        {
+          bloco: 5,
+          rotulo: 'Parte Cinco',
+          total_de_perguntas: 2,
+          respondidas: [
+            resposta('B5.D01A', 'D006', { tipo: 'TAXA', valores: ['0.08'] }),
+            resposta('B5.B03', 'D006', { tipo: 'MOEDA', valores: ['2276.76'] }),
+          ],
+        },
+      ],
+    })
+    render(<TelaRespostas casoId="C1" voltar={vi.fn()} bloco={5} escolherBloco={vi.fn()} editar={vi.fn()} />)
+
+    expect(await screen.findByText('8%')).toBeInTheDocument()
+    expect(screen.getByText('R$ 2.276,76')).toBeInTheDocument()
+    expect(screen.queryByText('0.08')).not.toBeInTheDocument()
+  })
+})
+
 describe('TelaRespostas — menu e painel (T-334)', () => {
   it('menu com todas as partes, contagem e "Vazia"; abre a primeira com resposta', async () => {
     montar()

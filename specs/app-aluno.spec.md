@@ -439,6 +439,10 @@ com a redação canônica obrigatória.
 | `RF-111` | **Nenhum código interno é o texto principal do plano (aluno) nem da conferência (revisor).** (a) A dívida é identificada pelo **tipo legível e credor** ("Cheque especial — CAIXA ECONOMICA FEDERAL") na ordem, nas ações e nas pendências; o código (`D011`) aparece só ao revisor, como detalhe discreto. (b) Na conferência, cada dado de entrada (`estado_inputs`) tem **rótulo em português** e **valor legível**: opção pelo rótulo do registro, moeda em R$, taxa em %, data dd/mm/aaaa, lista separada por vírgula, item composto (ex.: valores extraordinários) descrito item a item — nunca a representação interna; `DESCONHECIDO` vira "Não informado". (c) Método, status do método, cenário e motivo do recálculo aparecem por rótulo; o **método é do caso, não da dívida**: aparece uma vez, em destaque ("Método selecionado para este aluno"), com o critério da ordem em uma frase (`textos-canonicos.yaml`, `criterio_do_metodo`); cada posição mostra só o nome e a explicação já mostrada ao aluno — a justificativa técnica do motor (`JUSTIFICATIVA_POSICAO`) não aparece (revisão de 2026-10-02, `T-330`). (d) Absorve `T-306`: a descrição das ações requeridas ao aluno vem de `textos-canonicos.yaml` por `TIPO_ACAO`, e o carimbo não mostra código de cenário. (e) Nas telas da equipe (fila, conferência, painel "Quem está onde") o caso é identificado pelo **e-mail do aluno**; o `CASO_ID` fica só como detalhe discreto. A tradução é do relatório/servidor; o motor (`engine/`) não muda e o cliente não traduz códigos | Decisão do produto (2026-10-02) · `EC-07`, `AC-17`, `RF-92`, `T-177`, `T-306` · `T-326`, `T-327`, `T-330` | importante |
 | `RF-112` | O painel do operador (`RF-35`) passa a se chamar **"Painel de usuários"** (botão na fila: "Ver painel de usuários") e lista **só alunos** — contas com `e_revisor = true` não aparecem (a gestão de revisores fica para um futuro painel de administração). Layout minimalista em **tabela de largura total**, uma linha por aluno, colunas **E-mail · Etapa · Status**: Etapa é o estado do caso por rótulo (nunca o código `ESTADO_CASO`) e, na coleta, a parte da trilha (`RF-100`); Status é o que já existe — "Aguarda conferência", "Cálculo bloqueado" e o tempo parado ("parado há 15 h"). Nenhum dado financeiro (critério de `RF-35` mantido). No celular, a tabela vira lista compacta sem rolagem lateral. **Coluna Nome** (`OQ-68`): o nome do comprador vindo da Hotmart, gravado na conta no provisionamento; conta sem nome mostra "—" (`T-332`) | Decisão do produto (2026-10-02) · `RF-35`, `RF-59`, `RF-100`, `RF-111` · `T-331`, `T-332` | importante |
 | `RF-113` | **"Pedir correção" devolve o plano ao aluno.** Na conferência, além da observação interna, o revisor escreve uma **"Mensagem para o aluno"** (obrigatória para pedir correção). A reprovação continua registrada com autor, data, classificação, observação e a mensagem, e o snapshot segue intacto (append-only); o caso **volta ao questionário** com todas as respostas preservadas. No Início, enquanto não reenviar, o aluno vê um aviso fixo com **a mensagem do revisor** e **a lista dos dados a conferir** (as pendências de homologação de `RF-93`, por nome da dívida e rótulo da pergunta, cada uma levando à pergunta), e a ação **"Enviar para nova conferência"**, que recalcula (`RF-14`) e devolve o caso à fila como nova versão. A observação interna nunca chega ao aluno. Revisa `EC-12` | Decisão do produto (2026-10-02) · `EC-12`, `RF-23`, `RF-26`, `RF-93`, `RF-69` · `T-333` | essencial |
+| `RF-114` | **Em cálculo ou em conferência, as respostas ficam só para leitura.** Enquanto o caso está em `CALCULANDO` ou `AGUARDANDO_REVISAO`, o aluno **lê** tudo em "Minhas respostas", mas não há ação "Editar" e o servidor recusa (`409`, "Seu plano está em conferência. Para mudar uma resposta, retire-o da conferência.") qualquer gravação: resposta, criação, nome, remoção ou conclusão de ficha. A regra vale no servidor, não só na tela. O revisor decide sempre sobre o que o aluno enviou: nenhuma resposta muda por baixo do plano que ele está conferindo | Relato de uso (2026-10-05): a taxa do cheque especial foi alterada depois do cálculo e nunca chegou ao revisor · `RF-23`, `RF-26`, `RF-69` · `T-336` | essencial |
+| `RF-115` | **"Quero editar minhas respostas" retira o plano da conferência.** Em `AGUARDANDO_REVISAO`, "Minhas respostas" oferece a ação **"Quero editar minhas respostas"**, com confirmação ("Seu plano sai da conferência. Quando você enviar de novo, ele volta para a fila."). Confirmada, o caso **volta a `COLETA_INICIAL`** (gatilho `aluno_retoma_edicao`, evento na trilha), com todas as respostas preservadas, o snapshot intacto (append-only) e o caso **fora da fila do revisor**. O reenvio é o `bloco_6_executa` de sempre e gera a nova versão encadeada à anterior (`V-01`), como em `RF-113`. Em `CALCULANDO` a ação não existe: o aluno espera o cálculo terminar | Decisão do produto (2026-10-05) · `RF-113`, `RF-114`, `V-01`, `RF-31` · `T-336`, `T-337` | essencial |
+| `RF-116` | **Quem decide e quem retira não se atropelam.** Se o revisor tenta liberar ou reprovar um caso que o aluno já retirou da conferência, a decisão é recusada (`409`, "Este plano saiu da conferência: o aluno o retirou para editar ou ele foi devolvido. Ele volta à fila quando for reenviado.") e **nenhum registro de revisão é gravado**. Se os dois agem ao mesmo tempo, vence quem primeiro conseguir a transição de estado (mesma trava de `RF-31`); a decisão que perde fica só na trilha de auditoria, sem efeito sobre o estado | Decisão do produto (2026-10-05) · `RF-23`, `RF-24`, `RF-115` · `T-336`, `T-337` | essencial |
+| `RF-117` | **A pergunta de renda diz o que informar.** `B3.01` pede o valor **depois do imposto de renda e da previdência e antes de empréstimos e consignados**, com a orientação de que as parcelas dessas dívidas são cadastradas no Bloco 5 e que plano de saúde, sindicato e outros descontos de folha entram nas despesas. O motivo é que o motor desconta as parcelas das dívidas da renda (`RENDA_TOTAL_RECORRENTE`): informar o que cai na conta contaria cada consignado duas vezes | Decisão do produto (2026-10-05) · `RF-79`, `B3.01`, `B3.S` · `T-338` | essencial |
 
 ## 3. User Stories
 
@@ -709,6 +713,12 @@ Atende: `RF-96`, `RF-97`
 > como possibilidade**.
 
 Atende: `RF-98`
+
+### `US-34` — Mudar uma resposta sem desencontrar o plano
+
+> Como **aluno**, quero **poder editar minhas respostas quando percebo um erro, sabendo que meu plano sai da conferência e volta quando eu reenviar**, para **que o revisor nunca confira um plano calculado com dados que já mudaram**.
+
+Atende: `RF-114`, `RF-115`, `RF-116`, `RF-117`
 
 ## 4. Acceptance Criteria
 
@@ -1010,6 +1020,18 @@ Atende: `RF-98`
 | --- | --- | --- |
 | `AC-175` | `US-28` | Dado um caso em `AGUARDANDO_REVISAO` com a taxa do cheque especial pendente, quando o revisor pede correção sem mensagem, então a decisão é recusada ("Escreva a mensagem para o aluno."); com a mensagem "Informe a taxa do cheque especial", então a reprovação é registrada (autor, data, mensagem, observação), o snapshot não muda e o caso volta ao questionário com as respostas intactas; o Início do aluno mostra a mensagem, a lista "Cheque especial — CAIXA ECONOMICA FEDERAL · Você sabe qual é a taxa de juros desta operação?" com link para a pergunta, e "Enviar para nova conferência"; a observação interna não aparece em nenhuma rota de aluno; ao reenviar, o plano é recalculado e o caso entra na fila como versão 2 (`T-333`) |
 
+### Rodada 13 (2026-10-05) — Conferência trava a edição
+
+> **Rastreabilidade `RF` → `AC`.** `RF-114` → `AC-176` · `RF-115` → `AC-177`, `AC-179` · `RF-116` → `AC-178` · `RF-117` → `AC-180`.
+
+| ID | Story | Critério (verificável) |
+| --- | --- | --- |
+| `AC-176` | `US-34` | Dado um caso em `AGUARDANDO_REVISAO` ou `CALCULANDO`, quando a sessão do aluno tenta gravar uma resposta, ou criar, nomear, remover ou concluir uma ficha, então a rota responde `409` com "Seu plano está em conferência. Para mudar uma resposta, retire-o da conferência." e nada é gravado; e `GET /respostas` devolve `editavel: false` e a tela de "Minhas respostas" não oferece "Editar" |
+| `AC-177` | `US-34` | Dado um caso em `AGUARDANDO_REVISAO` com o snapshot v1, quando o aluno confirma "Quero editar minhas respostas", então o caso passa a `COLETA_INICIAL`, o evento `aluno_retoma_edicao` é registrado, o caso deixa de aparecer na fila do revisor, e o snapshot v1 e as respostas ficam intactos; e, depois de editar e reenviar, nasce a v2 encadeada à v1 e o caso volta à fila |
+| `AC-178` | `US-34` | Dado um caso que o aluno retirou da conferência, quando o revisor tenta liberar ou reprovar, então a rota responde `409` com "Este plano saiu da conferência: o aluno o retirou para editar ou ele foi devolvido. Ele volta à fila quando for reenviado." e nenhuma revisão é registrada |
+| `AC-179` | `US-34` | Dado um caso fora de `AGUARDANDO_REVISAO` (em `CALCULANDO`, por exemplo), quando o aluno pede para retomar a edição, então a rota responde `409`, o estado não muda e nenhum evento é gravado |
+| `AC-180` | `US-34` | Dada a pergunta `B3.01`, quando exibida, então o enunciado é exatamente "Quanto você recebe por mês, em média, depois do imposto de renda e da previdência, mas antes de empréstimos e consignados? (Não desconte parcelas de empréstimo nem consignado: você cadastra essas dívidas mais adiante. Plano de saúde, sindicato e outros descontos de folha entram nas despesas.)" |
+
 ## 5. Non-Functional Requirements
 
 - **Performance:** cada transição de pergunta responde em p95 < 500 ms. A
@@ -1140,6 +1162,8 @@ Atende: `RF-98`
 | `EC-39` | Seguro com situação "Não sei" (`DE-03`) | Não soma em lugar nenhum; o dado fica registrado como "não informado" — não é "Pendente de confirmação", que é só para informação verbal (`OQ-54`, `AC-155`) |
 | `EC-40` | Revisor tenta liberar um caso com dado indispensável em "Pendente de confirmação" ou ausente (`DE-06`, `DE-08`) | A liberação é recusada por qualquer rota; a tela lista as pendências; o snapshot permanece intacto e na fila. Confirmado ou corrigido o dado (o que gera novo cálculo pelos caminhos já existentes), a liberação volta a estar disponível (`OQ-64`, `AC-142`) |
 | `EC-41` | Soma das rendas líquidas dos vínculos diverge da renda informada no Bloco 3 (`DE-05`) | Divergência sinalizada ao aluno e ao revisor; nenhum valor é somado de novo nem substitui a renda do Bloco 3; não bloqueia (`OQ-58`, `AC-156`) |
+| `EC-42` | O aluno retira o plano da conferência no mesmo instante em que o revisor decide (`RF-116`) | Só uma das duas transições (`AGUARDANDO_REVISAO` → `COLETA_INICIAL` ou → `PLANO_LIBERADO`/`REPROVADO_EM_REVISAO`) é aplicada, pela trava de `RF-31`; quem perde recebe `409`. Se foi o revisor quem perdeu, o registro da decisão (gravado antes da transição, por auditoria) fica sem efeito sobre o estado |
+| `EC-43` | O revisor está com o caso aberto quando o aluno o retira (`RF-115`) | A tela do revisor continua mostrando o plano que ele abriu, mas liberar ou reprovar devolve a mensagem de `AC-178`; ao voltar à fila, o caso não está mais lá até ser reenviado |
 | `EC-37` | O aluno troca o tipo de proposta de parcelada para à vista depois de responder `B7.07`–`B7.09` (`DE-07`) | As respostas do parcelamento deixam de ser exibidas, de contar no progresso e de chegar ao motor; nenhuma delas vira `DESCONHECIDO` por ter ficado inaplicável |
 | `EC-38` | Recurso extraordinário `CONFIRMADO` com valor "Não sei" ou janela "Ainda não sei" (`DE-02`) | Não entra na projeção (não há valor estimável nem mês previsto); o item continua cadastrado e visível ao revisor — nunca vira `0` nem ganha janela presumida |
 
@@ -1415,6 +1439,10 @@ Atende: `RF-98`
   não há redação publicada. `RF-43` entrega o **comportamento** e o ponto de
   encaixe; o texto é insumo do especialista (`OQ-21`) — texto ao aluno não se
   inventa aqui.
+- **Travar a edição do plano já liberado.** `RF-114` fala de cálculo e conferência.
+  Depois da liberação (`PLANO_LIBERADO`, `ACOMPANHAMENTO`) as respostas continuam
+  editáveis, e um plano novo só nasce pelos eventos do Bloco 11 (`AC-30`). Se o
+  produto quiser que editar reabra o plano liberado, é regra nova (decisão de 2026-10-05).
 
 ## 10. Open Questions
 

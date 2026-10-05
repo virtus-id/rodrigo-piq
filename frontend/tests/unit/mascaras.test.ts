@@ -12,11 +12,15 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import { valorInicial } from '../../src/componentes/CamposDoItem'
+import type { Pergunta } from '../../src/tipos'
+
 import {
   aplicarMascara,
   formatarDecimalDoServidor,
   formatarMoeda,
   formatarTaxa,
+  formatarTaxaDoServidor,
   temMascara,
 } from '../../src/mascaras'
 
@@ -142,5 +146,49 @@ describe('formatarDecimalDoServidor — RF-13 na saída', () => {
     expect(formatarDecimalDoServidor('90071992547409.91')).toBe(
       '90.071.992.547.409,91',
     )
+  })
+})
+
+describe('formatarTaxaDoServidor (T-335)', () => {
+  // A fração que o servidor guarda → o percentual que o campo mostra.
+  const casos: ReadonlyArray<readonly [string, string]> = [
+    ['0.08', '8'],
+    ['0.075', '7,5'],
+    ['0.0850', '8,5'],
+    ['1.5258', '152,58'],
+    ['0.0008', '0,08'],
+    ['0.2399', '23,99'],
+    ['8', '800'],
+    ['0', '0'],
+  ]
+
+  it.each(casos)('%s → %s', (fracao, esperado) => {
+    expect(formatarTaxaDoServidor(fracao)).toBe(esperado)
+  })
+
+  it('o que o campo mostra, redigitado, volta à mesma fração', () => {
+    // 8 → 0.08 → 8: salvar sem mexer não muda o dado (a regressão do 0,08%).
+    expect(formatarTaxaDoServidor('0.08')).toBe('8')
+    expect(formatarTaxa('8')).toBe('8')
+  })
+
+  it('vazio, nulo e o que não é número passam sem virar número', () => {
+    expect(formatarTaxaDoServidor(null)).toBe('')
+    expect(formatarTaxaDoServidor('')).toBe('')
+    expect(formatarTaxaDoServidor('NAO_SEI')).toBe('NAO_SEI')
+  })
+})
+
+describe('valorInicial de uma TAXA (T-335)', () => {
+  const taxa = (valor_atual: string | null) =>
+    ({ tipo: 'TAXA', valor_atual, valores_marcados: [] }) as unknown as Pergunta
+
+  it('reabre com o percentual, não com a fração', () => {
+    expect(valorInicial(taxa('0.08'))).toBe('8')
+    expect(valorInicial(taxa('0.075'))).toBe('7,5')
+  })
+
+  it('sem resposta reabre vazio', () => {
+    expect(valorInicial(taxa(null))).toBe('')
   })
 })

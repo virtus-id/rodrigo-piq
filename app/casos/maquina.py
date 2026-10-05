@@ -217,6 +217,14 @@ TABELA_TRANSICOES: Final[tuple[Transicao, ...]] = (
         gatilho="devolve_ao_aluno",
         guarda="RF-113: mensagem ao aluno registrada",
     ),
+    # RF-115 (T-336): o aluno retira o plano da conferência para editar. O
+    # snapshot não é tocado; o reenvio é o `bloco_6_executa` de sempre.
+    Transicao(
+        de=ESTADO_CASO.AGUARDANDO_REVISAO,
+        para=ESTADO_CASO.COLETA_INICIAL,
+        gatilho="aluno_retoma_edicao",
+        guarda="RF-115: aluno retira o plano",
+    ),
     Transicao(
         de=ESTADO_CASO.AGUARDANDO_REVISAO,
         para=ESTADO_CASO.PLANO_LIBERADO,

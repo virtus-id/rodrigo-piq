@@ -186,8 +186,9 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from app.casos.maquina import Caso
+from app.casos.maquina import ESTADO_CASO, Caso
 from app.concorrencia import duas_em_paralelo
+from app.http.edicao import MENSAGEM_FORA_DA_CONFERENCIA
 from app.http.isolamento import (
     exigir_papel_revisor,
     obter_repositorio_contas_para_papel,
@@ -254,6 +255,20 @@ REGRAS: Final[tuple[str, ...]] = (
 # Mensagens curtas de propósito — mesma disciplina de `app/http/isolamento.py`
 # (`AC-37`, T-08): ficam sob o limiar de 40 caracteres do teste estático.
 _MENSAGEM_CASO_SEM_SNAPSHOT: Final[str] = "Caso sem snapshot para comparar."
+
+def _recusa_ja_decidida(
+    erro: ErroRevisaoJaDecidida, repositorio_casos: RepositorioCasosDaDecisao
+) -> HTTPException:
+    """`409` da decisão que não se aplica. Se, na corrida, o aluno retirou o
+    plano para editar um instante antes (`RF-115`, `EC-42`), o revisor lê isso
+    com todas as letras (`AC-178`). O estado vem do banco, não do erro:
+    `ErroRevisaoJaDecidida` carrega o estado que a decisão ESPERAVA."""
+    caso = repositorio_casos.buscar(erro.caso_id)
+    if caso is not None and caso.estado is ESTADO_CASO.COLETA_INICIAL:
+        return HTTPException(status_code=409, detail=MENSAGEM_FORA_DA_CONFERENCIA)
+    return HTTPException(status_code=409, detail=str(erro))
+
+
 _MENSAGEM_DECISAO_INVALIDA: Final[str] = "Decisão inválida: LIBERAR/REPROVAR."
 _MENSAGEM_CLASSIFICACAO_INVALIDA: Final[str] = "Classificação de erro inválida."
 # `T-264` (RF-97) — redação aprovada pelo produto (`T-289`, 2026-09-30).
@@ -690,6 +705,12 @@ def processar_decisao(
         CASO_ID_REVISAO, repositorio_casos, repositorio_snapshots
     )
 
+    # `RF-116`/`AC-178`: caso que o aluno retirou da conferência (ou que já foi
+    # devolvido) volta em `COLETA_INICIAL`. A decisão é recusada ANTES de
+    # gravar qualquer registro de revisão — não houve plano a decidir.
+    if caso.estado is ESTADO_CASO.COLETA_INICIAL:
+        raise HTTPException(status_code=409, detail=MENSAGEM_FORA_DA_CONFERENCIA)
+
     decisao = dados.get("decisao", "")
     observacao = dados.get("observacao") or None
 
@@ -722,7 +743,7 @@ def processar_decisao(
                 status_code=409,
             )
         except ErroRevisaoJaDecidida as erro:
-            raise HTTPException(status_code=409, detail=str(erro)) from erro
+            raise _recusa_ja_decidida(erro, repositorio_casos) from erro
 
         # **O aviso que a interface promete** — `RF-31`, `T-182`.
         #
@@ -770,7 +791,7 @@ def processar_decisao(
                 observacao=observacao,
             )
         except ErroRevisaoJaDecidida as erro:
-            raise HTTPException(status_code=409, detail=str(erro)) from erro
+            raise _recusa_ja_decidida(erro, repositorio_casos) from erro
     else:
         raise HTTPException(status_code=422, detail=_MENSAGEM_DECISAO_INVALIDA)
 

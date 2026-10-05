@@ -72,9 +72,13 @@ async function pedir<T>(url: string, init: RequestInit = {}): Promise<T> {
       const corpo = (await resposta.json()) as {
         erro?: string
         mensagem?: string
+        detail?: unknown
         pendencias?: PendenciaDoCalculo[]
       }
-      detalhe = corpo?.erro ?? corpo?.mensagem ?? detalhe
+      // `T-337`: o `HTTPException` do servidor (`409` da conferência, p. ex.)
+      // manda `detail`, não `erro` — sem lê-lo a tela mostrava só "HTTP 409".
+      const deHttp = typeof corpo?.detail === 'string' ? corpo.detail : undefined
+      detalhe = corpo?.erro ?? corpo?.mensagem ?? deHttp ?? detalhe
       pendencias = corpo?.pendencias ?? []
     } catch {
       /* corpo não-JSON: fica o status */
@@ -160,6 +164,14 @@ export function gravarResposta(
  */
 export function obterRespostasDoCaso(casoId: string): Promise<RespostasDoCaso> {
   return pedir<RespostasDoCaso>(`/caso/${casoId}/respostas`)
+}
+
+/**
+ * Retira o plano da conferência para o aluno editar — `RF-115`, `T-337`. O
+ * servidor decide: `409` fora de `AGUARDANDO_REVISAO`.
+ */
+export function retomarEdicao(casoId: string): Promise<{ estado: string }> {
+  return pedir<{ estado: string }>(`/caso/${casoId}/retomar-edicao`, { method: 'POST' })
 }
 
 export function listarEscopos(casoId: string): Promise<EscoposDoCaso> {

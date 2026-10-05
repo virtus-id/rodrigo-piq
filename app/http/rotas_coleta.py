@@ -132,7 +132,8 @@ from app.casos.progresso import (
     proxima_pergunta_nao_respondida,
 )
 from app.concorrencia import duas_em_paralelo
-from app.http.isolamento import exigir_caso_da_sessao
+from app.http.edicao import exigir_coleta_editavel
+from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.jornada import anexar_ao_payload
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_calculo import _respostas_do_calculo
@@ -151,6 +152,7 @@ from collection.repeticao import perguntas_da_ficha
 from collection.respostas import NAO_SEI, Resposta, RespostasCaso, ValorResposta
 from collection.validacao import validar_cruzada
 from persistencia.app_aluno.arquivo import ErroGravacaoItem as ErroGravacaoItemArquivo
+from persistencia.app_aluno.casos import RepositorioCasos
 from persistencia.app_aluno.itens import (
     ErroGravacaoItem,
     ItemRepetido,
@@ -558,6 +560,7 @@ def responder_pergunta(
     colecao: Annotated[ColecaoDeRegistros, Depends(obter_colecao_de_registros)],
     repositorio: Annotated[RepositorioRespostas, Depends(obter_repositorio_respostas)],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
 ) -> Response:
     """Os sete passos do plano §5.1, na ordem, para uma única resposta.
 
@@ -576,6 +579,7 @@ def responder_pergunta(
     # Passo 1 já ocorreu: `exigir_caso_da_sessao` (Depends acima) verificou,
     # no servidor, que a sessão possui este CASO_ID — 401/404 antes de
     # qualquer leitura de dado do caso, se aplicável.
+    exigir_coleta_editavel(CASO_ID, repositorio_casos)  # `RF-114`: em conferência, só leitura
     id_pergunta = dados.get("ID_PERGUNTA", "")
     item_id = dados.get("item_id") or None
 

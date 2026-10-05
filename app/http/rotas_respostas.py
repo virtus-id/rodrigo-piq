@@ -34,8 +34,11 @@ from typing import Annotated, Any, Final
 from fastapi import APIRouter, Depends
 from fastapi.responses import JSONResponse
 
+from app.casos.maquina import ESTADO_CASO, ErroTransicaoNaoDeclarada
+from app.casos.progresso import transicionar_e_registrar
 from app.concorrencia import duas_em_paralelo
-from app.http.isolamento import exigir_caso_da_sessao
+from app.http.edicao import ESTADOS_SOMENTE_LEITURA
+from app.http.isolamento import exigir_caso_da_sessao, obter_repositorio_casos
 from app.http.jornada import PARTES
 from app.http.renderizacao import ErroPerguntaNaoExibivel, montar_contexto_pergunta
 from app.http.rotas_coleta import (
@@ -48,6 +51,8 @@ from app.http.serializacao import serializar_valor
 from collection.carga import ColecaoDeRegistros
 from collection.registro import EscopoRepeticao, RegistroPergunta, TipoResposta
 from collection.respostas import RespostasCaso, ValorResposta
+from persistencia.app_aluno.casos import RepositorioCasos
+from persistencia.app_aluno.eventos import RepositorioEventosCaso, RepositorioEventosCasoSupabase
 from persistencia.app_aluno.itens import RepositorioItens
 from persistencia.app_aluno.respostas import RepositorioRespostas
 from report.plano import formatar_dinheiro_br
@@ -129,6 +134,9 @@ def _serializar_resposta_dada(
         "item_id": item_id,
         "enunciado": contexto.enunciado,
         "respondida_como_nao_sei": contexto.respondida_como_nao_sei,
+        # `T-335`: o tipo diz ao cliente como EXIBIR o valor cru (`0.08` é
+        # "8%", `2276.76` é "R$ 2.276,76"); a regra continua no servidor.
+        "tipo": registro.tipo.value,
         # Lista, não string: `SELECAO_MULTIPLA` tem várias, e juntá-las aqui
         # imporia um separador que é decisão de apresentação.
         "valores": rotulos,
@@ -166,6 +174,7 @@ def respostas_do_caso(
         RepositorioRespostas, Depends(obter_repositorio_respostas)
     ],
     repositorio_itens: Annotated[RepositorioItens, Depends(obter_repositorio_itens)],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
 ) -> JSONResponse:
     """`RF-68`, `AC-100` — o que o aluno já respondeu, por parte.
 
@@ -225,4 +234,60 @@ def respostas_do_caso(
             }
         )
 
-    return JSONResponse({"CASO_ID": CASO_ID, "partes": partes})
+    # `RF-114`/`RF-115` (T-336): o cliente não conhece estados — recebe o
+    # veredito. Em cálculo ou conferência as respostas só se leem; só a
+    # conferência permite retirar o plano para editar.
+    caso = repositorio_casos.buscar(CASO_ID)
+    estado = caso.estado if caso is not None else None
+    return JSONResponse(
+        {
+            "CASO_ID": CASO_ID,
+            "editavel": estado not in ESTADOS_SOMENTE_LEITURA,
+            "pode_retomar_edicao": estado is ESTADO_CASO.AGUARDANDO_REVISAO,
+            "partes": partes,
+        }
+    )
+
+
+def obter_repositorio_eventos_da_retomada() -> RepositorioEventosCaso:
+    """Ponto de injeção da trilha de eventos — sobrescrito nos testes."""
+    return RepositorioEventosCasoSupabase()
+
+
+_MENSAGEM_NAO_EM_CONFERENCIA: Final[str] = "Seu plano não está em conferência."
+
+
+@roteador.post("/{CASO_ID}/retomar-edicao")
+def retomar_edicao(
+    CASO_ID: Annotated[str, Depends(exigir_caso_da_sessao("CASO_ID"))],
+    repositorio_casos: Annotated[RepositorioCasos, Depends(obter_repositorio_casos)],
+    repositorio_eventos: Annotated[
+        RepositorioEventosCaso, Depends(obter_repositorio_eventos_da_retomada)
+    ],
+) -> JSONResponse:
+    """`RF-115`, `AC-177`, `AC-179` — o aluno retira o plano da conferência
+    para editar as respostas.
+
+    `AGUARDANDO_REVISAO → COLETA_INICIAL` pela MÁQUINA e pela trava
+    condicional de `RF-31` (`transicionar_e_registrar`): se o revisor decidiu
+    um instante antes, a transição não se aplica e a resposta é `409` — quem
+    chega primeiro vence (`EC-42`). O snapshot não é tocado e as respostas
+    ficam como estão; o reenvio é o cálculo de sempre, que gera a nova versão
+    encadeada à anterior. Fora de `AGUARDANDO_REVISAO` (em `CALCULANDO`, por
+    exemplo) a rota recusa sem mexer em nada."""
+    caso = repositorio_casos.buscar(CASO_ID)
+    if caso is None or caso.estado is not ESTADO_CASO.AGUARDANDO_REVISAO:
+        return JSONResponse({"erro": _MENSAGEM_NAO_EM_CONFERENCIA}, status_code=409)
+    try:
+        atualizado = transicionar_e_registrar(
+            repositorio_casos=repositorio_casos,
+            repositorio_eventos=repositorio_eventos,
+            caso_id=CASO_ID,
+            de=ESTADO_CASO.AGUARDANDO_REVISAO,
+            para=ESTADO_CASO.COLETA_INICIAL,
+        )
+    except ErroTransicaoNaoDeclarada:  # pragma: no cover — a tabela a declara
+        return JSONResponse({"erro": _MENSAGEM_NAO_EM_CONFERENCIA}, status_code=409)
+    if atualizado is None:
+        return JSONResponse({"erro": _MENSAGEM_NAO_EM_CONFERENCIA}, status_code=409)
+    return JSONResponse({"CASO_ID": CASO_ID, "estado": ESTADO_CASO.COLETA_INICIAL.value})

@@ -34,7 +34,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Botao from '../componentes/Botao'
 import Esqueleto from '../componentes/Esqueleto'
 import Tela from '../componentes/Tela'
-import { obterRespostasDoCaso } from '../services/api'
+import { obterRespostasDoCaso, retomarEdicao } from '../services/api'
+import { formatarDecimalDoServidor, formatarTaxaDoServidor } from '../mascaras'
 import type { ParteDasRespostas, RespostaDada, RespostasDoCaso } from '../tipos'
 
 interface TelaRespostasProps {
@@ -61,7 +62,19 @@ interface TelaRespostasProps {
 function textoDaResposta(resposta: RespostaDada): string {
   if (resposta.respondida_como_nao_sei) return 'Você respondeu: não sei.'
   if (resposta.valores.length === 0) return 'Respondida.'
-  return resposta.valores.join(', ')
+  return resposta.valores.map((valor) => exibir(valor, resposta.tipo)).join(', ')
+}
+
+/**
+ * `T-335`: o servidor manda o valor cru (`0.08`, `2276.76`); aqui ele vira o que
+ * o aluno digitou — "8%", "R$ 2.276,76". Só o que é número decimal: um rótulo
+ * ou um código passa intacto.
+ */
+function exibir(valor: string, tipo: RespostaDada['tipo']): string {
+  if (!/^\d+(\.\d+)?$/.test(valor)) return valor
+  if (tipo === 'TAXA') return `${formatarTaxaDoServidor(valor)}%`
+  if (tipo === 'MOEDA') return `R$ ${formatarDecimalDoServidor(valor)}`
+  return valor
 }
 
 /**
@@ -121,7 +134,8 @@ function FichaDaResposta({
   editar,
 }: {
   resposta: RespostaDada
-  editar: () => void
+  /** Ausente ⇒ só leitura (`RF-114`): sem o botão. */
+  editar?: () => void
 }) {
   return (
     <li className="item flex-col items-stretch gap-1">
@@ -132,9 +146,11 @@ function FichaDaResposta({
           <span className="chip chip-mudo ml-2 align-middle">Não sei</span>
         )}
       </strong>
-      <Botao variante="discreto" className="self-start" onClick={editar}>
-        Editar
-      </Botao>
+      {editar && (
+        <Botao variante="discreto" className="self-start" onClick={editar}>
+          Editar
+        </Botao>
+      )}
     </li>
   )
 }
@@ -192,7 +208,8 @@ function PainelDaParte({
   titulo,
 }: {
   parte: ParteDasRespostas
-  editar: (idPergunta: string, itemId: string | null) => void
+  /** Ausente ⇒ só leitura (`RF-114`). */
+  editar?: (idPergunta: string, itemId: string | null) => void
   titulo: React.RefObject<HTMLHeadingElement | null>
 }) {
   return (
@@ -219,7 +236,7 @@ function PainelDaParte({
                   // pergunta rende uma linha por dívida.
                   key={`${resposta.ID}/${resposta.item_id ?? ''}`}
                   resposta={resposta}
-                  editar={() => editar(resposta.ID, resposta.item_id)}
+                  editar={editar ? () => editar(resposta.ID, resposta.item_id) : undefined}
                 />
               ))}
             </ul>
@@ -241,6 +258,27 @@ export default function TelaRespostas({
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(true)
   const tituloDaParte = useRef<HTMLHeadingElement>(null)
+  // `RF-115`: a retirada do plano da conferência pede confirmação em linha.
+  const [confirmando, setConfirmando] = useState(false)
+  const [retirando, setRetirando] = useState(false)
+  const [erroRetirada, setErroRetirada] = useState<string | null>(null)
+
+  async function retirarDaConferencia() {
+    setRetirando(true)
+    setErroRetirada(null)
+    try {
+      await retomarEdicao(casoId)
+      setConfirmando(false)
+      // Relê: o servidor devolve `editavel: true` e a lista volta a ter "Editar".
+      await carregar()
+    } catch (falha) {
+      setErroRetirada(
+        falha instanceof Error ? falha.message : 'Não foi possível retirar o plano agora.',
+      )
+    } finally {
+      setRetirando(false)
+    }
+  }
 
   const carregar = useCallback(async () => {
     setCarregando(true)
@@ -292,6 +330,9 @@ export default function TelaRespostas({
     )
   }
 
+  // `RF-114`: ausente ⇒ editável (servidor antigo não manda o campo).
+  const editavel = respostas.editavel !== false
+
   return (
     <Tela
       titulo="Minhas respostas"
@@ -299,15 +340,65 @@ export default function TelaRespostas({
       acoes={<Botao onClick={voltar}>Voltar ao início</Botao>}
       lateral={<MenuDasPartes partes={partes} ativa={ativa.bloco} escolher={escolherBloco} />}
     >
-      <p className="lead">
-        Tudo o que você já respondeu fica aqui. Mudou de ideia, ou errou um número? É só
-        editar.
-      </p>
+      {editavel ? (
+        <p className="lead">
+          Tudo o que você já respondeu fica aqui. Mudou de ideia, ou errou um número? É só
+          editar.
+        </p>
+      ) : (
+        <section className="cartao" aria-label="Plano em conferência">
+          <strong>
+            {respostas.pode_retomar_edicao
+              ? 'Seu plano está em conferência.'
+              : 'Estamos montando o seu plano.'}
+          </strong>
+          <p className="nota">
+            {respostas.pode_retomar_edicao
+              ? 'Por isso as respostas estão só para leitura: a equipe confere exatamente o que você enviou. Se perceber algo errado, você pode retirar o plano da conferência e editar.'
+              : 'Assim que o cálculo terminar, o plano segue para a conferência. Até lá, as respostas ficam só para leitura.'}
+          </p>
+
+          {respostas.pode_retomar_edicao && !confirmando && (
+            <Botao variante="discreto" className="self-start" onClick={() => setConfirmando(true)}>
+              Quero editar minhas respostas
+            </Botao>
+          )}
+
+          {respostas.pode_retomar_edicao && confirmando && (
+            <div className="flex flex-col gap-2" role="group" aria-label="Confirmar a retirada">
+              <p>
+                <strong>
+                  Seu plano sai da conferência. Quando você enviar de novo, ele volta para a
+                  fila.
+                </strong>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Botao onClick={() => void retirarDaConferencia()} disabled={retirando}>
+                  Retirar o plano e editar
+                </Botao>
+                <Botao
+                  variante="discreto"
+                  onClick={() => setConfirmando(false)}
+                  disabled={retirando}
+                >
+                  Cancelar
+                </Botao>
+              </div>
+            </div>
+          )}
+
+          {erroRetirada && (
+            <p role="alert" className="aviso-erro">
+              {erroRetirada}
+            </p>
+          )}
+        </section>
+      )}
 
       <PainelDaParte
         parte={ativa}
         titulo={tituloDaParte}
-        editar={(id, item) => editar(id, item, ativa.bloco)}
+        editar={editavel ? (id, item) => editar(id, item, ativa.bloco) : undefined}
       />
     </Tela>
   )

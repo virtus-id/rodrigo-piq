@@ -43,6 +43,7 @@ from fastapi.testclient import TestClient
 
 from app.casos.maquina import ESTADO_CASO, Caso
 from app.http.aplicacao import criar_aplicacao
+from app.http.edicao import MENSAGEM_FORA_DA_CONFERENCIA
 from app.http.isolamento import exigir_papel_revisor, obter_repositorio_casos
 from app.http.rotas_plano import obter_repositorio_snapshots as obter_repositorio_snapshots_do_aluno
 from app.http.rotas_revisao import (
@@ -609,6 +610,46 @@ def test_segunda_decisao_sobre_o_mesmo_caso_e_recusada_com_409(
     caso_apos = repositorio_casos.buscar(caso_id)
     assert caso_apos is not None
     assert caso_apos.estado is ESTADO_CASO.PLANO_LIBERADO
+
+
+def test_ac178_decisao_sobre_caso_retirado_da_conferencia_e_recusada_sem_gravar_nada(
+    monkeypatch: pytest.MonkeyPatch,
+    repositorio_casos: RepositorioCasosArquivo,
+    repositorio_snapshots: RepositorioSnapshotsArquivo,
+    repositorio_eventos: RepositorioEventosCasoArquivo,
+    repositorio_revisoes: _RepositorioRevisoesDublê,
+) -> None:
+    """`AC-178` (`RF-116`, `T-336`): o aluno retirou o plano da conferência
+    (`AGUARDANDO_REVISAO → COLETA_INICIAL`) com a tela do revisor ainda
+    aberta. Liberar ou reprovar recebe `409` com a mensagem que explica, e
+    **nenhum** registro de revisão é gravado — não havia plano a decidir."""
+    caso_id = "CASO-RETIRADO"
+    _criar_caso(repositorio_casos, caso_id, "conta-aluno-retirado")
+    _calcular_snapshot(caso_id, repositorio_casos, repositorio_snapshots, repositorio_eventos)
+    repositorio_casos.transicionar_estado(caso_id, ESTADO_CASO.COLETA_INICIAL)
+
+    aplicacao = _montar_aplicacao(
+        monkeypatch,
+        repositorio_casos=repositorio_casos,
+        repositorio_snapshots=repositorio_snapshots,
+        repositorio_eventos=repositorio_eventos,
+        repositorio_revisoes=repositorio_revisoes,
+    )
+    cliente = TestClient(aplicacao, base_url="https://teste.local")
+
+    for corpo in ("decisao=LIBERAR", "decisao=REPROVAR&mensagem_aluno=Confira"):
+        resposta = cliente.post(
+            f"/revisao/caso/{caso_id}/decisao",
+            content=corpo,
+            headers={"content-type": "application/x-www-form-urlencoded"},
+        )
+        assert resposta.status_code == 409
+        assert resposta.json()["detail"] == MENSAGEM_FORA_DA_CONFERENCIA
+
+    assert repositorio_revisoes.registros == {}, "nenhuma revisão é registrada"
+    caso_apos = repositorio_casos.buscar(caso_id)
+    assert caso_apos is not None
+    assert caso_apos.estado is ESTADO_CASO.COLETA_INICIAL
 
 
 def test_formulario_de_decisao_e_exibido_sem_campo_autor(

@@ -642,6 +642,8 @@ export interface RespostaDada {
   item_id: string | null
   enunciado: string
   respondida_como_nao_sei: boolean
+  /** `T-335`: como exibir `valores` — `TAXA` e `MOEDA` chegam crus do servidor. */
+  tipo?: TipoResposta
   valores: string[]
 }
 
@@ -661,6 +663,10 @@ export interface ParteDasRespostas {
 
 export interface RespostasDoCaso {
   CASO_ID: string
+  /** `RF-114`: em cálculo ou conferência as respostas só se leem. Ausente ⇒ editável. */
+  editavel?: boolean
+  /** `RF-115`: só a conferência permite retirar o plano para editar. */
+  pode_retomar_edicao?: boolean
   partes: ParteDasRespostas[]
 }
 

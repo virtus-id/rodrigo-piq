@@ -7,6 +7,7 @@
  * em branco e gravar em sequência pela rota de `RF-69` (mãe antes das
  * filhas). Quais perguntas aparecem é sempre do servidor (`RF-45`).
  */
+import { formatarTaxaDoServidor } from '../mascaras'
 import { gravarResposta } from '../services/api'
 import type { Pergunta } from '../tipos'
 import CampoPergunta from './CampoPergunta'
@@ -22,6 +23,9 @@ export function valorInicial(pergunta: Pergunta): string | string[] {
   if (pergunta.valores_marcados.length > 0) return pergunta.valores_marcados
   const atual = pergunta.valor_atual
   if (atual === null) return ''
+  // `T-335`: o servidor guarda a fração (`0.08`); o campo, que já tem o "%"
+  // ao lado, reabre com o percentual (`8`).
+  if (pergunta.tipo === 'TAXA' && !Array.isArray(atual)) return formatarTaxaDoServidor(String(atual))
   // `T-294`: opção com campo R$ em outra variável reabre com os dois.
   if (pergunta.valor_do_campo != null && !Array.isArray(atual)) {
     return [String(atual), pergunta.valor_do_campo]
