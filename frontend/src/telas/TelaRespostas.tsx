@@ -128,7 +128,15 @@ export function agruparPorItem(respondidas: readonly RespostaDada[]): GrupoDeRes
   return grupos
 }
 
-/** A resposta em formato de ficha: enunciado pequeno, valor grande. */
+/**
+ * Uma resposta, numa linha compacta — `T-339`.
+ *
+ * No desktop são três colunas (pergunta · resposta · "Editar" à direita), de
+ * modo que cem respostas se leem como uma tabela, não como cem cartões. No
+ * celular a pergunta e a resposta empilham à esquerda e o botão fica à
+ * direita, na mesma altura. O botão é compacto de propósito: é uma ação
+ * repetida em toda linha, e o que o aluno veio ler é a resposta.
+ */
 function FichaDaResposta({
   resposta,
   editar,
@@ -138,16 +146,20 @@ function FichaDaResposta({
   editar?: () => void
 }) {
   return (
-    <li className="item flex-col items-stretch gap-1">
-      <small className="text-muted">{resposta.enunciado}</small>
-      <strong className="break-words text-lg">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-0.5 border-b border-line py-2 last:border-b-0 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto] lg:gap-x-6">
+      <small className="col-start-1 text-muted lg:self-center">{resposta.enunciado}</small>
+      <strong className="col-start-1 break-words text-base lg:col-start-2 lg:row-start-1 lg:self-center">
         {textoDaResposta(resposta)}
         {resposta.respondida_como_nao_sei && (
           <span className="chip chip-mudo ml-2 align-middle">Não sei</span>
         )}
       </strong>
       {editar && (
-        <Botao variante="discreto" className="self-start" onClick={editar}>
+        <Botao
+          variante="discreto"
+          className="col-start-2 row-span-2 row-start-1 !w-auto !min-h-0 !border px-3 py-1 text-sm lg:col-start-3 lg:row-span-1"
+          onClick={editar}
+        >
           Editar
         </Botao>
       )}
@@ -213,7 +225,7 @@ function PainelDaParte({
   titulo: React.RefObject<HTMLHeadingElement | null>
 }) {
   return (
-    <section aria-labelledby="titulo-da-parte" className="flex flex-col gap-3">
+    <section aria-labelledby="titulo-da-parte" className="flex flex-col gap-2">
       <div>
         <h2 id="titulo-da-parte" ref={titulo} tabIndex={-1} className="m-0">
           {parte.rotulo}
@@ -227,9 +239,16 @@ function PainelDaParte({
         <p className="nota">Você ainda não respondeu nada desta parte.</p>
       ) : (
         agruparPorItem(parte.respondidas).map((grupo) => (
-          <div key={grupo.itemId ?? 'soltas'} className={grupo.titulo ? 'cartao' : undefined}>
+          <div
+            key={grupo.itemId ?? 'soltas'}
+            className={
+              grupo.titulo
+                ? 'cartao gap-1 p-3 lg:px-4'
+                : 'rounded-piq border border-line bg-surface px-3 lg:px-4'
+            }
+          >
             {grupo.titulo && <span className="eyebrow">{grupo.titulo}</span>}
-            <ul className="lista list-none p-0">
+            <ul className="m-0 list-none p-0">
               {grupo.respostas.map((resposta) => (
                 <FichaDaResposta
                   // `ID` sozinho não é único: numa ficha repetível a mesma
@@ -306,9 +325,13 @@ export default function TelaRespostas({
 
   // Trocar de parte move o foco para o título do painel (leitor de tela). Só
   // na TROCA: no primeiro render quem foca é o `<h1>` da `Tela` (`AC-84`).
-  const parteAnterior = useRef(ativa?.bloco)
+  // `undefined` até a primeira parte existir: a carga inicial NÃO é troca (antes
+  // ela puxava o foco para o título e o desenhava com a borda de foco).
+  const parteAnterior = useRef<number | undefined>(undefined)
   useEffect(() => {
-    if (ativa && parteAnterior.current !== ativa.bloco) tituloDaParte.current?.focus()
+    if (ativa && parteAnterior.current !== undefined && parteAnterior.current !== ativa.bloco) {
+      tituloDaParte.current?.focus()
+    }
     parteAnterior.current = ativa?.bloco
   }, [ativa])
 

@@ -148,6 +148,14 @@ describe('TelaRespostas — só leitura em conferência (T-337, RF-114/RF-115)',
   })
 })
 
+describe('TelaRespostas — foco (T-339)', () => {
+  it('abrir a tela não puxa o foco para o título da parte', async () => {
+    montar()
+    await screen.findByRole('navigation', { name: 'Partes das respostas' })
+    expect(document.activeElement).not.toBe(screen.getByRole('heading', { level: 2 }))
+  })
+})
+
 describe('TelaRespostas — taxa e dinheiro como o aluno digitou (T-335)', () => {
   it('TAXA aparece como "8%" e MOEDA como "R$ 2.276,76"', async () => {
     vi.spyOn(api, 'obterRespostasDoCaso').mockResolvedValue({

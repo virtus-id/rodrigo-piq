@@ -13670,3 +13670,19 @@ Quem "corrigia" digitando `800` gravou 8 (800% ao mês), e salvar sem mexer regr
 - [x] Teste de `AC-180` (enunciado exato servido pela pergunta)
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-339` — "Minhas respostas" compacta no desktop, com "Editar" à direita
+
+- **Tipo:** `UX` · **Dependências:** `T-334`, `T-337` · **Rastreia:** `RF-68`, `RF-69`
+- **Arquivos:** `frontend/src/telas/TelaRespostas.tsx` + teste
+
+Relato de uso (2026-10-05): a lista tinha cartões muito espaçados, com o botão "Editar" embaixo
+de cada resposta; cem respostas viravam cem cartões.
+
+- [x] Cada resposta numa linha: pergunta · resposta · "Editar" à direita (três colunas a partir de `lg:`; no celular, texto à esquerda e botão à direita)
+- [x] Linhas separadas por filete, sem sombra por resposta; botão compacto
+- [x] Corrigido: abrir a tela puxava o foco para o título da parte (borda de foco visível)
+
+**Status:** `[x] concluída (2026-10-05)`
