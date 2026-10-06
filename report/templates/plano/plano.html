@@ -70,6 +70,10 @@
         }
         .capa h1 { font-size: 22pt; line-height: 1.2; margin-bottom: 4mm; }
         .capa .lead { font-size: 11pt; margin-bottom: 4mm; }
+        /* Primeira página: apresentação do documento (T-355). */
+        .apresentacao { break-after: page; margin-bottom: 8mm; }
+        .apresentacao h2 { font-size: 13pt; margin-bottom: 3mm; }
+        .apresentacao p { margin: 0 0 3mm; }
         .capa .nota-meses {
             font-size: 9pt;
             border-top: 1px solid #E3F1EB;
@@ -402,6 +406,15 @@
         <p class="nota-meses">{{ aviso_sem_valor_extra }}</p>
         {% endif %}
     </div>
+
+    {% if curso_ssd and curso_ssd.apresentacao %}
+    <section class="apresentacao">
+        <h2>{{ curso_ssd.apresentacao_titulo }}</h2>
+        {% for paragrafo in curso_ssd.apresentacao %}
+        <p>{{ paragrafo }}</p>
+        {% endfor %}
+    </section>
+    {% endif %}
 
     {% if cenario is defined and cenario.value == "ESTABILIZACAO" %}
     {% set ns.n = ns.n + 1 %}

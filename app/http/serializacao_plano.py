@@ -330,6 +330,8 @@ def serializar_plano(
         "curso_ssd": None
         if contexto.curso_ssd is None
         else {
+            "apresentacao_titulo": contexto.curso_ssd.apresentacao_titulo,
+            "apresentacao": list(contexto.curso_ssd.apresentacao),
             "introducao_titulo": contexto.curso_ssd.introducao_titulo,
             "introducao": contexto.curso_ssd.introducao,
             "quadro_titulo": contexto.curso_ssd.quadro_titulo,

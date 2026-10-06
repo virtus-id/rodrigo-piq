@@ -13,6 +13,8 @@ import PlanoDoAluno from '../../../src/componentes/PlanoDoAluno'
 import type { Plano } from '../../../src/tipos'
 
 const CURSO = {
+  apresentacao_titulo: 'Como este plano se liga ao curso',
+  apresentacao: ['Este documento é a continuação do curso.'],
   introducao_titulo: 'O curso Servidor Sem Dívidas e o seu plano',
   introducao: 'Recomendamos fortemente que você faça o curso.',
   quadro_titulo: 'Aulas do curso que ajudam no seu plano',
@@ -72,6 +74,12 @@ describe('PlanoDoAluno — curso de entrada', () => {
     expect(within(secao).getByText(/Aula 12: Métodos de Quitação/)).toBeInTheDocument()
     expect(within(secao).getByText(CURSO.melhorar_intro)).toBeInTheDocument()
     expect(within(secao).getByText(/Reduzir despesas\./)).toBeInTheDocument()
+  })
+
+  it('abre com a apresentação do documento', () => {
+    render(<PlanoDoAluno plano={plano({ curso_ssd: CURSO })} />)
+    const secao = screen.getByRole('region', { name: CURSO.apresentacao_titulo })
+    expect(within(secao).getByText('Este documento é a continuação do curso.')).toBeInTheDocument()
   })
 
   it('some quando o servidor não manda o curso', () => {

@@ -167,3 +167,11 @@ def test_capitulos_do_pdf_abrem_com_resumo_dividas_ponto_de_partida_e_primeira_q
         ("4", "Sua primeira dívida quitada"),
         ("5", "O que fazer no Mês 1"),
     ]
+
+
+def test_primeira_pagina_apresenta_o_plano_antes_do_primeiro_capitulo() -> None:
+    html = _html(_snapshot())
+    apresentacao = _contexto(_snapshot()).curso_ssd
+    assert apresentacao is not None and apresentacao.apresentacao
+    assert html.index(apresentacao.apresentacao_titulo) < html.index("Seu plano em números")
+    assert all(paragrafo in html for paragrafo in apresentacao.apresentacao)

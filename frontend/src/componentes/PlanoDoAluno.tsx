@@ -64,6 +64,19 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
 
       {plano.explicacao_mes_1 && <p className="text-muted text-sm">{plano.explicacao_mes_1}</p>}
 
+      {/* `T-355`: primeira página — situa o aluno: o plano é a continuação do
+          curso de entrada. Texto do servidor, sem reescrita. */}
+      {plano.curso_ssd?.apresentacao && plano.curso_ssd.apresentacao.length > 0 && (
+        <section className="cartao" aria-labelledby="titulo-apresentacao-ssd">
+          <h2 id="titulo-apresentacao-ssd">{plano.curso_ssd.apresentacao_titulo}</h2>
+          {plano.curso_ssd.apresentacao.map((paragrafo) => (
+            <p key={paragrafo} className="m-0">
+              {paragrafo}
+            </p>
+          ))}
+        </section>
+      )}
+
       {/* `T-352`: plano normal sem valor extra neste mês. */}
       {plano.aviso_sem_valor_extra && (
         <p className="aviso-atencao m-0" role="status">

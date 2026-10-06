@@ -691,6 +691,21 @@ estabilizacao:
 # emoji. Não há "sobra" nas frases usadas na estabilização (GAB-04).
 # ---------------------------------------------------------------------------
 curso_ssd:
+  # Primeira página: situa o aluno (T-355). Só o que consta nas legendas:
+  # o check-in com números reais (aula 0) e as aulas do curso.
+  apresentacao_titulo: "Como este plano se liga ao curso Servidor Sem Dívidas"
+  apresentacao:
+    - >-
+      Este documento é a continuação do curso Servidor Sem Dívidas. Ele
+      nasceu do check-in que você preencheu, com os seus números reais, e por
+      isso é só seu.
+    - >-
+      Aqui você vê, em ordem, as suas dívidas, o seu ponto de partida, a
+      primeira dívida que será quitada e o caminho mês a mês até a última.
+      Leia do começo ao fim: cada parte prepara a seguinte.
+    - >-
+      O curso explica o porquê de cada passo. No fim do plano, indicamos as
+      aulas que mais ajudam no seu caso.
   introducao_titulo: "O curso Servidor Sem Dívidas e o seu plano"
   introducao: >-
     Este plano é a continuação do curso Servidor Sem Dívidas. Recomendamos

@@ -189,3 +189,4 @@ Todos **pendentes de aprovação** e de validação do especialista. Texto no ar
 | 65 | Orientações para melhorar o plano, sem percentual | `curso_ssd.melhorar_*` |
 | 66 | Nota de incômodo da dívida e aviso | `incomodo.linha`, `incomodo.aviso` |
 | 67 | Aviso de plano sem valor extra | `sem_valor_extra` |
+| 68 | Primeira página: apresentação do plano e do curso | `curso_ssd.apresentacao_titulo`, `curso_ssd.apresentacao` |

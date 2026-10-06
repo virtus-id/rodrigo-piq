@@ -13883,3 +13883,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Chips do revisor com atraso, cobrança judicial e garantia
 
 **Status:** `[x] concluída (2026-10-06)`
+
+### `T-355` — Primeira página: apresentação do plano e do curso de entrada
+
+- **Tipo:** `FEATURE` · **Rastreia:** `RF-125`
+- [x] Página 1 do PDF e abertura da tela: título do plano + apresentação de como o documento se liga ao curso (3 parágrafos, só com o que consta nas legendas)
+- [x] Capítulo 1 passa a começar na página 2
+
+**Status:** `[x] concluída (2026-10-06)`; frases pendentes de aprovação (rodada 10)

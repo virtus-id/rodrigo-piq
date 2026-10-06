@@ -1012,6 +1012,9 @@ class ContextoCursoSSD:
     de `textos-canonicos.yaml` (só o que consta nas legendas do curso). A
     escolha das aulas é um lookup por método/cenário: nenhuma conta."""
 
+    #: Primeira página: como este documento se liga ao curso (T-355).
+    apresentacao_titulo: str
+    apresentacao: tuple[str, ...]
     introducao_titulo: str
     introducao: str
     quadro_titulo: str
@@ -1656,6 +1659,8 @@ def _contexto_do_curso(
         if n in aulas
     )
     return ContextoCursoSSD(
+        apresentacao_titulo=str(bruto.get("apresentacao_titulo") or ""),
+        apresentacao=tuple(str(par) for par in (bruto.get("apresentacao") or [])),
         introducao_titulo=str(bruto.get("introducao_titulo") or ""),
         introducao=str(bruto.get("introducao") or ""),
         quadro_titulo=str(bruto.get("quadro_titulo") or ""),

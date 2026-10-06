@@ -315,6 +315,9 @@ export interface PosicaoDaOrdem {
 
 /** `T-352`/`T-353` — o curso de entrada (Servidor Sem Dívidas) no plano. */
 export interface CursoSsd {
+  /** Primeira página: como o plano se liga ao curso (`T-355`). */
+  apresentacao_titulo?: string
+  apresentacao?: string[]
   introducao_titulo: string
   introducao: string
   quadro_titulo: string
