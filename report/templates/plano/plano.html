@@ -425,31 +425,6 @@
     {% include "estabilizacao.html" %}
     {% else %}
 
-    {# 1. Seu plano em números ----------------------------------------- #}
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("resumo", "Seu plano em números"), "prazo") }}
-        <div class="numeros">
-            <div class="numero">
-                <div class="numero-valor">{{ PRAZO_TOTAL }}</div>
-                <div class="numero-rotulo">{{ textos.resumo.get("prazo_rotulo", "") }}</div>
-                <p class="numero-explicacao">{{ textos.resumo.get("prazo_explicacao", "") }}</p>
-            </div>
-            {% if not (cenario is defined and cenario.value == "ORDEM_VAZIA") %}
-            <div class="numero">
-                <div class="numero-valor">{{ valor_mensal_destinado if valor_mensal_destinado else textos.textos_das_dividas.get("nao_disponivel", "") }}</div>
-                <div class="numero-rotulo">{{ textos.resumo.get("valor_mensal_rotulo", "") }}</div>
-                <p class="numero-explicacao">{{ textos.resumo.get("valor_mensal_explicacao", "") }}</p>
-            </div>
-            {% endif %}
-            <div class="numero">
-                <div class="numero-valor">{{ CUSTO_FUTURO_TOTAL }}</div>
-                <div class="numero-rotulo">{{ textos.resumo.get("custo_futuro_rotulo", "") }}</div>
-                <p class="numero-explicacao">{{ textos.resumo.get("custo_futuro_explicacao", "") }}</p>
-            </div>
-        </div>
-    </section>
-
     {# 2. Suas dívidas, uma a uma: logo após o resumo, o aluno vê as dívidas
        que o plano contém. #}
     {% if ordem %}
@@ -487,10 +462,81 @@
     </section>
     {% endif %}
 
+
     {% if cenario is defined and cenario.value == "ORDEM_VAZIA" %}
     {% set ns.n = ns.n + 1 %}
     {% include "ordem_vazia.html" %}
-    {% elif not (cenario is defined and cenario.value == "ESTABILIZACAO") %}
+    {% endif %}
+
+    {% if reserva_mobilizavel is defined %}
+    {% set ns.n = ns.n + 1 %}
+    {% include "reserva_mobilizavel.html" %}
+    {% endif %}
+
+
+    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
+    {% if como_funciona %}
+    {% set ns.n = ns.n + 1 %}
+    {% set icones_dos_quadros = ["passo", "concluido", "taxa"] %}
+    <section class="secao">
+        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("como_funciona", "Como o seu plano funciona"), "avancar") }}
+        <div class="quadros">
+            {% for passo in como_funciona %}
+            <div class="quadro">
+                <span class="quadro-icone">{{ visuais.icone(icones_dos_quadros[loop.index0] if loop.index0 < 3 else "avancar") }}</span>
+                <h3>{{ loop.index }}. {{ textos.como_funciona_rotulos[loop.index0] if loop.index0 < (textos.como_funciona_rotulos | length) else "" }}</h3>
+                <p>{{ passo }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% endif %}
+
+    {% if not (cenario is defined and cenario.value == "ESTABILIZACAO") %}
+    {# 1. Seu plano em números ----------------------------------------- #}
+    {% set ns.n = ns.n + 1 %}
+    <section class="secao">
+        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("resumo", "Seu plano em números"), "prazo") }}
+        <div class="numeros">
+            <div class="numero">
+                <div class="numero-valor">{{ PRAZO_TOTAL }}</div>
+                <div class="numero-rotulo">{{ textos.resumo.get("prazo_rotulo", "") }}</div>
+                <p class="numero-explicacao">{{ textos.resumo.get("prazo_explicacao", "") }}</p>
+            </div>
+            {% if not (cenario is defined and cenario.value == "ORDEM_VAZIA") %}
+            <div class="numero">
+                <div class="numero-valor">{{ valor_mensal_destinado if valor_mensal_destinado else textos.textos_das_dividas.get("nao_disponivel", "") }}</div>
+                <div class="numero-rotulo">{{ textos.resumo.get("valor_mensal_rotulo", "") }}</div>
+                <p class="numero-explicacao">{{ textos.resumo.get("valor_mensal_explicacao", "") }}</p>
+            </div>
+            {% endif %}
+            <div class="numero">
+                <div class="numero-valor">{{ CUSTO_FUTURO_TOTAL }}</div>
+                <div class="numero-rotulo">{{ textos.resumo.get("custo_futuro_rotulo", "") }}</div>
+                <p class="numero-explicacao">{{ textos.resumo.get("custo_futuro_explicacao", "") }}</p>
+            </div>
+        </div>
+    </section>
+    {% endif %}
+
+    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
+    {% if grade_meses is defined and grade_meses and ordem %}
+    {% set ns.n = ns.n + 1 %}
+    <section class="secao nova-pagina">
+        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("jornada", "Seu plano, mês a mês"), "prazo") }}
+        {% if grade_anos is defined and grade_anos %}
+        <p class="intro">{{ textos.grade_meses.get("introducao_anos", "") }}</p>
+        {{ visuais.calendario_por_ano(grade_anos, textos.grade_meses) }}
+        {% else %}
+        <p class="intro">{{ textos.grade_meses.get("introducao", "") }}</p>
+        {{ visuais.grade_meses_html(grade_meses, textos.grade_meses) }}
+        {% endif %}
+    </section>
+    {% endif %}
+
+    {% include "primeiro_passo.html" %}
 
     {% if primeira_vitoria %}
     {% set ns.n = ns.n + 1 %}
@@ -509,40 +555,9 @@
     </section>
     {% endif %}
 
-    {% include "primeiro_passo.html" %}
-
-
-    {% if como_funciona %}
-    {% set ns.n = ns.n + 1 %}
-    {% set icones_dos_quadros = ["passo", "concluido", "taxa"] %}
-    <section class="secao">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("como_funciona", "Como o seu plano funciona"), "avancar") }}
-        <div class="quadros">
-            {% for passo in como_funciona %}
-            <div class="quadro">
-                <span class="quadro-icone">{{ visuais.icone(icones_dos_quadros[loop.index0] if loop.index0 < 3 else "avancar") }}</span>
-                <h3>{{ loop.index }}. {{ textos.como_funciona_rotulos[loop.index0] if loop.index0 < (textos.como_funciona_rotulos | length) else "" }}</h3>
-                <p>{{ passo }}</p>
-            </div>
-            {% endfor %}
-        </div>
-    </section>
     {% endif %}
 
-    {% if grade_meses is defined and grade_meses and ordem %}
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao nova-pagina">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("jornada", "Seu plano, mês a mês"), "prazo") }}
-        {% if grade_anos is defined and grade_anos %}
-        <p class="intro">{{ textos.grade_meses.get("introducao_anos", "") }}</p>
-        {{ visuais.calendario_por_ano(grade_anos, textos.grade_meses) }}
-        {% else %}
-        <p class="intro">{{ textos.grade_meses.get("introducao", "") }}</p>
-        {{ visuais.grade_meses_html(grade_meses, textos.grade_meses) }}
-        {% endif %}
-    </section>
-    {% endif %}
-
+    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
     {% if ordem %}
     {% set ns.n = ns.n + 1 %}
     <section class="secao">
@@ -552,16 +567,6 @@
     </section>
 
     {% endif %}
-    {% endif %}
-
-    {% if pendencias_acionaveis or pendencias %}
-    {% set ns.n = ns.n + 1 %}
-    {% include "pendencias.html" %}
-    {% endif %}
-
-    {% if reserva_mobilizavel is defined %}
-    {% set ns.n = ns.n + 1 %}
-    {% include "reserva_mobilizavel.html" %}
     {% endif %}
 
     {% if cenario_adicional %}
@@ -581,6 +586,16 @@
             {% endfor %}
         </div>
     </section>
+    {% endif %}
+
+
+    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
+    {% include "checklist.html" %}
+    {% endif %}
+
+    {% if pendencias_acionaveis or pendencias %}
+    {% set ns.n = ns.n + 1 %}
+    {% include "pendencias.html" %}
     {% endif %}
 
     {% if curso_ssd %}
@@ -621,6 +636,5 @@
         </p>
     </div>
 
-    {% include "checklist.html" %}
 </body>
 </html>

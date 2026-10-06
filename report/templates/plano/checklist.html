@@ -1,5 +1,5 @@
 {#
-    "Seu checklist do Mês 1" — última página do PDF, para imprimir e marcar.
+    "Seu checklist do Mês 1" — página própria do PDF, para imprimir e marcar.
     Usa o MESMO `passo_atual` já montado por `report/plano.py` (nenhum dado
     novo). Os quadrados são desenhados em CSS, nunca campo de formulário
     (`test_acessibilidade_plano.py` audita a ausência de `<input>`).
@@ -10,7 +10,7 @@
 {% if passo_atual %}
 {% if ns is defined %}{% set ns.n = ns.n + 1 %}{% endif %}
 {% set ck = textos.checklist %}
-<section class="secao nova-pagina">
+<section class="secao nova-pagina" style="break-after: page;">
     {{ visuais.cabecalho_da_secao(ns.n if ns is defined else "", textos.secoes.get("checklist", "Seu checklist do Mês 1"), "concluido") }}
     <p class="intro">{{ ck.get("introducao", "") }}</p>
     <ul class="checklist">

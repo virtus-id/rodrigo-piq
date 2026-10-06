@@ -95,17 +95,9 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         </div>
       )}
 
-      {!plano.MODO_ESTABILIZACAO && (
-        <ResumoDoPlano
-          prazoTotal={plano.PRAZO_TOTAL}
-          custoFuturoTotal={plano.CUSTO_FUTURO_TOTAL}
-          valorMensalDestinado={plano.valor_mensal_destinado}
-          mostrarValorMensal={!ordemVazia}
-          textos={plano.resumo_textos ?? {}}
-        />
-      )}
-
-      {/* O capítulo 2: logo após o resumo, o aluno vê as dívidas que o plano contém. */}
+      {/* Capítulo 1: as dívidas que o plano contém. A ordem dos blocos segue a do PDF:
+          dívidas, ponto de partida, reserva, como funciona, números, mês a mês,
+          Mês 1, primeira dívida quitada, linha do tempo, pendências, curso. */}
       {plano.ordem.length > 0 ? (
         <>
           <h2>{secoes.dividas ?? 'Suas dívidas, uma a uma'}</h2>
@@ -271,58 +263,6 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         />
       )}
 
-      {/* Capítulo 4, o ponto alto: o primeiro resultado vem antes do passo a passo. */}
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
-        <PrimeiraVitoria
-          primeiraVitoria={plano.primeira_vitoria}
-          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
-          complemento={plano.primeira_vitoria_complemento ?? ''}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
-        <PrimeiroPasso
-          passo={plano.passo_atual}
-          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ''}
-          textos={
-            plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
-          }
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.como_funciona?.length ?? 0) > 0 && (
-        <ComoFunciona
-          passos={plano.como_funciona ?? []}
-          rotulos={plano.como_funciona_rotulos ?? []}
-          titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ''}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.grade_meses?.length ?? 0) > 0 && (
-        <JornadaDoPlano
-          grade={plano.grade_meses ?? []}
-          anos={plano.grade_anos ?? []}
-          textos={plano.grade_meses_textos ?? {}}
-          titulo={secoes.jornada ?? plano.jornada_titulo ?? ''}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
-        <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
-          <h2 id="titulo-linha-do-tempo">
-            {plano.linha_do_tempo_textos?.titulo || 'Quando cada dívida termina'}
-          </h2>
-          {plano.linha_do_tempo_textos?.introducao && (
-            <p className="text-muted m-0">{plano.linha_do_tempo_textos.introducao}</p>
-          )}
-          <LinhaDoTempoDividas
-            ordem={plano.ordem}
-            prazoTotalMeses={plano.PRAZO_TOTAL_INT}
-            textos={plano.linha_do_tempo_textos ?? {}}
-          />
-        </section>
-      )}
-
       {/* `AC-70`: reserva desconhecida é estado explícito, nunca R$ 0,00. */}
       <section className="cartao" aria-labelledby="titulo-reserva">
         <h2 id="titulo-reserva" className="flex items-center gap-2">
@@ -342,6 +282,98 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
           </>
         )}
       </section>
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.como_funciona?.length ?? 0) > 0 && (
+        <ComoFunciona
+          passos={plano.como_funciona ?? []}
+          rotulos={plano.como_funciona_rotulos ?? []}
+          titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && (
+        <ResumoDoPlano
+          prazoTotal={plano.PRAZO_TOTAL}
+          custoFuturoTotal={plano.CUSTO_FUTURO_TOTAL}
+          valorMensalDestinado={plano.valor_mensal_destinado}
+          mostrarValorMensal={!ordemVazia}
+          textos={plano.resumo_textos ?? {}}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.grade_meses?.length ?? 0) > 0 && (
+        <JornadaDoPlano
+          grade={plano.grade_meses ?? []}
+          anos={plano.grade_anos ?? []}
+          textos={plano.grade_meses_textos ?? {}}
+          titulo={secoes.jornada ?? plano.jornada_titulo ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
+        <PrimeiroPasso
+          passo={plano.passo_atual}
+          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ''}
+          textos={
+            plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
+          }
+        />
+      )}
+
+      {/* A primeira dívida quitada: o ponto alto do plano. */}
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
+        <PrimeiraVitoria
+          primeiraVitoria={plano.primeira_vitoria}
+          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
+          complemento={plano.primeira_vitoria_complemento ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
+        <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
+          <h2 id="titulo-linha-do-tempo">
+            {plano.linha_do_tempo_textos?.titulo || 'Quando cada dívida termina'}
+          </h2>
+          {plano.linha_do_tempo_textos?.introducao && (
+            <p className="text-muted m-0">{plano.linha_do_tempo_textos.introducao}</p>
+          )}
+          <LinhaDoTempoDividas
+            ordem={plano.ordem}
+            prazoTotalMeses={plano.PRAZO_TOTAL_INT}
+            textos={plano.linha_do_tempo_textos ?? {}}
+          />
+        </section>
+      )}
+
+      {/*
+        `RF-98`, `AC-152` (`T-277`): o cenário adicional é uma seção PRÓPRIA,
+        abaixo do plano e rotulada; nunca mistura os seus números ao resumo e
+        à ordem acima, que são da projeção-base. Tudo lido do snapshot e
+        formatado pelo servidor (Lei nº 3).
+      */}
+      {plano.cenario_adicional && (
+        <section className="cartao" aria-labelledby="titulo-cenario-adicional">
+          <h2 id="titulo-cenario-adicional">{plano.cenario_adicional.rotulo}</h2>
+          <p className="text-muted">{plano.cenario_adicional.explicacao}</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            <dt className="text-muted">para quitar todas as dívidas</dt>
+            <dd className="m-0 tabular-nums">{plano.cenario_adicional.PRAZO_TOTAL}</dd>
+            <dt className="text-muted">total que você pagaria</dt>
+            <dd className="m-0 tabular-nums">{plano.cenario_adicional.CUSTO_FUTURO_TOTAL}</dd>
+            <dt className="text-muted">ordem de quitação</dt>
+            <dd className="m-0">{plano.cenario_adicional.ordem.join(', ')}</dd>
+          </dl>
+          {plano.cenario_adicional.itens.length > 0 && (
+            <ul className="lista list-none p-0">
+              {plano.cenario_adicional.itens.map((item, i) => (
+                <li key={item.ITEM_ID ?? `${item.mes}-${i}`} className="tabular-nums">
+                  {item.valor} no Mês {item.mes}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {(plano.pendencias_acionaveis?.length ?? 0) > 0 ? (
         <div className="aviso-atencao" role="status">
@@ -386,36 +418,6 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
             </div>
           </div>
         )
-      )}
-
-      {/*
-        `RF-98`, `AC-152` (`T-277`): o cenário adicional é uma seção PRÓPRIA,
-        abaixo do plano e rotulada; nunca mistura os seus números ao resumo e
-        à ordem acima, que são da projeção-base. Tudo lido do snapshot e
-        formatado pelo servidor (Lei nº 3).
-      */}
-      {plano.cenario_adicional && (
-        <section className="cartao" aria-labelledby="titulo-cenario-adicional">
-          <h2 id="titulo-cenario-adicional">{plano.cenario_adicional.rotulo}</h2>
-          <p className="text-muted">{plano.cenario_adicional.explicacao}</p>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-            <dt className="text-muted">para quitar todas as dívidas</dt>
-            <dd className="m-0 tabular-nums">{plano.cenario_adicional.PRAZO_TOTAL}</dd>
-            <dt className="text-muted">total que você pagaria</dt>
-            <dd className="m-0 tabular-nums">{plano.cenario_adicional.CUSTO_FUTURO_TOTAL}</dd>
-            <dt className="text-muted">ordem de quitação</dt>
-            <dd className="m-0">{plano.cenario_adicional.ordem.join(', ')}</dd>
-          </dl>
-          {plano.cenario_adicional.itens.length > 0 && (
-            <ul className="lista list-none p-0">
-              {plano.cenario_adicional.itens.map((item, i) => (
-                <li key={item.ITEM_ID ?? `${item.mes}-${i}`} className="tabular-nums">
-                  {item.valor} no Mês {item.mes}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
       )}
 
       {/* `T-352`/`T-353`: o curso de entrada — introdução, aulas que ajudam e
