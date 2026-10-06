@@ -7506,3 +7506,15 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Rehash deliberado dos arquivos alterados
 
 **Status:** `[x] concluída`
+
+### `T-170` — Prognóstico com esforço extra (verde) no motor
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-169` · **Rastreia:** `RF-78`, `AC-135`
+- **Arquivos:** `engine/estado.py`, `engine/prognostico.py`, `engine/motor.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] Campo opcional `CONTRIBUICAO_EXTRA_MENSAL` e `Prognostico.com_extra`
+- [x] Persistência lê/grava (estado e `com_extra`)
+- [x] Testes: verde ≤ azul em prazo e custo, extra zero/ausente sem verde, ida e volta
+- [x] Rehash deliberado
+
+**Status:** `[x] concluída`

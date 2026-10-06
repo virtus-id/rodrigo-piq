@@ -89,7 +89,7 @@ from engine.extraordinarios import (
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem
 from engine.portas import RepositorioSnapshots
-from engine.prognostico import Prognostico, PrognosticoSemAcao
+from engine.prognostico import Prognostico, PrognosticoComExtra, PrognosticoSemAcao
 from engine.risco import ClassificacaoRisco, SinalD4
 from engine.snapshot import SnapshotOrdem, _serializar_canonico
 from engine.tipos import (
@@ -466,6 +466,11 @@ def _estado_financeiro(bruto: dict[str, Any]) -> EstadoFinanceiro:
         recursos_extraordinarios=tuple(
             _recurso_extraordinario(r) for r in bruto["recursos_extraordinarios"]
         ),
+        CONTRIBUICAO_EXTRA_MENSAL=(
+            None
+            if bruto.get("CONTRIBUICAO_EXTRA_MENSAL") is None
+            else _decimal(bruto["CONTRIBUICAO_EXTRA_MENSAL"])
+        ),
     )
 
 
@@ -690,7 +695,19 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
     if bruto is None:
         return None
     sem_acao = bruto["sem_acao"]
+    extra = bruto.get("com_extra")
     return Prognostico(
+        com_extra=(
+            None
+            if extra is None
+            else PrognosticoComExtra(
+                CONTRIBUICAO_EXTRA_MENSAL=_decimal(extra["CONTRIBUICAO_EXTRA_MENSAL"]),
+                PRAZO_TOTAL=extra["PRAZO_TOTAL"],
+                CUSTO_FUTURO_TOTAL=_decimal(extra["CUSTO_FUTURO_TOTAL"]),
+                MESES_PRIMEIRA_VITORIA=extra["MESES_PRIMEIRA_VITORIA"],
+                ESTOUROU_HORIZONTE=extra["ESTOUROU_HORIZONTE"],
+            )
+        ),
         sem_acao=PrognosticoSemAcao(
             HORIZONTE_MESES=sem_acao["HORIZONTE_MESES"],
             SALDO_INICIAL_TOTAL=_decimal(sem_acao["SALDO_INICIAL_TOTAL"]),

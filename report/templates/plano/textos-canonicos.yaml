@@ -220,6 +220,7 @@ rotulos_de_dados:
   DESPESAS_OPERACIONAIS_ATUAIS: "Despesas mensais atuais"
   DESPESAS_NAO_MENSAIS_NORMALIZADAS: "Despesas não mensais, por mês"
   CAPACIDADE_ATAQUE_DECLARADA: "Quanto declarou poder destinar às dívidas"
+  CONTRIBUICAO_EXTRA_MENSAL: "Quanto a mais por mês conseguiria acrescentar"
   ECONOMIA_POTENCIAL_IMEDIATA: "Economia potencial imediata"
   INVENTARIO_COMPLETO: "Cadastro de dívidas completo"
   CONFIABILIDADE_DADOS: "Confiabilidade dos dados"
@@ -774,3 +775,36 @@ sem_valor_extra: >-
   Neste mês não há valor extra para quitar dívidas além das parcelas. Pague as
   parcelas normais de todas as dívidas, em dia. Quando houver valor extra, o
   plano é refeito.
+
+# RF-77/RF-78 — "Seu prognóstico: três caminhos". Texto de produto, a aprovar
+# (docs/textos-para-aprovacao.md, rodada 10). Sem ameaça: descreve a situação.
+prognostico:
+  titulo: "Seu prognóstico: três caminhos"
+  introducao: >-
+    Veja onde você chegaria em cada caminho. São projeções feitas a partir das
+    respostas que você deu.
+  vermelho_titulo: "Se nada mudar"
+  vermelho_descricao: >-
+    Cada dívida segue só com o pagamento de hoje: sem guardar nada e sem pagar
+    a mais. Quando uma dívida acaba, o valor que ela liberava não é usado nas
+    outras.
+  azul_titulo: "Seguindo o seu plano"
+  azul_descricao: >-
+    É o plano que você acabou de ler: todo mês, o valor destinado vai para a
+    dívida da vez.
+  verde_titulo: "Seu plano com um esforço extra"
+  verde_descricao: >-
+    O mesmo plano, com o valor extra que você disse conseguir acrescentar todo
+    mês.
+  rotulo_hoje_deve: "Hoje você deve"
+  rotulo_depois_deve: "Em {prazo}, você ainda deveria"
+  rotulo_dividas_crescem: "Dívidas que crescem em vez de diminuir"
+  rotulo_falta_por_mes: "Falta todo mês"
+  rotulo_falta_acumulada: "Falta acumulada no período, sem contar os juros do que faltar"
+  rotulo_prazo: "Prazo para quitar tudo"
+  rotulo_custo: "Custo futuro total"
+  rotulo_valor_mensal: "Valor destinado por mês"
+  rotulo_extra: "Valor extra por mês"
+  rotulo_primeira_quitacao: "Primeira dívida quitada"
+  nao_quita: "Não quita em 10 anos"
+  mes: "Mês"

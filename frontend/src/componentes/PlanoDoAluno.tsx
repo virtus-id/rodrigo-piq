@@ -23,6 +23,7 @@ import JornadaDoPlano from './JornadaDoPlano'
 import ListaDeDados from './ListaDeDados'
 import PontoDePartida from './PontoDePartida'
 import PrimeiraVitoria from './PrimeiraVitoria'
+import PrognosticoDoPlano from './PrognosticoDoPlano'
 import PrimeiroPasso from './PrimeiroPasso'
 import ResumoDoPlano from './ResumoDoPlano'
 import Conquistas from './visuais/Conquistas'
@@ -329,6 +330,7 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         />
       )}
 
+      {/* Antes da linha do tempo; o servidor já omite em estabilização/sem prognóstico. */}
       {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
         <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
           <h2 id="titulo-linha-do-tempo">
@@ -343,6 +345,10 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
             textos={plano.linha_do_tempo_textos ?? {}}
           />
         </section>
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.prognostico && (
+        <PrognosticoDoPlano prognostico={plano.prognostico} />
       )}
 
       {/*

@@ -4706,4 +4706,5 @@ quantificação de `RF-74`), com proposta mínima e reversível.
 - **Horizonte:** `PRAZO_TOTAL` do cenário recomendado (no máximo `P_HORIZONTE_MAXIMO_SIMULACAO`). O saldo ao fim do horizonte vem de `Cenario.meses[N-1].estado_final.saldos`.
 - **Déficit:** `max(0, -(RESULTADO_MENSAL_ATUAL + liberado_acumulado))` por mês; soma sem juros.
 - **Snapshot:** campo opcional `prognostico` (`None` quando não há dívida simulável), no molde de `projecao_extraordinarios`. Persistência (arquivo e Supabase) lê/grava a chave; snapshot antigo sem a chave volta `None`.
-- **Fora de escopo desta rodada:** cenário com esforço extra (verde), juros sobre o déficit.
+- **Verde (`RF-78`, T-170):** `EstadoFinanceiro.CONTRIBUICAO_EXTRA_MENSAL` (opcional, `None` por padrão; entra no `hash_inputs`). `calcular_prognostico` recebe o seletor e os aportes do método recomendado e simula com `CAPACIDADE_ATAQUE_CONSERVADORA + extra` (sem nova margem). Resultado em `Prognostico.com_extra`. Persistência lê/grava `CONTRIBUICAO_EXTRA_MENSAL` e `com_extra`.
+- **Fora de escopo:** juros sobre o déficit.

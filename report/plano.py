@@ -270,6 +270,7 @@ class TextosCanonicosPlano:
     #: (Servidor Sem Dívidas), a nota de incômodo e o aviso de "sem valor
     #: extra". Aninhado como vem do YAML; lido por `_contexto_do_curso`.
     curso_ssd: Mapping[str, Any] = field(default_factory=dict)
+    prognostico: Mapping[str, str] = field(default_factory=dict)
     incomodo: Mapping[str, str] = field(default_factory=dict)
     sem_valor_extra: str = ""
 
@@ -375,6 +376,7 @@ def carregar_textos_canonicos(
         sobre_este_plano=str(bruto.get("sobre_este_plano") or ""),
         estabilizacao={str(k): str(v) for k, v in estabilizacao_bruto.items()},
         curso_ssd=dict(bruto.get("curso_ssd") or {}),
+        prognostico=_mapa("prognostico"),
         incomodo=_mapa("incomodo"),
         sem_valor_extra=str(bruto.get("sem_valor_extra") or ""),
     )
@@ -1094,6 +1096,8 @@ class ContextoPlano:
     pendencias_acionaveis: tuple[ContextoPendenciaAcionavel, ...] = ()
     #: T-352/T-353 — o curso de entrada; `None` se o YAML não o declara.
     curso_ssd: ContextoCursoSSD | None = None
+    #: `RF-77`/`RF-78` — "Seu prognóstico: três caminhos"; `None` sem prognóstico.
+    prognostico: ContextoPrognostico | None = None
     #: T-352 — plano normal sem valor extra no mês (capacidade 0, sem
     #: estabilização): o aviso ao aluno; vazio nos demais casos.
     aviso_sem_valor_extra: str = ""
@@ -1220,6 +1224,107 @@ def _passo_atual(
         alvo=nomes.get(snapshot.DIVIDA_ALVO_ATUAL, snapshot.DIVIDA_ALVO_ATUAL),
         valor_extra=formatar_dinheiro_br(primeiro_mes.estado_final.CAPACIDADE_ATAQUE_M),
         parcelas=parcelas,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoCaminho:
+    """Um dos três caminhos do prognóstico; tudo já em texto (`RF-13`)."""
+
+    cor: str  # "vermelho" | "azul" | "verde"
+    titulo: str
+    descricao: str
+    linhas: tuple[tuple[str, str], ...]  # (rótulo, valor)
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoPrognostico:
+    titulo: str
+    introducao: str
+    caminhos: tuple[ContextoCaminho, ...]
+
+
+def _prazo_do_prognostico(meses: int, estourou: bool, textos: Mapping[str, str]) -> str:
+    return textos.get("nao_quita", "") if estourou else _formatar_meses(meses)
+
+
+def _mes_da_primeira_quitacao(mes: int | None, textos: Mapping[str, str]) -> tuple[str, str]:
+    return (textos.get("rotulo_primeira_quitacao", ""), f"{textos.get('mes', 'Mês')} {mes}")
+
+
+def _prognostico(
+    snapshot: Any, cenario_recomendado: Any, textos: TextosCanonicosPlano
+) -> ContextoPrognostico | None:
+    """`RF-77`/`RF-78` — LÊ `snapshot.prognostico` e o cenário recomendado; só
+    formata e compara (nenhuma conta, `AC-42`). `None` sem prognóstico (snapshot
+    antigo) ou em estabilização."""
+    t = textos.prognostico
+    prog = snapshot.prognostico
+    if prog is None or not t or snapshot.diagnostico.MODO_ESTABILIZACAO:
+        return None
+    sem = prog.sem_acao
+    linhas_vermelho = [
+        (t.get("rotulo_hoje_deve", ""), formatar_dinheiro_br(sem.SALDO_INICIAL_TOTAL)),
+        (
+            t.get("rotulo_depois_deve", "").format(prazo=_formatar_meses(sem.HORIZONTE_MESES)),
+            formatar_dinheiro_br(sem.SALDO_NO_HORIZONTE),
+        ),
+    ]
+    if sem.DIVIDAS_QUE_CRESCEM > 0:
+        linhas_vermelho.append((t.get("rotulo_dividas_crescem", ""), str(sem.DIVIDAS_QUE_CRESCEM)))
+    if sem.DEFICIT_MENSAL > 0:
+        linhas_vermelho.append(
+            (t.get("rotulo_falta_por_mes", ""), formatar_dinheiro_br(sem.DEFICIT_MENSAL))
+        )
+        linhas_vermelho.append(
+            (t.get("rotulo_falta_acumulada", ""), formatar_dinheiro_br(sem.DEFICIT_ACUMULADO))
+        )
+    linhas_azul = [
+        (
+            t.get("rotulo_prazo", ""),
+            _prazo_do_prognostico(
+                cenario_recomendado.PRAZO_TOTAL, cenario_recomendado.ESTOUROU_HORIZONTE, t
+            ),
+        ),
+        (t.get("rotulo_custo", ""), formatar_dinheiro_br(cenario_recomendado.CUSTO_FUTURO_TOTAL)),
+        (
+            t.get("rotulo_valor_mensal", ""),
+            formatar_dinheiro_br(snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA),
+        ),
+    ]
+    if cenario_recomendado.MESES_PRIMEIRA_VITORIA is not None:
+        linhas_azul.append(
+            _mes_da_primeira_quitacao(cenario_recomendado.MESES_PRIMEIRA_VITORIA, t)
+        )
+    caminhos = [
+        ContextoCaminho(
+            "vermelho", t.get("vermelho_titulo", ""), t.get("vermelho_descricao", ""),
+            tuple(linhas_vermelho),
+        ),
+        ContextoCaminho(
+            "azul", t.get("azul_titulo", ""), t.get("azul_descricao", ""), tuple(linhas_azul)
+        ),
+    ]
+    extra = prog.com_extra
+    if extra is not None:
+        linhas_verde = [
+            (t.get("rotulo_extra", ""), formatar_dinheiro_br(extra.CONTRIBUICAO_EXTRA_MENSAL)),
+            (
+                t.get("rotulo_prazo", ""),
+                _prazo_do_prognostico(extra.PRAZO_TOTAL, extra.ESTOUROU_HORIZONTE, t),
+            ),
+            (t.get("rotulo_custo", ""), formatar_dinheiro_br(extra.CUSTO_FUTURO_TOTAL)),
+        ]
+        if extra.MESES_PRIMEIRA_VITORIA is not None:
+            linhas_verde.append(_mes_da_primeira_quitacao(extra.MESES_PRIMEIRA_VITORIA, t))
+        caminhos.append(
+            ContextoCaminho(
+                "verde", t.get("verde_titulo", ""), t.get("verde_descricao", ""),
+                tuple(linhas_verde),
+            )
+        )
+    return ContextoPrognostico(
+        titulo=t.get("titulo", ""), introducao=t.get("introducao", ""), caminhos=tuple(caminhos)
     )
 
 
@@ -1880,6 +1985,7 @@ def montar_contexto_plano(
         ponto_de_partida=_ponto_de_partida(snapshot),
         como_funciona=textos.como_funciona.get(snapshot.METODO_RECOMENDADO_PIQ.value, ()),
         pendencias_acionaveis=_pendencias_acionaveis(snapshot, textos, nomes),
+        prognostico=_prognostico(snapshot, cenario_recomendado, textos),
         curso_ssd=_contexto_do_curso(
             textos,
             snapshot.METODO_RECOMENDADO_PIQ.value,

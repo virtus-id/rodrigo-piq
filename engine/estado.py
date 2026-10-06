@@ -643,5 +643,10 @@ class EstadoFinanceiro:
     # MOBILIZACAO_RECOMENDAVEL*, soma inexprimível sobre um escalar já
     # somado. Nome de coleção em minúscula seguindo `dividas` (`RF-38`).
 
+    # --- RF-78 (T-170) · contribuição extra para o prognóstico "verde" ---
+    # Quanto a mais por mês o aluno diz conseguir acrescentar ao plano. Só o
+    # prognóstico lê; `None` = não respondeu / não sabe / zero (sem verde).
+    CONTRIBUICAO_EXTRA_MENSAL: Dinheiro | None = None
+
     def __post_init__(self) -> None:
         _recusar_float(self)

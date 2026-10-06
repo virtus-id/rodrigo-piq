@@ -1356,6 +1356,18 @@ def _capacidade_ataque_declarada(respostas: RespostasCaso) -> DinheiroTalvez:
     return traduzido
 
 
+def _contribuicao_extra_mensal(respostas: RespostasCaso) -> Dinheiro | None:
+    """`B3.C01A` (`CONTRIBUICAO_EXTRA_MENSAL`, `RF-78`) — OPT. Sem resposta,
+    "não sei" ou zero → `None` (o prognóstico não mostra o verde)."""
+    valor = respostas.valor("CONTRIBUICAO_EXTRA_MENSAL")
+    if valor is None:
+        return None
+    traduzido = _ou_desconhecido(valor)
+    if isinstance(traduzido, Decimal) and traduzido > 0:
+        return traduzido
+    return None
+
+
 def _inventario_completo(respostas: RespostasCaso) -> bool:
     """`B5.FIM02` (`CONFIRMACAO_FIM_CADASTRO`) — `RF-15`, `AC-07`. Domínio
     real de `valor_interno` (`collection/registros/bloco-05.yaml`, T-17):
@@ -1732,6 +1744,7 @@ def montar_estado_financeiro(
         ),
         DESPESAS_NAO_MENSAIS_NORMALIZADAS=_despesas_nao_mensais_normalizadas(respostas),
         CAPACIDADE_ATAQUE_DECLARADA=_capacidade_ataque_declarada(respostas),
+        CONTRIBUICAO_EXTRA_MENSAL=_contribuicao_extra_mensal(respostas),
         ECONOMIA_POTENCIAL_IMEDIATA=_economia_potencial_imediata(
             respostas, economia_nao_identificada
         ),

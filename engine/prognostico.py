@@ -24,6 +24,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, replace
 from decimal import localcontext
+from typing import Final
 
 from engine.ciclo_mensal import Cenario, EstadoSimulacao, SelecionarAlvo, simular_cenario
 from engine.diagnostico import Diagnostico
@@ -31,6 +32,8 @@ from engine.estado import Divida, EstadoFinanceiro
 from engine.parametros import Parametros
 from engine.precisao import CONTEXTO_MOTOR, dinheiro
 from engine.tipos import DESCONHECIDO, Dinheiro, Meses
+
+REGRAS: Final[tuple[str, ...]] = ("RF-77", "RF-78")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,11 +52,24 @@ class PrognosticoSemAcao:
 
 
 @dataclass(frozen=True, slots=True)
+class PrognosticoComExtra:
+    """`RF-78` — o plano recomendado com a contribuição extra do aluno somada
+    ao ataque (sem nova margem de segurança: é o valor que o aluno diz poder)."""
+
+    CONTRIBUICAO_EXTRA_MENSAL: Dinheiro
+    PRAZO_TOTAL: Meses
+    CUSTO_FUTURO_TOTAL: Dinheiro
+    MESES_PRIMEIRA_VITORIA: Meses | None
+    ESTOUROU_HORIZONTE: bool
+
+
+@dataclass(frozen=True, slots=True)
 class Prognostico:
-    """Campo `SnapshotOrdem.prognostico` (`RF-77`). Hoje só o cenário "sem
-    ação"; o plano recomendado é o próprio snapshot."""
+    """Campo `SnapshotOrdem.prognostico` (`RF-77`, `RF-78`). O azul é o próprio
+    snapshot; `com_extra` (verde) só existe com contribuição extra informada."""
 
     sem_acao: PrognosticoSemAcao
+    com_extra: PrognosticoComExtra | None = None
 
 
 def _sem_alvo(_estado: EstadoSimulacao, _delta: Dinheiro) -> Divida | None:
@@ -71,8 +87,12 @@ def calcular_prognostico(
     dividas: Mapping[str, Divida],
     cenario_recomendado: Cenario,
     parametros: Parametros,
+    selecionar_alvo: SelecionarAlvo | None = None,
+    aportes: Mapping[Meses, Dinheiro] | None = None,
 ) -> Prognostico | None:
-    """`RF-77` — `None` sem dívida simulável (`AC-134`)."""
+    """`RF-77` — `None` sem dívida simulável (`AC-134`). `RF-78` — com
+    `estado.CONTRIBUICAO_EXTRA_MENSAL` > 0 e o seletor do método recomendado,
+    simula também o verde (mesmo método e mesmos aportes do plano base)."""
     if not dividas:
         return None
 
@@ -106,6 +126,9 @@ def calcular_prognostico(
             deficit_mensal = -resultado
 
     return Prognostico(
+        com_extra=_com_extra(
+            estado, diagnostico_pre, dividas, parametros, selecionar_alvo, aportes
+        ),
         sem_acao=PrognosticoSemAcao(
             HORIZONTE_MESES=horizonte,
             SALDO_INICIAL_TOTAL=saldo_inicial,
@@ -115,6 +138,37 @@ def calcular_prognostico(
             DEFICIT_MENSAL=deficit_mensal,
             DEFICIT_ACUMULADO=_deficit_acumulado(sem_acao, resultado, horizonte),
         )
+    )
+
+
+def _com_extra(
+    estado: EstadoFinanceiro,
+    diagnostico_pre: Diagnostico,
+    dividas: Mapping[str, Divida],
+    parametros: Parametros,
+    selecionar_alvo: SelecionarAlvo | None,
+    aportes: Mapping[Meses, Dinheiro] | None,
+) -> PrognosticoComExtra | None:
+    extra = estado.CONTRIBUICAO_EXTRA_MENSAL
+    capacidade = diagnostico_pre.CAPACIDADE_ATAQUE_CONSERVADORA
+    if selecionar_alvo is None or extra is None or extra <= dinheiro(0):
+        return None
+    with localcontext(CONTEXTO_MOTOR):
+        total = capacidade + extra
+    cenario = simular_cenario(
+        estado,
+        replace(diagnostico_pre, CAPACIDADE_ATAQUE_CONSERVADORA=total),
+        dividas,
+        selecionar_alvo,
+        parametros,
+        aportes if aportes is not None else {},
+    )
+    return PrognosticoComExtra(
+        CONTRIBUICAO_EXTRA_MENSAL=extra,
+        PRAZO_TOTAL=cenario.PRAZO_TOTAL,
+        CUSTO_FUTURO_TOTAL=cenario.CUSTO_FUTURO_TOTAL,
+        MESES_PRIMEIRA_VITORIA=cenario.MESES_PRIMEIRA_VITORIA,
+        ESTOUROU_HORIZONTE=cenario.ESTOUROU_HORIZONTE,
     )
 
 

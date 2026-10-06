@@ -3056,3 +3056,10 @@ Servidor: payload do revisor × do aluno nos campos comuns e `JUSTIFICATIVA_POSI
 - **Servidor:** `report/plano.py` (`ContextoCursoSSD`, `_contexto_do_curso`, `_incomodo_da_divida`, `aviso_sem_valor_extra`) e `app/http/serializacao_plano.py`. As respostas de risco do revisor vêm de `app/http/fatos_de_risco.py` (só respostas, sem selo "crítica").
 - **Tela e PDF:** `PlanoDoAluno.tsx` e `plano.html`/`posicao.html`; mesma redação nos dois.
 - **Fora de escopo, registrado:** reordenar por nota/criticidade e simulador com números dependem do motor (slug `motor-calculo`) e não foram iniciados.
+
+## R17. O plano mostra o prognóstico em três caminhos (`RF-126`)
+
+- **Coleta:** `B3.C01A` (`CONTRIBUICAO_EXTRA_MENSAL`, opcional, `MOEDA`) em `collection/registros/bloco-03.yaml`; `app/montagem/estado.py` só a lê (ausente, zero ou "não sei" → `None`).
+- **Servidor:** `report/plano.py` (`ContextoPrognostico`, `_prognostico`) lê `snapshot.prognostico` e o cenário recomendado, só formata; `app/http/serializacao_plano.py`; `report/pdf.py`. Textos em `textos-canonicos.yaml` (`prognostico`).
+- **Tela e PDF:** `PrognosticoDoPlano.tsx` e `plano.html` (capítulo 10, antes do checklist); cor azul `#1F5A96` na paleta validada (AA sobre branco).
+- **Motor:** `RF-77`/`RF-78` (slug `motor-calculo`, `T-169`/`T-170`).

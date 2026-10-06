@@ -396,6 +396,8 @@ export interface Plano {
   passo_atual?: PassoAtual | null
   /** Plano amigável — "Sua primeira vitória". `null` sem primeira quitação. */
   primeira_vitoria?: PrimeiraVitoria | null
+  /** `RF-77`/`RF-78` — os três caminhos do prognóstico; `null` sem prognóstico. */
+  prognostico?: PrognosticoDoPlano | null
   /** Plano amigável — "Sua jornada mês a mês". Vazia sem mês simulado. */
   jornada?: EtapaJornada[]
   /**
@@ -478,6 +480,19 @@ export interface PassoAtual {
   alvo: string | null
   valor_extra: string
   parcelas: ParcelaDoPasso[]
+}
+
+export interface CaminhoDoPrognostico {
+  cor: 'vermelho' | 'azul' | 'verde'
+  titulo: string
+  descricao: string
+  linhas: { rotulo: string; valor: string }[]
+}
+
+export interface PrognosticoDoPlano {
+  titulo: string
+  introducao: string
+  caminhos: CaminhoDoPrognostico[]
 }
 
 export interface PrimeiraVitoria {

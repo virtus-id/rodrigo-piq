@@ -56,6 +56,8 @@ export default {
           DEFAULT: '#A63A2C',
           soft: '#FBE8E4',
         },
+        // Caminho "seguindo o plano" do prognóstico (contraste AA sobre branco).
+        azul: '#1F5A96',
       },
       fontFamily: {
         sans: ['"Atkinson Hyperlegible"', '"Segoe UI"', 'Arial', 'sans-serif'],

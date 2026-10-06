@@ -158,7 +158,12 @@ def test_estado_financeiro_do_perfil_t02_preenche_todos_os_campos() -> None:
         **PARAMETROS_EXTERNOS_PADRAO,  # type: ignore[arg-type]
     )
 
-    vazios = [f.name for f in dataclasses.fields(estado) if getattr(estado, f.name) is None]
+    # `CONTRIBUICAO_EXTRA_MENSAL` (B3.C01A, `RF-78`) é opcional: `None` é o normal.
+    vazios = [
+        f.name
+        for f in dataclasses.fields(estado)
+        if getattr(estado, f.name) is None and f.name != "CONTRIBUICAO_EXTRA_MENSAL"
+    ]
     assert vazios == []
     assert [d.DIVIDA_ID for d in estado.dividas] == ["D001", "D002"]
     assert estado.INVENTARIO_COMPLETO is True

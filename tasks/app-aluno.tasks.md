@@ -13891,3 +13891,18 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Capítulo 1 passa a começar na página 2
 
 **Status:** `[x] concluída (2026-10-06)`; frases pendentes de aprovação (rodada 10)
+
+### `T-371` — Pergunta B3.C01A e montagem da contribuição extra
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-170` · **Rastreia:** `RF-126`
+- [x] Registro `B3.C01A` (opcional) e `_contribuicao_extra_mensal` em `app/montagem/estado.py`
+
+**Status:** `[x] concluída (2026-10-06)`
+
+### `T-372` — Capítulo "Seu prognóstico: três caminhos"
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-169`, `T-170` · **Rastreia:** `RF-126`, `AC-198`
+- [x] Contexto, serialização, `plano.html`, `PrognosticoDoPlano.tsx`, cor azul validada
+- [x] Testes (pytest e vitest); ordem dos capítulos atualizada (14)
+
+**Status:** `[x] concluída (2026-10-06)`; frases pendentes de aprovação (rodada 10)

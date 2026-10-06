@@ -62,3 +62,28 @@ def test_EC57_snapshot_antigo_sem_chave_fica_sem_prognostico(_snapshot) -> None:
 def test_prognostico_nao_altera_o_plano(_snapshot) -> None:  # type: ignore[no-untyped-def]
     sem = dataclasses.replace(_snapshot, prognostico=None)
     assert sem.ORDEM_QUITACAO == _snapshot.ORDEM_QUITACAO
+
+
+@pytest.mark.regra
+def test_RF78_verde_so_com_contribuicao_extra_e_nunca_pior_que_o_plano(_snapshot) -> None:  # type: ignore[no-untyped-def]
+    assert _snapshot.prognostico is not None and _snapshot.prognostico.com_extra is None
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    parametros = FonteParametrosArquivo().carregar("1.0.1")
+    novo = calcular_plano(estado, parametros)
+    verde = novo.prognostico.com_extra  # type: ignore[union-attr]
+    assert verde is not None
+    assert verde.CONTRIBUICAO_EXTRA_MENSAL == dinheiro(500)
+    azul = novo.cenarios[novo.METODO_RECOMENDADO_PIQ]
+    assert verde.PRAZO_TOTAL <= azul.PRAZO_TOTAL
+    assert verde.CUSTO_FUTURO_TOTAL <= azul.CUSTO_FUTURO_TOTAL
+    assert novo.ORDEM_QUITACAO == _snapshot.ORDEM_QUITACAO or novo.ORDEM_QUITACAO
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    assert _desserializar_snapshot(bruto).prognostico == novo.prognostico
+    assert _desserializar_snapshot(bruto).estado_inputs == estado
+
+
+@pytest.mark.regra
+def test_RF78_extra_zero_nao_gera_verde() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(0))
+    p = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1")).prognostico
+    assert p is not None and p.com_extra is None

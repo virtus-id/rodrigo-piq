@@ -327,6 +327,24 @@ def serializar_plano(
         "como_funciona": list(contexto.como_funciona),
         # `T-352`/`T-353`: o curso de entrada e o aviso de plano sem valor
         # extra — texto fixo, escolhido por lookup (nenhuma conta).
+        # `RF-77`/`RF-78`: os três caminhos, já em texto — só leitura.
+        "prognostico": None
+        if contexto.prognostico is None
+        else {
+            "titulo": contexto.prognostico.titulo,
+            "introducao": contexto.prognostico.introducao,
+            "caminhos": [
+                {
+                    "cor": caminho.cor,
+                    "titulo": caminho.titulo,
+                    "descricao": caminho.descricao,
+                    "linhas": [
+                        {"rotulo": rotulo, "valor": valor} for rotulo, valor in caminho.linhas
+                    ],
+                }
+                for caminho in contexto.prognostico.caminhos
+            ],
+        },
         "curso_ssd": None
         if contexto.curso_ssd is None
         else {
