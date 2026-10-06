@@ -323,15 +323,19 @@
             break-inside: avoid;
         }
         .divida-topo { display: flex; gap: 3mm; align-items: center; margin-bottom: 2.5mm; }
+        /* Subitem do capítulo: anel verde com fundo branco, para não se
+           confundir com o número cheio do capítulo (secao-numero). */
         .divida-posicao {
             flex: none;
-            width: 9mm;
-            height: 9mm;
-            line-height: 9mm;
+            box-sizing: border-box;
+            width: 8mm;
+            height: 8mm;
+            line-height: 6.6mm;
             text-align: center;
             border-radius: 50%;
-            background: #0F6E56;
-            color: #FFFFFF;
+            background: #FFFFFF;
+            border: 0.5mm solid #0F6E56;
+            color: #0F6E56;
             font-weight: bold;
         }
         .divida-topo h3 { font-size: 12pt; }

@@ -116,7 +116,7 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
               return (
                 <li key={posicao.DIVIDA_ID} className="cartao">
                   <div className="flex items-center gap-3">
-                    <span className="grid h-10 w-10 flex-none place-items-center rounded-full bg-accent font-bold text-accent-ink">
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-full border-2 border-accent bg-surface font-bold text-accent">
                       {posicao.indice}
                     </span>
                     <div className="min-w-0 flex-1">
