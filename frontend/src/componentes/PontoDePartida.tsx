@@ -3,7 +3,8 @@
  * mês do aluno (renda, gastos, parcelas que já paga e o valor extra do
  * plano), para que o plano pareça feito para ele. Tudo lido do cálculo e
  * já formatado pelo servidor; nenhum número é somado ou subtraído aqui. A
- * relação entre eles é explicada em texto, nunca com sinais de conta.
+ * relação entre eles é explicada em texto; o sinal de + e de − marca só o
+ * movimento (entra ou sai), nunca uma conta.
  */
 import type { PontoDePartida as PontoDePartidaTipo } from '../tipos'
 
@@ -23,8 +24,9 @@ export default function PontoDePartida({
   titulo,
   mostrarValorExtra,
 }: PontoDePartidaProps) {
-  // O que entra (verde) e o que sai (vermelho); a contagem de dívidas é
-  // neutra. A cor não é o único sinal: cada linha leva a etiqueta.
+  // O que entra (verde, "+") e o que sai (vermelho, "−"); a contagem de
+  // dívidas é neutra. A cor não é o único sinal: o sinal vai na linha e o
+  // leitor de tela ouve "Entra" ou "Sai".
   const linhas: [string, string | number, Sentido][] = [
     [textos.renda || 'Sua renda no mês', ponto.renda, 'entra'],
     [textos.gastos || 'Seus gastos do dia a dia', ponto.gastos, 'sai'],
@@ -48,9 +50,12 @@ export default function PontoDePartida({
             <dt>{rotulo}</dt>
             <dd className={`m-0 whitespace-nowrap font-bold tabular-nums ${cor[sentido]}`}>
               {sentido !== 'neutra' && (
-                <span className="mr-2 text-xs font-bold uppercase tracking-wide">
-                  {etiqueta[sentido]}
-                </span>
+                <>
+                  <span className="mr-2 text-lg" aria-hidden="true">
+                    {sentido === 'entra' ? '+' : '\u2212'}
+                  </span>
+                  <span className="sr-only">{etiqueta[sentido]}</span>
+                </>
               )}
               {valor}
             </dd>

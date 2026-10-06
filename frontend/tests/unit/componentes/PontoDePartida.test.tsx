@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 /**
- * `PontoDePartida` — o que entra (verde) e o que sai (vermelho), sempre com
- * etiqueta: a cor não é o único sinal.
+ * `PontoDePartida` — o que entra (verde, +) e o que sai (vermelho, −): a cor
+ * não é o único sinal; o leitor de tela ouve "Entra" ou "Sai".
  */
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
@@ -23,6 +23,8 @@ describe('PontoDePartida — entrada e saída', () => {
 
     expect(screen.getAllByText('Entra')).toHaveLength(1)
     expect(screen.getAllByText('Sai')).toHaveLength(3)
+    expect(screen.getAllByText('+')).toHaveLength(1)
+    expect(screen.getAllByText('\u2212')).toHaveLength(3)
 
     const renda = screen.getByText('R$ 8.000,00').closest('dd')
     expect(renda?.className).toContain('text-accent')

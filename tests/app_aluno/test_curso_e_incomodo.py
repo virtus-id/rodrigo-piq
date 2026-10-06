@@ -177,7 +177,7 @@ def test_primeira_pagina_apresenta_o_plano_antes_do_primeiro_capitulo() -> None:
     assert all(paragrafo in html for paragrafo in apresentacao.apresentacao)
 
 
-def test_ponto_de_partida_marca_entrada_e_saida_com_cor_e_etiqueta() -> None:
+def test_ponto_de_partida_marca_entrada_e_saida_com_cor_e_sinal() -> None:
     html = _html(_snapshot())
     textos = carregar_textos_canonicos().ponto_de_partida
     marcadas = re.findall(
@@ -189,4 +189,5 @@ def test_ponto_de_partida_marca_entrada_e_saida_com_cor_e_etiqueta() -> None:
         ("saida", textos["gastos_ocasionais"]),
         ("saida", textos["parcelas"]),
     ]
-    assert textos["entrada_rotulo"] in html and textos["saida_rotulo"] in html
+    assert html.count('class="linha-sinal"') == 4
+    assert html.count(">+</span>") == 1 and html.count("&minus;</span>") == 3
