@@ -64,6 +64,13 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
 
       {plano.explicacao_mes_1 && <p className="text-muted text-sm">{plano.explicacao_mes_1}</p>}
 
+      {/* `T-352`: plano normal sem valor extra neste mês. */}
+      {plano.aviso_sem_valor_extra && (
+        <p className="aviso-atencao m-0" role="status">
+          {plano.aviso_sem_valor_extra}
+        </p>
+      )}
+
       {plano.MODO_ESTABILIZACAO && (
         <div className="aviso-atencao" role="status">
           <div>
@@ -183,6 +190,14 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                     mostra nem como fallback.
                   */}
                   <p className="m-0">{posicao.explicacao}</p>
+                  {/* `T-354`: a nota que o aluno deu e, em nota alta fora da
+                      1ª posição, o aviso. Texto pronto; a ordem é do motor. */}
+                  {posicao.incomodo && (
+                    <p className="text-muted m-0 text-sm">
+                      {posicao.incomodo}
+                      {posicao.aviso_incomodo && ` ${posicao.aviso_incomodo}`}
+                    </p>
+                  )}
                   {/* Revisão de design: os números de toda dívida ficam à
                       vista, inclusive o mês em que ela termina (`T-304`,
                       lido do cronograma gravado). */}
@@ -234,6 +249,23 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                       critério do método aparece uma vez, no destaque da
                       conferência (`T-330`), e repeti-la por dívida foi o que
                       aquela decisão tirou. */}
+                  {/* `T-354`: o que o aluno respondeu sobre atraso, cobrança
+                      judicial e garantia, à vista; quem julga é o revisor. */}
+                  {revisor && (posicao.fatos_de_risco ?? []).length > 0 && (
+                    <ul
+                      className="m-0 flex list-none flex-wrap gap-2 p-0"
+                      aria-label="Respostas do aluno sobre risco da dívida"
+                    >
+                      {(posicao.fatos_de_risco ?? []).map((fato) => (
+                        <li
+                          key={fato.nome}
+                          className="rounded-piq border border-line px-2 py-1 text-xs"
+                        >
+                          {fato.nome}: <strong>{fato.valor}</strong>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   {revisor && (
                     <details className="rounded-piq border border-dashed border-line p-2">
                       <summary className="font-bold">Para o revisor</summary>
@@ -367,6 +399,39 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                 </li>
               ))}
             </ul>
+          )}
+        </section>
+      )}
+
+      {/* `T-352`/`T-353`: o curso de entrada — introdução, aulas que ajudam e
+          orientações em texto (sem percentual). Tudo do servidor. */}
+      {plano.curso_ssd && (
+        <section className="cartao" aria-labelledby="titulo-curso-ssd">
+          <h2 id="titulo-curso-ssd">{plano.curso_ssd.introducao_titulo}</h2>
+          <p className="m-0">{plano.curso_ssd.introducao}</p>
+          <h3>{plano.curso_ssd.quadro_titulo}</h3>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+            {plano.curso_ssd.aulas.map((aula) => (
+              <li key={aula.numero}>
+                <strong>
+                  Aula {aula.numero}: {aula.titulo}
+                </strong>
+                <span className="text-muted block text-sm">{aula.motivo}</span>
+              </li>
+            ))}
+          </ul>
+          {plano.curso_ssd.melhorar.length > 0 && (
+            <>
+              <h3>{plano.curso_ssd.melhorar_titulo}</h3>
+              <p className="text-muted m-0">{plano.curso_ssd.melhorar_intro}</p>
+              <ul className="m-0 flex list-none flex-col gap-1 p-0">
+                {plano.curso_ssd.melhorar.map((item) => (
+                  <li key={item.texto}>
+                    {item.texto} <span className="text-muted">({item.aula})</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </section>
       )}

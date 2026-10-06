@@ -299,6 +299,29 @@ export interface PosicaoDaOrdem {
    * e a taxa de juros. Já formatados; "Não informado" quando o dado falta.
    */
   fatos?: ValorDeApoio[]
+  /**
+   * `T-354` — a nota de incômodo que o aluno deu a esta dívida (texto
+   * pronto) e, em nota alta fora da 1ª posição, o aviso de que a ordem
+   * seguiu o critério do método. Vazios quando não há o que dizer.
+   */
+  incomodo?: string
+  aviso_incomodo?: string
+  /**
+   * `T-354` — só no payload do REVISOR: o que o aluno respondeu sobre
+   * atraso, cobrança judicial e garantia. Respostas, nunca um selo.
+   */
+  fatos_de_risco?: { nome: string; valor: string }[]
+}
+
+/** `T-352`/`T-353` — o curso de entrada (Servidor Sem Dívidas) no plano. */
+export interface CursoSsd {
+  introducao_titulo: string
+  introducao: string
+  quadro_titulo: string
+  aulas: { numero: string; titulo: string; motivo: string }[]
+  melhorar_titulo: string
+  melhorar_intro: string
+  melhorar: { texto: string; aula: string }[]
 }
 
 export interface AcaoRequerida {
@@ -324,6 +347,10 @@ export interface ReservaMobilizavel {
 }
 
 export interface Plano {
+  /** `T-352`/`T-353`: introdução, quadro de aulas e orientações do curso. */
+  curso_ssd?: CursoSsd | null
+  /** `T-352`: plano normal sem valor extra no mês; vazio nos demais casos. */
+  aviso_sem_valor_extra?: string
   /** Redação vigente de `textos-canonicos.yaml` — vem do servidor, nunca reescrita aqui. */
   titulo: string
   corpo: string

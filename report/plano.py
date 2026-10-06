@@ -266,6 +266,12 @@ class TextosCanonicosPlano:
     #: (`{valor}` é `RESULTADO_CAIXA_OBSERVADO` já formatado). Sugestão, a
     #: validar; nunca usa a palavra "sobra" (GAB-04).
     estabilizacao: Mapping[str, str] = field(default_factory=dict)
+    #: T-352 a T-354 — introdução e quadro de aulas do curso de entrada
+    #: (Servidor Sem Dívidas), a nota de incômodo e o aviso de "sem valor
+    #: extra". Aninhado como vem do YAML; lido por `_contexto_do_curso`.
+    curso_ssd: Mapping[str, Any] = field(default_factory=dict)
+    incomodo: Mapping[str, str] = field(default_factory=dict)
+    sem_valor_extra: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,6 +374,9 @@ def carregar_textos_canonicos(
         duvidas=duvidas,
         sobre_este_plano=str(bruto.get("sobre_este_plano") or ""),
         estabilizacao={str(k): str(v) for k, v in estabilizacao_bruto.items()},
+        curso_ssd=dict(bruto.get("curso_ssd") or {}),
+        incomodo=_mapa("incomodo"),
+        sem_valor_extra=str(bruto.get("sem_valor_extra") or ""),
     )
 
 
@@ -989,6 +998,27 @@ class ContextoPosicao:
     #: lidos de `estado_inputs.dividas`, com "não informado" quando o dado é
     #: `DESCONHECIDO` (nunca zero, `RF-16`). (rótulo, valor formatado).
     fatos: tuple[tuple[str, str], ...] = ()
+    #: T-354 — a nota de incômodo que o ALUNO deu a esta dívida, lida de
+    #: `Divida.PESO_EMOCIONAL` (vazia se desconhecida) e, quando a nota é
+    #: alta e a dívida não é a primeira, o aviso de que a ordem seguiu o
+    #: critério do método. Texto, nunca regra de ordem.
+    incomodo: str = ""
+    aviso_incomodo: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoCursoSSD:
+    """T-352/T-353 — introdução, quadro de aulas e orientações em texto, tudo
+    de `textos-canonicos.yaml` (só o que consta nas legendas do curso). A
+    escolha das aulas é um lookup por método/cenário: nenhuma conta."""
+
+    introducao_titulo: str
+    introducao: str
+    quadro_titulo: str
+    aulas: tuple[tuple[str, str, str], ...]  # (número, título, por que ajuda)
+    melhorar_titulo: str
+    melhorar_intro: str
+    melhorar: tuple[tuple[str, str], ...]  # (orientação, aula)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1059,6 +1089,11 @@ class ContextoPlano:
     #: Plano amigável (`RF-92`-adjacente) — pendências com "onde achar" e o
     #: `ID_PERGUNTA` do Bloco 5, para o botão "Responder agora".
     pendencias_acionaveis: tuple[ContextoPendenciaAcionavel, ...] = ()
+    #: T-352/T-353 — o curso de entrada; `None` se o YAML não o declara.
+    curso_ssd: ContextoCursoSSD | None = None
+    #: T-352 — plano normal sem valor extra no mês (capacidade 0, sem
+    #: estabilização): o aviso ao aluno; vazio nos demais casos.
+    aviso_sem_valor_extra: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -1584,6 +1619,55 @@ _FATOS_DA_DIVIDA: Final[tuple[tuple[str, str], ...]] = (
 )
 
 
+#: T-354 — a partir desta nota o aluno recebe o aviso de que a ordem seguiu
+#: o critério do método. Faixa dita pelo especialista (9 e 10).
+_NOTA_DE_INCOMODO_ALTA: Final[int] = 9
+
+
+def _incomodo_da_divida(
+    divida: Divida | None, indice: int, textos: TextosCanonicosPlano
+) -> tuple[str, str]:
+    """`(linha, aviso)` da nota de incômodo — LIDA de `Divida.PESO_EMOCIONAL`.
+    Desconhecida ou sem texto cadastrado, não há nada a dizer (nunca zero)."""
+    if divida is None or not isinstance(divida.PESO_EMOCIONAL, int | Decimal):
+        return "", ""
+    nota = int(divida.PESO_EMOCIONAL)
+    linha = textos.incomodo.get("linha", "").replace("{nota}", str(nota))
+    alto = nota >= _NOTA_DE_INCOMODO_ALTA and indice > 1
+    return linha, textos.incomodo.get("aviso", "") if alto else ""
+
+
+def _contexto_do_curso(
+    textos: TextosCanonicosPlano, metodo: str, estabilizacao: bool
+) -> ContextoCursoSSD | None:
+    """T-352/T-353 — o quadro de aulas do plano. A escolha das aulas é um
+    lookup no YAML por método (ou "estabilizacao"); o título e o motivo de
+    cada aula também. Aula sem cadastro no YAML é ignorada."""
+    bruto = textos.curso_ssd
+    if not bruto:
+        return None
+    aulas = bruto.get("aulas") or {}
+    quadros = bruto.get("quadro_por_cenario") or {}
+    chave = "estabilizacao" if estabilizacao else metodo
+    numeros = quadros.get(chave) or quadros.get("padrao") or []
+    escolhidas = tuple(
+        (str(n), str(aulas[n]["titulo"]), str(aulas[n]["motivo"]))
+        for n in numeros
+        if n in aulas
+    )
+    return ContextoCursoSSD(
+        introducao_titulo=str(bruto.get("introducao_titulo") or ""),
+        introducao=str(bruto.get("introducao") or ""),
+        quadro_titulo=str(bruto.get("quadro_titulo") or ""),
+        aulas=escolhidas,
+        melhorar_titulo=str(bruto.get("melhorar_titulo") or ""),
+        melhorar_intro=str(bruto.get("melhorar_intro") or ""),
+        melhorar=tuple(
+            (str(item["texto"]), str(item["aula"])) for item in (bruto.get("melhorar") or [])
+        ),
+    )
+
+
 def _fatos_da_divida(
     divida: Divida | None, textos: TextosCanonicosPlano
 ) -> tuple[tuple[str, str], ...]:
@@ -1735,6 +1819,12 @@ def montar_contexto_plano(
             fatos=_fatos_da_divida(
                 dividas_por_id.get(posicao_do_snapshot.DIVIDA_ID), textos
             ),
+            incomodo=_incomodo_da_divida(
+                dividas_por_id.get(posicao_do_snapshot.DIVIDA_ID), indice, textos
+            )[0],
+            aviso_incomodo=_incomodo_da_divida(
+                dividas_por_id.get(posicao_do_snapshot.DIVIDA_ID), indice, textos
+            )[1],
         )
         for indice, posicao_do_snapshot in enumerate(snapshot.ORDEM_QUITACAO, start=1)
     )
@@ -1785,4 +1875,16 @@ def montar_contexto_plano(
         ponto_de_partida=_ponto_de_partida(snapshot),
         como_funciona=textos.como_funciona.get(snapshot.METODO_RECOMENDADO_PIQ.value, ()),
         pendencias_acionaveis=_pendencias_acionaveis(snapshot, textos, nomes),
+        curso_ssd=_contexto_do_curso(
+            textos,
+            snapshot.METODO_RECOMENDADO_PIQ.value,
+            snapshot.diagnostico.MODO_ESTABILIZACAO,
+        ),
+        aviso_sem_valor_extra=(
+            textos.sem_valor_extra
+            if not snapshot.diagnostico.MODO_ESTABILIZACAO
+            and isinstance(snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA, Decimal)
+            and snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA == 0
+            else ""
+        ),
     )

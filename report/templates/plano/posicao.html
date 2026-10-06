@@ -26,6 +26,7 @@
 
     <div class="subtitulo">{{ dt.get("por_que", "") }}</div>
     <p>{{ posicao.explicacao }}</p>
+    {% if posicao.incomodo %}<p class="muted" style="margin: 0;">{{ posicao.incomodo }}{% if posicao.aviso_incomodo %} {{ posicao.aviso_incomodo }}{% endif %}</p>{% endif %}
 
     <div class="subtitulo">{{ dt.get("numeros", "") }}</div>
     <div class="fatos">

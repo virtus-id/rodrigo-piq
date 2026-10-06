@@ -13857,3 +13857,29 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [ ] **Segurado:** referências no plano (aluno/PDF) — aguarda as respostas do especialista e a aprovação das frases
 
 **Status:** `[x] concluída (2026-10-05)` (acervo); referências no plano pendentes
+
+---
+
+### `T-352` — Sobra zero: plano normal com aviso
+
+- **Tipo:** `FEATURE` · **Rastreia:** `RF-125`, `AC-195`
+- [x] Teste com resultado exatamente zero: plano normal, sem estabilização
+- [x] Aviso "sem valor extra" no plano (tela e PDF)
+
+**Status:** `[x] concluída (2026-10-06)`
+
+### `T-353` — Curso de entrada e orientações no plano
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-351` · **Rastreia:** `RF-125`, `AC-194`
+- [x] Introdução, quadro de aulas por método/estabilização e orientações em texto (sem percentual), só com o que consta nas legendas
+- [x] Teste de que toda aula citada existe na estrutura do curso
+
+**Status:** `[x] concluída (2026-10-06)`
+
+### `T-354` — Nota de incômodo ao aluno e respostas de risco ao revisor
+
+- **Tipo:** `FEATURE` · **Rastreia:** `RF-125`, `AC-196`, `AC-197`
+- [x] Linha com a nota e aviso (nota 9–10 fora da 1ª posição); sem alterar a ordem
+- [x] Chips do revisor com atraso, cobrança judicial e garantia
+
+**Status:** `[x] concluída (2026-10-06)`

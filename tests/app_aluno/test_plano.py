@@ -206,6 +206,11 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "duvidas",
         "sobre_este_plano",
         "estabilizacao",
+        # `T-352` a `T-354`: curso de entrada, nota de incômodo e aviso de
+        # plano sem valor extra — texto, nenhum renomeia a ordem.
+        "curso_ssd",
+        "incomodo",
+        "sem_valor_extra",
         # `T-245` (RF-82): orientação por dívida com seguro, não da ordem.
         "orientacao_seguro_prestamista",
         # `T-326` (RF-111): nome da dívida, descrição das ações e rótulos

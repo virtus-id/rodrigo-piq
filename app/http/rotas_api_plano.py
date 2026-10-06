@@ -31,6 +31,7 @@ from app.casos.inventario import pendencias_de_inventario
 from app.casos.maquina import ESTADO_CASO
 from app.casos.progresso import RelatoDeProgresso, consultar_trilha_de_progresso
 from app.concorrencia import duas_em_paralelo, tres_em_paralelo
+from app.http.fatos_de_risco import fatos_de_risco_por_divida
 from app.http.isolamento import (
     exigir_caso_da_sessao,
     exigir_papel_revisor,
@@ -382,6 +383,11 @@ def caso_para_revisao(
                 orientacoes_seguro,
                 textos,
                 para_revisor=True,
+                fatos_de_risco=fatos_de_risco_por_divida(
+                    respostas_do_caso,
+                    vocabulario,
+                    (posicao.DIVIDA_ID for posicao in contexto.ordem),
+                ),
             ),
             "estado_inputs": serializar_estado_inputs(estado_inputs),
             "mudancas": mudancas,

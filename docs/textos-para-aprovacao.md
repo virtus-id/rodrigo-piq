@@ -174,3 +174,18 @@ Para o dev aplicar ajustes (arquivo:linha).
 | 61 | `frontend/src/telas/TelaPlano.tsx:192` |
 | 62 | `report/templates/plano/textos-canonicos.yaml` (`orientacao_seguro_prestamista`, `T-245`) |
 | — | Aviso da seção 7: `app/montagem/textos/avisos.yaml` (`RESTITUICAO_SEGURO_EXTRAORDINARIO`, `T-288`) |
+
+
+---
+
+## Rodada 10 — curso de entrada, nota de incômodo e sem valor extra (2026-10-06)
+
+Todos **pendentes de aprovação** e de validação do especialista. Texto no arquivo `report/templates/plano/textos-canonicos.yaml`, chaves `curso_ssd`, `incomodo` e `sem_valor_extra`.
+
+| # | Onde aparece | Chave |
+| --- | --- | --- |
+| 63 | Introdução do plano recomendando o curso | `curso_ssd.introducao` |
+| 64 | Aulas que ajudam (título e motivo de cada aula) | `curso_ssd.aulas` |
+| 65 | Orientações para melhorar o plano, sem percentual | `curso_ssd.melhorar_*` |
+| 66 | Nota de incômodo da dívida e aviso | `incomodo.linha`, `incomodo.aviso` |
+| 67 | Aviso de plano sem valor extra | `sem_valor_extra` |

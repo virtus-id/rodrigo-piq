@@ -396,6 +396,9 @@
         {% if textos.explicacao_mes_1 %}
         <p class="nota-meses">{{ textos.explicacao_mes_1 }}</p>
         {% endif %}
+        {% if aviso_sem_valor_extra %}
+        <p class="nota-meses">{{ aviso_sem_valor_extra }}</p>
+        {% endif %}
     </div>
 
     {% if cenario is defined and cenario.value == "ESTABILIZACAO" %}
@@ -552,6 +555,31 @@
             <div class="linha"><span class="linha-rotulo">{{ textos.grade_meses.get("rotulo_mes", "Mês") }} {{ item.mes }}</span><span class="linha-valor">{{ item.valor }}</span></div>
             {% endfor %}
         </div>
+    </section>
+    {% endif %}
+
+    {% if curso_ssd %}
+    {% set ns.n = ns.n + 1 %}
+    <section class="secao">
+        <div class="secao-cabecalho">
+            <span class="secao-numero">{{ ns.n }}</span>
+            <h2>{{ curso_ssd.introducao_titulo }}</h2>
+        </div>
+        <p class="intro">{{ curso_ssd.introducao }}</p>
+        <div class="subtitulo">{{ curso_ssd.quadro_titulo }}</div>
+        {% for numero, titulo, motivo in curso_ssd.aulas %}
+        <div class="pergunta">
+            <h3>Aula {{ numero }}: {{ titulo }}</h3>
+            <p class="muted" style="margin: 0;">{{ motivo }}</p>
+        </div>
+        {% endfor %}
+        {% if curso_ssd.melhorar %}
+        <div class="subtitulo">{{ curso_ssd.melhorar_titulo }}</div>
+        <p class="muted">{{ curso_ssd.melhorar_intro }}</p>
+        {% for texto, aula in curso_ssd.melhorar %}
+        <p class="muted" style="margin: 0 0 1.5mm;">{{ texto }} ({{ aula }})</p>
+        {% endfor %}
+        {% endif %}
     </section>
     {% endif %}
 

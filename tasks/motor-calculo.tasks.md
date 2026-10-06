@@ -7486,3 +7486,9 @@ e a aplicação não carimba `1.0.2` em produção.
 
 `AC-118`–`AC-131` e `EC-51`–`EC-56` têm tarefa de teste (`T-154`, `T-156`,
 `T-158`, `T-161`, `T-165`). **Requisitos sem tarefa:** nenhum.
+
+---
+
+### Pendente (não iniciada) — ordem por nota de incômodo e criticidade
+
+Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 passa à frente de consignado, mas não de dívida cara; dívida crítica (atrasada com garantia, cobrança judicial) fica sempre na frente. Exige: revogar `AC-23` para a dívida crítica, campos novos em `Divida`, mudança nos três métodos, rehash do motor. Só inicia por decisão do dono do produto. Enquanto isso o aluno vê a nota e o aviso (`T-354`, no `app-aluno`).

@@ -280,7 +280,11 @@ def _sem_extras_do_revisor(plano: dict[str, Any]) -> dict[str, Any]:
     """O plano do revisor sem o que só ele recebe (`para_revisor=True`)."""
     limpo = dict(plano)
     limpo["ordem"] = [
-        {k: v for k, v in posicao.items() if k != "JUSTIFICATIVA_POSICAO"}
+        {
+            k: v
+            for k, v in posicao.items()
+            if k not in {"JUSTIFICATIVA_POSICAO", "fatos_de_risco"}
+        }
         for posicao in plano["ordem"]
     ]
     limpo["acoes"] = [{k: v for k, v in a.items() if k != "motivo"} for a in plano["acoes"]]

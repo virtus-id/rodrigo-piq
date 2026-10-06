@@ -155,6 +155,9 @@ def renderizar_html_do_plano(
         metodo=contexto.metodo,
         valor_mensal_destinado=contexto.valor_mensal_destinado,
         cenario_adicional=contexto.cenario_adicional,
+        # T-352/T-353 — curso de entrada e aviso de plano sem valor extra.
+        curso_ssd=contexto.curso_ssd,
+        aviso_sem_valor_extra=contexto.aviso_sem_valor_extra,
         # Plano amigável (2026-10-03) — seções novas da "consultoria
         # individual"; `textos` traz só os títulos/textos fixos que não são
         # campo de `ContextoPlano` (ver docstring).

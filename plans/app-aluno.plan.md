@@ -3049,3 +3049,10 @@ Servidor: payload do revisor × do aluno nos campos comuns e `JUSTIFICATIVA_POSI
 ## R15.4. Rastreabilidade
 
 `RF-121` → R15.1–R15.2 · `AC-189`, `AC-190` | `RF-122` → R15.2 · `AC-191` | `RF-123` → R15.1 · `AC-192` | `RF-124` → R15.1 · `AC-193`.
+
+## R16. O plano apresenta o curso de entrada e a nota de incômodo (`RF-125`)
+
+- **Sem tocar o motor.** Nada em `engine/` muda (hash congelado intacto): a nota de incômodo vem de `Divida.PESO_EMOCIONAL`, já no snapshot; o curso e os avisos são texto de `textos-canonicos.yaml`, escolhido por lookup (método ou estabilização).
+- **Servidor:** `report/plano.py` (`ContextoCursoSSD`, `_contexto_do_curso`, `_incomodo_da_divida`, `aviso_sem_valor_extra`) e `app/http/serializacao_plano.py`. As respostas de risco do revisor vêm de `app/http/fatos_de_risco.py` (só respostas, sem selo "crítica").
+- **Tela e PDF:** `PlanoDoAluno.tsx` e `plano.html`/`posicao.html`; mesma redação nos dois.
+- **Fora de escopo, registrado:** reordenar por nota/criticidade e simulador com números dependem do motor (slug `motor-calculo`) e não foram iniciados.

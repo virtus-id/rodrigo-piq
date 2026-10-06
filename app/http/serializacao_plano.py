@@ -25,7 +25,7 @@ REGRAS: `RF-50`, `RF-51`, `RF-21`, `AC-14`, `AC-16`
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, Final
 
 from app.casos.inventario import credor_da_ficha
@@ -111,6 +111,7 @@ def serializar_plano(
     textos: TextosCanonicosPlano | None = None,
     *,
     para_revisor: bool = False,
+    fatos_de_risco: Mapping[str, Sequence[tuple[str, str]]] | None = None,
 ) -> dict[str, Any]:
     """`ContextoPlano` → JSON, campo a campo.
 
@@ -142,6 +143,7 @@ def serializar_plano(
     com chamadores que ainda não as usam, como a tela do revisor)."""
     fontes = fontes or {}
     orientacoes_seguro = orientacoes_seguro or {}
+    fatos_de_risco = fatos_de_risco or {}
     return {
         "titulo": contexto.titulo,
         "corpo": contexto.corpo,
@@ -162,6 +164,23 @@ def serializar_plano(
                     else {}
                 ),
                 "explicacao": posicao.explicacao,
+                # `T-354`: a nota de incômodo que o aluno deu e o aviso de
+                # que a ordem seguiu o critério do método (nota alta).
+                "incomodo": posicao.incomodo,
+                "aviso_incomodo": posicao.aviso_incomodo,
+                # `T-354`: o que o aluno respondeu sobre atraso, cobrança
+                # judicial e garantia — só o revisor, só respostas, sem
+                # selo de "crítica" calculado (Lei nº 3).
+                **(
+                    {
+                        "fatos_de_risco": [
+                            {"nome": nome, "valor": valor}
+                            for nome, valor in fatos_de_risco.get(posicao.DIVIDA_ID, ())
+                        ]
+                    }
+                    if para_revisor
+                    else {}
+                ),
                 # `T-304` (`DE-08`): lido do cronograma; `None` = não disponível.
                 "mes_de_quitacao": posicao.mes_de_quitacao,
                 # Revisão de design: os números fixos de toda dívida
@@ -306,6 +325,25 @@ def serializar_plano(
             for ano in contexto.grade_anos
         ],
         "como_funciona": list(contexto.como_funciona),
+        # `T-352`/`T-353`: o curso de entrada e o aviso de plano sem valor
+        # extra — texto fixo, escolhido por lookup (nenhuma conta).
+        "curso_ssd": None
+        if contexto.curso_ssd is None
+        else {
+            "introducao_titulo": contexto.curso_ssd.introducao_titulo,
+            "introducao": contexto.curso_ssd.introducao,
+            "quadro_titulo": contexto.curso_ssd.quadro_titulo,
+            "aulas": [
+                {"numero": numero, "titulo": titulo, "motivo": motivo}
+                for numero, titulo, motivo in contexto.curso_ssd.aulas
+            ],
+            "melhorar_titulo": contexto.curso_ssd.melhorar_titulo,
+            "melhorar_intro": contexto.curso_ssd.melhorar_intro,
+            "melhorar": [
+                {"texto": texto, "aula": aula} for texto, aula in contexto.curso_ssd.melhorar
+            ],
+        },
+        "aviso_sem_valor_extra": contexto.aviso_sem_valor_extra,
         "pendencias_acionaveis": [
             {
                 "DIVIDA_ID": pendencia.DIVIDA_ID,

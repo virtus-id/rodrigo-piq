@@ -682,3 +682,73 @@ estabilizacao:
     fase, o objetivo é equilibrar as contas do mês. Quando isso acontecer,
     começa a segunda fase do plano, em que as dívidas passam a ser quitadas
     uma a uma.
+
+# ---------------------------------------------------------------------------
+# Curso de entrada (Servidor Sem Dívidas) — T-352 a T-354.
+#
+# Só consta aqui o que está nas legendas do curso (docs/curso-ssd/). Frases
+# marcadas como SUGESTÃO, a validar pelo especialista. Sem travessão, sem
+# emoji. Não há "sobra" nas frases usadas na estabilização (GAB-04).
+# ---------------------------------------------------------------------------
+curso_ssd:
+  introducao_titulo: "O curso Servidor Sem Dívidas e o seu plano"
+  introducao: >-
+    Este plano é a continuação do curso Servidor Sem Dívidas. Recomendamos
+    fortemente que você faça o curso: ele explica, passo a passo, o que este
+    plano pede e ajuda você a manter o resultado depois de quitar as
+    dívidas. Abaixo, as aulas que mais ajudam no seu caso.
+  quadro_titulo: "Aulas do curso que ajudam no seu plano"
+  aulas:
+    5:
+      titulo: "Mapeamento Parte 2"
+      motivo: "Ajuda a marcar o que dá para reduzir, pausar ou eliminar nos gastos do mês."
+    6:
+      titulo: "Renda Extra para Servidores"
+      motivo: "Mostra caminhos para ganhar mais dentro das regras do serviço público."
+    9:
+      titulo: "Anatomia Completa de Cada Dívida"
+      motivo: "Ensina a olhar cada dívida pelos juros e pela parcela, que pesam na ordem de ataque."
+    10:
+      titulo: "Renegociação Estratégica"
+      motivo: "Ensina a negociar com o credor: documentos, leis e propostas por escrito."
+    11:
+      titulo: "Troca Inteligente de Dívidas"
+      motivo: "Mostra quando trocar uma dívida cara por outra menos cara compensa."
+    12:
+      titulo: "Métodos de Quitação"
+      motivo: "Explica como pagar o mínimo em todas as dívidas e concentrar o dinheiro extra em uma de cada vez."
+    19:
+      titulo: "Blindagem Contra Imprevistos"
+      motivo: "Ensina a montar uma reserva inicial para emergências sem recorrer a novas dívidas."
+    27:
+      titulo: "Foco em Manutenção"
+      motivo: "Mostra como manter o controle no longo prazo, com revisão mensal e check-in semanal."
+  quadro_por_cenario:
+    padrao: [12, 9, 10, 11, 19, 27]
+    estabilizacao: [5, 6, 19]
+  melhorar_titulo: "Como melhorar o seu plano"
+  melhorar_intro: >-
+    Não existe um percentual de economia que sirva para todo mundo, porque
+    cada pessoa tem uma realidade. Estas são orientações do curso para você
+    avaliar o que faz sentido no seu caso, junto com a nossa equipe.
+  melhorar:
+    - texto: "Reduzir despesas: marque o que dá para reduzir, pausar ou eliminar nos gastos do mês."
+      aula: "Aula 5"
+    - texto: "Aumentar a renda: veja caminhos permitidos dentro e fora do serviço público, sempre fora do expediente."
+      aula: "Aula 6"
+    - texto: "Reduzir os juros: negocie com o credor e avalie trocar a dívida por outra menos cara."
+      aula: "Aulas 10 e 11"
+
+# Nota de incômodo que o aluno deu a cada dívida (B5.H01). O aviso só aparece
+# com nota 9 ou 10 em dívida que não é a primeira.
+incomodo:
+  linha: "Você deu nota {nota} de incômodo a esta dívida."
+  aviso: >-
+    A ordem do plano segue o critério do seu método. Se esta dívida pesa muito
+    para você, avise a nossa equipe.
+
+# Plano normal com capacidade de ataque zero no mês.
+sem_valor_extra: >-
+  Neste mês não há valor extra para quitar dívidas além das parcelas. Pague as
+  parcelas normais de todas as dívidas, em dia. Quando houver valor extra, o
+  plano é refeito.

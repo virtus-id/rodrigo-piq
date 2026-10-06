@@ -239,6 +239,7 @@ _PARES_DE_COR_DO_PDF: Final[tuple[tuple[str, str, str], ...]] = (
     ("aviso de atenção", "#FFF4DC", "#8A5A00"),
     ("aviso de erro", "#FBE8E4", "#A63A2C"),
     ("texto branco sobre accent", "#0F6E56", "#FFFFFF"),
+    ("faixa de prévia da conferência", "#FFF4D6", "#5A4300"),
 )
 
 
@@ -263,7 +264,7 @@ def test_pdf_do_plano_usa_pares_de_cor_com_contraste_aa(
 # fundo, então sem par de contraste a provar) — `line` de
 # `frontend/tailwind.config.js`, usado em `visuais.html` para o trilho de
 # fundo do Gantt/mapa da jornada.
-_CORES_DECORATIVAS_DO_PDF: Final[frozenset[str]] = frozenset({"#D9E0DC"})
+_CORES_DECORATIVAS_DO_PDF: Final[frozenset[str]] = frozenset({"#D9E0DC", "#D9A400"})
 
 
 def test_pdf_do_plano_so_declara_cor_dos_tokens_validados(html_do_plano: str) -> None:

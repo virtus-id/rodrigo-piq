@@ -450,6 +450,7 @@ com a redação canônica obrigatória.
 | `RF-122` | **Cada dívida do plano traz, para o revisor, os dados dela.** No cartão de cada dívida, uma seção recolhível **"Para o revisor"** mostra os dados de entrada **daquela dívida** (os mesmos de `AC-29`, já formatados, com `DESCONHECIDO` visível). A justificativa técnica da posição (`JUSTIFICATIVA_POSICAO`) continua fora da tela — o critério do método aparece uma vez (`T-330`) — e o aluno nunca a recebe. As ações mostram o motivo técnico, só para o revisor | Decisão do produto (2026-10-05) · `RF-26`, `T-305`, `AC-29` · `T-345`, `T-348` | essencial |
 | `RF-123` | **O revisor vê o que mudou desde a versão anterior.** Num plano refeito (versão 2 ou mais), a conferência lista, campo a campo, o que mudou nos dados de entrada em relação à versão anterior (renda, despesas, taxas, parcelas, saldos): nome do campo, valor anterior e valor atual, ambos formatados pelo servidor. Campo igual não aparece; campo que só existe de um lado aparece como "novo" ou "removido". Na versão 1 não há comparação | Decisão do produto (2026-10-05): o aluno pode pedir plano novo (`RF-118`) · `RF-118`, `V-01`, `AC-29` · `T-345`, `T-348` | importante |
 | `RF-124` | **O revisor abre a prévia do PDF.** Antes de liberar, o revisor abre o PDF que o aluno receberá, marcado "Prévia — ainda não liberado". É a **mesma** montagem do PDF liberado (`OQ-09`), sem exigir liberação, e só para quem tem papel de revisor. O PDF do aluno continua só do plano liberado (`AC-25`) | Decisão do produto (2026-10-05) · `OQ-09`, `AC-25`, `RF-23` · `T-346` | importante |
+| `RF-125` | **O plano apresenta o curso de entrada e a nota de incômodo.** O plano traz uma introdução recomendando o curso Servidor Sem Dívidas, um quadro das aulas que ajudam no caso (só do que consta nas legendas do curso) e orientações em texto, sem percentual, para reduzir despesas, aumentar renda e reduzir juros. Em cada dívida, mostra a nota de incômodo que o aluno deu e, com nota 9 ou 10 em dívida fora da 1ª posição, um aviso de que a ordem seguiu o critério do método. Sem valor extra no mês (resultado zero, sem estabilização), avisa o aluno. O revisor vê, por dívida, o que o aluno respondeu sobre atraso, cobrança judicial e garantia. Nada disso altera a ordem nem o cálculo | Pedido do produto (2026-10-05) · `RF-124`, `AC-37` · `T-351` a `T-354` | importante |
 
 ## 3. User Stories
 
@@ -1068,7 +1069,7 @@ Atende: `RF-121`, `RF-122`, `RF-123`, `RF-124`
 
 ### Rodada 15 (2026-10-05) — Conferência com a visão do aluno
 
-> **Rastreabilidade `RF` → `AC`.** `RF-121` → `AC-189`, `AC-190` · `RF-122` → `AC-191` · `RF-123` → `AC-192` · `RF-124` → `AC-193`.
+> **Rastreabilidade `RF` → `AC`.** `RF-121` → `AC-189`, `AC-190` · `RF-122` → `AC-191` · `RF-123` → `AC-192` · `RF-124` → `AC-193` · `RF-125` → `AC-194`, `AC-195`, `AC-196`, `AC-197`.
 
 | ID | Story | Critério (verificável) |
 | --- | --- | --- |
@@ -1077,6 +1078,10 @@ Atende: `RF-121`, `RF-122`, `RF-123`, `RF-124`
 | `AC-191` | `US-36` | Dado um plano com dívidas, quando o revisor abre a seção "Para o revisor" do cartão de uma dívida, então vê os dados de entrada **dessa** dívida, e a justificativa técnica da posição não aparece; o aluno não vê a seção |
 | `AC-192` | `US-36` | Dado um plano versão 2 cuja taxa do cheque especial passou de 4% para 8%, quando o revisor o abre, então `mudancas` lista essa taxa com o valor anterior e o atual e **não** lista campos iguais; na versão 1, `mudancas` é `null` |
 | `AC-193` | `US-36` | Dado um caso com snapshot, quando um revisor pede `GET /revisao/caso/{id}/plano/pdf`, então recebe um PDF marcado como prévia mesmo sem liberação; um aluno recebe `403`; caso sem snapshot, `404`; e `GET /caso/{id}/plano/pdf` do aluno segue `404` antes da liberação |
+| `AC-194` | `US-36` | Dado um plano normal, quando o plano é montado, então traz a introdução do curso e o quadro com a aula 12; dado plano de estabilização, o quadro traz as aulas 5, 6 e 19 e o HTML não contém a palavra "sobra"; toda aula citada existe em `docs/curso-ssd/estrutura.md` |
+| `AC-195` | `US-36` | Dado resultado do mês exatamente zero, quando o plano é montado, então é plano normal (sem estabilização) com o aviso de que não há valor extra; com valor extra, o aviso não aparece |
+| `AC-196` | `US-36` | Dada uma dívida com nota de incômodo 9 que não é a 1ª posição, então o aluno vê a nota e o aviso; com nota 5, vê só a nota; sem nota, nada |
+| `AC-197` | `US-36` | Dado o plano do revisor, então cada dívida traz as respostas de atraso, cobrança judicial e garantia; o plano do aluno nunca as traz |
 
 ## 5. Non-Functional Requirements
 
