@@ -461,6 +461,9 @@ ponto_de_partida:
   gastos_ocasionais: "Gastos que não acontecem todo mês, em média mensal"
   parcelas: "Parcelas de dívidas que você já paga"
   quantidade_dividas: "Dívidas incluídas neste plano"
+  # Etiquetas curtas: a cor (verde entra, vermelho sai) não é o único sinal.
+  entrada_rotulo: "Entra"
+  saida_rotulo: "Sai"
   valor_extra: "Valor extra para quitar as dívidas"
   nota_seguranca: >-
     O valor extra foi calculado com uma margem de segurança e nunca passa do

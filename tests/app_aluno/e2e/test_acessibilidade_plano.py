@@ -240,6 +240,8 @@ _PARES_DE_COR_DO_PDF: Final[tuple[tuple[str, str, str], ...]] = (
     ("aviso de erro", "#FBE8E4", "#A63A2C"),
     ("texto branco sobre accent", "#0F6E56", "#FFFFFF"),
     ("faixa de prévia da conferência", "#FFF4D6", "#5A4300"),
+    ("entrada do mês (verde) sobre branco", "#FFFFFF", "#0F6E56"),
+    ("saída do mês (vermelho) sobre branco", "#FFFFFF", "#A63A2C"),
 )
 
 

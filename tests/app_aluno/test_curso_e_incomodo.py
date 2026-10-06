@@ -175,3 +175,18 @@ def test_primeira_pagina_apresenta_o_plano_antes_do_primeiro_capitulo() -> None:
     assert apresentacao is not None and apresentacao.apresentacao
     assert html.index(apresentacao.apresentacao_titulo) < html.index("Seu plano em números")
     assert all(paragrafo in html for paragrafo in apresentacao.apresentacao)
+
+
+def test_ponto_de_partida_marca_entrada_e_saida_com_cor_e_etiqueta() -> None:
+    html = _html(_snapshot())
+    textos = carregar_textos_canonicos().ponto_de_partida
+    marcadas = re.findall(
+        r'<div class="linha (entrada|saida)"><span class="linha-rotulo">([^<]*)</span>', html
+    )
+    assert marcadas == [
+        ("entrada", textos["renda"]),
+        ("saida", textos["gastos"]),
+        ("saida", textos["gastos_ocasionais"]),
+        ("saida", textos["parcelas"]),
+    ]
+    assert textos["entrada_rotulo"] in html and textos["saida_rotulo"] in html

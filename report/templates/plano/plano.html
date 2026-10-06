@@ -158,6 +158,10 @@
         .linha:last-child { border-bottom: none; }
         .linha-rotulo { flex: 1; }
         .linha-valor { font-weight: bold; }
+        /* Retrato do mês: entra em verde, sai em vermelho (cores já validadas). */
+        .linha-etiqueta { font-size: 8pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.04em; margin-right: 3mm; }
+        .linha.entrada .linha-etiqueta, .linha.entrada .linha-valor { color: #0F6E56; }
+        .linha.saida .linha-etiqueta, .linha.saida .linha-valor { color: #A63A2C; }
         .linha-forte { background: #E3F1EB; }
         .linha-forte .linha-valor { color: #0F6E56; font-size: 12pt; }
 
@@ -468,10 +472,10 @@
         {{ visuais.cabecalho_da_secao(ns.n, secoes.get("ponto_de_partida", "Seu ponto de partida"), "conferencia") }}
         <p class="intro">{{ textos.ponto_de_partida.get("introducao", "") }}</p>
         <div class="linhas">
-            <div class="linha"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("renda", "") }}</span><span class="linha-valor">{{ ponto_de_partida.renda }}</span></div>
-            <div class="linha"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("gastos", "") }}</span><span class="linha-valor">{{ ponto_de_partida.gastos }}</span></div>
-            <div class="linha"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("gastos_ocasionais", "") }}</span><span class="linha-valor">{{ ponto_de_partida.gastos_ocasionais }}</span></div>
-            <div class="linha"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("parcelas", "") }}</span><span class="linha-valor">{{ ponto_de_partida.parcelas }}</span></div>
+            <div class="linha entrada"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("renda", "") }}</span><span class="linha-etiqueta">{{ textos.ponto_de_partida.get("entrada_rotulo", "") }}</span><span class="linha-valor">{{ ponto_de_partida.renda }}</span></div>
+            <div class="linha saida"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("gastos", "") }}</span><span class="linha-etiqueta">{{ textos.ponto_de_partida.get("saida_rotulo", "") }}</span><span class="linha-valor">{{ ponto_de_partida.gastos }}</span></div>
+            <div class="linha saida"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("gastos_ocasionais", "") }}</span><span class="linha-etiqueta">{{ textos.ponto_de_partida.get("saida_rotulo", "") }}</span><span class="linha-valor">{{ ponto_de_partida.gastos_ocasionais }}</span></div>
+            <div class="linha saida"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("parcelas", "") }}</span><span class="linha-etiqueta">{{ textos.ponto_de_partida.get("saida_rotulo", "") }}</span><span class="linha-valor">{{ ponto_de_partida.parcelas }}</span></div>
             <div class="linha"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("quantidade_dividas", "") }}</span><span class="linha-valor">{{ ponto_de_partida.quantidade_de_dividas }}</span></div>
             {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
             <div class="linha linha-forte"><span class="linha-rotulo">{{ textos.ponto_de_partida.get("valor_extra", "") }}</span><span class="linha-valor">{{ ponto_de_partida.valor_extra }}</span></div>
