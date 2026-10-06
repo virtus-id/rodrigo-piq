@@ -430,6 +430,19 @@
             </div>
         </div>
     </section>
+
+    {# 2. Suas dívidas, uma a uma: logo após o resumo, o aluno vê as dívidas
+       que o plano contém. #}
+    {% if ordem %}
+    {% set ns.n = ns.n + 1 %}
+    <section class="secao">
+        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("dividas", "Suas dívidas, uma a uma"), "dinheiro") }}
+        <p class="intro">{{ textos.textos_das_dividas.get("introducao", "") }}</p>
+        {% for posicao in ordem %}
+        {% include "posicao.html" %}
+        {% endfor %}
+    </section>
+    {% endif %}
     {% endif %}
 
     {# Seu ponto de partida — vale também em estabilização: mostra ao aluno
@@ -518,14 +531,6 @@
         {{ visuais.linha_do_tempo(ordem, PRAZO_TOTAL_INT, "Linha do tempo das suas dívidas, da primeira à última quitação.", textos.linha_do_tempo) }}
     </section>
 
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao nova-pagina">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("dividas", "Suas dívidas, uma a uma"), "dinheiro") }}
-        <p class="intro">{{ textos.textos_das_dividas.get("introducao", "") }}</p>
-        {% for posicao in ordem %}
-        {% include "posicao.html" %}
-        {% endfor %}
-    </section>
     {% endif %}
     {% endif %}
 

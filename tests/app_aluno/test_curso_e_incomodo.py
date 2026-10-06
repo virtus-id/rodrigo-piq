@@ -150,3 +150,18 @@ def test_nota_baixa_nao_gera_aviso() -> None:
     contexto = _contexto(_snapshot(peso_b=5))
     assert all(posicao.aviso_incomodo == "" for posicao in contexto.ordem)
     assert any("nota 5" in posicao.incomodo for posicao in contexto.ordem)
+
+
+# ------------------------------------------------------------- ordem dos capítulos
+
+
+def test_capitulos_do_pdf_resumo_dividas_e_ponto_de_partida_nesta_ordem() -> None:
+    html = _html(_snapshot())
+    titulos = re.findall(
+        r'<span class="secao-numero">(\d+)</span>\s*<h2[^>]*>([^<]*)</h2>', html
+    )
+    assert titulos[:3] == [
+        ("1", "Seu plano em números"),
+        ("2", "Suas dívidas, uma a uma"),
+        ("3", "Seu ponto de partida"),
+    ]

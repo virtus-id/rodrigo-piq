@@ -92,66 +92,7 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         />
       )}
 
-      {plano.ponto_de_partida && (
-        <PontoDePartida
-          ponto={plano.ponto_de_partida}
-          textos={plano.ponto_de_partida_textos ?? {}}
-          titulo={secoes.ponto_de_partida ?? ''}
-          mostrarValorExtra={!plano.MODO_ESTABILIZACAO && !ordemVazia}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
-        <PrimeiroPasso
-          passo={plano.passo_atual}
-          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ''}
-          textos={
-            plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
-          }
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
-        <PrimeiraVitoria
-          primeiraVitoria={plano.primeira_vitoria}
-          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
-          complemento={plano.primeira_vitoria_complemento ?? ''}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.como_funciona?.length ?? 0) > 0 && (
-        <ComoFunciona
-          passos={plano.como_funciona ?? []}
-          rotulos={plano.como_funciona_rotulos ?? []}
-          titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ''}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.grade_meses?.length ?? 0) > 0 && (
-        <JornadaDoPlano
-          grade={plano.grade_meses ?? []}
-          anos={plano.grade_anos ?? []}
-          textos={plano.grade_meses_textos ?? {}}
-          titulo={secoes.jornada ?? plano.jornada_titulo ?? ''}
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
-        <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
-          <h2 id="titulo-linha-do-tempo">
-            {plano.linha_do_tempo_textos?.titulo || 'Quando cada dívida termina'}
-          </h2>
-          {plano.linha_do_tempo_textos?.introducao && (
-            <p className="text-muted m-0">{plano.linha_do_tempo_textos.introducao}</p>
-          )}
-          <LinhaDoTempoDividas
-            ordem={plano.ordem}
-            prazoTotalMeses={plano.PRAZO_TOTAL_INT}
-            textos={plano.linha_do_tempo_textos ?? {}}
-          />
-        </section>
-      )}
-
+      {/* O capítulo 2: logo após o resumo, o aluno vê as dívidas que o plano contém. */}
       {plano.ordem.length > 0 ? (
         <>
           <h2>{secoes.dividas ?? 'Suas dívidas, uma a uma'}</h2>
@@ -306,6 +247,66 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
             ))}
           </ul>
         </div>
+      )}
+
+      {plano.ponto_de_partida && (
+        <PontoDePartida
+          ponto={plano.ponto_de_partida}
+          textos={plano.ponto_de_partida_textos ?? {}}
+          titulo={secoes.ponto_de_partida ?? ''}
+          mostrarValorExtra={!plano.MODO_ESTABILIZACAO && !ordemVazia}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
+        <PrimeiroPasso
+          passo={plano.passo_atual}
+          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ''}
+          textos={
+            plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
+          }
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
+        <PrimeiraVitoria
+          primeiraVitoria={plano.primeira_vitoria}
+          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
+          complemento={plano.primeira_vitoria_complemento ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.como_funciona?.length ?? 0) > 0 && (
+        <ComoFunciona
+          passos={plano.como_funciona ?? []}
+          rotulos={plano.como_funciona_rotulos ?? []}
+          titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.grade_meses?.length ?? 0) > 0 && (
+        <JornadaDoPlano
+          grade={plano.grade_meses ?? []}
+          anos={plano.grade_anos ?? []}
+          textos={plano.grade_meses_textos ?? {}}
+          titulo={secoes.jornada ?? plano.jornada_titulo ?? ''}
+        />
+      )}
+
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
+        <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
+          <h2 id="titulo-linha-do-tempo">
+            {plano.linha_do_tempo_textos?.titulo || 'Quando cada dívida termina'}
+          </h2>
+          {plano.linha_do_tempo_textos?.introducao && (
+            <p className="text-muted m-0">{plano.linha_do_tempo_textos.introducao}</p>
+          )}
+          <LinhaDoTempoDividas
+            ordem={plano.ordem}
+            prazoTotalMeses={plano.PRAZO_TOTAL_INT}
+            textos={plano.linha_do_tempo_textos ?? {}}
+          />
+        </section>
       )}
 
       {/* `AC-70`: reserva desconhecida é estado explícito, nunca R$ 0,00. */}
