@@ -633,36 +633,39 @@ pergunta_do_campo:
   CET: "B5.D03A"
   CUSTO_SEGURO: "B5.D05A"
 
-# Perguntas frequentes, sempre abertas no documento impresso. Alinhadas às
-# regras de recálculo da spec (R-01). Sugestão, a validar.
+# Perguntas frequentes, sempre abertas no documento impresso. Só perguntas com
+# resposta FECHADA, que diz ao aluno o que fazer, sem mandar "avisar a equipe".
+# Pergunta cuja resposta varia por caso não entra. O botão citado existe em
+# "Minhas respostas". Sugestão, a validar.
 duvidas:
   - pergunta: "Quando o meu plano muda?"
     resposta: >-
-      O plano só é refeito quando algo importante acontece: uma dívida é
+      O plano é refeito quando algo importante acontece: uma dívida é
       quitada, a sua renda muda, surge uma dívida nova ou você recebe um
-      dinheiro extra. A simples passagem dos meses não muda o plano.
+      dinheiro extra. A simples passagem dos meses não muda o plano. Quando
+      isso acontecer com você, atualize as suas respostas em "Minhas
+      respostas" e use o botão "Gerar um novo plano com as minhas respostas".
   - pergunta: "O que acontece com as outras dívidas enquanto eu pago uma?"
     resposta: >-
       Você continua pagando a parcela normal de todas elas, sem atraso. Só
       o valor extra do mês vai para a dívida da vez.
   - pergunta: "E se eu não conseguir separar o valor extra em algum mês?"
     resposta: >-
-      Pague ao menos as parcelas normais de todas as dívidas e avise a
-      equipe. O plano pode ser ajustado à sua nova situação.
-  - pergunta: "E se eu receber um dinheiro extra?"
-    resposta: >-
-      Avise a equipe. Dependendo do valor e de quando ele chegar, o plano é
-      refeito para usar esse dinheiro na quitação das dívidas.
+      Pague as parcelas normais de todas as dívidas, em dia: elas nunca
+      podem atrasar. No mês seguinte, volte a separar o valor extra. A dívida
+      da vez termina mais tarde, mas a ordem do plano continua a mesma. Se
+      você não conseguir mais separar esse valor, atualize as suas respostas e
+      gere um novo plano.
   - pergunta: "E se eu tiver uma dívida nova?"
     resposta: >-
-      Avise a equipe o quanto antes. Uma dívida nova muda a ordem e o valor
-      do plano, por isso ele precisa ser refeito.
+      O plano parte da regra de não fazer dívida nova, a regra da aula 1 do
+      curso. Se mesmo assim surgir uma, inclua a dívida em "Minhas respostas"
+      e gere um novo plano: uma dívida nova muda a ordem e o valor do plano.
   - pergunta: "Por que não começar pela maior dívida?"
     resposta: >-
-      A ordem foi definida para que você pague o menor valor total possível
-      ou quite a primeira dívida mais cedo, de acordo com o seu perfil.
-      Começar pela maior dívida costuma deixar o caminho mais longo e mais
-      caro.
+      A ordem segue o método do seu plano, explicado em "Como o seu plano
+      funciona". Cada método escolhe a dívida da vez por um critério, como
+      os juros mais altos ou o menor saldo, e não pelo tamanho da dívida.
 
 checklist:
   introducao: "Marque cada item quando concluir."
@@ -748,7 +751,7 @@ curso_ssd:
   melhorar_intro: >-
     Não existe um percentual de economia que sirva para todo mundo, porque
     cada pessoa tem uma realidade. Estas são orientações do curso para você
-    avaliar o que faz sentido no seu caso, junto com a nossa equipe.
+    avaliar o que faz sentido no seu caso.
   melhorar:
     - texto: "Reduzir despesas: marque o que dá para reduzir, pausar ou eliminar nos gastos do mês."
       aula: "Aula 5"
@@ -762,8 +765,9 @@ curso_ssd:
 incomodo:
   linha: "Você deu nota {nota} de incômodo a esta dívida."
   aviso: >-
-    A ordem do plano segue o critério do seu método. Se esta dívida pesa muito
-    para você, avise a nossa equipe.
+    A ordem segue o critério do método do seu plano, explicado em "Como o seu
+    plano funciona". Esta dívida está no plano e termina no mês indicado em
+    "Termina no".
 
 # Plano normal com capacidade de ataque zero no mês.
 sem_valor_extra: >-

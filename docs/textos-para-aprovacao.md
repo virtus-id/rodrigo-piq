@@ -190,4 +190,6 @@ Todos **pendentes de aprovação** e de validação do especialista. Texto no ar
 | 66 | Nota de incômodo da dívida e aviso | `incomodo.linha`, `incomodo.aviso` |
 | 67 | Aviso de plano sem valor extra | `sem_valor_extra` |
 | 68 | Primeira página: apresentação do plano e do curso | `curso_ssd.apresentacao_titulo`, `curso_ssd.apresentacao` |
+| 70 | Perguntas frequentes reescritas com resposta fechada (5 perguntas; a de dinheiro extra saiu) | `duvidas` |
+| 71 | Aviso de nota alta e introdução das orientações, sem citar a equipe | `incomodo.aviso`, `curso_ssd.melhorar_intro` |
 | 69 | Texto lido por leitor de tela ("Entra" e "Sai") junto dos sinais + e − no ponto de partida | `ponto_de_partida.entrada_rotulo`, `ponto_de_partida.saida_rotulo` |

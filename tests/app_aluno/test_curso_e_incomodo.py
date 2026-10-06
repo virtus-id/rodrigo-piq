@@ -191,3 +191,15 @@ def test_ponto_de_partida_marca_entrada_e_saida_com_cor_e_sinal() -> None:
     ]
     assert html.count('class="linha-sinal"') == 4
     assert html.count(">+</span>") == 1 and html.count("&minus;</span>") == 3
+
+
+def test_nenhum_texto_de_decisao_manda_o_aluno_acionar_a_equipe() -> None:
+    """Pedido do produto (2026-10-06): as perguntas frequentes têm resposta
+    fechada e o aluno decide o que fazer; nenhuma resposta, nem o aviso de
+    incômodo, manda "avisar" ou "informar" a equipe."""
+    textos = carregar_textos_canonicos()
+    respostas = [resposta for _, resposta in textos.duvidas]
+    outros = [textos.incomodo.get("aviso", ""), textos.sem_valor_extra]
+    outros.append(str(textos.curso_ssd.get("melhorar_intro", "")))
+    for texto in respostas + outros:
+        assert "equipe" not in texto.lower()
