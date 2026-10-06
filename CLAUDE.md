@@ -26,6 +26,11 @@ A **stack não fica no config**: linguagem, framework e bibliotecas são decisã
 de refinamento técnico e vivem na seção `Tech Stack` de `plans/<slug>.plan.md`,
 onde cada escolha se justifica contra um requisito.
 
+## Produto de entrada (SSD)
+
+O PIQ é o upsell do curso **Servidor Sem Dívidas**. O material do curso (estrutura, 31 legendas e um índice de conceitos) está em
+[docs/curso-ssd/](docs/curso-ssd/). Referências ao curso vêm **somente** desse material — nunca de fonte externa, nunca inventadas.
+
 ## Artefatos e nomenclatura
 
 Cada feature tem um **slug** em `kebab-case` (ex.: `busca-de-cidade`). Os

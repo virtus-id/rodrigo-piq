@@ -13843,3 +13843,17 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Remove a abertura em duas colunas a partir de 1800px
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-351` — Acervo do curso de entrada (SSD) no repositório
+
+- **Tipo:** `DOC` · **Dependências:** nenhuma · **Rastreia:** pedido do responsável do produto (2026-10-05)
+- **Arquivos:** `docs/curso-ssd/estrutura.md`, `docs/curso-ssd/conceitos.md`, `docs/curso-ssd/legendas/*.vtt`, `CLAUDE.md`
+
+- [x] Estrutura do curso (4 semanas, 28 aulas, bônus) e as 31 legendas (aula 10 em duas partes)
+- [x] Índice conceito → aula, só com o que as legendas dizem; divergências curso × PIQ listadas para o especialista
+- [x] Regra: referências ao curso só deste material, sem fonte externa
+- [ ] **Segurado:** referências no plano (aluno/PDF) — aguarda as respostas do especialista e a aprovação das frases
+
+**Status:** `[x] concluída (2026-10-05)` (acervo); referências no plano pendentes
