@@ -13828,3 +13828,18 @@ Relato de uso (2026-10-05): na conferência, a coluna de detalhes do revisor fic
 - [x] Dados de entrada em linhas (rótulo à esquerda, valor à direita, filete embaixo), em até três colunas quando há espaço
 
 **Status:** `[x] concluída (2026-10-05)`
+
+---
+
+### `T-350` — Conferência: painel do revisor empilhado e legível
+
+- **Tipo:** `UX` · **Dependências:** `T-349` · **Rastreia:** `RF-121`
+- **Arquivos:** `frontend/src/componentes/ListaDeDados.tsx`, `frontend/src/telas/TelaEquipeCaso.tsx`
+
+Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) deixaram a tela "quebrada".
+
+- [x] Mantém o aproveitamento lateral: plano do aluno à esquerda, painel do revisor ocupando o resto da tela
+- [x] Painel em uma única coluna empilhada; dados de entrada em linhas (rótulo/valor), sem multi-colunas
+- [x] Remove a abertura em duas colunas a partir de 1800px
+
+**Status:** `[x] concluída (2026-10-05)`
