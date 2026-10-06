@@ -258,6 +258,15 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         />
       )}
 
+      {/* Capítulo 4, o ponto alto: o primeiro resultado vem antes do passo a passo. */}
+      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
+        <PrimeiraVitoria
+          primeiraVitoria={plano.primeira_vitoria}
+          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
+          complemento={plano.primeira_vitoria_complemento ?? ''}
+        />
+      )}
+
       {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
         <PrimeiroPasso
           passo={plano.passo_atual}
@@ -265,14 +274,6 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
           textos={
             plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
           }
-        />
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
-        <PrimeiraVitoria
-          primeiraVitoria={plano.primeira_vitoria}
-          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
-          complemento={plano.primeira_vitoria_complemento ?? ''}
         />
       )}
 

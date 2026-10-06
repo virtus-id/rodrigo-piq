@@ -213,8 +213,10 @@
             padding: 3mm 5mm;
             color: #8A5A00;
         }
-        .conquista-mes .icone { width: 7mm; height: 7mm; }
-        .conquista-mes strong { display: block; font-size: 15pt; }
+        .conquista-mes .icone { width: 9mm; height: 9mm; }
+        .conquista-mes strong { display: block; font-size: 22pt; }
+        /* Capítulo 4, o ponto alto do plano: mais espaço e a borda da cor do selo. */
+        .conquista { padding: 6mm 7mm; border: 2px solid #8A5A00; }
 
         /* Como funciona ------------------------------------------------- */
         .quadros { display: flex; gap: 4mm; }
@@ -473,8 +475,6 @@
     {% include "ordem_vazia.html" %}
     {% elif not (cenario is defined and cenario.value == "ESTABILIZACAO") %}
 
-    {% include "primeiro_passo.html" %}
-
     {% if primeira_vitoria %}
     {% set ns.n = ns.n + 1 %}
     <section class="secao">
@@ -491,6 +491,9 @@
         </div>
     </section>
     {% endif %}
+
+    {% include "primeiro_passo.html" %}
+
 
     {% if como_funciona %}
     {% set ns.n = ns.n + 1 %}

@@ -155,13 +155,15 @@ def test_nota_baixa_nao_gera_aviso() -> None:
 # ------------------------------------------------------------- ordem dos capítulos
 
 
-def test_capitulos_do_pdf_resumo_dividas_e_ponto_de_partida_nesta_ordem() -> None:
+def test_capitulos_do_pdf_abrem_com_resumo_dividas_ponto_de_partida_e_primeira_quitacao() -> None:
     html = _html(_snapshot())
     titulos = re.findall(
         r'<span class="secao-numero">(\d+)</span>\s*<h2[^>]*>([^<]*)</h2>', html
     )
-    assert titulos[:3] == [
+    assert titulos[:5] == [
         ("1", "Seu plano em números"),
         ("2", "Suas dívidas, uma a uma"),
         ("3", "Seu ponto de partida"),
+        ("4", "Sua primeira dívida quitada"),
+        ("5", "O que fazer no Mês 1"),
     ]
