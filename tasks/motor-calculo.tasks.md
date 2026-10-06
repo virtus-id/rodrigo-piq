@@ -7500,9 +7500,9 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - **Tipo:** `FEATURE` · **Rastreia:** `RF-77`, `AC-132`, `AC-133`, `AC-134`, `EC-57`
 - **Arquivos:** `engine/prognostico.py` (novo), `engine/snapshot.py`, `engine/motor.py`, `persistencia/arquivo/repositorio_snapshots.py`, `persistencia/supabase/repositorio_snapshots.py`, `tests/app_aluno/estatica/hashes_congelados.json` (rehash só dos arquivos alterados), testes
 
-- [ ] `calcular_prognostico` e campo `prognostico` no snapshot (opcional)
-- [ ] Persistência lê/grava a chave; snapshot antigo volta `None`
-- [ ] Testes: saldo no horizonte, déficit, dívida que não se quita sozinha, sem dívidas, plano inalterado
-- [ ] Rehash deliberado dos arquivos alterados
+- [x] `calcular_prognostico` e campo `prognostico` no snapshot (opcional)
+- [x] Persistência lê/grava a chave; snapshot antigo volta `None`
+- [x] Testes: saldo no horizonte, déficit, dívida que não se quita sozinha, sem dívidas, plano inalterado
+- [x] Rehash deliberado dos arquivos alterados
 
-**Status:** `[ ] pendente`
+**Status:** `[x] concluída`
