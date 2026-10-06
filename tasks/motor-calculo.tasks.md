@@ -7492,3 +7492,17 @@ e a aplicação não carimba `1.0.2` em produção.
 ### Pendente (não iniciada) — ordem por nota de incômodo e criticidade
 
 Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 passa à frente de consignado, mas não de dívida cara; dívida crítica (atrasada com garantia, cobrança judicial) fica sempre na frente. Exige: revogar `AC-23` para a dívida crítica, campos novos em `Divida`, mudança nos três métodos, rehash do motor. Só inicia por decisão do dono do produto. Enquanto isso o aluno vê a nota e o aviso (`T-354`, no `app-aluno`).
+
+---
+
+### `T-169` — Prognóstico "sem ação" no motor
+
+- **Tipo:** `FEATURE` · **Rastreia:** `RF-77`, `AC-132`, `AC-133`, `AC-134`, `EC-57`
+- **Arquivos:** `engine/prognostico.py` (novo), `engine/snapshot.py`, `engine/motor.py`, `persistencia/arquivo/repositorio_snapshots.py`, `persistencia/supabase/repositorio_snapshots.py`, `tests/app_aluno/estatica/hashes_congelados.json` (rehash só dos arquivos alterados), testes
+
+- [ ] `calcular_prognostico` e campo `prognostico` no snapshot (opcional)
+- [ ] Persistência lê/grava a chave; snapshot antigo volta `None`
+- [ ] Testes: saldo no horizonte, déficit, dívida que não se quita sozinha, sem dívidas, plano inalterado
+- [ ] Rehash deliberado dos arquivos alterados
+
+**Status:** `[ ] pendente`

@@ -141,6 +141,7 @@ from engine.metodos.hibrido import criar_selecionar_alvo_hibrido
 from engine.ordem import consolidar_ORDEM_STATUS, publicar_ORDEM_QUITACAO
 from engine.parametros import Parametros
 from engine.precisao import CONTEXTO_MOTOR, dinheiro
+from engine.prognostico import calcular_prognostico
 from engine.snapshot import SnapshotOrdem, montar_SnapshotOrdem
 from engine.status_metodo import derivar_METODO_RECOMENDADO_PIQ
 from engine.tipos import (
@@ -564,6 +565,16 @@ def calcular_plano(
             ),
         )
 
+        # RF-77 (T-169): prognóstico "sem ação", depois da escolha do método e
+        # sem alterar nada do que ela leu (mesma posição do cenário adicional).
+        prognostico = calcular_prognostico(
+            estado=estado,
+            diagnostico_pre=diagnostico_pre,
+            dividas=dividas,
+            cenario_recomendado=cenario_recomendado,
+            parametros=parametros,
+        )
+
         # Segunda passada de Diagnostico (RF-66/RF-68, OQ-44 decisão (2),
         # T-142, plano R4C.1/R4C.5) — posicionada DEPOIS da montagem final
         # de particao.ORDEM_ACOES (já inclui a ação de economia, se houver)
@@ -605,4 +616,5 @@ def calcular_plano(
             motivo=motivo_final,
             anterior=anterior,
             projecao_extraordinarios=projecao_extraordinarios,
+            prognostico=prognostico,
         )

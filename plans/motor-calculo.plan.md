@@ -4699,3 +4699,11 @@ entregou tupla vazia, `EC-55`).
 
 **Cobertura:** 7 de 7 (`RF-70`–`RF-76`). **Uma lacuna registrada** (R9M.10 #1,
 quantificação de `RF-74`), com proposta mínima e reversível.
+
+## R10. Prognóstico "sem ação" (`RF-77`)
+
+- **Módulo novo `engine/prognostico.py`**, função `calcular_prognostico(estado, diagnostico_pre, dividas, cenario_recomendado, parametros)`. Reaproveita `simular_cenario` com capacidade de ataque **zero** e um `SelecionarAlvo` que nunca escolhe alvo: o `VALOR_FLUXO_LIBERADO` vira `ATAQUE_NAO_UTILIZADO` (caixa do aluno) e nunca ataca outra dívida. Nada novo no ciclo mensal.
+- **Horizonte:** `PRAZO_TOTAL` do cenário recomendado (no máximo `P_HORIZONTE_MAXIMO_SIMULACAO`). O saldo ao fim do horizonte vem de `Cenario.meses[N-1].estado_final.saldos`.
+- **Déficit:** `max(0, -(RESULTADO_MENSAL_ATUAL + liberado_acumulado))` por mês; soma sem juros.
+- **Snapshot:** campo opcional `prognostico` (`None` quando não há dívida simulável), no molde de `projecao_extraordinarios`. Persistência (arquivo e Supabase) lê/grava a chave; snapshot antigo sem a chave volta `None`.
+- **Fora de escopo desta rodada:** cenário com esforço extra (verde), juros sobre o déficit.

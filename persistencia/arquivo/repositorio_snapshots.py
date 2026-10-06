@@ -89,6 +89,7 @@ from engine.extraordinarios import (
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem
 from engine.portas import RepositorioSnapshots
+from engine.prognostico import Prognostico, PrognosticoSemAcao
 from engine.risco import ClassificacaoRisco, SinalD4
 from engine.snapshot import SnapshotOrdem, _serializar_canonico
 from engine.tipos import (
@@ -684,6 +685,24 @@ def _projecao_extraordinarios(bruto: dict[str, Any] | None) -> ProjecaoExtraordi
     )
 
 
+def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
+    """RF-77 — `SnapshotOrdem.prognostico`; snapshot anterior não tem a chave."""
+    if bruto is None:
+        return None
+    sem_acao = bruto["sem_acao"]
+    return Prognostico(
+        sem_acao=PrognosticoSemAcao(
+            HORIZONTE_MESES=sem_acao["HORIZONTE_MESES"],
+            SALDO_INICIAL_TOTAL=_decimal(sem_acao["SALDO_INICIAL_TOTAL"]),
+            SALDO_NO_HORIZONTE=_decimal(sem_acao["SALDO_NO_HORIZONTE"]),
+            DIVIDAS_QUITADAS_SOZINHAS=sem_acao["DIVIDAS_QUITADAS_SOZINHAS"],
+            DIVIDAS_QUE_CRESCEM=sem_acao["DIVIDAS_QUE_CRESCEM"],
+            DEFICIT_MENSAL=_decimal(sem_acao["DEFICIT_MENSAL"]),
+            DEFICIT_ACUMULADO=_decimal(sem_acao["DEFICIT_ACUMULADO"]),
+        )
+    )
+
+
 def _desserializar_snapshot(bruto: dict[str, Any]) -> SnapshotOrdem:
     """Reconstrói um `SnapshotOrdem` completo a partir do dict já decodificado
     de uma linha `snapshots.jsonl` (`json.loads` já aplicado). Espelha campo
@@ -721,4 +740,5 @@ def _desserializar_snapshot(bruto: dict[str, Any]) -> SnapshotOrdem:
         ENGINE_VERSION=bruto["ENGINE_VERSION"],
         PARAMETROS_VERSION=bruto["PARAMETROS_VERSION"],
         projecao_extraordinarios=_projecao_extraordinarios(bruto.get("projecao_extraordinarios")),
+        prognostico=_prognostico(bruto.get("prognostico")),
     )

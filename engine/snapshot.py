@@ -94,6 +94,7 @@ from engine.extraordinarios import PROJECAO_VAZIA, ProjecaoExtraordinarios
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem, ResultadoOrdemPublicada
 from engine.parametros import Parametros
+from engine.prognostico import Prognostico
 from engine.status_metodo import ResultadoMetodoRecomendado
 from engine.tipos import EVENTO_RECALCULO, METODO, ORDEM_STATUS, STATUS_METODO
 
@@ -145,6 +146,9 @@ class SnapshotOrdem:
     # motivo (EC-51/EC-52/EC-56) e o cenário adicional. Vazia sem recurso
     # (EC-55) — e para snapshot gravado antes da Rodada 5 (plano R9M.7).
     projecao_extraordinarios: ProjecaoExtraordinarios = PROJECAO_VAZIA
+    # RF-77 (T-169): o que acontece se o aluno não fizer nada. `None` sem
+    # dívida simulável — e para snapshot gravado antes desta rodada.
+    prognostico: Prognostico | None = None
 
 
 def _serializar_canonico(valor: object) -> object:
@@ -249,6 +253,7 @@ def montar_SnapshotOrdem(
     motivo: str,
     anterior: SnapshotOrdem | None = None,
     projecao_extraordinarios: ProjecaoExtraordinarios = PROJECAO_VAZIA,
+    prognostico: Prognostico | None = None,
 ) -> SnapshotOrdem:
     """`RF-10` · `V-01..V-03` · `AC-16` · `AC-18` — monta e carimba o
     `SnapshotOrdem` final a partir dos resultados JÁ CALCULADOS pelos
@@ -311,4 +316,5 @@ def montar_SnapshotOrdem(
         ENGINE_VERSION=parametros.ENGINE_VERSION,
         PARAMETROS_VERSION=parametros.PARAMETROS_VERSION,
         projecao_extraordinarios=projecao_extraordinarios,
+        prognostico=prognostico,
     )

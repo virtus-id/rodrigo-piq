@@ -207,6 +207,8 @@ def _dados_completos(s: SnapshotOrdem) -> dict[str, Any]:
         "ORDEM_ACOES": [_serializar_canonico(a) for a in s.ORDEM_ACOES],
         # RF-70/RF-71 (T-164): sem migração — vive em dados_completos.
         "projecao_extraordinarios": _serializar_canonico(s.projecao_extraordinarios),
+        # RF-77: opcional; snapshot anterior não tem a chave → None.
+        "prognostico": _serializar_canonico(s.prognostico),
     }
 
 
@@ -246,6 +248,7 @@ def _bruto_para_formato_arquivo(bruto: dict[str, Any]) -> dict[str, Any]:
         "ORDEM_ACOES": dados_completos["ORDEM_ACOES"],
         # T-164: snapshot anterior à Rodada 5 não tem a chave → projeção vazia.
         "projecao_extraordinarios": dados_completos.get("projecao_extraordinarios"),
+        "prognostico": dados_completos.get("prognostico"),
         "ENGINE_VERSION": bruto["ENGINE_VERSION"],
         "PARAMETROS_VERSION": bruto["PARAMETROS_VERSION"],
     }

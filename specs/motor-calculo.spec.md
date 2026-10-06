@@ -226,6 +226,7 @@ financeiro completo e devolve um plano carimbado com versão.
 | `RF-74` | **[mudança de motor]** Antes de destinar um extraordinário projetado às dívidas, preservar necessidades essenciais, despesas sazonais já conhecidas, obrigações prioritárias e a proteção mínima, aplicando as regras de mobilização/reserva **já existentes** (§13.3, `RESERVA_MOBILIZAVEL`) no mês em que o recurso é projetado — nenhum `P_*` novo | §15.5 · `DE-02` · `OQ-48` (resolvida) | essencial |
 | `RF-75` | Tratar cada item pela **própria** certeza, com valor líquido, sem somar itens como se tivessem a mesma certeza e sem dupla contagem com renda já no orçamento | §15.2 · §13.8 · `DE-02` | essencial |
 | `RF-76` | Extraordinários são **aceleradores**, nunca condição para o plano mensal fechar: capacidade de ataque, `STATUS_FINANCEIRO` e `MODO_ESTABILIZACAO` são calculados **sem** eles, e o aporte projetado não cobre déficit estrutural | §15.1 · §13.4 (trava `MODO_ESTABILIZACAO`) · `DE-02` | essencial |
+| `RF-77` | **[mudança de motor] Prognóstico "sem ação".** O snapshot traz, além do plano, a projeção do que acontece se o aluno **não fizer nada**: cada dívida segue só com o pagamento mensal efetivo de hoje, **sem** ataque e **sem** reaplicar a parcela de uma dívida quitada nas demais, durante o mesmo horizonte do cenário recomendado (`PRAZO_TOTAL`, no máximo `P_HORIZONTE_MAXIMO_SIMULACAO`). Devolve o saldo devedor restante ao fim do horizonte, quantas dívidas se quitam sozinhas, e o **déficit acumulado** quando o resultado mensal é negativo (o déficit de cada mês é o que falta depois das parcelas, menos o que as dívidas quitadas deixaram de consumir), **sem juros inventados** sobre o que faltou. Nenhum `P_*` novo. O campo é opcional: snapshot sem ele continua válido | Pedido do responsável do produto (2026-10-06) · `RF-76`, `EC-13` | importante |
 
 ## 3. User Stories
 
@@ -699,6 +700,9 @@ Atende: `RF-70`, `RF-71`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76`
 | `AC-129` | `US-27` | Dado um recurso `CONFIRMADO` de valor conhecido com janela `1_3M` (e, em outras execuções, `4_6M` e `7_12M`), quando `calcular_plano` rodar, então o aporte aparece no mês 3 (6, 12) da projeção e em nenhum outro — desde que esse mês não passe do mês da última quitação projetada; se passar, a projeção-base é idêntica à do estado sem o recurso |
 | `AC-130` | `US-27` | Dado um recurso `CONFIRMADO` com janela `ATE_30D`, quando `calcular_plano` rodar, então ele é tratado pela regra do §13.3 (ataque de hoje) e **não** aparece como aporte projetado; e nenhum recurso `CONFIRMADO` depende de `ATAQUE_IMEDIATO_APROVADO` para entrar na projeção dos meses 3, 6 ou 12 |
 | `AC-131` | `US-27` | Dado um estado com um `PROVAVEL` e um `POSSIVEL`, quando `calcular_plano` rodar, então o snapshot contém uma segunda projeção, distinta da base, que inclui os dois; e a projeção-base não inclui nenhum deles |
+| `AC-132` | `US-27` | Dado um estado com dívidas e capacidade de ataque positiva, quando `calcular_plano` rodar, então o snapshot traz `prognostico` com o saldo restante ao fim do horizonte do cenário recomendado, calculado só com os pagamentos mensais de hoje; e a ordem, o prazo, o custo e o método do plano ficam **idênticos** aos de antes |
+| `AC-133` | `US-27` | Dado resultado mensal negativo, quando `calcular_plano` rodar, então `prognostico` traz o déficit mensal e o déficit acumulado no horizonte; dado resultado mensal não negativo, o déficit é zero |
+| `AC-134` | `US-27` | Dada uma dívida cuja parcela não cobre os juros, então o saldo dela no horizonte é maior que o inicial e `prognostico` marca que ela não se quita sozinha; dado estado sem dívidas simuláveis, `prognostico` é `None` |
 
 ## 5. Non-Functional Requirements
 
@@ -931,6 +935,7 @@ Atende: `RF-70`, `RF-71`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76`
 | `EC-53` | Aporte projetado maior que o saldo restante das dívidas elegíveis no mês previsto | O excedente segue a regra de resíduo já existente (`RF-03`, cascata e `ATAQUE_NAO_UTILIZADO`) — nenhuma regra nova de sobra |
 | `EC-54` | Recurso `CONFIRMADO` com janela "Próximos 30 dias" ainda não recebido | Segue a regra atual do §13.3 (ataque de hoje) e não é duplicado na projeção (`OQ-50`, `AC-130`) |
 | `EC-56` | Recurso `CONFIRMADO` cujo último mês da janela cai depois do mês da última quitação projetada | Fora do horizonte: não entra na projeção (`OQ-46`, `AC-129`) |
+| `EC-57` | Dívida quitada pelo próprio pagamento mensal dentro do horizonte, no prognóstico "sem ação" | A parcela liberada **não** ataca outra dívida; ela só reduz o déficit dos meses seguintes (`RF-77`, `AC-132`) |
 | `EC-55` | `recursos_extraordinarios` vazio (caso de hoje: a montagem de `app-aluno` ainda entrega tupla vazia, fatia 2B bloqueada) | Resultado idêntico ao anterior a esta rodada (`AC-128`) |
 
 ## 7. Assumptions
