@@ -243,6 +243,9 @@ _PARES_DE_COR_DO_PDF: Final[tuple[tuple[str, str, str], ...]] = (
     ("entrada do mês (verde) sobre branco", "#FFFFFF", "#0F6E56"),
     ("saída do mês (vermelho) sobre branco", "#FFFFFF", "#A63A2C"),
     ("caminho azul do prognóstico sobre branco", "#FFFFFF", "#1F5A96"),
+    ("número da dívida no mês a mês (vermelho)", "#A63A2C", "#FFFFFF"),
+    ("número da dívida no mês a mês (azul)", "#1F5A96", "#FFFFFF"),
+    ("régua de meses e notas sobre branco", "#FFFFFF", "#5E6E72"),
 )
 
 
@@ -267,7 +270,10 @@ def test_pdf_do_plano_usa_pares_de_cor_com_contraste_aa(
 # fundo, então sem par de contraste a provar) — `line` de
 # `frontend/tailwind.config.js`, usado em `visuais.html` para o trilho de
 # fundo do Gantt/mapa da jornada.
-_CORES_DECORATIVAS_DO_PDF: Final[frozenset[str]] = frozenset({"#D9E0DC", "#D9A400"})
+_CORES_DECORATIVAS_DO_PDF: Final[frozenset[str]] = frozenset(
+    # Trilho, anel da 1ª quitação e fundos claros dos meses comuns (sem texto).
+    {"#D9E0DC", "#D9A400", "#FBE8E4", "#E3ECF6", "#E3F1EB"}
+)
 
 
 def test_pdf_do_plano_so_declara_cor_dos_tokens_validados(html_do_plano: str) -> None:

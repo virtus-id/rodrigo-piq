@@ -7539,3 +7539,13 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Persistência lê (anterior → `None`); rehash; testes
 
 **Status:** `[x] concluída`
+
+### `T-175` — Prognóstico: mês de quitação de cada dívida no vermelho e no verde
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-174` · **Rastreia:** `RF-77`, `RF-78`, `AC-138`
+- **Arquivos:** `engine/prognostico.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] `QUITACOES` em `PrognosticoSemAcao` e `PrognosticoComExtra`; 1ª quitação do vermelho limitada ao horizonte
+- [x] Persistência lê (anterior → vazio); rehash; testes
+
+**Status:** `[x] concluída`

@@ -394,23 +394,12 @@ export interface Plano {
    * ou sem mês simulado (estabilização).
    */
   passo_atual?: PassoAtual | null
-  /** Plano amigável — "Sua primeira vitória". `null` sem primeira quitação. */
-  primeira_vitoria?: PrimeiraVitoria | null
   /** `RF-77`/`RF-78` — os três caminhos do prognóstico; `null` sem prognóstico. */
   prognostico?: PrognosticoDoPlano | null
-  /** Plano amigável — "Sua jornada mês a mês". Vazia sem mês simulado. */
-  jornada?: EtapaJornada[]
-  /**
-   * Redesenho (2026-10-03) — a MESMA jornada, em grade por mês individual
-   * ("bater o olho e entender", sem frase corrida). Substitui `jornada` na
-   * exibição; `jornada` continua existindo para o mapa SVG da trilha.
-   */
-  grade_meses?: MesDaGrade[]
-  /**
-   * A mesma grade em calendário por ano (12 meses por linha). Vazia em
-   * plano de até 12 meses, que fica com os cartões grandes.
-   */
-  grade_anos?: AnoDaGrade[]
+  /** `T-375` — "Quando cada dívida termina": uma coluna por caminho. */
+  quando_termina?: QuandoTermina | null
+  /** Textos do capítulo "Seu plano em números" (prognóstico). */
+  prognostico_textos?: Record<string, string>
   /** Plano amigável — "Como o seu plano funciona", passos em português. */
   como_funciona?: string[]
   /** Plano amigável — pendências com "onde achar" e o ID da pergunta. */
@@ -418,15 +407,6 @@ export interface Plano {
   /** Plano amigável — textos fixos que não variam por caso. */
   explicacao_mes_1?: string
   como_funciona_titulo?: string
-  jornada_titulo?: string
-  /**
-   * Modelos de frase por tipo de etapa da jornada ("fase_um_mes",
-   * "quitacao", "aporte", "chegada"…), com `{placeholders}` — o cliente
-   * interpola com os campos já formatados de cada `EtapaJornada`
-   * (`jornada.ts::textoDaEtapa`). A fonte da redação continua
-   * `textos-canonicos.yaml`.
-   */
-  jornada_modelos?: Record<string, string>
   /** Redesenho — rótulos curtos da grade por mês ("Mês", "a mais"…). */
   grade_meses_textos?: Record<string, string>
   /**
@@ -449,12 +429,8 @@ export interface Plano {
   como_funciona_rotulos?: string[]
   /** Textos do cartão de cada dívida ("Termina no", "Por que…"). */
   dividas_textos?: Record<string, string>
-  /** Redesenho — título e legenda da linha do tempo. */
-  linha_do_tempo_textos?: Record<string, string>
   primeiro_passo_titulo?: string
   como_pagar_a_mais?: string
-  primeira_vitoria_titulo?: string
-  primeira_vitoria_complemento?: string
   reserva_explicacao?: string
   duvidas?: { pergunta: string; resposta: string }[]
   sobre_este_plano?: string
@@ -494,70 +470,38 @@ export interface CaminhoDoPrognostico {
   mes_fim: number
   escala: number
   mes_sombra: number | null
+  /** Mês e número (em "Suas dívidas") de cada dívida quitada neste caminho. */
+  marcos: { mes: number; numero: number }[]
+  mes_primeira_quitacao: number | null
+  rotulo_curto: string
+}
+
+/** Um mês de uma faixa do mês a mês por caminho. */
+export interface MesDoCaminho {
+  mes: number
+  tipo: 'comum' | 'quitacao' | 'primeira' | 'depois'
+  numeros: number[]
+}
+
+export interface AnoDosCaminhos {
+  numero: number
+  mes_inicio: number
+  mes_fim: number
+  faixas: { cor: 'vermelho' | 'azul' | 'verde'; rotulo: string; meses: MesDoCaminho[] }[]
+}
+
+export interface QuandoTermina {
+  colunas: string[]
+  linhas: { numero: number; nome: string; meses: string[] }[]
 }
 
 export interface PrognosticoDoPlano {
   titulo: string
   introducao: string
   caminhos: CaminhoDoPrognostico[]
+  mes_a_mes: AnoDosCaminhos[]
 }
 
-export interface PrimeiraVitoria {
-  mes: number
-  divida: string
-}
-
-/**
- * Uma etapa de "Sua jornada mês a mês" — `tipo` decide quais campos usar.
- * `FASE`: meses consecutivos com o mesmo alvo e valor extra (`alvo`,
- * `valor`). `QUITACAO`: marco de dívida quitada (`divida_quitada`,
- * `parcela_liberada`, `destino`, `sobra?`). `APORTE`: recurso extraordinário
- * que chegou (`alvo`, `valor`). `CHEGADA`: fim do cronograma (só meses).
- */
-export interface EtapaJornada {
-  tipo: 'FASE' | 'QUITACAO' | 'APORTE' | 'CHEGADA'
-  mes_inicio: number
-  mes_fim: number
-  alvo: string | null
-  valor: string | null
-  /**
-   * String decimal crua (plano amigável) — só para a altura do degrau em
-   * "Bola de neve em degraus" (geometria de desenho); nunca exibida como
-   * número. `null` fora de uma etapa `FASE`.
-   */
-  valor_bruto: string | null
-  divida_quitada: string | null
-  parcela_liberada: string | null
-  destino: string | null
-  sobra: string | null
-}
-
-/**
- * Redesenho (2026-10-03) — um cartão de grade por mês INDIVIDUAL. `tipo`
- * decide o ícone/cor do cartão: `ATAQUE` (mês comum, pagando o extra),
- * `QUITACAO` (uma ou mais dívidas acabaram), `APORTE` (chegou um valor
- * extraordinário) ou `CHEGADA` (fim do plano). Rótulos sempre curtos —
- * nunca frase corrida.
- */
-export interface MesDaGrade {
-  mes: number
-  tipo: 'ATAQUE' | 'QUITACAO' | 'APORTE' | 'CHEGADA'
-  alvo: string | null
-  valor_extra: string | null
-  dividas_quitadas: string[]
-  eh_primeira_vitoria: boolean
-  tem_aporte: boolean
-}
-
-export interface AnoDaGrade {
-  numero: number
-  mes_inicio: number
-  mes_fim: number
-  meses: MesDaGrade[]
-  /** Valores extras distintos do ano, na ordem em que aparecem. */
-  valores_extras: string[]
-  quitacoes: { mes: number; nome: string }[]
-}
 
 export interface PendenciaAcionavel {
   DIVIDA_ID: string

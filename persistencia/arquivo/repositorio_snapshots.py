@@ -713,6 +713,7 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
                     else _decimal(extra["ATAQUE_MENSAL_TOTAL"])
                 ),
                 MESES_ANTECIPADOS=extra.get("MESES_ANTECIPADOS") or 0,
+                QUITACOES=tuple((d, m) for d, m in extra.get("QUITACOES", [])),
                 ECONOMIA_CUSTO=_decimal(extra.get("ECONOMIA_CUSTO") or "0"),
             )
         ),
@@ -726,6 +727,8 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
             DEFICIT_ACUMULADO=_decimal(sem_acao["DEFICIT_ACUMULADO"]),
             # T-174: snapshot anterior não tem o campo.
             MESES_PRIMEIRA_VITORIA=sem_acao.get("MESES_PRIMEIRA_VITORIA"),
+            # T-175: snapshot anterior não tem o campo.
+            QUITACOES=tuple((d, m) for d, m in sem_acao.get("QUITACOES", [])),
         )
     )
 

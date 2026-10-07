@@ -118,7 +118,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass, field, fields, is_dataclass
+from dataclasses import dataclass, field, fields, is_dataclass, replace
 from datetime import date
 from decimal import Decimal
 from enum import Enum
@@ -218,23 +218,12 @@ class TextosCanonicosPlano:
     #: Plano amigável — explica que "Mês 1" é relativo ao início do
     #: acompanhamento do aluno, nunca um mês do calendário.
     explicacao_mes_1: str = ""
-    #: Plano amigável — "Sua primeira vitória" (titulo/texto/complemento).
-    #: Sugestão, a validar.
-    primeira_vitoria: Mapping[str, str] = field(default_factory=dict)
     #: Plano amigável — "Como o seu plano funciona": titulo + por `METODO`,
     #: uma lista de passos em português. Sugestão, a validar.
     como_funciona_titulo: str = ""
     como_funciona: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
-    #: Plano amigável — "Sua jornada mês a mês": titulo + modelos de frase
-    #: por tipo de etapa (fase/quitação/aporte/chegada). Sugestão, a
-    #: validar.
-    jornada_titulo: str = ""
-    jornada: Mapping[str, str] = field(default_factory=dict)
-    #: Redesenho (2026-10-03) — rótulos curtos da grade de cartões por mês
-    #: ("Mês", "pague as parcelas", "quitada!"…) e da legenda/rótulos da
-    #: linha do tempo. Sugestão, a validar.
+    #: Rótulos curtos ("Mês"…), usados no plano e no cenário adicional.
     grade_meses: Mapping[str, str] = field(default_factory=dict)
-    linha_do_tempo: Mapping[str, str] = field(default_factory=dict)
     #: Revisão de redação e design (2026-10-03) — cabeçalho personalizado,
     #: títulos das seções do documento, "Seu ponto de partida", títulos
     #: curtos dos quadros de "Como funciona", textos do cartão de cada
@@ -353,13 +342,9 @@ def carregar_textos_canonicos(
         resumo=_mapa("resumo"),
         primeiro_passo=_mapa("primeiro_passo"),
         explicacao_mes_1=str(bruto.get("explicacao_mes_1") or ""),
-        primeira_vitoria=_mapa("primeira_vitoria"),
         como_funciona_titulo=str((bruto.get("como_funciona") or {}).get("titulo") or ""),
         como_funciona=como_funciona,
-        jornada_titulo=str((bruto.get("jornada") or {}).get("titulo") or ""),
-        jornada=_mapa("jornada"),
         grade_meses=_mapa("grade_meses"),
-        linha_do_tempo=_mapa("linha_do_tempo"),
         cabecalho=_mapa("cabecalho"),
         secoes=_mapa("secoes"),
         ponto_de_partida=_mapa("ponto_de_partida"),
@@ -1073,17 +1058,6 @@ class ContextoPlano:
     #: Plano amigável (2026-10-03) — "Seu primeiro passo"; `None` sem
     #: dívida-alvo (ordem vazia) ou sem mês simulado (estabilização).
     passo_atual: ContextoPassoAtual | None = None
-    #: Plano amigável — "Sua primeira vitória"; `None` sem primeira
-    #: quitação dentro do horizonte simulado.
-    primeira_vitoria: ContextoPrimeiraVitoria | None = None
-    #: Plano amigável — "Sua jornada mês a mês"; vazia sem mês simulado.
-    jornada: tuple[ContextoEtapaJornada, ...] = ()
-    #: Redesenho (2026-10-03) — a MESMA jornada, em grade por mês
-    #: individual, para "bater o olho e entender" sem ler frase corrida.
-    grade_meses: tuple[ContextoMesDaJornada, ...] = ()
-    #: A mesma grade em calendário por ano (12 meses por linha); vazia em
-    #: plano de até 12 meses, que fica com os cartões grandes.
-    grade_anos: tuple[ContextoAnoDaJornada, ...] = ()
     #: Revisão de design (2026-10-03) — personalização: o primeiro nome do
     #: aluno (`None` sem nome na conta) e os números do mês dele.
     nome_do_aluno: str | None = None
@@ -1098,6 +1072,8 @@ class ContextoPlano:
     curso_ssd: ContextoCursoSSD | None = None
     #: `RF-77`/`RF-78` — "Seu prognóstico: três caminhos"; `None` sem prognóstico.
     prognostico: ContextoPrognostico | None = None
+    #: `T-375` — "Quando cada dívida termina", dentro de "Seu plano em números".
+    quando_termina: ContextoQuandoTermina | None = None
     #: T-352 — plano normal sem valor extra no mês (capacidade 0, sem
     #: estabilização): o aviso ao aluno; vazio nos demais casos.
     aviso_sem_valor_extra: str = ""
@@ -1242,6 +1218,46 @@ class ContextoCaminho:
     mes_fim: int
     escala: int
     mes_sombra: int | None = None  # fim do plano azul, atrás da barra do verde
+    #: `T-375` — (mês, número da dívida em "Suas dívidas") de cada quitação.
+    marcos: tuple[tuple[int, int], ...] = ()
+    mes_primeira_quitacao: int | None = None
+    rotulo_curto: str = ""  # nome do caminho nas faixas e na tabela
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoMesDoCaminho:
+    """Um mês de uma faixa: `comum`, `quitacao`, `primeira` (1ª quitação) ou
+    `depois` (o caminho já terminou). `numeros`: dívidas quitadas no mês."""
+
+    mes: int
+    tipo: str
+    numeros: tuple[int, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoFaixaDoAno:
+    cor: str
+    rotulo: str
+    meses: tuple[ContextoMesDoCaminho, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoAnoDosCaminhos:
+    """`T-375` — um ano do mês a mês: uma faixa de até 12 meses por caminho."""
+
+    numero: int
+    mes_inicio: int
+    mes_fim: int
+    faixas: tuple[ContextoFaixaDoAno, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoQuandoTermina:
+    """`T-375` — "Quando cada dívida termina": uma linha por dívida (número,
+    nome e o mês de quitação em cada caminho, já em texto)."""
+
+    colunas: tuple[str, ...]
+    linhas: tuple[tuple[int, str, tuple[str, ...]], ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1249,9 +1265,137 @@ class ContextoPrognostico:
     titulo: str
     introducao: str
     caminhos: tuple[ContextoCaminho, ...]
+    mes_a_mes: tuple[ContextoAnoDosCaminhos, ...] = ()
+
+
+def _numeros_das_dividas(snapshot: SnapshotOrdem) -> dict[str, int]:
+    """`DIVIDA_ID` → posição em "Suas dívidas" (a mesma de `ContextoPosicao.indice`)."""
+    return {
+        posicao.DIVIDA_ID: indice
+        for indice, posicao in enumerate(snapshot.ORDEM_QUITACAO, start=1)
+    }
+
+
+def _marcos(
+    quitacoes: Iterable[tuple[str, int]], numeros: Mapping[str, int]
+) -> tuple[tuple[int, int], ...]:
+    return tuple(sorted((mes, numeros[d]) for d, mes in quitacoes if d in numeros))
+
+
+def _com_marcos(
+    caminho: ContextoCaminho, quitacoes: Iterable[tuple[str, int]], numeros: Mapping[str, int],
+    rotulo_curto: str,
+) -> ContextoCaminho:
+    marcos = _marcos(quitacoes, numeros)
+    return replace(
+        caminho,
+        marcos=marcos,
+        mes_primeira_quitacao=min((mes for mes, _ in marcos), default=None),
+        rotulo_curto=rotulo_curto,
+    )
+
+
+def _mes_do_caminho(caminho: ContextoCaminho, mes: int) -> ContextoMesDoCaminho:
+    if mes > caminho.mes_fim:
+        return ContextoMesDoCaminho(mes=mes, tipo="depois")
+    numeros = tuple(numero for mes_do_marco, numero in caminho.marcos if mes_do_marco == mes)
+    if not numeros:
+        return ContextoMesDoCaminho(mes=mes, tipo="comum")
+    tipo = "primeira" if mes == caminho.mes_primeira_quitacao else "quitacao"
+    return ContextoMesDoCaminho(mes=mes, tipo=tipo, numeros=numeros)
+
+
+def _mes_a_mes(
+    caminhos: tuple[ContextoCaminho, ...], escala: int
+) -> tuple[ContextoAnoDosCaminhos, ...]:
+    """`T-375` — por ano, uma faixa de meses por caminho. Só agrupa meses por
+    posição (como `agrupar_grade_por_ano`); nenhuma conta sobre valor."""
+    return tuple(
+        ContextoAnoDosCaminhos(
+            numero=numero,
+            mes_inicio=meses[0],
+            mes_fim=meses[-1],
+            faixas=tuple(
+                ContextoFaixaDoAno(
+                    cor=caminho.cor,
+                    rotulo=caminho.rotulo_curto,
+                    meses=tuple(_mes_do_caminho(caminho, mes) for mes in meses),
+                )
+                for caminho in caminhos
+            ),
+        )
+        for numero, meses in enumerate(
+            batched(range(1, escala + 1), MESES_POR_LINHA_DO_CALENDARIO), start=1
+        )
+    )
+
+
+def _quando_cada_divida_termina(
+    snapshot: SnapshotOrdem,
+    prognostico: ContextoPrognostico | None,
+    nomes: Mapping[str, str],
+    textos: TextosCanonicosPlano,
+) -> ContextoQuandoTermina | None:
+    """`T-375` — com prognóstico, uma coluna por caminho; sem ele (plano
+    antigo), só a do plano, lida de `meses_de_quitacao`."""
+    t = textos.prognostico
+    if not snapshot.ORDEM_QUITACAO or snapshot.diagnostico.MODO_ESTABILIZACAO:
+        return None
+    numeros = _numeros_das_dividas(snapshot)
+    if prognostico is not None:
+        colunas = tuple((c.rotulo_curto, c.marcos) for c in prognostico.caminhos)
+    else:
+        colunas = (
+            (
+                t.get("azul_curto", ""),
+                _marcos((meses_de_quitacao(snapshot) or {}).items(), numeros),
+            ),
+        )
+    mes = t.get("mes", "Mês")
+    nao_acaba = t.get("nao_acaba", "")
+
+    def _celula(marcos: tuple[tuple[int, int], ...], numero: int) -> str:
+        quando = next((m for m, n in marcos if n == numero), None)
+        return nao_acaba if quando is None else f"{mes} {quando}"
+
+    return ContextoQuandoTermina(
+        colunas=tuple(rotulo for rotulo, _ in colunas),
+        linhas=tuple(
+            (
+                numero,
+                nomes.get(divida_id, divida_id),
+                tuple(_celula(marcos, numero) for _, marcos in colunas),
+            )
+            for divida_id, numero in numeros.items()
+        ),
+    )
 
 
 def _prognostico(
+    snapshot: Any, cenario_recomendado: Any, textos: TextosCanonicosPlano
+) -> ContextoPrognostico | None:
+    """Monta as linhas (`_linhas_do_prognostico`) e acrescenta os marcos de
+    quitação de cada caminho e o mês a mês (`T-375`)."""
+    base = _linhas_do_prognostico(snapshot, cenario_recomendado, textos)
+    if base is None:
+        return None
+    t = textos.prognostico
+    prog = snapshot.prognostico
+    numeros = _numeros_das_dividas(snapshot)
+    quitacoes = {
+        "vermelho": prog.sem_acao.QUITACOES,
+        "azul": tuple((meses_de_quitacao(snapshot) or {}).items()),
+        "verde": prog.com_extra.QUITACOES if prog.com_extra is not None else (),
+    }
+    caminhos = tuple(
+        _com_marcos(c, quitacoes[c.cor], numeros, t.get(f"{c.cor}_curto", ""))
+        for c in base.caminhos
+    )
+    escala = caminhos[0].escala
+    return replace(base, caminhos=caminhos, mes_a_mes=_mes_a_mes(caminhos, escala))
+
+
+def _linhas_do_prognostico(
     snapshot: Any, cenario_recomendado: Any, textos: TextosCanonicosPlano
 ) -> ContextoPrognostico | None:
     """`RF-77`/`RF-78` — LÊ `snapshot.prognostico` e o cenário recomendado; só
@@ -1386,357 +1530,8 @@ def _prognostico(
     )
 
 
-@dataclass(frozen=True, slots=True)
-class ContextoPrimeiraVitoria:
-    """"Sua primeira vitória" — mês e nome da primeira dívida quitada no
-    cenário recomendado, LIDOS de `Cenario.MESES_PRIMEIRA_VITORIA` e de
-    `meses_de_quitacao`. `None` sem primeira vitória dentro do horizonte
-    simulado (`MESES_PRIMEIRA_VITORIA is None`)."""
-
-    mes: int
-    divida: str
-
-
-def _primeira_vitoria(
-    cenario_recomendado: Any, quitacoes: Mapping[str, int], nomes: Mapping[str, str]
-) -> ContextoPrimeiraVitoria | None:
-    mes = cenario_recomendado.MESES_PRIMEIRA_VITORIA
-    if mes is None:
-        return None
-    # Leitura pura: a dívida cujo mês de quitação é exatamente o mês da
-    # primeira vitória — nenhuma conta, só comparação de igualdade.
-    divida_id = next(
-        (divida_id for divida_id, mes_quitacao in quitacoes.items() if mes_quitacao == mes),
-        None,
-    )
-    if divida_id is None:
-        return None
-    # `RF-111`/`T-326`: ao aluno, nome ("tipo — credor"), nunca `DIVIDA_ID`.
-    return ContextoPrimeiraVitoria(mes=mes, divida=nomes.get(divida_id, divida_id))
-
-
-@dataclass(frozen=True, slots=True)
-class ContextoEtapaJornada:
-    """Uma etapa de "Sua jornada mês a mês" (`report/plano.py::
-    montar_jornada`): uma FASE (meses consecutivos com o mesmo alvo e o
-    mesmo valor extra), uma QUITACAO (marco de dívida quitada, com reforço
-    para a próxima ou sobra), um APORTE (recurso extraordinário confirmado
-    que chegou) ou a CHEGADA (fim do cronograma). `tipo` decide qual modelo
-    de `textos.jornada` o template usa; os demais campos são os valores já
-    formatados que entram nos `{placeholders}` daquele modelo — `None`
-    quando o modelo correspondente não usa o campo."""
-
-    tipo: str  # "FASE" | "QUITACAO" | "APORTE" | "CHEGADA"
-    mes_inicio: int
-    mes_fim: int
-    alvo: str | None = None
-    valor: str | None = None
-    divida_quitada: str | None = None
-    parcela_liberada: str | None = None
-    destino: str | None = None
-    sobra: str | None = None
-    #: Plano amigável (2026-10-03) — `CAPACIDADE_ATAQUE_M` da FASE como
-    #: `str(Decimal)`, para a altura do degrau em "Bola de neve em
-    #: degraus" (`visuais.html::bola_de_neve`). Geometria de desenho, não
-    #: um VALOR exibido — o texto ao lado do degrau continua sendo
-    #: `valor` (já formatado em R$). `None` fora de uma FASE.
-    valor_bruto: str | None = None
-
-
-def montar_jornada(
-    cenario_recomendado: Any,
-    snapshot: SnapshotOrdem,
-    nomes: Mapping[str, str],
-) -> tuple[ContextoEtapaJornada, ...]:
-    """"Sua jornada mês a mês" — percorre `cenario_recomendado.meses` (o
-    rastro mês a mês já gravado no snapshot, `engine/ciclo_mensal.py::
-    ResultadoMes`) e agrupa em etapas, por LEITURA e COMPARAÇÃO de
-    igualdade apenas — nenhuma soma, subtração, multiplicação ou divisão
-    sobre campo do snapshot (`AC-42`): agrupar meses consecutivos cujo
-    `DIVIDA_ALVO_ATUAL` e `CAPACIDADE_ATAQUE_M` são iguais ao do mês
-    anterior não é aritmética, é comparação de igualdade entre dois valores
-    já existentes.
-
-    Uma QUITACAO é emitida no mês em que `quitacoes` não é vazia (lido
-    direto de `ResultadoMes.quitacoes`), com `parcela_liberada` =
-    `VALOR_FLUXO_LIBERADO` desse mesmo mês (o campo já existe pronto —
-    nenhuma soma de parcelas é feita aqui) e, quando o mês também teve
-    `ATAQUE_NAO_UTILIZADO > 0` (comparação, não conta), uma "sobra" com
-    esse valor. `destino` é o alvo do mês SEGUINTE (`DIVIDA_ALVO_ATUAL` do
-    próximo `ResultadoMes`), lido por índice — nunca inferido.
-
-    Um APORTE é emitido no mês de cada `AporteProjetado` da base
-    (`snapshot.projecao_extraordinarios.aportes_base`), lido por
-    comparação de `aporte.mes` contra `ResultadoMes.estado_final.mes`.
-
-    Vazia sem nenhum mês simulado (ESTABILIZACAO ou ordem vazia sem
-    simulação) — o chamador decide se omite a seção."""
-    meses = cenario_recomendado.meses
-    if not meses:
-        return ()
-
-    aportes_por_mes: dict[int, Decimal] = {
-        aporte.mes: aporte.VALOR_DESTINADO
-        for aporte in snapshot.projecao_extraordinarios.aportes_base
-    }
-
-    etapas: list[ContextoEtapaJornada] = []
-    inicio_da_fase = meses[0].estado_final.mes
-    for indice, resultado_mes in enumerate(meses):
-        proximo = meses[indice + 1] if indice + 1 < len(meses) else None
-        alvo_atual = resultado_mes.estado_final.DIVIDA_ALVO_ATUAL
-        capacidade_atual = resultado_mes.estado_final.CAPACIDADE_ATAQUE_M
-        fim_da_fase_aqui = (
-            proximo is None
-            or proximo.estado_final.DIVIDA_ALVO_ATUAL != alvo_atual
-            or proximo.estado_final.CAPACIDADE_ATAQUE_M != capacidade_atual
-        )
-
-        if resultado_mes.quitacoes:
-            if inicio_da_fase != resultado_mes.estado_final.mes:
-                etapas.append(
-                    _fase(
-                        inicio_da_fase,
-                        resultado_mes.estado_final.mes,
-                        resultado_mes.estado_final.DIVIDA_ALVO_ATUAL,
-                        resultado_mes.estado_final.CAPACIDADE_ATAQUE_M,
-                        nomes,
-                    )
-                )
-            # `RF-96`: uma QUITACAO por dívida quitada no mês (cascata pode
-            # quitar mais de uma dentro do mesmo mês). `destino` é o alvo do
-            # mês seguinte, lido por índice — None sem próximo mês (chegada).
-            destino = proximo.estado_final.DIVIDA_ALVO_ATUAL if proximo is not None else None
-            for divida_id in resultado_mes.quitacoes:
-                etapas.append(
-                    ContextoEtapaJornada(
-                        tipo="QUITACAO",
-                        mes_inicio=resultado_mes.estado_final.mes,
-                        mes_fim=resultado_mes.estado_final.mes,
-                        divida_quitada=nomes.get(divida_id, divida_id),
-                        parcela_liberada=formatar_dinheiro_br(
-                            resultado_mes.VALOR_FLUXO_LIBERADO
-                        ),
-                        destino=nomes.get(destino, destino) if destino is not None else None,
-                        sobra=(
-                            formatar_dinheiro_br(resultado_mes.ATAQUE_NAO_UTILIZADO)
-                            if resultado_mes.ATAQUE_NAO_UTILIZADO > 0 and destino is not None
-                            else None
-                        ),
-                    )
-                )
-            inicio_da_fase = (
-                proximo.estado_final.mes if proximo is not None else resultado_mes.estado_final.mes
-            )
-        elif fim_da_fase_aqui:
-            etapas.append(
-                _fase(
-                    inicio_da_fase,
-                    resultado_mes.estado_final.mes,
-                    resultado_mes.estado_final.DIVIDA_ALVO_ATUAL,
-                    resultado_mes.estado_final.CAPACIDADE_ATAQUE_M,
-                    nomes,
-                )
-            )
-            if proximo is not None:
-                inicio_da_fase = proximo.estado_final.mes
-
-        aporte_do_mes = aportes_por_mes.get(resultado_mes.estado_final.mes)
-        if aporte_do_mes is not None:
-            etapas.append(
-                ContextoEtapaJornada(
-                    tipo="APORTE",
-                    mes_inicio=resultado_mes.estado_final.mes,
-                    mes_fim=resultado_mes.estado_final.mes,
-                    alvo=nomes.get(
-                        resultado_mes.estado_final.DIVIDA_ALVO_ATUAL,
-                        resultado_mes.estado_final.DIVIDA_ALVO_ATUAL,
-                    )
-                    if resultado_mes.estado_final.DIVIDA_ALVO_ATUAL is not None
-                    else None,
-                    valor=formatar_dinheiro_br(aporte_do_mes),
-                )
-            )
-
-    ultimo_mes = meses[-1].estado_final.mes
-    etapas.append(
-        ContextoEtapaJornada(tipo="CHEGADA", mes_inicio=ultimo_mes, mes_fim=ultimo_mes)
-    )
-    return tuple(etapas)
-
-
-@dataclass(frozen=True, slots=True)
-class ContextoMesDaJornada:
-    """Plano amigável — redesenho (2026-10-03, feedback do usuário: "tudo
-    por escrito… precisa ser um design que, quando ele bate o olho, ele já
-    sabe do que se trata"). Um cartão de grade por MÊS INDIVIDUAL do
-    cronograma — nunca uma frase corrida. `tipo` decide o ícone/cor do
-    cartão; os demais campos são os rótulos curtos que o cartão mostra,
-    já formatados (`AC-42`: leitura e formatação, nenhum cálculo).
-
-    `tipo` segue a prioridade CHEGADA > QUITACAO > APORTE > ATAQUE quando
-    mais de uma coisa acontece no mesmo mês — o cartão mostra o evento mais
-    notável; os demais eventos do mês não desaparecem do modelo de dados,
-    continuam nas listas (`dividas_quitadas`, `tem_aporte`), só não mudam
-    qual ícone o cartão usa."""
-
-    mes: int
-    tipo: str  # "ATAQUE" | "QUITACAO" | "APORTE" | "CHEGADA"
-    #: Nome curto da dívida-alvo deste mês; `None` sem alvo (chegada).
-    alvo: str | None
-    #: Valor extra deste mês, já formatado; `None` sem alvo (chegada).
-    valor_extra: str | None
-    #: Nomes das dívidas quitadas neste mês (cascata pode quitar mais de
-    #: uma); vazia fora de um mês de quitação.
-    dividas_quitadas: tuple[str, ...]
-    #: Este é o mês da primeira vitória do plano.
-    eh_primeira_vitoria: bool
-    #: Chegou um recurso extraordinário confirmado neste mês.
-    tem_aporte: bool
-
-
-def montar_grade_meses(
-    cenario_recomendado: Any,
-    snapshot: SnapshotOrdem,
-    nomes: Mapping[str, str],
-) -> tuple[ContextoMesDaJornada, ...]:
-    """"Sua jornada mês a mês" em grade — um `ContextoMesDaJornada` por mês
-    INDIVIDUAL de `cenario_recomendado.meses` (nunca agrupado em fase,
-    diferente de `montar_jornada`): leitura direta de `ResultadoMes`, mesma
-    fonte e mesma disciplina de `AC-42` — nenhuma soma, subtração,
-    multiplicação ou divisão sobre campo do snapshot.
-
-    Vazia sem nenhum mês simulado (ESTABILIZACAO ou ordem vazia)."""
-    meses = cenario_recomendado.meses
-    if not meses:
-        return ()
-
-    aportes_por_mes = {
-        aporte.mes for aporte in snapshot.projecao_extraordinarios.aportes_base
-    }
-    mes_primeira_vitoria = cenario_recomendado.MESES_PRIMEIRA_VITORIA
-
-    grade: list[ContextoMesDaJornada] = []
-    for resultado_mes in meses:
-        mes = resultado_mes.estado_final.mes
-        alvo = resultado_mes.estado_final.DIVIDA_ALVO_ATUAL
-        quitadas = tuple(
-            nomes.get(divida_id, divida_id) for divida_id in resultado_mes.quitacoes
-        )
-        tem_aporte = mes in aportes_por_mes
-
-        if quitadas:
-            tipo = "QUITACAO"
-        elif tem_aporte:
-            tipo = "APORTE"
-        else:
-            tipo = "ATAQUE"
-
-        grade.append(
-            ContextoMesDaJornada(
-                mes=mes,
-                tipo=tipo,
-                alvo=nomes.get(alvo, alvo) if alvo is not None else None,
-                valor_extra=(
-                    formatar_dinheiro_br(resultado_mes.estado_final.CAPACIDADE_ATAQUE_M)
-                    if alvo is not None
-                    else None
-                ),
-                dividas_quitadas=quitadas,
-                eh_primeira_vitoria=mes == mes_primeira_vitoria,
-                tem_aporte=tem_aporte,
-            )
-        )
-
-    # O último cartão sempre vira CHEGADA — fundido com o mês final em vez
-    # de um cartão extra separado (redesenho 2026-10-03: dois cartões com o
-    # mesmo número de mês, um "quitada!" e outro "livre!", repetia o mês e
-    # confundia a leitura da grade). Quando o mês final também é de
-    # quitação, `dividas_quitadas` é preservada — "livre!" já diz que é o
-    # fim, e as dívidas quitadas naquele mês continuam visíveis.
-    ultimo = grade[-1]
-    grade[-1] = ContextoMesDaJornada(
-        mes=ultimo.mes,
-        tipo="CHEGADA",
-        alvo=None,
-        valor_extra=None,
-        dividas_quitadas=ultimo.dividas_quitadas,
-        eh_primeira_vitoria=ultimo.eh_primeira_vitoria,
-        tem_aporte=False,
-    )
-    return tuple(grade)
-
-
-#: Meses em cada linha do calendário por ano. Acima disso a grade de
-#: cartões grandes vira calendário (pedido do produto, 2026-10-03: plano
-#: de vários anos não pode virar páginas de cartões iguais).
+#: Meses em cada linha do mês a mês por caminho (`T-375`).
 MESES_POR_LINHA_DO_CALENDARIO = 12
-
-
-@dataclass(frozen=True)
-class ContextoAnoDaJornada:
-    """Uma linha do calendário por ano: os meses de `grade_meses`, de 12 em
-    12, na ordem em que o motor os simulou. Só reagrupa a lista; nenhum
-    número é calculado (`AC-42`). `numero` é a posição da linha ("Ano 1",
-    "Ano 2"…) e `mes_inicio`/`mes_fim` são lidos do primeiro e do último
-    mês da linha."""
-
-    numero: int
-    mes_inicio: int
-    mes_fim: int
-    meses: tuple[ContextoMesDaJornada, ...]
-    #: Valores extras distintos do ano, na ordem em que aparecem.
-    valores_extras: tuple[str, ...]
-    #: (mês, nome da dívida) de cada quitação do ano.
-    quitacoes: tuple[tuple[int, str], ...]
-
-
-def agrupar_grade_por_ano(
-    grade: tuple[ContextoMesDaJornada, ...],
-) -> tuple[ContextoAnoDaJornada, ...]:
-    """Calendário por ano, só para planos com mais de um ano de meses;
-    vazio nos demais, que continuam com um cartão grande por mês."""
-    if len(grade) <= MESES_POR_LINHA_DO_CALENDARIO:
-        return ()
-    return tuple(
-        ContextoAnoDaJornada(
-            numero=numero,
-            mes_inicio=meses[0].mes,
-            mes_fim=meses[-1].mes,
-            meses=meses,
-            valores_extras=tuple(
-                dict.fromkeys(mes.valor_extra for mes in meses if mes.valor_extra)
-            ),
-            quitacoes=tuple(
-                (mes.mes, nome) for mes in meses for nome in mes.dividas_quitadas
-            ),
-        )
-        for numero, meses in enumerate(
-            batched(grade, MESES_POR_LINHA_DO_CALENDARIO), start=1
-        )
-    )
-
-
-def _fase(
-    mes_inicio: int,
-    mes_fim: int,
-    alvo: str | None,
-    valor_extra: Decimal,
-    nomes: Mapping[str, str],
-) -> ContextoEtapaJornada:
-    """Uma etapa FASE: meses `mes_inicio`..`mes_fim` com o mesmo alvo e o
-    mesmo valor extra — leitura e formatação, nenhum cálculo."""
-    return ContextoEtapaJornada(
-        tipo="FASE",
-        mes_inicio=mes_inicio,
-        mes_fim=mes_fim,
-        alvo=nomes.get(alvo, alvo) if alvo is not None else None,
-        valor=formatar_dinheiro_br(valor_extra),
-        # `str(Decimal)` — mesma conversão estável de `engine/snapshot.py::
-        # _serializar_canonico`, não uma formatação numérica nova. Serve só
-        # à geometria do gráfico de degraus (visuais.html), nunca exibido.
-        valor_bruto=str(valor_extra),
-    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1996,7 +1791,7 @@ def montar_contexto_plano(
         )
         for indice, posicao_do_snapshot in enumerate(snapshot.ORDEM_QUITACAO, start=1)
     )
-    grade_meses = montar_grade_meses(cenario_recomendado, snapshot, nomes)
+    prognostico = _prognostico(snapshot, cenario_recomendado, textos)
 
     return ContextoPlano(
         titulo=textos.titulo,
@@ -2035,15 +1830,12 @@ def montar_contexto_plano(
         # `cenario_recomendado`/`snapshot` já obtidos acima; nenhum campo
         # novo é lido do motor, só reorganizado para a "consultoria".
         passo_atual=_passo_atual(snapshot, cenario_recomendado, nomes),
-        primeira_vitoria=_primeira_vitoria(cenario_recomendado, quitacoes, nomes),
-        jornada=montar_jornada(cenario_recomendado, snapshot, nomes),
-        grade_meses=grade_meses,
-        grade_anos=agrupar_grade_por_ano(grade_meses),
         nome_do_aluno=primeiro_nome(nome_do_aluno),
         ponto_de_partida=_ponto_de_partida(snapshot),
         como_funciona=textos.como_funciona.get(snapshot.METODO_RECOMENDADO_PIQ.value, ()),
         pendencias_acionaveis=_pendencias_acionaveis(snapshot, textos, nomes),
-        prognostico=_prognostico(snapshot, cenario_recomendado, textos),
+        prognostico=prognostico,
+        quando_termina=_quando_cada_divida_termina(snapshot, prognostico, nomes, textos),
         curso_ssd=_contexto_do_curso(
             textos,
             snapshot.METODO_RECOMENDADO_PIQ.value,

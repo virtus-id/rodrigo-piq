@@ -180,15 +180,10 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "resumo",
         "primeiro_passo",
         "explicacao_mes_1",
-        "primeira_vitoria",
         "como_funciona_titulo",
         "como_funciona",
-        "jornada_titulo",
-        "jornada",
-        # Redesenho (2026-10-03) — grade de cartões por mês e legenda/
-        # rótulos da linha do tempo; nenhum renomeia a ordem.
+        # Rótulos curtos ("Mês"…); não renomeiam a ordem.
         "grade_meses",
-        "linha_do_tempo",
         # Revisão de design (2026-10-03) — cabeçalho personalizado,
         # títulos das seções, ponto de partida, quadros de "Como
         # funciona", cartão de cada dívida, checklist e nome curto do
@@ -438,10 +433,6 @@ def _renderizar_plano_html_com_contexto(
         valor_mensal_destinado=contexto.valor_mensal_destinado,
         cenario_adicional=contexto.cenario_adicional,
         passo_atual=contexto.passo_atual,
-        primeira_vitoria=contexto.primeira_vitoria,
-        jornada=contexto.jornada,
-        grade_meses=contexto.grade_meses,
-        grade_anos=contexto.grade_anos,
         como_funciona=contexto.como_funciona,
         textos=textos,
     )

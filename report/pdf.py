@@ -158,15 +158,12 @@ def renderizar_html_do_plano(
         # T-352/T-353 — curso de entrada e aviso de plano sem valor extra.
         curso_ssd=contexto.curso_ssd,
         prognostico=contexto.prognostico,
+        quando_termina=contexto.quando_termina,
         aviso_sem_valor_extra=contexto.aviso_sem_valor_extra,
         # Plano amigável (2026-10-03) — seções novas da "consultoria
         # individual"; `textos` traz só os títulos/textos fixos que não são
         # campo de `ContextoPlano` (ver docstring).
         passo_atual=contexto.passo_atual,
-        primeira_vitoria=contexto.primeira_vitoria,
-        jornada=contexto.jornada,
-        grade_meses=contexto.grade_meses,
-        grade_anos=contexto.grade_anos,
         nome_do_aluno=contexto.nome_do_aluno,
         ponto_de_partida=contexto.ponto_de_partida,
         como_funciona=contexto.como_funciona,

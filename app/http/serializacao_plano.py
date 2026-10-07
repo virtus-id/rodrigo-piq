@@ -36,7 +36,6 @@ from collection.respostas import RespostasCaso
 from report.plano import (
     ContextoCampo,
     ContextoEstadoInputs,
-    ContextoMesDaJornada,
     ContextoPlano,
     TextosCanonicosPlano,
     VocabularioDoCaso,
@@ -89,19 +88,6 @@ def vocabulario_do_caso(
         if (credor := credor_da_ficha(respostas, divida)) is not None
     }
     return VocabularioDoCaso(rotulos_de_opcao=rotulos, credores=credores)
-
-
-def _mes_da_grade(item: ContextoMesDaJornada) -> dict[str, Any]:
-    """Um mês da grade, igual na grade de cartões e no calendário por ano."""
-    return {
-        "mes": item.mes,
-        "tipo": item.tipo,
-        "alvo": item.alvo,
-        "valor_extra": item.valor_extra,
-        "dividas_quitadas": list(item.dividas_quitadas),
-        "eh_primeira_vitoria": item.eh_primeira_vitoria,
-        "tem_aporte": item.tem_aporte,
-    }
 
 
 def serializar_plano(
@@ -272,33 +258,6 @@ def serializar_plano(
                 for parcela in contexto.passo_atual.parcelas
             ],
         },
-        "primeira_vitoria": None
-        if contexto.primeira_vitoria is None
-        else {
-            "mes": contexto.primeira_vitoria.mes,
-            "divida": contexto.primeira_vitoria.divida,
-        },
-        "jornada": [
-            {
-                "tipo": etapa.tipo,
-                "mes_inicio": etapa.mes_inicio,
-                "mes_fim": etapa.mes_fim,
-                "alvo": etapa.alvo,
-                "valor": etapa.valor,
-                # `valor_bruto` (plano amigável): string decimal crua, só
-                # para a geometria do gráfico de degraus no cliente — a
-                # tela nunca exibe este campo como número.
-                "valor_bruto": etapa.valor_bruto,
-                "divida_quitada": etapa.divida_quitada,
-                "parcela_liberada": etapa.parcela_liberada,
-                "destino": etapa.destino,
-                "sobra": etapa.sobra,
-            }
-            for etapa in contexto.jornada
-        ],
-        # Redesenho (2026-10-03) — grade por mês individual, no lugar da
-        # lista de frases: cada mês já chega com o `tipo` que decide o
-        # ícone/cor do cartão no cliente, sem nenhuma frase a montar.
         # Revisão de design (2026-10-03) — personalização: primeiro nome e
         # os números do mês do aluno, todos lidos e já formatados.
         "nome_do_aluno": contexto.nome_do_aluno,
@@ -312,18 +271,6 @@ def serializar_plano(
             "valor_extra": contexto.ponto_de_partida.valor_extra,
             "quantidade_de_dividas": contexto.ponto_de_partida.quantidade_de_dividas,
         },
-        "grade_meses": [_mes_da_grade(item) for item in contexto.grade_meses],
-        "grade_anos": [
-            {
-                "numero": ano.numero,
-                "mes_inicio": ano.mes_inicio,
-                "mes_fim": ano.mes_fim,
-                "meses": [_mes_da_grade(item) for item in ano.meses],
-                "valores_extras": list(ano.valores_extras),
-                "quitacoes": [{"mes": mes, "nome": nome} for mes, nome in ano.quitacoes],
-            }
-            for ano in contexto.grade_anos
-        ],
         "como_funciona": list(contexto.como_funciona),
         # `T-352`/`T-353`: o curso de entrada e o aviso de plano sem valor
         # extra — texto fixo, escolhido por lookup (nenhuma conta).
@@ -346,8 +293,42 @@ def serializar_plano(
                     "mes_fim": caminho.mes_fim,
                     "escala": caminho.escala,
                     "mes_sombra": caminho.mes_sombra,
+                    "marcos": [
+                        {"mes": mes, "numero": numero} for mes, numero in caminho.marcos
+                    ],
+                    "mes_primeira_quitacao": caminho.mes_primeira_quitacao,
+                    "rotulo_curto": caminho.rotulo_curto,
                 }
                 for caminho in contexto.prognostico.caminhos
+            ],
+            "mes_a_mes": [
+                {
+                    "numero": ano.numero,
+                    "mes_inicio": ano.mes_inicio,
+                    "mes_fim": ano.mes_fim,
+                    "faixas": [
+                        {
+                            "cor": faixa.cor,
+                            "rotulo": faixa.rotulo,
+                            "meses": [
+                                {"mes": m.mes, "tipo": m.tipo, "numeros": list(m.numeros)}
+                                for m in faixa.meses
+                            ],
+                        }
+                        for faixa in ano.faixas
+                    ],
+                }
+                for ano in contexto.prognostico.mes_a_mes
+            ],
+        },
+        # `T-375`: "Quando cada dívida termina", dentro de "Seu plano em números".
+        "quando_termina": None
+        if contexto.quando_termina is None
+        else {
+            "colunas": list(contexto.quando_termina.colunas),
+            "linhas": [
+                {"numero": numero, "nome": nome, "meses": list(celulas)}
+                for numero, nome, celulas in contexto.quando_termina.linhas
             ],
         },
         "curso_ssd": None
@@ -388,31 +369,21 @@ def serializar_plano(
             {
                 "explicacao_mes_1": textos.explicacao_mes_1,
                 "como_funciona_titulo": textos.como_funciona_titulo,
-                "jornada_titulo": textos.jornada_titulo,
-                # Modelos de frase por tipo de etapa — o CLIENTE interpola
-                # os `{placeholders}` com os campos já formatados de cada
-                # `EtapaJornada` (nenhuma redação nova no código: a fonte
-                # continua `textos-canonicos.yaml`, só a interpolação final
-                # roda no cliente, mesmo padrão de `instrucao_ataque`).
-                "jornada_modelos": dict(textos.jornada),
-                # Redesenho (2026-10-03) — rótulos curtos da grade por mês e
-                # da legenda/rótulos da linha do tempo.
+                # Rótulo "Mês" e afins (também usados no cenário adicional).
                 "grade_meses_textos": dict(textos.grade_meses),
-                "linha_do_tempo_textos": dict(textos.linha_do_tempo),
                 # Revisão de design — cabeçalho, títulos das seções, resumo,
                 # ponto de partida, passos do Mês 1, quadros de "Como
                 # funciona" e cartão de cada dívida.
                 "cabecalho_textos": dict(textos.cabecalho),
                 "secoes": dict(textos.secoes),
                 "resumo_textos": dict(textos.resumo),
+                "prognostico_textos": dict(textos.prognostico),
                 "ponto_de_partida_textos": dict(textos.ponto_de_partida),
                 "primeiro_passo_textos": dict(textos.primeiro_passo),
                 "como_funciona_rotulos": list(textos.como_funciona_rotulos),
                 "dividas_textos": dict(textos.textos_das_dividas),
                 "primeiro_passo_titulo": textos.primeiro_passo.get("titulo", ""),
                 "como_pagar_a_mais": textos.primeiro_passo.get("como_pagar_a_mais", ""),
-                "primeira_vitoria_titulo": textos.primeira_vitoria.get("titulo", ""),
-                "primeira_vitoria_complemento": textos.primeira_vitoria.get("complemento", ""),
                 "reserva_explicacao": textos.reserva_explicacao,
                 "duvidas": [
                     {"pergunta": pergunta, "resposta": resposta}

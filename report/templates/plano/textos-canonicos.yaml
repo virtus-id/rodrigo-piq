@@ -426,10 +426,7 @@ secoes:
   resumo: "Seu plano em números"
   ponto_de_partida: "Seu ponto de partida"
   primeiro_passo: "O que fazer no Mês 1"
-  primeira_vitoria: "Sua primeira dívida quitada"
   como_funciona: "Como o seu plano funciona"
-  jornada: "Seu plano, mês a mês"
-  linha_do_tempo: "Quando cada dívida termina"
   dividas: "Suas dívidas, uma a uma"
   reserva: "Sua reserva"
   pendencias: "O que falta informar"
@@ -475,7 +472,9 @@ ponto_de_partida:
 # do Mês 1; `{alvo}`, o nome da dívida da vez. Sugestão, a validar.
 primeiro_passo:
   titulo: "O que fazer no Mês 1"
-  introducao: "Neste primeiro mês, você faz três coisas, nesta ordem."
+  introducao: >-
+    O Mês 1 é o primeiro mês em que você começa a seguir o plano, não o mês de
+    hoje no calendário. Nele, você faz três coisas, nesta ordem.
   passo_1_titulo: "Pague as parcelas de sempre"
   passo_1_texto: >-
     Continue pagando a parcela de cada dívida, como já faz hoje. Nenhuma
@@ -496,13 +495,6 @@ primeiro_passo:
   # Chaves anteriores, mantidas para chamadores que ainda as usam.
   instrucao_parcelas: "Pague normalmente as parcelas de todas as suas dívidas."
   instrucao_ataque: "Depois, coloque {valor} a mais em {alvo}."
-
-primeira_vitoria:
-  titulo: "Sua primeira dívida quitada"
-  texto: "No Mês {mes}, a dívida {divida} estará quitada."
-  complemento: >-
-    A partir daí, a parcela que você pagava nela passa a ajudar a quitar a
-    próxima dívida. É o primeiro sinal de que o plano está funcionando.
 
 # "Como o seu plano funciona": três quadros. `como_funciona_rotulos` são os
 # títulos curtos dos quadros; a lista por método é o texto de cada um.
@@ -537,21 +529,6 @@ como_funciona:
       Essa parcela se junta ao valor extra, que fica maior e passa para a
       próxima dívida. Assim, cada dívida acaba mais rápido que a anterior.
 
-# Modelos de frase por etapa (`report/plano.py::montar_jornada`). Não são
-# mais exibidos como lista no documento (a grade por mês os substituiu),
-# mas seguem no contrato da API.
-jornada:
-  titulo: "Seu plano, mês a mês"
-  fase_um_mes: "Mês {mes_inicio}: {valor} a mais em {alvo}."
-  fase_varios_meses: "Do Mês {mes_inicio} ao Mês {mes_fim}: {valor} a mais em {alvo}, todo mês."
-  quitacao: "Mês {mes_fim}: {divida} quitada."
-  quitacao_com_reforco: >-
-    A parcela de {parcela} que você pagava nela passa a ajudar a quitar
-    {destino}.
-  quitacao_com_sobra: "Os {sobra} que restarem neste mês já vão para {destino}."
-  aporte: "Mês {mes_fim}: entra o dinheiro extra que você informou, e {valor} vão para {alvo}."
-  chegada: "Mês {mes_fim}: todas as dívidas do plano quitadas."
-
 # Grade de cartões por mês e a legenda dos símbolos.
 grade_meses:
   titulo: "Seu plano, mês a mês"
@@ -583,18 +560,6 @@ grade_meses:
     Mês de pagamento. Você paga as parcelas e coloca o valor extra na dívida
     da vez.
   legenda_primeira_vitoria: "Mês da primeira dívida quitada."
-
-linha_do_tempo:
-  titulo: "Quando cada dívida termina"
-  introducao: >-
-    Cada barra é uma dívida. Ela começa no Mês 1 e termina no mês em que a
-    dívida é quitada.
-  legenda_atacando: "Dívida da vez"
-  legenda_aguardando: "Aguardando a vez"
-  legenda_quitada: "Mês em que termina"
-  comeca_aqui: "Começa aqui"
-  termina_aqui: "Termina aqui"
-  rotulo_ano: "Ano"
 
 # "Suas dívidas, uma a uma": cartão de cada dívida.
 dividas:
@@ -781,8 +746,25 @@ sem_valor_extra: >-
 prognostico:
   titulo: "Seu plano em números"
   introducao: >-
-    Veja o que acontece em cada caminho, na mesma escala de meses. São
-    projeções feitas a partir das suas respostas.
+    O Mês 1 é o primeiro mês em que você começa a seguir o plano. Os três
+    caminhos usam a mesma escala de meses e são projeções feitas a partir das
+    suas respostas.
+  eixo_inicio: "Mês 1 (início)"
+  legenda_marcos: >-
+    Cada círculo é uma dívida quitada, com o número dela em "Suas dívidas". O
+    círculo com anel dourado é a primeira dívida quitada.
+  mes_a_mes_titulo: "Mês a mês, em cada caminho"
+  mes_a_mes_intro: >-
+    Cada linha é um caminho. Os quadros claros são meses de pagamento; os
+    quadros fortes, com o número da dívida, são os meses em que ela acaba; o
+    anel dourado marca a primeira. Quadro vazio: o caminho já terminou.
+  rotulo_ano: "Ano"
+  vermelho_curto: "Se nada mudar"
+  azul_curto: "Seu plano"
+  verde_curto: "Acelerado"
+  quando_termina_titulo: "Quando cada dívida termina"
+  coluna_divida: "Dívida"
+  nao_acaba: "não acaba no período"
   vermelho_titulo: "Se nada mudar"
   vermelho_nota: "Só com o pagamento de hoje: sem guardar nada e sem pagar a mais."
   vermelho_veredito: "Em {prazo}, você ainda deve {saldo}."

@@ -156,9 +156,9 @@ def test_nota_baixa_nao_gera_aviso() -> None:
 
 
 def test_capitulos_do_pdf_seguem_a_ordem_definida_pelo_produto() -> None:
-    """Ordem do produto (2026-10-06): dívidas, ponto de partida, reserva, como
-    funciona, números, mês a mês, Mês 1, primeira dívida quitada, linha do
-    tempo, checklist, pendências, curso e perguntas frequentes."""
+    """Ordem do produto (2026-10-07): dívidas, ponto de partida, reserva, como
+    funciona, plano em números (linhas, mês a mês e quando cada dívida termina),
+    Mês 1, checklist, pendências, curso e perguntas frequentes."""
     html = _html(_snapshot())
     titulos = re.findall(
         r'<span class="secao-numero">(\d+)</span>\s*<h2[^>]*>([^<]*)</h2>', html
@@ -169,14 +169,11 @@ def test_capitulos_do_pdf_seguem_a_ordem_definida_pelo_produto() -> None:
         ("3", "Sua reserva"),
         ("4", "Como o seu plano funciona"),
         ("5", "Seu plano em números"),
-        ("6", "Seu plano, mês a mês"),
-        ("7", "O que fazer no Mês 1"),
-        ("8", "Sua primeira dívida quitada"),
-        ("9", "Quando cada dívida termina"),
-        ("10", "Seu checklist do Mês 1"),
-        ("11", "O que falta informar"),
-        ("12", "O curso Servidor Sem Dívidas e o seu plano"),
-        ("13", "Perguntas frequentes"),
+        ("6", "O que fazer no Mês 1"),
+        ("7", "Seu checklist do Mês 1"),
+        ("8", "O que falta informar"),
+        ("9", "O curso Servidor Sem Dívidas e o seu plano"),
+        ("10", "Perguntas frequentes"),
     ]
 
 

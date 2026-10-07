@@ -16,44 +16,43 @@
  * **Todo texto vem do servidor, verbatim; nenhum número é calculado aqui** (Lei
  * nº 3). A única conta client-side é GEOMETRIA DE DESENHO dos gráficos SVG.
  */
-import ComoFunciona from './ComoFunciona'
-import DuvidasDoPlano from './DuvidasDoPlano'
-import Icone from './Icone'
-import JornadaDoPlano from './JornadaDoPlano'
-import ListaDeDados from './ListaDeDados'
-import PontoDePartida from './PontoDePartida'
-import PrimeiraVitoria from './PrimeiraVitoria'
-import PrognosticoDoPlano from './PrognosticoDoPlano'
-import PrimeiroPasso from './PrimeiroPasso'
-import ResumoDoPlano from './ResumoDoPlano'
-import Conquistas from './visuais/Conquistas'
-import LinhaDoTempoDividas from './visuais/LinhaDoTempoDividas'
-import type { EstadoInputs } from '../services/api'
-import type { Plano } from '../tipos'
+import ComoFunciona from "./ComoFunciona";
+import DuvidasDoPlano from "./DuvidasDoPlano";
+import Icone from "./Icone";
+import ListaDeDados from "./ListaDeDados";
+import PontoDePartida from "./PontoDePartida";
+import PrognosticoDoPlano, {
+  QuandoCadaDividaTermina,
+} from "./PrognosticoDoPlano";
+import PrimeiroPasso from "./PrimeiroPasso";
+import ResumoDoPlano from "./ResumoDoPlano";
+import Conquistas from "./visuais/Conquistas";
+import type { EstadoInputs } from "../services/api";
+import type { Plano } from "../tipos";
 
 /** `RF-96`: o que não está no snapshot aparece assim, nunca estimado. */
-const NAO_DISPONIVEL = 'não disponível'
+const NAO_DISPONIVEL = "não disponível";
 
 interface PlanoDoAlunoProps {
-  plano: Plano
+  plano: Plano;
   /**
    * Presente só na conferência do revisor (`RF-121`, `RF-122`): os dados de
    * entrada que produziram o plano, por dívida.
    */
-  revisor?: { entradas: EstadoInputs }
+  revisor?: { entradas: EstadoInputs };
 }
 
 export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
-  const ordemVazia = plano.ordem.length === 0
-  const secoes = plano.secoes ?? {}
-  const textosDasDividas = plano.dividas_textos ?? {}
-  const cabecalho = plano.cabecalho_textos ?? {}
+  const ordemVazia = plano.ordem.length === 0;
+  const secoes = plano.secoes ?? {};
+  const textosDasDividas = plano.dividas_textos ?? {};
+  const cabecalho = plano.cabecalho_textos ?? {};
   const preparadoPara = plano.nome_do_aluno
-    ? (cabecalho.preparado_para ?? 'Plano preparado para {nome}').replace(
-        '{nome}',
+    ? (cabecalho.preparado_para ?? "Plano preparado para {nome}").replace(
+        "{nome}",
         plano.nome_do_aluno,
       )
-    : (cabecalho.preparado_sem_nome ?? 'Plano preparado para você')
+    : (cabecalho.preparado_sem_nome ?? "Plano preparado para você");
 
   return (
     <>
@@ -63,20 +62,25 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
       {/* Redação vigente — do servidor, sem reescrita. */}
       <p className="lead">{plano.corpo}</p>
 
-      {plano.explicacao_mes_1 && <p className="text-muted text-sm">{plano.explicacao_mes_1}</p>}
+      {plano.explicacao_mes_1 && (
+        <p className="text-muted text-sm">{plano.explicacao_mes_1}</p>
+      )}
 
       {/* `T-355`: primeira página — situa o aluno: o plano é a continuação do
           curso de entrada. Texto do servidor, sem reescrita. */}
-      {plano.curso_ssd?.apresentacao && plano.curso_ssd.apresentacao.length > 0 && (
-        <section className="cartao" aria-labelledby="titulo-apresentacao-ssd">
-          <h2 id="titulo-apresentacao-ssd">{plano.curso_ssd.apresentacao_titulo}</h2>
-          {plano.curso_ssd.apresentacao.map((paragrafo) => (
-            <p key={paragrafo} className="m-0">
-              {paragrafo}
-            </p>
-          ))}
-        </section>
-      )}
+      {plano.curso_ssd?.apresentacao &&
+        plano.curso_ssd.apresentacao.length > 0 && (
+          <section className="cartao" aria-labelledby="titulo-apresentacao-ssd">
+            <h2 id="titulo-apresentacao-ssd">
+              {plano.curso_ssd.apresentacao_titulo}
+            </h2>
+            {plano.curso_ssd.apresentacao.map((paragrafo) => (
+              <p key={paragrafo} className="m-0">
+                {paragrafo}
+              </p>
+            ))}
+          </section>
+        )}
 
       {/* `T-352`: plano normal sem valor extra neste mês. */}
       {plano.aviso_sem_valor_extra && (
@@ -89,9 +93,10 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         <div className="aviso-atencao" role="status">
           <div>
             <strong className="block">Primeiro, equilibrar o seu mês.</strong>
-            Hoje, considerando o que entra e o que sai, o resultado do seu mês é de{' '}
-            {plano.RESULTADO_CAIXA_OBSERVADO}. Esse valor ainda não pode ser usado para
-            quitar dívidas. Nesta fase, o objetivo é equilibrar as contas do mês.
+            Hoje, considerando o que entra e o que sai, o resultado do seu mês é
+            de {plano.RESULTADO_CAIXA_OBSERVADO}. Esse valor ainda não pode ser
+            usado para quitar dívidas. Nesta fase, o objetivo é equilibrar as
+            contas do mês.
           </div>
         </div>
       )}
@@ -101,19 +106,19 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
           Mês 1, primeira dívida quitada, linha do tempo, pendências, curso. */}
       {plano.ordem.length > 0 ? (
         <>
-          <h2>{secoes.dividas ?? 'Suas dívidas, uma a uma'}</h2>
+          <h2>{secoes.dividas ?? "Suas dívidas, uma a uma"}</h2>
           {textosDasDividas.introducao && (
             <p className="text-muted m-0">{textosDasDividas.introducao}</p>
           )}
           <ol className="lista list-none p-0">
             {plano.ordem.map((posicao) => {
-              const fatos = posicao.fatos ?? []
-              const rotulosDosFatos = new Set(fatos.map((fato) => fato.rotulo))
+              const fatos = posicao.fatos ?? [];
+              const rotulosDosFatos = new Set(fatos.map((fato) => fato.rotulo));
               // Os valores de apoio sustentam a POSIÇÃO (`AC-17`); os que já
               // aparecem nos números fixos não se repetem.
               const outrosValores = posicao.valores_de_apoio.filter(
                 (apoio) => !rotulosDosFatos.has(apoio.rotulo),
-              )
+              );
               return (
                 <li key={posicao.DIVIDA_ID} className="cartao">
                   <div className="flex items-center gap-3">
@@ -123,7 +128,10 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                     <div className="min-w-0 flex-1">
                       {textosDasDividas.posicao && (
                         <span className="eyebrow block">
-                          {textosDasDividas.posicao.replace('{indice}', String(posicao.indice))}
+                          {textosDasDividas.posicao.replace(
+                            "{indice}",
+                            String(posicao.indice),
+                          )}
                         </span>
                       )}
                       {/* `T-326` (`RF-111`): "tipo (credor)", nunca o código. */}
@@ -150,14 +158,19 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                       lido do cronograma gravado). */}
                   <dl className="m-0 grid grid-cols-2 gap-2">
                     {fatos.map((fato) => (
-                      <div key={fato.rotulo} className="rounded-piq border border-line p-2">
+                      <div
+                        key={fato.rotulo}
+                        className="rounded-piq border border-line p-2"
+                      >
                         <dt className="text-muted text-xs">{fato.rotulo}</dt>
-                        <dd className="m-0 whitespace-nowrap font-bold tabular-nums">{fato.valor}</dd>
+                        <dd className="m-0 whitespace-nowrap font-bold tabular-nums">
+                          {fato.valor}
+                        </dd>
                       </div>
                     ))}
                     <div className="rounded-piq border border-accent bg-accent-soft p-2">
                       <dt className="text-muted text-xs">
-                        {textosDasDividas.termina_no ?? 'Termina no'}
+                        {textosDasDividas.termina_no ?? "Termina no"}
                       </dt>
                       <dd className="m-0 font-bold">
                         {posicao.mes_de_quitacao
@@ -169,11 +182,15 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                   {/* `RF-92` (T-267): nível 2 ou 3 não bloqueia, mas fica
                       visível por dívida. */}
                   {posicao.fonte && (
-                    <p className="text-muted m-0 text-sm">Fonte das informações: {posicao.fonte}</p>
+                    <p className="text-muted m-0 text-sm">
+                      Fonte das informações: {posicao.fonte}
+                    </p>
                   )}
                   {/* `RF-82` (T-245): só na dívida com seguro prestamista. */}
                   {posicao.orientacao_seguro && (
-                    <p className="text-muted m-0 text-sm">{posicao.orientacao_seguro}</p>
+                    <p className="text-muted m-0 text-sm">
+                      {posicao.orientacao_seguro}
+                    </p>
                   )}
                   {/* Na tela, os demais números ficam a um toque; no PDF
                       eles aparecem abertos. */}
@@ -220,7 +237,8 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                         <ListaDeDados
                           campos={
                             revisor.entradas.dividas.find(
-                              (divida) => divida.DIVIDA_ID === posicao.DIVIDA_ID,
+                              (divida) =>
+                                divida.DIVIDA_ID === posicao.DIVIDA_ID,
                             )?.campos ?? []
                           }
                         />
@@ -228,7 +246,7 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
                     </details>
                   )}
                 </li>
-              )
+              );
             })}
           </ol>
           {!plano.MODO_ESTABILIZACAO && <Conquistas ordem={plano.ordem} />}
@@ -240,14 +258,21 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
           <h2>Primeiro, o que precisa ser resolvido</h2>
           <ul className="lista list-none p-0">
             {plano.acoes.map((acao, i) => (
-              <li key={`${acao.DIVIDA_ID ?? 'sem-divida'}-${i}`} className="cartao">
+              <li
+                key={`${acao.DIVIDA_ID ?? "sem-divida"}-${i}`}
+                className="cartao"
+              >
                 {/* `T-306`: o que fazer, em português, por `TIPO_ACAO`; o
                     motivo técnico do gate não vem ao aluno. */}
                 <p>{acao.descricao}</p>
-                {acao.nome_divida && <small className="text-muted">{acao.nome_divida}</small>}
+                {acao.nome_divida && (
+                  <small className="text-muted">{acao.nome_divida}</small>
+                )}
                 {/* `T-326`: o motivo técnico do gate é do REVISOR; o aluno não o recebe. */}
                 {revisor && acao.motivo && (
-                  <small className="text-muted block">Motivo técnico: {acao.motivo}</small>
+                  <small className="text-muted block">
+                    Motivo técnico: {acao.motivo}
+                  </small>
                 )}
               </li>
             ))}
@@ -259,7 +284,7 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         <PontoDePartida
           ponto={plano.ponto_de_partida}
           textos={plano.ponto_de_partida_textos ?? {}}
-          titulo={secoes.ponto_de_partida ?? ''}
+          titulo={secoes.ponto_de_partida ?? ""}
           mostrarValorExtra={!plano.MODO_ESTABILIZACAO && !ordemVazia}
         />
       )}
@@ -267,16 +292,18 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
       {/* `AC-70`: reserva desconhecida é estado explícito, nunca R$ 0,00. */}
       <section className="cartao" aria-labelledby="titulo-reserva">
         <h2 id="titulo-reserva" className="flex items-center gap-2">
-          <Icone nome="reserva" /> {secoes.reserva ?? 'Sua reserva'}
+          <Icone nome="reserva" /> {secoes.reserva ?? "Sua reserva"}
         </h2>
         {plano.reserva_mobilizavel.pendente_de_decisao ? (
           <p className="m-0">
-            <strong>Decisão pendente.</strong> Essa parte do plano fica em aberto até
-            você decidir.
+            <strong>Decisão pendente.</strong> Essa parte do plano fica em
+            aberto até você decidir.
           </p>
         ) : (
           <>
-            <p className="valor-hero m-0 tabular-nums">{plano.reserva_mobilizavel.valor}</p>
+            <p className="valor-hero m-0 tabular-nums">
+              {plano.reserva_mobilizavel.valor}
+            </p>
             {plano.reserva_explicacao && (
               <p className="text-muted m-0">{plano.reserva_explicacao}</p>
             )}
@@ -284,17 +311,22 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         )}
       </section>
 
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.como_funciona?.length ?? 0) > 0 && (
-        <ComoFunciona
-          passos={plano.como_funciona ?? []}
-          rotulos={plano.como_funciona_rotulos ?? []}
-          titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ''}
-        />
-      )}
+      {!plano.MODO_ESTABILIZACAO &&
+        !ordemVazia &&
+        (plano.como_funciona?.length ?? 0) > 0 && (
+          <ComoFunciona
+            passos={plano.como_funciona ?? []}
+            rotulos={plano.como_funciona_rotulos ?? []}
+            titulo={secoes.como_funciona ?? plano.como_funciona_titulo ?? ""}
+          />
+        )}
 
       {/* "Seu plano em números": as três linhas da projeção; sem prognóstico (plano antigo), os três números. */}
       {!plano.MODO_ESTABILIZACAO && plano.prognostico && !ordemVazia && (
-        <PrognosticoDoPlano prognostico={plano.prognostico} />
+        <PrognosticoDoPlano
+          prognostico={plano.prognostico}
+          textos={plano.prognostico_textos ?? {}}
+        />
       )}
       {!plano.MODO_ESTABILIZACAO && !(plano.prognostico && !ordemVazia) && (
         <ResumoDoPlano
@@ -305,50 +337,24 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
           textos={plano.resumo_textos ?? {}}
         />
       )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (plano.grade_meses?.length ?? 0) > 0 && (
-        <JornadaDoPlano
-          grade={plano.grade_meses ?? []}
-          anos={plano.grade_anos ?? []}
-          textos={plano.grade_meses_textos ?? {}}
-          titulo={secoes.jornada ?? plano.jornada_titulo ?? ''}
+      {/* `T-375`: "Quando cada dívida termina" fecha "Seu plano em números". */}
+      {!plano.MODO_ESTABILIZACAO && plano.quando_termina && (
+        <QuandoCadaDividaTermina
+          tabela={plano.quando_termina}
+          textos={plano.prognostico_textos ?? {}}
         />
       )}
 
       {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.passo_atual && (
         <PrimeiroPasso
           passo={plano.passo_atual}
-          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ''}
+          titulo={secoes.primeiro_passo ?? plano.primeiro_passo_titulo ?? ""}
           textos={
-            plano.primeiro_passo_textos ?? { como_pagar_a_mais: plano.como_pagar_a_mais ?? '' }
+            plano.primeiro_passo_textos ?? {
+              como_pagar_a_mais: plano.como_pagar_a_mais ?? "",
+            }
           }
         />
-      )}
-
-      {/* A primeira dívida quitada: o ponto alto do plano. */}
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.primeira_vitoria && (
-        <PrimeiraVitoria
-          primeiraVitoria={plano.primeira_vitoria}
-          titulo={secoes.primeira_vitoria ?? plano.primeira_vitoria_titulo ?? ''}
-          complemento={plano.primeira_vitoria_complemento ?? ''}
-        />
-      )}
-
-      {/* Antes da linha do tempo; o servidor já omite em estabilização/sem prognóstico. */}
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && (
-        <section className="cartao" aria-labelledby="titulo-linha-do-tempo">
-          <h2 id="titulo-linha-do-tempo">
-            {plano.linha_do_tempo_textos?.titulo || 'Quando cada dívida termina'}
-          </h2>
-          {plano.linha_do_tempo_textos?.introducao && (
-            <p className="text-muted m-0">{plano.linha_do_tempo_textos.introducao}</p>
-          )}
-          <LinhaDoTempoDividas
-            ordem={plano.ordem}
-            prazoTotalMeses={plano.PRAZO_TOTAL_INT}
-            textos={plano.linha_do_tempo_textos ?? {}}
-          />
-        </section>
       )}
 
       {/*
@@ -359,20 +365,29 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
       */}
       {plano.cenario_adicional && (
         <section className="cartao" aria-labelledby="titulo-cenario-adicional">
-          <h2 id="titulo-cenario-adicional">{plano.cenario_adicional.rotulo}</h2>
+          <h2 id="titulo-cenario-adicional">
+            {plano.cenario_adicional.rotulo}
+          </h2>
           <p className="text-muted">{plano.cenario_adicional.explicacao}</p>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
             <dt className="text-muted">para quitar todas as dívidas</dt>
-            <dd className="m-0 tabular-nums">{plano.cenario_adicional.PRAZO_TOTAL}</dd>
+            <dd className="m-0 tabular-nums">
+              {plano.cenario_adicional.PRAZO_TOTAL}
+            </dd>
             <dt className="text-muted">total que você pagaria</dt>
-            <dd className="m-0 tabular-nums">{plano.cenario_adicional.CUSTO_FUTURO_TOTAL}</dd>
+            <dd className="m-0 tabular-nums">
+              {plano.cenario_adicional.CUSTO_FUTURO_TOTAL}
+            </dd>
             <dt className="text-muted">ordem de quitação</dt>
-            <dd className="m-0">{plano.cenario_adicional.ordem.join(', ')}</dd>
+            <dd className="m-0">{plano.cenario_adicional.ordem.join(", ")}</dd>
           </dl>
           {plano.cenario_adicional.itens.length > 0 && (
             <ul className="lista list-none p-0">
               {plano.cenario_adicional.itens.map((item, i) => (
-                <li key={item.ITEM_ID ?? `${item.mes}-${i}`} className="tabular-nums">
+                <li
+                  key={item.ITEM_ID ?? `${item.mes}-${i}`}
+                  className="tabular-nums"
+                >
                   {item.valor} no Mês {item.mes}
                 </li>
               ))}
@@ -385,16 +400,19 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         <div className="aviso-atencao" role="status">
           <div>
             <strong className="block">Este plano ainda é provisório.</strong>
-            Faltam algumas informações sobre as suas dívidas. Assim que você as informar, o
-            plano é refeito.
+            Faltam algumas informações sobre as suas dívidas. Assim que você as
+            informar, o plano é refeito.
             {plano.pendencias?.inventario_incompleto &&
-              ' O cadastro das suas dívidas ainda não foi confirmado como completo.'}
+              " O cadastro das suas dívidas ainda não foi confirmado como completo."}
             <ul className="lista mt-2 list-none p-0">
               {(plano.pendencias_acionaveis ?? []).map((pendencia, i) => (
                 <li key={`${pendencia.DIVIDA_ID}-${pendencia.rotulo}-${i}`}>
-                  <strong>{pendencia.nome_divida}</strong>: falta informar {pendencia.rotulo}.
+                  <strong>{pendencia.nome_divida}</strong>: falta informar{" "}
+                  {pendencia.rotulo}.
                   {pendencia.onde_achar && (
-                    <span className="text-muted block">Onde encontrar: {pendencia.onde_achar}</span>
+                    <span className="text-muted block">
+                      Onde encontrar: {pendencia.onde_achar}
+                    </span>
                   )}
                   {/* `RF-121`: a ação é do aluno — o revisor só lê a pendência. */}
                   {pendencia.ID_PERGUNTA && !revisor && (
@@ -415,10 +433,11 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
           <div className="aviso-atencao" role="status">
             <div>
               <strong className="block">Este plano ainda é provisório.</strong>
-              {plano.pendencias.inventario_incompleto && 'O inventário ainda não está completo. '}
+              {plano.pendencias.inventario_incompleto &&
+                "O inventário ainda não está completo. "}
               {plano.pendencias.campos_faltantes_por_divida.map((p) => (
                 <span key={p.DIVIDA_ID} className="block">
-                  {p.nome}: falta {p.campos.join(', ')}
+                  {p.nome}: falta {p.campos.join(", ")}
                 </span>
               ))}
             </div>
@@ -450,7 +469,8 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
               <ul className="m-0 flex list-none flex-col gap-1 p-0">
                 {plano.curso_ssd.melhorar.map((item) => (
                   <li key={item.texto}>
-                    {item.texto} <span className="text-muted">({item.aula})</span>
+                    {item.texto}{" "}
+                    <span className="text-muted">({item.aula})</span>
                   </li>
                 ))}
               </ul>
@@ -459,11 +479,14 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         </section>
       )}
 
-      <DuvidasDoPlano duvidas={plano.duvidas ?? []} titulo={secoes.duvidas ?? ''} />
+      <DuvidasDoPlano
+        duvidas={plano.duvidas ?? []}
+        titulo={secoes.duvidas ?? ""}
+      />
 
       {plano.sobre_este_plano && (
         <section className="cartao" aria-labelledby="titulo-sobre">
-          <h2 id="titulo-sobre">{secoes.sobre ?? 'Sobre este plano'}</h2>
+          <h2 id="titulo-sobre">{secoes.sobre ?? "Sobre este plano"}</h2>
           <p className="text-muted m-0">{plano.sobre_este_plano}</p>
         </section>
       )}
@@ -473,11 +496,13 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
       <p className="carimbo flex items-center gap-2">
         <Icone nome="conferencia" />
         <span>
-          versão do cálculo {plano.ENGINE_VERSION} · parâmetros{' '}
+          versão do cálculo {plano.ENGINE_VERSION} · parâmetros{" "}
           {plano.PARAMETROS_VERSION}
-          {plano.ordem.length > 0 && !plano.MODO_ESTABILIZACAO && ` · método ${plano.metodo}`}
+          {plano.ordem.length > 0 &&
+            !plano.MODO_ESTABILIZACAO &&
+            ` · método ${plano.metodo}`}
         </span>
       </p>
     </>
-  )
+  );
 }

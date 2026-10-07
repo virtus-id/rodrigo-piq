@@ -119,3 +119,26 @@ def test_T174_snapshot_anterior_sem_os_campos_novos_volta_com_none() -> None:
     assert antigo is not None and antigo.com_extra is not None
     assert antigo.sem_acao.MESES_PRIMEIRA_VITORIA is None
     assert antigo.com_extra.ATAQUE_MENSAL_TOTAL is None
+
+
+@pytest.mark.regra
+def test_AC138_quitacoes_por_caminho() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    novo = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1"))
+    p = novo.prognostico
+    assert p is not None and p.com_extra is not None
+    verde = p.com_extra
+    # Verde: toda dívida do plano quita, cada uma uma vez, até o prazo.
+    assert sorted(d for d, _ in verde.QUITACOES) == sorted(x.DIVIDA_ID for x in novo.ORDEM_QUITACAO)
+    assert all(1 <= mes <= verde.PRAZO_TOTAL for _, mes in verde.QUITACOES)
+    if verde.MESES_PRIMEIRA_VITORIA is not None:
+        assert min(mes for _, mes in verde.QUITACOES) == verde.MESES_PRIMEIRA_VITORIA
+    # Vermelho: só o que quita no horizonte.
+    assert len(p.sem_acao.QUITACOES) == p.sem_acao.DIVIDAS_QUITADAS_SOZINHAS
+    assert all(mes <= p.sem_acao.HORIZONTE_MESES for _, mes in p.sem_acao.QUITACOES)
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    assert _desserializar_snapshot(bruto).prognostico == p
+    bruto["prognostico"]["sem_acao"].pop("QUITACOES")
+    bruto["prognostico"]["com_extra"].pop("QUITACOES")
+    antigo = _desserializar_snapshot(bruto).prognostico
+    assert antigo is not None and antigo.sem_acao.QUITACOES == ()

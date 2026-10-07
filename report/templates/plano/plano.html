@@ -84,6 +84,7 @@
         /* Seções -------------------------------------------------------- */
         .secao { margin-bottom: 8mm; }
         .secao-cabecalho {
+            break-after: avoid;
             display: flex;
             align-items: center;
             gap: 3mm;
@@ -107,7 +108,7 @@
         }
         .secao-cabecalho h2 { font-size: 15pt; flex: 1; color: #1B2A2F; }
         .secao-icone { color: #0F6E56; }
-        .intro { color: #5E6E72; margin-bottom: 4mm; }
+        .intro { color: #5E6E72; margin-bottom: 4mm; break-after: avoid; }
         .caixa {
             background: #FFFFFF;
             border: 1px solid #D9E0DC;
@@ -250,6 +251,32 @@
         .caminho-azul h3 { color: #1F5A96; }
         .caminho-verde { border-left-color: #0F6E56; }
         .caminho-verde h3 { color: #0F6E56; }
+
+        .caminho-legenda { font-size: 8.5pt; color: #5E6E72; margin: 0 0 4mm 0; }
+        .subtitulo { font-size: 12pt; margin: 5mm 0 1.5mm 0; }
+        .mes-a-mes { break-inside: avoid; }
+        .mm-ano { margin-bottom: 3mm; break-inside: avoid; }
+        .mm-linha { display: flex; align-items: center; gap: 0.8mm; margin-bottom: 0.8mm; }
+        .mm-rotulo { flex: none; width: 24mm; font-size: 8pt; font-weight: bold; }
+        .mm-regua .mm-rotulo { color: #1B2A2F; }
+        .mm-num, .mm-mes { flex: none; width: 11mm; height: 5.5mm; line-height: 5.5mm; text-align: center; font-size: 7.5pt; border-radius: 1.2mm; }
+        .mm-num { color: #5E6E72; }
+        .mm-mes { color: #FFFFFF; font-weight: bold; }
+        .mm-vermelho-texto { color: #A63A2C; }
+        .mm-azul-texto { color: #1F5A96; }
+        .mm-verde-texto { color: #0F6E56; }
+        .mm-comum.mm-vermelho { background: #FBE8E4; }
+        .mm-comum.mm-azul { background: #E3ECF6; }
+        .mm-comum.mm-verde { background: #E3F1EB; }
+        .mm-quitacao.mm-vermelho, .mm-primeira.mm-vermelho { background: #A63A2C; }
+        .mm-quitacao.mm-azul, .mm-primeira.mm-azul { background: #1F5A96; }
+        .mm-quitacao.mm-verde, .mm-primeira.mm-verde { background: #0F6E56; }
+        .mm-primeira { box-shadow: 0 0 0 0.6mm #D9A400; }
+        .mm-depois { background: #FFFFFF; border: 1px dashed #D9E0DC; }
+        .quando-termina { width: 100%; border-collapse: collapse; font-size: 9.5pt; break-inside: avoid; }
+        .quando-termina th, .quando-termina td { text-align: left; padding: 1.5mm 2mm; border-bottom: 1px solid #D9E0DC; }
+        .quando-termina thead th { font-size: 8.5pt; color: #5E6E72; }
+        .divida-numero { display: inline-block; min-width: 5mm; font-weight: bold; color: #0F6E56; }
 
         /* Como funciona ------------------------------------------------- */
         .quadros { display: flex; gap: 4mm; }
@@ -524,13 +551,14 @@
     {% endif %}
 
     {% if not (cenario is defined and cenario.value == "ESTABILIZACAO") %}
-    {# 1. Seu plano em números ----------------------------------------- #}
+    {# 5. Seu plano em números — linhas, mês a mês e quando cada dívida termina (T-375) #}
     {% set ns.n = ns.n + 1 %}
-    <section class="secao" style="break-inside: avoid;">
+    {% set mes = textos.grade_meses.get("rotulo_mes", "Mês") %}
+    {% set tp = textos.prognostico %}
+    <section class="secao nova-pagina">
         {{ visuais.cabecalho_da_secao(ns.n, secoes.get("resumo", "Seu plano em números"), "prazo") }}
         {% if prognostico %}
         <p class="intro">{{ prognostico.introducao }}</p>
-        {% set mes = textos.grade_meses.get("rotulo_mes", "Mês") %}
         {% for caminho in prognostico.caminhos %}
         <div class="caminho caminho-{{ caminho.cor }}">
             <div class="caminho-topo">
@@ -538,7 +566,7 @@
                 <p class="caminho-veredito">{{ caminho.veredito }}</p>
             </div>
             <p class="caminho-nota">{{ caminho.nota }}</p>
-            {{ visuais.barra_do_caminho(caminho, caminho.titulo ~ ". " ~ caminho.veredito, mes ~ " 1", mes ~ " " ~ caminho.escala) }}
+            {{ visuais.barra_do_caminho(caminho, caminho.titulo ~ ". " ~ caminho.veredito, tp.get("eixo_inicio", mes ~ " 1"), mes ~ " " ~ caminho.escala) }}
             <dl class="caminho-destaques">
                 {% for rotulo, valor in caminho.destaques %}
                 <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
@@ -546,6 +574,11 @@
             </dl>
         </div>
         {% endfor %}
+        <p class="caminho-legenda">{{ tp.get("legenda_marcos", "") }}</p>
+
+        <h3 class="subtitulo">{{ tp.get("mes_a_mes_titulo", "") }}</h3>
+        <p class="intro">{{ tp.get("mes_a_mes_intro", "") }}</p>
+        {{ visuais.mes_a_mes_por_caminho(prognostico.mes_a_mes, mes, tp) }}
         {% else %}
         <div class="numeros">
             <div class="numero">
@@ -567,55 +600,25 @@
             </div>
         </div>
         {% endif %}
-    </section>
-    {% endif %}
 
-    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
-    {% if grade_meses is defined and grade_meses and ordem %}
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao nova-pagina">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("jornada", "Seu plano, mês a mês"), "prazo") }}
-        {% if grade_anos is defined and grade_anos %}
-        <p class="intro">{{ textos.grade_meses.get("introducao_anos", "") }}</p>
-        {{ visuais.calendario_por_ano(grade_anos, textos.grade_meses) }}
-        {% else %}
-        <p class="intro">{{ textos.grade_meses.get("introducao", "") }}</p>
-        {{ visuais.grade_meses_html(grade_meses, textos.grade_meses) }}
+        {% if quando_termina %}
+        <h3 class="subtitulo">{{ tp.get("quando_termina_titulo", "") }}</h3>
+        <table class="quando-termina">
+            <thead>
+                <tr><th scope="col">{{ tp.get("coluna_divida", "") }}</th>{% for coluna in quando_termina.colunas %}<th scope="col">{{ coluna }}</th>{% endfor %}</tr>
+            </thead>
+            <tbody>
+                {% for numero, nome, celulas in quando_termina.linhas %}
+                <tr><th scope="row"><span class="divida-numero">{{ numero }}</span> {{ nome }}</th>{% for celula in celulas %}<td>{{ celula }}</td>{% endfor %}</tr>
+                {% endfor %}
+            </tbody>
+        </table>
         {% endif %}
     </section>
     {% endif %}
 
-    {% include "primeiro_passo.html" %}
-
-    {% if primeira_vitoria %}
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("primeira_vitoria", "Sua primeira dívida quitada"), "trofeu") }}
-        <div class="destaque conquista">
-            <div class="conquista-mes">
-                {{ visuais.icone("trofeu") }}
-                <strong>{{ textos.grade_meses.get("rotulo_mes", "Mês") }} {{ primeira_vitoria.mes }}</strong>
-            </div>
-            <div>
-                <p><strong>{{ textos.primeira_vitoria.get("texto", "").format(mes=primeira_vitoria.mes, divida=primeira_vitoria.divida) }}</strong></p>
-                <p class="muted" style="margin: 0;">{{ textos.primeira_vitoria.get("complemento", "") }}</p>
-            </div>
-        </div>
-    </section>
-    {% endif %}
-
-    {% endif %}
-
     {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
-    {% if ordem %}
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao">
-        {{ visuais.cabecalho_da_secao(ns.n, secoes.get("linha_do_tempo", "Quando cada dívida termina"), "bandeira") }}
-        <p class="intro">{{ textos.linha_do_tempo.get("introducao", "") }}</p>
-        {{ visuais.linha_do_tempo(ordem, PRAZO_TOTAL_INT, "Linha do tempo das suas dívidas, da primeira à última quitação.", textos.linha_do_tempo) }}
-    </section>
-
-    {% endif %}
+    {% include "primeiro_passo.html" %}
     {% endif %}
 
 

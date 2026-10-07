@@ -20,8 +20,12 @@ const PROGNOSTICO = {
       mes_fim: 14,
       escala: 14,
       mes_sombra: null,
+      marcos: [],
+      mes_primeira_quitacao: null,
+      rotulo_curto: "Seu plano",
     },
   ],
+  mes_a_mes: [],
 };
 
 const POSICAO = {

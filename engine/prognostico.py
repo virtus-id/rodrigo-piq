@@ -51,6 +51,8 @@ class PrognosticoSemAcao:
     DEFICIT_ACUMULADO: Dinheiro  # soma dos déficits mensais no horizonte, sem juros
     #: Mês da primeira dívida que se quita sozinha; `None` se nenhuma (RF-77, T-174).
     MESES_PRIMEIRA_VITORIA: Meses | None = None
+    #: (DIVIDA_ID, mês) de cada dívida que se quita sozinha no horizonte (T-175).
+    QUITACOES: tuple[tuple[str, Meses], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +67,8 @@ class PrognosticoComExtra:
     ESTOUROU_HORIZONTE: bool
     #: Ataque mensal total do verde: ataque do plano + extra (T-174).
     ATAQUE_MENSAL_TOTAL: Dinheiro | None = None
+    #: (DIVIDA_ID, mês) de cada dívida quitada no verde (T-175).
+    QUITACOES: tuple[tuple[str, Meses], ...] = ()
     #: Prazo do plano recomendado menos o prazo do verde (nunca negativo) — a
     #: conta é do motor, o app só lê (Lei nº 3).
     MESES_ANTECIPADOS: Meses = 0
@@ -153,7 +157,13 @@ def calcular_prognostico(
             DIVIDAS_QUE_CRESCEM=crescem,
             DEFICIT_MENSAL=deficit_mensal,
             DEFICIT_ACUMULADO=_deficit_acumulado(sem_acao, resultado, horizonte),
-            MESES_PRIMEIRA_VITORIA=sem_acao.MESES_PRIMEIRA_VITORIA,
+            MESES_PRIMEIRA_VITORIA=(
+                sem_acao.MESES_PRIMEIRA_VITORIA
+                if sem_acao.MESES_PRIMEIRA_VITORIA is not None
+                and sem_acao.MESES_PRIMEIRA_VITORIA <= horizonte
+                else None
+            ),
+            QUITACOES=_quitacoes(sem_acao, horizonte),
         )
     )
 
@@ -194,7 +204,18 @@ def _com_extra(
         PRAZO_TOTAL=cenario.PRAZO_TOTAL,
         CUSTO_FUTURO_TOTAL=cenario.CUSTO_FUTURO_TOTAL,
         MESES_PRIMEIRA_VITORIA=cenario.MESES_PRIMEIRA_VITORIA,
+        QUITACOES=_quitacoes(cenario, cenario.PRAZO_TOTAL),
         ESTOUROU_HORIZONTE=cenario.ESTOUROU_HORIZONTE,
+    )
+
+
+def _quitacoes(cenario: Cenario, ate_o_mes: Meses) -> tuple[tuple[str, Meses], ...]:
+    """(DIVIDA_ID, mês) de cada quitação até `ate_o_mes`, na ordem em que acontecem."""
+    return tuple(
+        (divida_id, resultado.estado_final.mes)
+        for resultado in cenario.meses
+        if resultado.estado_final.mes <= ate_o_mes
+        for divida_id in resultado.quitacoes
     )
 
 

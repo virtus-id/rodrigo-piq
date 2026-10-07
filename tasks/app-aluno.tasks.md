@@ -13923,3 +13923,13 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Sem prognóstico, mantém os três números; testes (pytest e vitest)
 
 **Status:** `[x] concluída (2026-10-07)`; frases pendentes de aprovação (rodada 10)
+
+### `T-375` — Capítulo único "Seu plano em números" (linhas com marcos, mês a mês, quando cada dívida termina)
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-175`, `T-374` · **Rastreia:** `RF-126`, `AC-199`
+- [x] Marcos de quitação na barra de cada caminho (círculo numerado; anel dourado na 1ª)
+- [x] Mês a mês por caminho (faixas por ano, cada uma na sua cor) e tabela "Quando cada dívida termina"
+- [x] Saem os capítulos "Seu plano, mês a mês", "Sua primeira dívida quitada" e "Quando cada dívida termina" (PDF com 10 capítulos), com o que ficou sem uso
+- [x] Frase do Mês 1 no capítulo 5 e em "O que fazer no Mês 1"; testes (pytest e vitest)
+
+**Status:** `[x] concluída (2026-10-07)`; frases pendentes de aprovação (rodada 10)
