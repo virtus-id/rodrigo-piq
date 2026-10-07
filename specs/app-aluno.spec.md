@@ -1083,7 +1083,7 @@ Atende: `RF-121`, `RF-122`, `RF-123`, `RF-124`
 | `AC-195` | `US-36` | Dado resultado do mês exatamente zero, quando o plano é montado, então é plano normal (sem estabilização) com o aviso de que não há valor extra; com valor extra, o aviso não aparece |
 | `AC-196` | `US-36` | Dada uma dívida com nota de incômodo 9 que não é a 1ª posição, então o aluno vê a nota e o aviso; com nota 5, vê só a nota; sem nota, nada |
 | `AC-197` | `US-36` | Dado o plano do revisor, então cada dívida traz as respostas de atraso, cobrança judicial e garantia; o plano do aluno nunca as traz |
-| `AC-198` | `US-36` | Dado um plano com prognóstico, então tela e PDF trazem os caminhos vermelho e azul; com `B3.C01A` positiva, também o verde; sem prognóstico no snapshot, nenhum capítulo |
+| `AC-198` | `US-36` | Dado um plano com prognóstico, então tela e PDF trazem os caminhos vermelho e azul; com `B3.C01A` positiva, também o verde; sem prognóstico no snapshot, o capítulo mostra os três números de antes |
 
 ## 5. Non-Functional Requirements
 
