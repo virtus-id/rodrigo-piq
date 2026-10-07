@@ -1260,21 +1260,35 @@ def _prognostico(
     estabilização. Sem valor extra informado, só vermelho e azul."""
     t = textos.prognostico
     prog = snapshot.prognostico
-    if prog is None or not t or snapshot.diagnostico.MODO_ESTABILIZACAO:
+    sem_ordem = snapshot.diagnostico.MODO_ESTABILIZACAO or not snapshot.ORDEM_QUITACAO
+    if prog is None or not t or sem_ordem:
         return None
     sem = prog.sem_acao
     escala = max(1, sem.HORIZONTE_MESES)
     prazo_horizonte = _formatar_meses(sem.HORIZONTE_MESES)
     saldo = formatar_dinheiro_br(sem.SALDO_NO_HORIZONTE)
 
-    destaques_vermelho = [
+    def _mes(n: int) -> str:
+        return f"{t.get('mes', 'Mês')} {n}"
+
+    # Valor a mais por mês, primeira quitação, o que se deve hoje e o que falta
+    # todo mês (só com déficit). A quitação só é afirmada quando é certa: nenhuma
+    # dívida quita sozinha, ou o motor gravou o mês (snapshot anterior não grava).
+    destaques_vermelho = [(t.get("rotulo_valor_a_mais", ""), t.get("nenhum", ""))]
+    if sem.DIVIDAS_QUITADAS_SOZINHAS == 0:
+        destaques_vermelho.append((t.get("rotulo_primeira_quitacao", ""), t.get("nenhuma", "")))
+    elif sem.MESES_PRIMEIRA_VITORIA is not None:
+        destaques_vermelho.append(
+            (t.get("rotulo_primeira_quitacao", ""), _mes(sem.MESES_PRIMEIRA_VITORIA))
+        )
+    destaques_vermelho.append(
         (t.get("rotulo_hoje_deve", ""), formatar_dinheiro_br(sem.SALDO_INICIAL_TOTAL))
-    ]
+    )
     if sem.DEFICIT_MENSAL > 0:
         destaques_vermelho.append(
             (t.get("rotulo_falta_por_mes", ""), formatar_dinheiro_br(sem.DEFICIT_MENSAL))
         )
-    if sem.DIVIDAS_QUE_CRESCEM > 0:
+    elif sem.DIVIDAS_QUE_CRESCEM > 0:
         destaques_vermelho.append(
             (t.get("rotulo_dividas_crescem", ""), str(sem.DIVIDAS_QUE_CRESCEM))
         )
@@ -1287,12 +1301,18 @@ def _prognostico(
         ),
         nota=t.get("vermelho_nota", ""),
         marcador="" if zerado else t.get("vermelho_marcador", "").format(saldo=saldo),
-        destaques=tuple(destaques_vermelho[:3]),
+        destaques=tuple(destaques_vermelho[:4]),
         mes_fim=escala,
         escala=escala,
     )
 
     estourou = cenario_recomendado.ESTOUROU_HORIZONTE
+    mes_da_vitoria = cenario_recomendado.MESES_PRIMEIRA_VITORIA
+    primeira_quitacao_do_plano = (
+        ()
+        if mes_da_vitoria is None
+        else ((t.get("rotulo_primeira_quitacao", ""), _mes(mes_da_vitoria)),)
+    )
     azul = ContextoCaminho(
         cor="azul",
         titulo=t.get("azul_titulo", ""),
@@ -1303,13 +1323,14 @@ def _prognostico(
         marcador="" if estourou else t.get("marcador_zero", ""),
         destaques=(
             (
-                t.get("rotulo_valor_mensal", ""),
+                t.get("rotulo_valor_a_mais", ""),
                 formatar_dinheiro_br(snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA),
             ),
             (
                 t.get("rotulo_custo", ""),
                 formatar_dinheiro_br(cenario_recomendado.CUSTO_FUTURO_TOTAL),
             ),
+            *primeira_quitacao_do_plano,
         ),
         mes_fim=escala,
         escala=escala,
@@ -1329,9 +1350,18 @@ def _prognostico(
         else:
             chave = "verde_veredito_sem_ganho"
         destaques_verde = [
-            (t.get("rotulo_extra", ""), valor_extra),
+            (
+                t.get("rotulo_valor_a_mais", ""),
+                formatar_dinheiro_br(extra.ATAQUE_MENSAL_TOTAL)
+                if extra.ATAQUE_MENSAL_TOTAL is not None
+                else valor_extra,
+            ),
             (t.get("rotulo_custo", ""), formatar_dinheiro_br(extra.CUSTO_FUTURO_TOTAL)),
         ]
+        if extra.MESES_PRIMEIRA_VITORIA is not None:
+            destaques_verde.append(
+                (t.get("rotulo_primeira_quitacao", ""), _mes(extra.MESES_PRIMEIRA_VITORIA))
+            )
         if extra.ECONOMIA_CUSTO > 0:
             destaques_verde.append((t.get("rotulo_economia", ""), economia))
         caminhos.append(
@@ -1345,7 +1375,7 @@ def _prognostico(
                 ),
                 nota=t.get("verde_nota", ""),
                 marcador="" if extra.ESTOUROU_HORIZONTE else t.get("marcador_zero", ""),
-                destaques=tuple(destaques_verde),
+                destaques=tuple(destaques_verde[:4]),
                 mes_fim=min(extra.PRAZO_TOTAL, escala) if extra.PRAZO_TOTAL else escala,
                 escala=escala,
                 mes_sombra=escala,

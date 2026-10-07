@@ -526,8 +526,27 @@
     {% if not (cenario is defined and cenario.value == "ESTABILIZACAO") %}
     {# 1. Seu plano em números ----------------------------------------- #}
     {% set ns.n = ns.n + 1 %}
-    <section class="secao">
+    <section class="secao" style="break-inside: avoid;">
         {{ visuais.cabecalho_da_secao(ns.n, secoes.get("resumo", "Seu plano em números"), "prazo") }}
+        {% if prognostico %}
+        <p class="intro">{{ prognostico.introducao }}</p>
+        {% set mes = textos.grade_meses.get("rotulo_mes", "Mês") %}
+        {% for caminho in prognostico.caminhos %}
+        <div class="caminho caminho-{{ caminho.cor }}">
+            <div class="caminho-topo">
+                <h3>{{ caminho.titulo }}</h3>
+                <p class="caminho-veredito">{{ caminho.veredito }}</p>
+            </div>
+            <p class="caminho-nota">{{ caminho.nota }}</p>
+            {{ visuais.barra_do_caminho(caminho, caminho.titulo ~ ". " ~ caminho.veredito, mes ~ " 1", mes ~ " " ~ caminho.escala) }}
+            <dl class="caminho-destaques">
+                {% for rotulo, valor in caminho.destaques %}
+                <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+                {% endfor %}
+            </dl>
+        </div>
+        {% endfor %}
+        {% else %}
         <div class="numeros">
             <div class="numero">
                 <div class="numero-valor">{{ PRAZO_TOTAL }}</div>
@@ -547,6 +566,7 @@
                 <p class="numero-explicacao">{{ textos.resumo.get("custo_futuro_explicacao", "") }}</p>
             </div>
         </div>
+        {% endif %}
     </section>
     {% endif %}
 
@@ -598,29 +618,6 @@
     {% endif %}
     {% endif %}
 
-    {% if prognostico %}
-    {% set ns.n = ns.n + 1 %}
-    <section class="secao" style="break-inside: avoid;">
-        {{ visuais.cabecalho_da_secao(ns.n, prognostico.titulo, "prazo") }}
-        <p class="intro">{{ prognostico.introducao }}</p>
-        {% set mes = textos.grade_meses.get("rotulo_mes", "Mês") %}
-        {% for caminho in prognostico.caminhos %}
-        <div class="caminho caminho-{{ caminho.cor }}">
-            <div class="caminho-topo">
-                <h3>{{ caminho.titulo }}</h3>
-                <p class="caminho-veredito">{{ caminho.veredito }}</p>
-            </div>
-            <p class="caminho-nota">{{ caminho.nota }}</p>
-            {{ visuais.barra_do_caminho(caminho, caminho.titulo ~ ". " ~ caminho.veredito, mes ~ " 1", mes ~ " " ~ caminho.escala) }}
-            <dl class="caminho-destaques">
-                {% for rotulo, valor in caminho.destaques %}
-                <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
-                {% endfor %}
-            </dl>
-        </div>
-        {% endfor %}
-    </section>
-    {% endif %}
 
     {% if cenario_adicional %}
     {% set ns.n = ns.n + 1 %}

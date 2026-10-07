@@ -7529,3 +7529,13 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Persistência lê os dois campos (snapshot anterior → zero); rehash; testes
 
 **Status:** `[x] concluída`
+
+### `T-174` — Prognóstico: primeira quitação do vermelho e ataque total do verde
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-173` · **Rastreia:** `RF-77`, `RF-78`, `AC-137`
+- **Arquivos:** `engine/prognostico.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] `MESES_PRIMEIRA_VITORIA` em `PrognosticoSemAcao` e `ATAQUE_MENSAL_TOTAL` em `PrognosticoComExtra`
+- [x] Persistência lê (anterior → `None`); rehash; testes
+
+**Status:** `[x] concluída`

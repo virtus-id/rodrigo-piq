@@ -58,7 +58,9 @@ def test_snapshot_sem_prognostico_nao_tem_capitulo() -> None:
     textos = carregar_textos_canonicos()
     contexto = montar_contexto_plano(antigo, textos)
     assert contexto.prognostico is None
-    assert "Se nada mudar" not in renderizar_html_do_plano(contexto, textos)
+    html = renderizar_html_do_plano(contexto, textos)
+    assert "Se nada mudar" not in html
+    assert "Seu plano em números" in html and 'class="numeros"' in html
 
 
 def test_pdf_traz_os_tres_caminhos_com_os_numeros_do_snapshot() -> None:
@@ -104,4 +106,17 @@ def test_pdf_mostra_uma_barra_por_caminho_na_mesma_escala() -> None:
     textos = carregar_textos_canonicos()
     html = renderizar_html_do_plano(montar_contexto_plano(snapshot, textos), textos)
     assert html.count('class="caminho caminho-') == 3
-    assert "Seu prognóstico: qual caminho seguir?" in html
+    assert "Seu plano em números" in html and "qual caminho seguir" not in html
+
+
+def test_cada_linha_traz_valor_a_mais_e_primeira_quitacao() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    caminhos = _caminhos(snapshot)
+    for cor in ("azul", "verde"):
+        rotulos = [rotulo for rotulo, _ in caminhos[cor].destaques]
+        assert "Valor a mais por mês" in rotulos and len(rotulos) <= 4
+    vermelho = dict(caminhos["vermelho"].destaques)
+    assert vermelho["Valor a mais por mês"] == "Nenhum"
+    extra = snapshot.prognostico.com_extra  # type: ignore[union-attr]
+    assert extra is not None and extra.ATAQUE_MENSAL_TOTAL is not None
+    assert dict(caminhos["verde"].destaques)["Valor a mais por mês"].startswith("R$")

@@ -49,6 +49,8 @@ class PrognosticoSemAcao:
     DIVIDAS_QUE_CRESCEM: int
     DEFICIT_MENSAL: Dinheiro  # hoje; 0 quando o resultado do mês não é negativo
     DEFICIT_ACUMULADO: Dinheiro  # soma dos déficits mensais no horizonte, sem juros
+    #: Mês da primeira dívida que se quita sozinha; `None` se nenhuma (RF-77, T-174).
+    MESES_PRIMEIRA_VITORIA: Meses | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +63,8 @@ class PrognosticoComExtra:
     CUSTO_FUTURO_TOTAL: Dinheiro
     MESES_PRIMEIRA_VITORIA: Meses | None
     ESTOUROU_HORIZONTE: bool
+    #: Ataque mensal total do verde: ataque do plano + extra (T-174).
+    ATAQUE_MENSAL_TOTAL: Dinheiro | None = None
     #: Prazo do plano recomendado menos o prazo do verde (nunca negativo) — a
     #: conta é do motor, o app só lê (Lei nº 3).
     MESES_ANTECIPADOS: Meses = 0
@@ -149,6 +153,7 @@ def calcular_prognostico(
             DIVIDAS_QUE_CRESCEM=crescem,
             DEFICIT_MENSAL=deficit_mensal,
             DEFICIT_ACUMULADO=_deficit_acumulado(sem_acao, resultado, horizonte),
+            MESES_PRIMEIRA_VITORIA=sem_acao.MESES_PRIMEIRA_VITORIA,
         )
     )
 
@@ -182,6 +187,7 @@ def _com_extra(
             dinheiro(0), cenario_recomendado.CUSTO_FUTURO_TOTAL - cenario.CUSTO_FUTURO_TOTAL
         )
     return PrognosticoComExtra(
+        ATAQUE_MENSAL_TOTAL=total,
         MESES_ANTECIPADOS=antecipados,
         ECONOMIA_CUSTO=economia,
         CONTRIBUICAO_EXTRA_MENSAL=extra,

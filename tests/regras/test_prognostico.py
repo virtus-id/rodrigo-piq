@@ -76,6 +76,10 @@ def test_RF78_verde_so_com_contribuicao_extra_e_nunca_pior_que_o_plano(_snapshot
     azul = novo.cenarios[novo.METODO_RECOMENDADO_PIQ]
     assert verde.PRAZO_TOTAL <= azul.PRAZO_TOTAL
     assert verde.CUSTO_FUTURO_TOTAL <= azul.CUSTO_FUTURO_TOTAL
+    ataque = novo.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA
+    assert verde.ATAQUE_MENSAL_TOTAL == ataque + dinheiro(500)
+    vermelho = novo.prognostico.sem_acao  # type: ignore[union-attr]
+    assert vermelho.MESES_PRIMEIRA_VITORIA is None or vermelho.MESES_PRIMEIRA_VITORIA >= 1
     assert verde.MESES_ANTECIPADOS == azul.PRAZO_TOTAL - verde.PRAZO_TOTAL >= 0
     assert verde.ECONOMIA_CUSTO == azul.CUSTO_FUTURO_TOTAL - verde.CUSTO_FUTURO_TOTAL >= 0
     assert verde.MESES_ANTECIPADOS > 0 or verde.ECONOMIA_CUSTO > 0
@@ -102,3 +106,16 @@ def test_AC136_snapshot_anterior_sem_os_campos_de_diferenca_volta_com_zero() -> 
     antigo = _desserializar_snapshot(bruto).prognostico.com_extra  # type: ignore[union-attr]
     assert antigo is not None
     assert antigo.MESES_ANTECIPADOS == 0 and antigo.ECONOMIA_CUSTO == dinheiro(0)
+
+
+@pytest.mark.regra
+def test_T174_snapshot_anterior_sem_os_campos_novos_volta_com_none() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    novo = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1"))
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    bruto["prognostico"]["sem_acao"].pop("MESES_PRIMEIRA_VITORIA")
+    bruto["prognostico"]["com_extra"].pop("ATAQUE_MENSAL_TOTAL")
+    antigo = _desserializar_snapshot(bruto).prognostico
+    assert antigo is not None and antigo.com_extra is not None
+    assert antigo.sem_acao.MESES_PRIMEIRA_VITORIA is None
+    assert antigo.com_extra.ATAQUE_MENSAL_TOTAL is None

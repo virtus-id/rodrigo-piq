@@ -13915,3 +13915,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Testes (pytest e vitest); título "Seu prognóstico: qual caminho seguir?"
 
 **Status:** `[x] concluída (2026-10-07)`; frases pendentes de aprovação (rodada 10)
+
+### `T-374` — "Seu plano em números" vira a projeção em linhas
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-174`, `T-373` · **Rastreia:** `RF-126`, `AC-198`
+- [x] Capítulo 5 mostra as linhas (valor a mais por mês, primeira quitação, custo futuro); capítulo do prognóstico deixa de existir (13 capítulos)
+- [x] Sem prognóstico, mantém os três números; testes (pytest e vitest)
+
+**Status:** `[x] concluída (2026-10-07)`; frases pendentes de aprovação (rodada 10)

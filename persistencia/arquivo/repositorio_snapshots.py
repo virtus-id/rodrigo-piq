@@ -707,6 +707,11 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
                 MESES_PRIMEIRA_VITORIA=extra["MESES_PRIMEIRA_VITORIA"],
                 ESTOUROU_HORIZONTE=extra["ESTOUROU_HORIZONTE"],
                 # RF-78 (T-173): snapshot anterior não tem os dois campos.
+                ATAQUE_MENSAL_TOTAL=(
+                    None
+                    if extra.get("ATAQUE_MENSAL_TOTAL") is None
+                    else _decimal(extra["ATAQUE_MENSAL_TOTAL"])
+                ),
                 MESES_ANTECIPADOS=extra.get("MESES_ANTECIPADOS") or 0,
                 ECONOMIA_CUSTO=_decimal(extra.get("ECONOMIA_CUSTO") or "0"),
             )
@@ -719,6 +724,8 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
             DIVIDAS_QUE_CRESCEM=sem_acao["DIVIDAS_QUE_CRESCEM"],
             DEFICIT_MENSAL=_decimal(sem_acao["DEFICIT_MENSAL"]),
             DEFICIT_ACUMULADO=_decimal(sem_acao["DEFICIT_ACUMULADO"]),
+            # T-174: snapshot anterior não tem o campo.
+            MESES_PRIMEIRA_VITORIA=sem_acao.get("MESES_PRIMEIRA_VITORIA"),
         )
     )
 

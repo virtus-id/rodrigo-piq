@@ -779,10 +779,10 @@ sem_valor_extra: >-
 # RF-77/RF-78 — "Seu prognóstico: três caminhos". Texto de produto, a aprovar
 # (docs/textos-para-aprovacao.md, rodada 10). Sem ameaça: descreve a situação.
 prognostico:
-  titulo: "Seu prognóstico: qual caminho seguir?"
+  titulo: "Seu plano em números"
   introducao: >-
-    Três caminhos, na mesma escala de meses. São projeções feitas a partir das
-    suas respostas.
+    Veja o que acontece em cada caminho, na mesma escala de meses. São
+    projeções feitas a partir das suas respostas.
   vermelho_titulo: "Se nada mudar"
   vermelho_nota: "Só com o pagamento de hoje: sem guardar nada e sem pagar a mais."
   vermelho_veredito: "Em {prazo}, você ainda deve {saldo}."
@@ -799,10 +799,13 @@ prognostico:
   verde_veredito_sem_ganho: "Com esse valor extra, o prazo e o custo do plano não mudam."
   verde_veredito_nao_quita: "Mesmo com o valor extra, não quita tudo em 10 anos."
   marcador_zero: "dívida zero"
+  nenhum: "Nenhum"
+  nenhuma: "Nenhuma no período"
+  mes: "Mês"
+  rotulo_valor_a_mais: "Valor a mais por mês"
+  rotulo_primeira_quitacao: "Primeira dívida quitada"
   rotulo_hoje_deve: "Hoje você deve"
   rotulo_dividas_crescem: "Dívidas que crescem"
   rotulo_falta_por_mes: "Falta todo mês"
-  rotulo_valor_mensal: "Valor por mês"
-  rotulo_extra: "Valor extra por mês"
   rotulo_custo: "Custo futuro total"
   rotulo_economia: "A menos de custo"

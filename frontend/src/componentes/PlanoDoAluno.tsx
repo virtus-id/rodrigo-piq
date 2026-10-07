@@ -292,7 +292,11 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
         />
       )}
 
-      {!plano.MODO_ESTABILIZACAO && (
+      {/* "Seu plano em números": as três linhas da projeção; sem prognóstico (plano antigo), os três números. */}
+      {!plano.MODO_ESTABILIZACAO && plano.prognostico && !ordemVazia && (
+        <PrognosticoDoPlano prognostico={plano.prognostico} />
+      )}
+      {!plano.MODO_ESTABILIZACAO && !(plano.prognostico && !ordemVazia) && (
         <ResumoDoPlano
           prazoTotal={plano.PRAZO_TOTAL}
           custoFuturoTotal={plano.CUSTO_FUTURO_TOTAL}
@@ -345,10 +349,6 @@ export default function PlanoDoAluno({ plano, revisor }: PlanoDoAlunoProps) {
             textos={plano.linha_do_tempo_textos ?? {}}
           />
         </section>
-      )}
-
-      {!plano.MODO_ESTABILIZACAO && !ordemVazia && plano.prognostico && (
-        <PrognosticoDoPlano prognostico={plano.prognostico} />
       )}
 
       {/*

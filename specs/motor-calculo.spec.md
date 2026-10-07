@@ -706,6 +706,7 @@ Atende: `RF-70`, `RF-71`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76`
 | `AC-134` | `US-27` | Dada uma dívida cuja parcela não cobre os juros, então o saldo dela no horizonte é maior que o inicial e `prognostico` marca que ela não se quita sozinha; dado estado sem dívidas simuláveis, `prognostico` é `None` |
 | `AC-135` | `US-27` | Dado `CONTRIBUICAO_EXTRA_MENSAL` positiva, quando `calcular_plano` rodar, então `prognostico.com_extra` traz prazo e custo futuro **não maiores** que os do cenário recomendado, e a ordem do plano não muda; sem a contribuição (ou com zero), `com_extra` é `None` |
 | `AC-136` | `US-27` | Dada `CONTRIBUICAO_EXTRA_MENSAL` positiva, então `com_extra.MESES_ANTECIPADOS` e `com_extra.ECONOMIA_CUSTO` são a diferença entre o plano recomendado e o verde (≥ 0); snapshot gravado antes desses campos volta com zero |
+| `AC-137` | `US-27` | Dado um prognóstico calculado, então `sem_acao.MESES_PRIMEIRA_VITORIA` é o mês da primeira dívida quitada sozinha (ou `None`) e, com valor extra, `com_extra.ATAQUE_MENSAL_TOTAL` é o ataque do plano mais o extra; snapshot anterior volta com `None` nos dois |
 
 ## 5. Non-Functional Requirements
 
