@@ -13906,3 +13906,12 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Testes (pytest e vitest); ordem dos capítulos atualizada (14)
 
 **Status:** `[x] concluída (2026-10-06)`; frases pendentes de aprovação (rodada 10)
+
+### `T-373` — Prognóstico em linhas (veredito, barra e até três números)
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-173`, `T-372` · **Rastreia:** `RF-126`, `AC-198`
+- [x] `ContextoCaminho` com veredito, nota, marcador, destaques e geometria; textos em `textos-canonicos.yaml`
+- [x] Linhas empilhadas na tela e no PDF, mesma escala, sombra do plano no verde
+- [x] Testes (pytest e vitest); título "Seu prognóstico: qual caminho seguir?"
+
+**Status:** `[x] concluída (2026-10-07)`; frases pendentes de aprovação (rodada 10)

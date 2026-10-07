@@ -3061,5 +3061,5 @@ Servidor: payload do revisor × do aluno nos campos comuns e `JUSTIFICATIVA_POSI
 
 - **Coleta:** `B3.C01A` (`CONTRIBUICAO_EXTRA_MENSAL`, opcional, `MOEDA`) em `collection/registros/bloco-03.yaml`; `app/montagem/estado.py` só a lê (ausente, zero ou "não sei" → `None`).
 - **Servidor:** `report/plano.py` (`ContextoPrognostico`, `_prognostico`) lê `snapshot.prognostico` e o cenário recomendado, só formata; `app/http/serializacao_plano.py`; `report/pdf.py`. Textos em `textos-canonicos.yaml` (`prognostico`).
-- **Tela e PDF:** `PrognosticoDoPlano.tsx` e `plano.html` (capítulo 10, antes do checklist); cor azul `#1F5A96` na paleta validada (AA sobre branco).
+- **Tela e PDF (`T-373`):** uma linha por caminho com barra na mesma escala (`PrognosticoDoPlano.tsx`; `plano.html` + macro `barra_do_caminho` em `visuais.html`; geometria = razão de dois inteiros), capítulo 10, antes do checklist; cor azul `#1F5A96` na paleta validada (AA sobre branco).
 - **Motor:** `RF-77`/`RF-78` (slug `motor-calculo`, `T-169`/`T-170`).

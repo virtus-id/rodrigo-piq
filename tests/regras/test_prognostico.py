@@ -76,6 +76,9 @@ def test_RF78_verde_so_com_contribuicao_extra_e_nunca_pior_que_o_plano(_snapshot
     azul = novo.cenarios[novo.METODO_RECOMENDADO_PIQ]
     assert verde.PRAZO_TOTAL <= azul.PRAZO_TOTAL
     assert verde.CUSTO_FUTURO_TOTAL <= azul.CUSTO_FUTURO_TOTAL
+    assert verde.MESES_ANTECIPADOS == azul.PRAZO_TOTAL - verde.PRAZO_TOTAL >= 0
+    assert verde.ECONOMIA_CUSTO == azul.CUSTO_FUTURO_TOTAL - verde.CUSTO_FUTURO_TOTAL >= 0
+    assert verde.MESES_ANTECIPADOS > 0 or verde.ECONOMIA_CUSTO > 0
     assert novo.ORDEM_QUITACAO == _snapshot.ORDEM_QUITACAO or novo.ORDEM_QUITACAO
     bruto = json.loads(json.dumps(_serializar_canonico(novo)))
     assert _desserializar_snapshot(bruto).prognostico == novo.prognostico
@@ -87,3 +90,15 @@ def test_RF78_extra_zero_nao_gera_verde() -> None:
     estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(0))
     p = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1")).prognostico
     assert p is not None and p.com_extra is None
+
+
+@pytest.mark.regra
+def test_AC136_snapshot_anterior_sem_os_campos_de_diferenca_volta_com_zero() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    novo = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1"))
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    for chave in ("MESES_ANTECIPADOS", "ECONOMIA_CUSTO"):
+        bruto["prognostico"]["com_extra"].pop(chave)
+    antigo = _desserializar_snapshot(bruto).prognostico.com_extra  # type: ignore[union-attr]
+    assert antigo is not None
+    assert antigo.MESES_ANTECIPADOS == 0 and antigo.ECONOMIA_CUSTO == dinheiro(0)

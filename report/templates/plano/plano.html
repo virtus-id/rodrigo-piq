@@ -227,26 +227,28 @@
         .conquista { padding: 6mm 7mm; border: 2px solid #8A5A00; }
 
         /* Prognóstico: três caminhos ------------------------------------- */
-        .caminhos { display: flex; gap: 4mm; }
         .caminho {
-            flex: 1;
             background: #FFFFFF;
-            border: 2px solid #D9E0DC;
-            border-top-width: 2.5mm;
-            border-radius: 4mm;
-            padding: 4mm;
+            border: 1px solid #D9E0DC;
+            border-left-width: 2.5mm;
+            border-radius: 3mm;
+            padding: 3mm 4mm;
+            margin-bottom: 3.5mm;
             break-inside: avoid;
         }
-        .caminho h3 { margin: 0 0 2mm 0; font-size: 12pt; }
-        .caminho p { margin: 0 0 3mm 0; font-size: 9.5pt; }
-        .caminho dl { margin: 0; }
-        .caminho dt { font-size: 9pt; color: #5E6E72; margin-top: 2mm; }
-        .caminho dd { margin: 0; font-size: 12pt; font-weight: bold; }
-        .caminho-vermelho { border-top-color: #A63A2C; }
+        .caminho-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; }
+        .caminho h3 { margin: 0; font-size: 12pt; }
+        .caminho-veredito { margin: 0; font-size: 12pt; font-weight: bold; text-align: right; }
+        .caminho-nota { margin: 0.5mm 0 1mm 0; font-size: 9pt; color: #5E6E72; }
+        .caminho-destaques { display: flex; flex-wrap: wrap; gap: 2mm 8mm; margin: 1mm 0 0 0; }
+        .caminho-destaques div { min-width: 30mm; }
+        .caminho-destaques dt { font-size: 8.5pt; color: #5E6E72; }
+        .caminho-destaques dd { margin: 0; font-size: 11pt; font-weight: bold; }
+        .caminho-vermelho { border-left-color: #A63A2C; }
         .caminho-vermelho h3 { color: #A63A2C; }
-        .caminho-azul { border-top-color: #1F5A96; }
+        .caminho-azul { border-left-color: #1F5A96; }
         .caminho-azul h3 { color: #1F5A96; }
-        .caminho-verde { border-top-color: #0F6E56; }
+        .caminho-verde { border-left-color: #0F6E56; }
         .caminho-verde h3 { color: #0F6E56; }
 
         /* Como funciona ------------------------------------------------- */
@@ -598,23 +600,25 @@
 
     {% if prognostico %}
     {% set ns.n = ns.n + 1 %}
-    <section class="secao">
+    <section class="secao" style="break-inside: avoid;">
         {{ visuais.cabecalho_da_secao(ns.n, prognostico.titulo, "prazo") }}
         <p class="intro">{{ prognostico.introducao }}</p>
-        <div class="caminhos">
-            {% for caminho in prognostico.caminhos %}
-            <div class="caminho caminho-{{ caminho.cor }}">
+        {% set mes = textos.grade_meses.get("rotulo_mes", "Mês") %}
+        {% for caminho in prognostico.caminhos %}
+        <div class="caminho caminho-{{ caminho.cor }}">
+            <div class="caminho-topo">
                 <h3>{{ caminho.titulo }}</h3>
-                <p>{{ caminho.descricao }}</p>
-                <dl>
-                    {% for rotulo, valor in caminho.linhas %}
-                    <dt>{{ rotulo }}</dt>
-                    <dd>{{ valor }}</dd>
-                    {% endfor %}
-                </dl>
+                <p class="caminho-veredito">{{ caminho.veredito }}</p>
             </div>
-            {% endfor %}
+            <p class="caminho-nota">{{ caminho.nota }}</p>
+            {{ visuais.barra_do_caminho(caminho, caminho.titulo ~ ". " ~ caminho.veredito, mes ~ " 1", mes ~ " " ~ caminho.escala) }}
+            <dl class="caminho-destaques">
+                {% for rotulo, valor in caminho.destaques %}
+                <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
+                {% endfor %}
+            </dl>
         </div>
+        {% endfor %}
     </section>
     {% endif %}
 

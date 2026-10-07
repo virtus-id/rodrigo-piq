@@ -706,6 +706,9 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
                 CUSTO_FUTURO_TOTAL=_decimal(extra["CUSTO_FUTURO_TOTAL"]),
                 MESES_PRIMEIRA_VITORIA=extra["MESES_PRIMEIRA_VITORIA"],
                 ESTOUROU_HORIZONTE=extra["ESTOUROU_HORIZONTE"],
+                # RF-78 (T-173): snapshot anterior não tem os dois campos.
+                MESES_ANTECIPADOS=extra.get("MESES_ANTECIPADOS") or 0,
+                ECONOMIA_CUSTO=_decimal(extra.get("ECONOMIA_CUSTO") or "0"),
             )
         ),
         sem_acao=PrognosticoSemAcao(

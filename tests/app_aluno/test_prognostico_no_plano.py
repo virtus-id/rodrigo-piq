@@ -68,3 +68,40 @@ def test_pdf_traz_os_tres_caminhos_com_os_numeros_do_snapshot() -> None:
     for classe in ("caminho-vermelho", "caminho-azul", "caminho-verde"):
         assert classe in html
     assert "Se nada mudar" in html and "Seguindo o seu plano" in html
+
+
+def _caminhos(snapshot: SnapshotOrdem):  # type: ignore[no-untyped-def]
+    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    assert contexto.prognostico is not None
+    return {caminho.cor: caminho for caminho in contexto.prognostico.caminhos}
+
+
+def test_cada_caminho_e_uma_linha_com_veredito_barra_e_no_maximo_tres_numeros() -> None:
+    caminhos = _caminhos(_snapshot(converter_para_dinheiro("500,00")))
+    for caminho in caminhos.values():
+        assert caminho.veredito and len(caminho.destaques) <= 3
+        assert 1 <= caminho.mes_fim <= caminho.escala
+    vermelho = caminhos["vermelho"].veredito
+    assert "ainda deve" in vermelho or "sozinhas" in vermelho
+    assert caminhos["azul"].veredito.startswith("Você quita tudo em")
+    assert caminhos["azul"].mes_fim == caminhos["azul"].escala
+    assert caminhos["verde"].mes_sombra == caminhos["verde"].escala
+    assert caminhos["verde"].mes_fim <= caminhos["azul"].mes_fim
+
+
+def test_verde_diz_quanto_antecipa_com_a_conta_vinda_do_motor() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    extra = snapshot.prognostico.com_extra  # type: ignore[union-attr]
+    assert extra is not None
+    verde = _caminhos(snapshot)["verde"]
+    if extra.MESES_ANTECIPADOS > 0:
+        assert "antes do plano" in verde.veredito
+        assert f"{extra.MESES_ANTECIPADOS} " in verde.veredito
+
+
+def test_pdf_mostra_uma_barra_por_caminho_na_mesma_escala() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    textos = carregar_textos_canonicos()
+    html = renderizar_html_do_plano(montar_contexto_plano(snapshot, textos), textos)
+    assert html.count('class="caminho caminho-') == 3
+    assert "Seu prognóstico: qual caminho seguir?" in html

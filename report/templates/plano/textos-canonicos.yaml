@@ -779,32 +779,30 @@ sem_valor_extra: >-
 # RF-77/RF-78 — "Seu prognóstico: três caminhos". Texto de produto, a aprovar
 # (docs/textos-para-aprovacao.md, rodada 10). Sem ameaça: descreve a situação.
 prognostico:
-  titulo: "Seu prognóstico: três caminhos"
+  titulo: "Seu prognóstico: qual caminho seguir?"
   introducao: >-
-    Veja onde você chegaria em cada caminho. São projeções feitas a partir das
-    respostas que você deu.
+    Três caminhos, na mesma escala de meses. São projeções feitas a partir das
+    suas respostas.
   vermelho_titulo: "Se nada mudar"
-  vermelho_descricao: >-
-    Cada dívida segue só com o pagamento de hoje: sem guardar nada e sem pagar
-    a mais. Quando uma dívida acaba, o valor que ela liberava não é usado nas
-    outras.
+  vermelho_nota: "Só com o pagamento de hoje: sem guardar nada e sem pagar a mais."
+  vermelho_veredito: "Em {prazo}, você ainda deve {saldo}."
+  vermelho_veredito_zerado: "Em {prazo}, suas dívidas teriam acabado sozinhas."
+  vermelho_marcador: "ainda deve {saldo}"
   azul_titulo: "Seguindo o seu plano"
-  azul_descricao: >-
-    É o plano que você acabou de ler: todo mês, o valor destinado vai para a
-    dívida da vez.
-  verde_titulo: "Seu plano com um esforço extra"
-  verde_descricao: >-
-    O mesmo plano, com o valor extra que você disse conseguir acrescentar todo
-    mês.
+  azul_nota: "O plano que você acabou de ler, todo mês."
+  azul_veredito: "Você quita tudo em {prazo}."
+  azul_veredito_nao_quita: "Neste ritmo, o plano não quita tudo em 10 anos."
+  verde_titulo: "Plano acelerado"
+  verde_nota: "O mesmo plano, com o valor extra que você disse conseguir acrescentar."
+  verde_veredito: "Você quita tudo em {prazo}: {antecipados} antes do plano."
+  verde_veredito_mesmo_prazo: "Você quita no mesmo prazo e paga {economia} a menos."
+  verde_veredito_sem_ganho: "Com esse valor extra, o prazo e o custo do plano não mudam."
+  verde_veredito_nao_quita: "Mesmo com o valor extra, não quita tudo em 10 anos."
+  marcador_zero: "dívida zero"
   rotulo_hoje_deve: "Hoje você deve"
-  rotulo_depois_deve: "Em {prazo}, você ainda deveria"
-  rotulo_dividas_crescem: "Dívidas que crescem em vez de diminuir"
+  rotulo_dividas_crescem: "Dívidas que crescem"
   rotulo_falta_por_mes: "Falta todo mês"
-  rotulo_falta_acumulada: "Falta acumulada no período, sem contar os juros do que faltar"
-  rotulo_prazo: "Prazo para quitar tudo"
-  rotulo_custo: "Custo futuro total"
-  rotulo_valor_mensal: "Valor destinado por mês"
+  rotulo_valor_mensal: "Valor por mês"
   rotulo_extra: "Valor extra por mês"
-  rotulo_primeira_quitacao: "Primeira dívida quitada"
-  nao_quita: "Não quita em 10 anos"
-  mes: "Mês"
+  rotulo_custo: "Custo futuro total"
+  rotulo_economia: "A menos de custo"

@@ -207,3 +207,23 @@
     <span class="secao-icone">{{ icone(icone_nome) }}</span>
 </div>
 {% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Barra de um caminho do prognóstico. `mes_fim` e `escala` são inteiros
+   (contagem de meses): a largura é a razão entre eles, GEOMETRIA de
+   desenho, nunca exibida como dado — o texto é `marcador`, já pronto. Todos
+   os caminhos usam a mesma `escala`, então as barras se comparam a olho. O
+   verde leva a `mes_sombra` (fim do plano azul) como contorno tracejado. --- #}
+{% macro barra_do_caminho(caminho, aria_label, eixo_inicio, eixo_fim) %}
+{% set cor = {"vermelho": "#A63A2C", "azul": "#1F5A96", "verde": "#0F6E56"}[caminho.cor] %}
+{% set x_fim = 560 * (caminho.mes_fim / caminho.escala) if caminho.escala else 0 %}
+{% set x_sombra = 560 * (caminho.mes_sombra / caminho.escala) if caminho.mes_sombra and caminho.escala else 0 %}
+<svg viewBox="0 0 600 58" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{{ aria_label }}" focusable="false" style="width:100%;height:auto">
+    {% if caminho.marcador %}<text x="{{ [x_fim, 150] | max }}" y="12" font-size="13" font-weight="bold" text-anchor="end" fill="#1B2A2F">{{ caminho.marcador }}</text>{% endif %}
+    <rect x="0" y="22" width="560" height="14" rx="7" fill="#D9E0DC"></rect>
+    <rect x="0" y="22" width="{{ x_fim }}" height="14" rx="7" fill="{{ cor }}"></rect>
+    {% if x_sombra %}<rect x="0" y="21" width="{{ x_sombra }}" height="16" rx="8" fill="none" stroke="#1F5A96" stroke-width="1.5" stroke-dasharray="4 3"></rect>{% endif %}
+    <text x="0" y="52" font-size="10" fill="#5E6E72">{{ eixo_inicio }}</text>
+    <text x="560" y="52" font-size="10" text-anchor="end" fill="#5E6E72">{{ eixo_fim }}</text>
+</svg>
+{% endmacro %}

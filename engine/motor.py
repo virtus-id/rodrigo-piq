@@ -574,7 +574,13 @@ def calcular_plano(
             cenario_recomendado=cenario_recomendado,
             parametros=parametros,
             selecionar_alvo=sel_por_metodo[metodo_recomendado],
-            aportes=aportes_base_por_mes,
+            aportes_do_verde=aportes_por_mes(
+                selecionar_aportes(
+                    estado.recursos_extraordinarios,
+                    certezas=frozenset(CERTEZA_RECURSO_EXTRAORDINARIO),
+                    RESULTADO_MENSAL_ATUAL=diagnostico_pre.RESULTADO_MENSAL_ATUAL,
+                )[0]
+            ),
         )
 
         # Segunda passada de Diagnostico (RF-66/RF-68, OQ-44 decisão (2),

@@ -173,7 +173,7 @@ def test_capitulos_do_pdf_seguem_a_ordem_definida_pelo_produto() -> None:
         ("7", "O que fazer no Mês 1"),
         ("8", "Sua primeira dívida quitada"),
         ("9", "Quando cada dívida termina"),
-        ("10", "Seu prognóstico: três caminhos"),
+        ("10", "Seu prognóstico: qual caminho seguir?"),
         ("11", "Seu checklist do Mês 1"),
         ("12", "O que falta informar"),
         ("13", "O curso Servidor Sem Dívidas e o seu plano"),

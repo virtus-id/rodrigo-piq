@@ -1229,12 +1229,19 @@ def _passo_atual(
 
 @dataclass(frozen=True, slots=True)
 class ContextoCaminho:
-    """Um dos três caminhos do prognóstico; tudo já em texto (`RF-13`)."""
+    """Uma linha do prognóstico; tudo já em texto (`RF-13`). `mes_fim`,
+    `escala` e `mes_sombra` são inteiros só para a GEOMETRIA da barra (razão de
+    dois inteiros, como em `visuais.html`) — nunca exibidos como dado."""
 
     cor: str  # "vermelho" | "azul" | "verde"
     titulo: str
-    descricao: str
-    linhas: tuple[tuple[str, str], ...]  # (rótulo, valor)
+    veredito: str  # a frase que o aluno lê primeiro
+    nota: str  # uma linha de explicação, em letra pequena
+    marcador: str  # texto na ponta da barra ("dívida zero", "ainda deve R$ …")
+    destaques: tuple[tuple[str, str], ...]  # até 3 (rótulo, valor)
+    mes_fim: int
+    escala: int
+    mes_sombra: int | None = None  # fim do plano azul, atrás da barra do verde
 
 
 @dataclass(frozen=True, slots=True)
@@ -1244,83 +1251,104 @@ class ContextoPrognostico:
     caminhos: tuple[ContextoCaminho, ...]
 
 
-def _prazo_do_prognostico(meses: int, estourou: bool, textos: Mapping[str, str]) -> str:
-    return textos.get("nao_quita", "") if estourou else _formatar_meses(meses)
-
-
-def _mes_da_primeira_quitacao(mes: int | None, textos: Mapping[str, str]) -> tuple[str, str]:
-    return (textos.get("rotulo_primeira_quitacao", ""), f"{textos.get('mes', 'Mês')} {mes}")
-
-
 def _prognostico(
     snapshot: Any, cenario_recomendado: Any, textos: TextosCanonicosPlano
 ) -> ContextoPrognostico | None:
     """`RF-77`/`RF-78` — LÊ `snapshot.prognostico` e o cenário recomendado; só
-    formata e compara (nenhuma conta, `AC-42`). `None` sem prognóstico (snapshot
-    antigo) ou em estabilização."""
+    formata e compara (nenhuma conta, `AC-42`: a diferença verde × azul vem
+    pronta do motor). `None` sem prognóstico (snapshot antigo) ou em
+    estabilização. Sem valor extra informado, só vermelho e azul."""
     t = textos.prognostico
     prog = snapshot.prognostico
     if prog is None or not t or snapshot.diagnostico.MODO_ESTABILIZACAO:
         return None
     sem = prog.sem_acao
-    linhas_vermelho = [
-        (t.get("rotulo_hoje_deve", ""), formatar_dinheiro_br(sem.SALDO_INICIAL_TOTAL)),
-        (
-            t.get("rotulo_depois_deve", "").format(prazo=_formatar_meses(sem.HORIZONTE_MESES)),
-            formatar_dinheiro_br(sem.SALDO_NO_HORIZONTE),
-        ),
+    escala = max(1, sem.HORIZONTE_MESES)
+    prazo_horizonte = _formatar_meses(sem.HORIZONTE_MESES)
+    saldo = formatar_dinheiro_br(sem.SALDO_NO_HORIZONTE)
+
+    destaques_vermelho = [
+        (t.get("rotulo_hoje_deve", ""), formatar_dinheiro_br(sem.SALDO_INICIAL_TOTAL))
     ]
-    if sem.DIVIDAS_QUE_CRESCEM > 0:
-        linhas_vermelho.append((t.get("rotulo_dividas_crescem", ""), str(sem.DIVIDAS_QUE_CRESCEM)))
     if sem.DEFICIT_MENSAL > 0:
-        linhas_vermelho.append(
+        destaques_vermelho.append(
             (t.get("rotulo_falta_por_mes", ""), formatar_dinheiro_br(sem.DEFICIT_MENSAL))
         )
-        linhas_vermelho.append(
-            (t.get("rotulo_falta_acumulada", ""), formatar_dinheiro_br(sem.DEFICIT_ACUMULADO))
+    if sem.DIVIDAS_QUE_CRESCEM > 0:
+        destaques_vermelho.append(
+            (t.get("rotulo_dividas_crescem", ""), str(sem.DIVIDAS_QUE_CRESCEM))
         )
-    linhas_azul = [
-        (
-            t.get("rotulo_prazo", ""),
-            _prazo_do_prognostico(
-                cenario_recomendado.PRAZO_TOTAL, cenario_recomendado.ESTOUROU_HORIZONTE, t
+    zerado = sem.SALDO_NO_HORIZONTE == 0
+    vermelho = ContextoCaminho(
+        cor="vermelho",
+        titulo=t.get("vermelho_titulo", ""),
+        veredito=t.get("vermelho_veredito_zerado" if zerado else "vermelho_veredito", "").format(
+            prazo=prazo_horizonte, saldo=saldo
+        ),
+        nota=t.get("vermelho_nota", ""),
+        marcador="" if zerado else t.get("vermelho_marcador", "").format(saldo=saldo),
+        destaques=tuple(destaques_vermelho[:3]),
+        mes_fim=escala,
+        escala=escala,
+    )
+
+    estourou = cenario_recomendado.ESTOUROU_HORIZONTE
+    azul = ContextoCaminho(
+        cor="azul",
+        titulo=t.get("azul_titulo", ""),
+        veredito=t.get("azul_veredito_nao_quita" if estourou else "azul_veredito", "").format(
+            prazo=_formatar_meses(cenario_recomendado.PRAZO_TOTAL)
+        ),
+        nota=t.get("azul_nota", ""),
+        marcador="" if estourou else t.get("marcador_zero", ""),
+        destaques=(
+            (
+                t.get("rotulo_valor_mensal", ""),
+                formatar_dinheiro_br(snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA),
+            ),
+            (
+                t.get("rotulo_custo", ""),
+                formatar_dinheiro_br(cenario_recomendado.CUSTO_FUTURO_TOTAL),
             ),
         ),
-        (t.get("rotulo_custo", ""), formatar_dinheiro_br(cenario_recomendado.CUSTO_FUTURO_TOTAL)),
-        (
-            t.get("rotulo_valor_mensal", ""),
-            formatar_dinheiro_br(snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA),
-        ),
-    ]
-    if cenario_recomendado.MESES_PRIMEIRA_VITORIA is not None:
-        linhas_azul.append(
-            _mes_da_primeira_quitacao(cenario_recomendado.MESES_PRIMEIRA_VITORIA, t)
-        )
-    caminhos = [
-        ContextoCaminho(
-            "vermelho", t.get("vermelho_titulo", ""), t.get("vermelho_descricao", ""),
-            tuple(linhas_vermelho),
-        ),
-        ContextoCaminho(
-            "azul", t.get("azul_titulo", ""), t.get("azul_descricao", ""), tuple(linhas_azul)
-        ),
-    ]
+        mes_fim=escala,
+        escala=escala,
+    )
+    caminhos = [vermelho, azul]
+
     extra = prog.com_extra
     if extra is not None:
-        linhas_verde = [
-            (t.get("rotulo_extra", ""), formatar_dinheiro_br(extra.CONTRIBUICAO_EXTRA_MENSAL)),
-            (
-                t.get("rotulo_prazo", ""),
-                _prazo_do_prognostico(extra.PRAZO_TOTAL, extra.ESTOUROU_HORIZONTE, t),
-            ),
+        valor_extra = formatar_dinheiro_br(extra.CONTRIBUICAO_EXTRA_MENSAL)
+        economia = formatar_dinheiro_br(extra.ECONOMIA_CUSTO)
+        if extra.ESTOUROU_HORIZONTE:
+            chave = "verde_veredito_nao_quita"
+        elif extra.MESES_ANTECIPADOS > 0:
+            chave = "verde_veredito"
+        elif extra.ECONOMIA_CUSTO > 0:
+            chave = "verde_veredito_mesmo_prazo"
+        else:
+            chave = "verde_veredito_sem_ganho"
+        destaques_verde = [
+            (t.get("rotulo_extra", ""), valor_extra),
             (t.get("rotulo_custo", ""), formatar_dinheiro_br(extra.CUSTO_FUTURO_TOTAL)),
         ]
-        if extra.MESES_PRIMEIRA_VITORIA is not None:
-            linhas_verde.append(_mes_da_primeira_quitacao(extra.MESES_PRIMEIRA_VITORIA, t))
+        if extra.ECONOMIA_CUSTO > 0:
+            destaques_verde.append((t.get("rotulo_economia", ""), economia))
         caminhos.append(
             ContextoCaminho(
-                "verde", t.get("verde_titulo", ""), t.get("verde_descricao", ""),
-                tuple(linhas_verde),
+                cor="verde",
+                titulo=t.get("verde_titulo", "").format(extra=valor_extra),
+                veredito=t.get(chave, "").format(
+                    prazo=_formatar_meses(extra.PRAZO_TOTAL),
+                    antecipados=_formatar_meses(extra.MESES_ANTECIPADOS),
+                    economia=economia,
+                ),
+                nota=t.get("verde_nota", ""),
+                marcador="" if extra.ESTOUROU_HORIZONTE else t.get("marcador_zero", ""),
+                destaques=tuple(destaques_verde),
+                mes_fim=min(extra.PRAZO_TOTAL, escala) if extra.PRAZO_TOTAL else escala,
+                escala=escala,
+                mes_sombra=escala,
             )
         )
     return ContextoPrognostico(

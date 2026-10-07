@@ -193,5 +193,5 @@ Todos **pendentes de aprovação** e de validação do especialista. Texto no ar
 | 70 | Perguntas frequentes reescritas com resposta fechada (5 perguntas; a de dinheiro extra saiu) | `duvidas` |
 | 71 | Aviso de nota alta e introdução das orientações, sem citar a equipe | `incomodo.aviso`, `curso_ssd.melhorar_intro` |
 | 69 | Texto lido por leitor de tela ("Entra" e "Sai") junto dos sinais + e − no ponto de partida | `ponto_de_partida.entrada_rotulo`, `ponto_de_partida.saida_rotulo` |
-| 72 | Capítulo "Seu prognóstico: três caminhos": introdução, títulos, descrições e rótulos dos três caminhos | `prognostico.*` |
+| 72 | Capítulo "Seu prognóstico: qual caminho seguir?": introdução, título, veredito, nota e rótulos de cada linha (vermelho, azul, verde) | `prognostico.*` |
 | 73 | Pergunta nova: "Se você fizesse um esforço extra, quanto a mais por mês conseguiria acrescentar...?" | `B3.C01A` (`collection/registros/bloco-03.yaml`) |

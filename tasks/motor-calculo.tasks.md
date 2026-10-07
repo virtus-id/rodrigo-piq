@@ -7518,3 +7518,14 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Rehash deliberado
 
 **Status:** `[x] concluída`
+
+### `T-173` — Prognóstico verde: diferença para o plano e recursos extraordinários
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-170` · **Rastreia:** `RF-78`, `AC-136`
+- **Arquivos:** `engine/prognostico.py`, `engine/motor.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] `MESES_ANTECIPADOS` e `ECONOMIA_CUSTO` em `PrognosticoComExtra`
+- [x] Verde com todos os aportes extraordinários possíveis
+- [x] Persistência lê os dois campos (snapshot anterior → zero); rehash; testes
+
+**Status:** `[x] concluída`

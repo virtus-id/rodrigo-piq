@@ -485,8 +485,15 @@ export interface PassoAtual {
 export interface CaminhoDoPrognostico {
   cor: 'vermelho' | 'azul' | 'verde'
   titulo: string
-  descricao: string
-  linhas: { rotulo: string; valor: string }[]
+  veredito: string
+  nota: string
+  /** Texto na ponta da barra ("dívida zero", "ainda deve R$ …"); vazio some. */
+  marcador: string
+  destaques: { rotulo: string; valor: string }[]
+  /** Só geometria da barra (meses): nunca exibidos como dado. */
+  mes_fim: number
+  escala: number
+  mes_sombra: number | null
 }
 
 export interface PrognosticoDoPlano {

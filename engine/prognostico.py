@@ -61,6 +61,11 @@ class PrognosticoComExtra:
     CUSTO_FUTURO_TOTAL: Dinheiro
     MESES_PRIMEIRA_VITORIA: Meses | None
     ESTOUROU_HORIZONTE: bool
+    #: Prazo do plano recomendado menos o prazo do verde (nunca negativo) — a
+    #: conta é do motor, o app só lê (Lei nº 3).
+    MESES_ANTECIPADOS: Meses = 0
+    #: Custo futuro do plano recomendado menos o do verde (nunca negativo).
+    ECONOMIA_CUSTO: Dinheiro = dinheiro(0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,11 +93,12 @@ def calcular_prognostico(
     cenario_recomendado: Cenario,
     parametros: Parametros,
     selecionar_alvo: SelecionarAlvo | None = None,
-    aportes: Mapping[Meses, Dinheiro] | None = None,
+    aportes_do_verde: Mapping[Meses, Dinheiro] | None = None,
 ) -> Prognostico | None:
     """`RF-77` — `None` sem dívida simulável (`AC-134`). `RF-78` — com
     `estado.CONTRIBUICAO_EXTRA_MENSAL` > 0 e o seletor do método recomendado,
-    simula também o verde (mesmo método e mesmos aportes do plano base)."""
+    simula também o verde: mesmo método, ataque somado do valor extra e
+    `aportes_do_verde` (recursos extraordinários, de qualquer certeza)."""
     if not dividas:
         return None
 
@@ -127,7 +133,13 @@ def calcular_prognostico(
 
     return Prognostico(
         com_extra=_com_extra(
-            estado, diagnostico_pre, dividas, parametros, selecionar_alvo, aportes
+            estado,
+            diagnostico_pre,
+            dividas,
+            parametros,
+            selecionar_alvo,
+            aportes_do_verde,
+            cenario_recomendado,
         ),
         sem_acao=PrognosticoSemAcao(
             HORIZONTE_MESES=horizonte,
@@ -148,6 +160,7 @@ def _com_extra(
     parametros: Parametros,
     selecionar_alvo: SelecionarAlvo | None,
     aportes: Mapping[Meses, Dinheiro] | None,
+    cenario_recomendado: Cenario,
 ) -> PrognosticoComExtra | None:
     extra = estado.CONTRIBUICAO_EXTRA_MENSAL
     capacidade = diagnostico_pre.CAPACIDADE_ATAQUE_CONSERVADORA
@@ -163,7 +176,14 @@ def _com_extra(
         parametros,
         aportes if aportes is not None else {},
     )
+    with localcontext(CONTEXTO_MOTOR):
+        antecipados = max(0, cenario_recomendado.PRAZO_TOTAL - cenario.PRAZO_TOTAL)
+        economia = max(
+            dinheiro(0), cenario_recomendado.CUSTO_FUTURO_TOTAL - cenario.CUSTO_FUTURO_TOTAL
+        )
     return PrognosticoComExtra(
+        MESES_ANTECIPADOS=antecipados,
+        ECONOMIA_CUSTO=economia,
         CONTRIBUICAO_EXTRA_MENSAL=extra,
         PRAZO_TOTAL=cenario.PRAZO_TOTAL,
         CUSTO_FUTURO_TOTAL=cenario.CUSTO_FUTURO_TOTAL,

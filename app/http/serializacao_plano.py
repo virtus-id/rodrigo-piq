@@ -337,10 +337,15 @@ def serializar_plano(
                 {
                     "cor": caminho.cor,
                     "titulo": caminho.titulo,
-                    "descricao": caminho.descricao,
-                    "linhas": [
-                        {"rotulo": rotulo, "valor": valor} for rotulo, valor in caminho.linhas
+                    "veredito": caminho.veredito,
+                    "nota": caminho.nota,
+                    "marcador": caminho.marcador,
+                    "destaques": [
+                        {"rotulo": rotulo, "valor": valor} for rotulo, valor in caminho.destaques
                     ],
+                    "mes_fim": caminho.mes_fim,
+                    "escala": caminho.escala,
+                    "mes_sombra": caminho.mes_sombra,
                 }
                 for caminho in contexto.prognostico.caminhos
             ],
