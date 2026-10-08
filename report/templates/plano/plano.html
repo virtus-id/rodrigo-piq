@@ -433,38 +433,50 @@
         /* Página de cada mês (cap. 7): modelo para imprimir e acompanhar. */
         @page { @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #5E6E72; } }
         .pagina-mes { break-before: page; break-inside: avoid; }
-        .pm-topo { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3mm; }
-        .pm-marca { font-size: 9.5pt; font-weight: bold; color: #0F6E56; letter-spacing: 0.3mm; }
-        .pm-anexo { font-size: 9pt; font-weight: bold; color: #5E6E72; margin-top: 1.5mm; }
-        .pm-voltar { font-size: 9pt; font-weight: bold; color: #1B2A2F; text-decoration: none; background: #FAFAF7; border: 1px solid #D9E0DC; border-radius: 3mm; padding: 2.5mm 6mm; }
-        .pm-titulo { font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; font-size: 22pt; line-height: 1.15; margin: 3mm 0 2mm 0; }
+        .pm-topo { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5mm; }
+        .pm-marca { font-size: 9pt; font-weight: bold; color: #0F6E56; letter-spacing: 0.3mm; }
+        .pm-anexo { font-size: 8.5pt; font-weight: bold; color: #5E6E72; margin-top: 1mm; }
+        .pm-voltar { font-size: 8.5pt; font-weight: bold; color: #1B2A2F; text-decoration: none; background: #FAFAF7; border: 1px solid #D9E0DC; border-radius: 3mm; padding: 2mm 5mm; }
+        .pm-titulo { font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; font-size: 19pt; line-height: 1.15; margin: 2mm 0 1mm 0; }
         .pagina-mes-azul .pm-titulo { color: #1F5A96; }
         .pagina-mes-verde .pm-titulo { color: #0F6E56; }
-        .pm-subtitulo { color: #5E6E72; margin-bottom: 4mm; }
-        .pm-periodo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
+        .pm-subtitulo { color: #5E6E72; font-size: 9.5pt; margin-bottom: 2mm; }
+        .pm-periodo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2mm; font-size: 10pt; min-height: 9mm; }
+        .pm-quitacao { display: inline-flex; align-items: center; gap: 3mm; font-weight: bold; color: #8A5A00; }
         .pm-quitacao span { white-space: nowrap; }
-        .pm-quitacao { display: inline-flex; align-items: center; gap: 4mm; font-weight: bold; color: #8A5A00; }
-        .pm-quitacao .icone { width: 11mm; height: 11mm; }
-        .pm-resumo { display: flex; background: #FAFAF7; border: 1px solid #D9E0DC; border-radius: 4mm; padding: 4mm 5mm; margin-bottom: 5mm; }
+        .pm-quitacao .icone { width: 9mm; height: 9mm; }
+        .pm-resumo { display: flex; background: #FAFAF7; border: 1px solid #D9E0DC; border-radius: 3mm; padding: 2.5mm 4mm; margin-bottom: 3mm; }
         .pm-resumo div { flex: 1; }
-        .pm-resumo span { display: block; font-size: 9.5pt; color: #5E6E72; }
-        .pm-resumo strong { display: block; font-size: 17pt; margin-top: 1mm; }
-        .pm-secao { font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; font-size: 11.5pt; font-weight: bold; margin: 4mm 0 2mm 0; break-after: avoid; }
-        .pm-tabela { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
-        .pm-tabela th, .pm-tabela td { text-align: right; padding: 2.2mm 2.5mm; border-bottom: 1px solid #D9E0DC; }
-        .pm-tabela thead th { background: #FAFAF7; font-size: 8.5pt; }
-        .pm-tabela .pm-esq { text-align: left; }
-        .pm-tabela th small { display: block; font-weight: normal; font-size: 7.5pt; color: #5E6E72; }
+        .pm-resumo span { display: block; font-size: 9pt; color: #5E6E72; line-height: 1.3; }
+        .pm-resumo strong { display: block; font-size: 15pt; margin-top: 0.5mm; line-height: 1.2; }
+        .pm-secao { font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; font-size: 10.5pt; font-weight: bold; margin: 3mm 0 1.5mm 0; break-after: avoid; }
+        .pm-tabela { width: 100%; border-collapse: collapse; font-size: 9pt; line-height: 1.25; }
+        .pm-tabela th, .pm-tabela td { text-align: right; padding: 1.4mm 2mm; border-bottom: 1px solid #D9E0DC; }
+        .pm-tabela thead th { background: #FAFAF7; font-size: 8pt; }
+        .pm-tabela .pm-esq { text-align: left; width: 40%; }
+        .pm-tabela th small { display: block; font-weight: normal; font-size: 7pt; color: #5E6E72; }
+        .pm-compacta .pm-tabela { font-size: 8pt; }
+        .pm-compacta .pm-tabela th, .pm-compacta .pm-tabela td { padding: 0.8mm 1.5mm; }
+        .pm-ultra .pm-tabela { font-size: 6.5pt; line-height: 1.05; }
+        .pm-ultra .pm-tabela th, .pm-ultra .pm-tabela td { padding: 0.1mm 0.8mm; }
+        .pm-ultra .pm-resumo, .pm-ultra .pm-executar, .pm-ultra .pm-secao, .pm-ultra .pm-fecha p { margin-bottom: 0.5mm; margin-top: 1mm; }
+        .pm-minima .pm-tabela { font-size: 7pt; line-height: 1.1; }
+        .pm-minima .pm-tabela th, .pm-minima .pm-tabela td { padding: 0.2mm 1mm; }
+        .pm-minima .pm-resumo, .pm-minima .pm-executar, .pm-minima .pm-secao { margin-bottom: 0.8mm; margin-top: 1.5mm; }
+        .pm-muito-compacta .pm-tabela { font-size: 7.5pt; line-height: 1.15; }
+        .pm-muito-compacta .pm-tabela th, .pm-muito-compacta .pm-tabela td { padding: 0.4mm 1.2mm; }
+        .pm-muito-compacta .pm-resumo, .pm-muito-compacta .pm-executar { margin-bottom: 1mm; }
         .pagina-mes-azul .pm-quita th, .pagina-mes-azul .pm-quita td { background: #E3ECF6; color: #1F5A96; font-weight: bold; }
         .pagina-mes-verde .pm-quita th, .pagina-mes-verde .pm-quita td { background: #E3F1EB; color: #0F6E56; font-weight: bold; }
         .pm-quita th small { color: inherit; font-weight: normal; }
-        .pm-regra { color: #5E6E72; margin-bottom: 1.5mm; }
-        .pm-conta { font-size: 12pt; font-weight: bold; margin-bottom: 1.5mm; }
-        .pm-executar { list-style: none; padding: 0; margin: 0 0 3mm 0; }
-        .pm-executar li { display: flex; gap: 3mm; align-items: flex-start; margin-bottom: 1.8mm; }
-        .quadrado { flex: none; display: inline-block; width: 4.5mm; height: 4.5mm; border: 1.5px solid #1B2A2F; border-radius: 1mm; margin-top: 0.8mm; }
-        .pm-nota { font-size: 8.5pt; color: #5E6E72; }
-        .pm-rodape { font-size: 8pt; color: #5E6E72; border-top: 1px solid #D9E0DC; padding-top: 2mm; margin-top: 4mm; }
+        .pm-regra { color: #5E6E72; font-size: 9.5pt; margin-bottom: 1mm; }
+        .pm-conta { font-size: 11pt; font-weight: bold; margin-bottom: 1mm; }
+        .pm-fecha p { font-size: 9.5pt; margin-bottom: 1mm; }
+        .pm-executar { list-style: none; padding: 0; margin: 0 0 2mm 0; font-size: 9.5pt; }
+        .pm-executar li { display: flex; gap: 3mm; align-items: flex-start; margin-bottom: 1.2mm; }
+        .quadrado { flex: none; display: inline-block; width: 4mm; height: 4mm; border: 1.5px solid #1B2A2F; border-radius: 1mm; margin-top: 0.6mm; }
+        .pm-nota { font-size: 8pt; color: #5E6E72; margin-bottom: 1mm; }
+        .pm-rodape { font-size: 7.5pt; color: #5E6E72; border-top: 1px solid #D9E0DC; padding-top: 1.5mm; margin-top: 2mm; }
 
         .nova-pagina { break-before: page; }
         .visual { margin: 0 0 3mm; }

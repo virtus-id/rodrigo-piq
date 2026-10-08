@@ -355,3 +355,57 @@ def test_plano_antigo_sem_detalhe_por_divida_usa_o_cartao_simples() -> None:
     textos = carregar_textos_canonicos()
     html = renderizar_html_do_plano(montar_contexto_plano(antigo, textos), textos)
     assert '<div class="cartao-mes ' in html and "Pagar a mais: " in html
+
+
+def _paginas_do_capitulo_7(n_dividas: int) -> tuple[int, int]:
+    """(meses, páginas do capítulo 7) com `n_dividas` linhas de nome longo em cada mês."""
+    from weasyprint import HTML
+
+    from report.plano import ContextoLinhaDoMes
+
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    textos = carregar_textos_canonicos()
+    contexto = montar_contexto_plano(snapshot, textos)
+    assert contexto.prognostico is not None
+    nome = "Empréstimo consignado (CAIXA ECONOMICA FEDERAL) · parcela R$ 292,55 · 2"
+    detalhes = []
+    for plano in contexto.prognostico.detalhes:
+        meses = []
+        for mes in plano.meses:
+            assert mes.pagina is not None
+            linhas = tuple(
+                ContextoLinhaDoMes(
+                    nome=f"{nome} {i}",
+                    saldo_antes="191.417,92",
+                    juros="1.800,93",
+                    habitual="1.948,18",
+                    extra="1.234,56",
+                    total="3.182,74",
+                    saldo_depois="191.270,67",
+                    quita=i == 0 and bool(mes.quitadas),
+                )
+                for i in range(n_dividas)
+            )
+            pagina = dataclasses.replace(mes.pagina, linhas=linhas)
+            meses.append(dataclasses.replace(mes, pagina=pagina))
+        detalhes.append(dataclasses.replace(plano, meses=tuple(meses)))
+    prognostico = dataclasses.replace(contexto.prognostico, detalhes=tuple(detalhes))
+    contexto = dataclasses.replace(contexto, prognostico=prognostico)
+    documento = HTML(string=renderizar_html_do_plano(contexto, textos)).render()
+
+    def texto(caixa: object) -> str:
+        pedacos = [getattr(caixa, "text", "")]
+        for filho in getattr(caixa, "children", None) or []:
+            pedacos.append(texto(filho))
+        return " ".join(pedacos)
+
+    paginas = [texto(p._page_box) for p in documento.pages]
+    primeira = next(i for i, t in enumerate(paginas) if "VALORES POR DÍVIDA" in t)
+    ultima = max(i for i, t in enumerate(paginas) if "PROJEÇÃO DE QUITAÇÃO" in t)
+    return sum(len(p.meses) for p in detalhes), ultima - primeira + 1
+
+
+def test_cada_mes_cabe_em_uma_pagina_mesmo_com_muitas_dividas() -> None:
+    for n_dividas in (6, 9, 14, 20):
+        meses, paginas = _paginas_do_capitulo_7(n_dividas)
+        assert paginas == meses, f"{n_dividas} dívidas: {paginas} páginas para {meses} meses"

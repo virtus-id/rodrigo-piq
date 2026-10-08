@@ -13998,3 +13998,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Tela: página recolhida que abre pelo link do mural; plano antigo mantém o cartão simples; testes (pytest e vitest)
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-386` — Cada mês em uma única página do PDF
+
+- **Tipo:** `FIX` · **Dependências:** `T-385` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Página do mês mais compacta (espaçamentos e fontes) e níveis de compactação por número de dívidas (>5, >8, >12, >18); a linha de apoio só na dívida que acaba
+- [x] Teste: com 6, 9, 14 e 20 dívidas de nome longo, o capítulo 7 tem exatamente uma página por mês
+
+**Status:** `[x] concluída (2026-10-08)`
