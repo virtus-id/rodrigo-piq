@@ -15,7 +15,11 @@ from engine.motor import calcular_plano
 from engine.snapshot import SnapshotOrdem
 from persistencia.arquivo.fonte_parametros import FonteParametrosArquivo
 from report.pdf import renderizar_html_do_plano
-from report.plano import carregar_textos_canonicos, montar_contexto_plano
+from report.plano import (
+    carregar_textos_canonicos,
+    formatar_dinheiro_br,
+    montar_contexto_plano,
+)
 from tests.app_aluno.fixtures.caso_completo import DATA_REFERENCIA, caso_completo
 
 
@@ -177,8 +181,9 @@ def test_so_azul_e_verde_levam_marcos_e_o_quadro_de_dividas_dentro_do_bloco() ->
         assert all(re.fullmatch(r"M\d+ · Quita .+", texto) for texto in caminho.itens)
     html = renderizar_html_do_plano(contexto, textos)
     assert html.count('<ul class="caminho-itens">') == 2  # azul e verde, nunca o vermelho
-    assert "Números nas barras" not in html and "D9A400" not in html
-    assert "anel dourado" not in html
+    cap5 = html[: html.index('id="mural-do-plano"')]
+    assert "Números nas barras" not in cap5 and "D9A400" not in cap5
+    assert "anel dourado" not in cap5
 
 
 def _html_com_extra() -> tuple[str, SnapshotOrdem]:
@@ -202,7 +207,7 @@ def test_mural_e_cartoes_de_cada_mes_dos_dois_planos_sem_data_e_com_ancoras() ->
     assert planos["verde"].meses[-1].ultimo and planos["verde"].meses[-1].quitadas
     # Cada link do mural aponta para um cartão existente (e cada cartão tem id único).
     links = re.findall(r'class="mural-mes[^"]*" href="#([^"]+)"', html)
-    ids = re.findall(r'<div class="cartao-mes [^"]*" id="([^"]+)"', html)
+    ids = re.findall(r'<section class="pagina-mes [^"]*" id="([^"]+)"', html)
     assert links and set(links) == set(ids) and len(ids) == len(set(ids))
     assert "mural-do-plano" in html
     # Referência de mês, nunca data de calendário (ano ou nome de mês).
@@ -299,6 +304,54 @@ def test_mural_troca_check_por_trofeu_e_diz_pagar_a_mais() -> None:
     assert "Pagar a mais" in mural and "Ainda deve" in mural
     assert "Extra" not in mural.split("</h2>")[0]
     assert "além das parcelas de sempre" in html
-    # O cartão do capítulo 7 usa o mesmo termo e não ganhou troféu.
-    cartoes = html.split("Mês a mês, em detalhe")[-1]
-    assert "Pagar a mais: " in cartoes and "mural-trofeu" not in cartoes
+
+
+def test_cada_mes_tem_uma_pagina_no_modelo_do_produto_com_a_conta_fechando() -> None:
+    html, snapshot = _html_com_extra()
+    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    assert contexto.prognostico is not None
+    for plano in contexto.prognostico.detalhes:
+        for mes in plano.meses:
+            assert mes.pagina is not None and mes.pagina.linhas
+            assert mes.pagina.de_total.endswith(f" de {len(plano.meses)}")
+    primeiro = contexto.prognostico.detalhes[0].meses[0].pagina
+    assert primeiro is not None
+    prog = snapshot.prognostico
+    assert prog is not None and prog.MESES_DO_PLANO[0].TOTAL_PAGAR is not None
+    assert primeiro.total_pagar == formatar_dinheiro_br(prog.MESES_DO_PLANO[0].TOTAL_PAGAR)
+    assert html.count('<section class="pagina-mes ') == sum(
+        len(p.meses) for p in contexto.prognostico.detalhes
+    )
+    for trecho in (
+        "PLANO PREPARADO PARA VOCÊ",
+        "VALORES POR DÍVIDA · EM REAIS",
+        "COMO FECHA O MÊS",
+        "QUANDO E COMO VOU EXECUTAR",
+        "Período de pagamento:",
+    ):
+        assert trecho in html
+    assert "Quitação prevista neste mês" in html  # a linha da dívida que acaba
+
+
+def test_plano_antigo_sem_detalhe_por_divida_usa_o_cartao_simples() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    prog = snapshot.prognostico
+    assert prog is not None
+    simples = tuple(
+        dataclasses.replace(
+            m,
+            DIVIDAS=(),
+            SALDO_INICIAL_TOTAL=None,
+            JUROS_TOTAL=None,
+            HABITUAL_TOTAL=None,
+            EXTRA_TOTAL=None,
+            TOTAL_PAGAR=None,
+        )
+        for m in prog.MESES_DO_PLANO
+    )
+    antigo = dataclasses.replace(
+        snapshot, prognostico=dataclasses.replace(prog, MESES_DO_PLANO=simples)
+    )
+    textos = carregar_textos_canonicos()
+    html = renderizar_html_do_plano(montar_contexto_plano(antigo, textos), textos)
+    assert '<div class="cartao-mes ' in html and "Pagar a mais: " in html

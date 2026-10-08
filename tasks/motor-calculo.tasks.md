@@ -7569,3 +7569,13 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Persistência lê (anterior → `None`); rehash; testes
 
 **Status:** `[x] concluída`
+
+### `T-384` — Prognóstico: detalhe por dívida em cada mês
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-176`, `T-380` · **Rastreia:** `RF-78`, `AC-141`
+- **Arquivos:** `engine/prognostico.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] `DividaNoMes` (saldo antes, juros, habitual, extra, total, saldo depois) e totais do mês
+- [x] Teste de conservação por mês e por dívida; persistência lê (anterior → vazio); rehash
+
+**Status:** `[x] concluída`

@@ -130,3 +130,67 @@
     <p class="voltar"><a href="#mural-do-plano">{{ textos.get("voltar", "") }}</a></p>
 </div>
 {% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Página de um mês (T-384) — modelo do produto, para imprimir e acompanhar:
+   resumo do mês, tabela por dívida, "Como fecha o mês" e o que executar. O
+   mês é sempre referência ("Mês 01"), nunca uma data; o período de pagamento
+   fica em branco para o aluno preencher. `id` = âncora do mural. --------- #}
+{% macro pagina_do_mes(mes, plano, textos) %}
+{% set p = mes.pagina %}
+<section class="pagina-mes pagina-mes-{{ plano.cor }}" id="{{ mes.ancora }}">
+    <div class="pm-topo">
+        <div>
+            <div class="pm-marca">{{ textos.get("pagina_marca", "") }}</div>
+            <div class="pm-anexo">{{ textos.get("pagina_anexo", "") }}</div>
+        </div>
+        <a class="pm-voltar" href="#mural-do-plano">{{ textos.get("voltar", "") }}</a>
+    </div>
+    <h3 class="pm-titulo">{{ mes.rotulo }} · {{ plano.titulo }}</h3>
+    <p class="pm-subtitulo">{{ textos.get("pagina_subtitulo", "") | replace("{de_total}", p.de_total) }}</p>
+    <div class="pm-periodo">
+        <strong>{{ textos.get("pagina_periodo", "") }}</strong>
+        {% if p.quitacao %}<span class="pm-quitacao"><span>{{ textos.get("pagina_quitacao", "") }}</span><svg class="icone" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" stroke="#D9A400" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ TRACADO["trofeu"] }}"></path></svg></span>{% endif %}
+    </div>
+    <div class="pm-resumo">
+        <div><span>{{ textos.get("pagina_total_pagar", "") }}</span><strong>{{ p.total_pagar }}</strong></div>
+        <div><span>{{ textos.get("pagina_extra", "") }}</span><strong>{{ p.extra_aplicado }}</strong></div>
+        <div><span>{{ textos.get("pagina_divida_apos", "") }}</span><strong>{{ p.divida_apos }}</strong></div>
+    </div>
+    <h4 class="pm-secao">{{ textos.get("pagina_tabela_titulo", "") }}</h4>
+    <table class="pm-tabela">
+        <thead><tr>
+            <th scope="col" class="pm-esq">{{ textos.get("coluna_divida", "") }}</th>
+            <th scope="col">{{ textos.get("coluna_saldo_antes", "") }}</th>
+            <th scope="col">{{ textos.get("coluna_juros", "") }}</th>
+            <th scope="col">{{ textos.get("coluna_habitual", "") }}</th>
+            <th scope="col">{{ textos.get("coluna_extra", "") }}</th>
+            <th scope="col">{{ textos.get("coluna_total", "") }}</th>
+            <th scope="col">{{ textos.get("coluna_saldo_depois", "") }}</th>
+        </tr></thead>
+        <tbody>
+            {% for linha in p.linhas %}
+            <tr{% if linha.quita %} class="pm-quita"{% endif %}>
+                <th scope="row" class="pm-esq">
+                    <strong>{{ linha.nome }}</strong>
+                    <small>{% if linha.quita %}{{ textos.get("linha_quita", "") }}{% else %}{{ textos.get("linha_apoio", "") }}{% endif %}</small>
+                </th>
+                <td>{{ linha.saldo_antes }}</td><td>{{ linha.juros }}</td><td>{{ linha.habitual }}</td>
+                <td>{{ linha.extra }}</td><td>{{ linha.total }}</td><td>{{ linha.saldo_depois }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <h4 class="pm-secao">{{ textos.get("fecha_titulo", "") }}</h4>
+    <p class="pm-regra">{{ textos.get("fecha_regra", "") }}</p>
+    <p class="pm-conta">{{ textos.get("fecha_conta", "") | replace("{inicio}", p.inicio) | replace("{juros}", p.juros) | replace("{pagamentos}", p.pagamentos) | replace("{restante}", p.restante) }}</p>
+    <p>{{ textos.get("fecha_total", "") | replace("{habitual}", p.habitual_total) | replace("{extra}", p.extra_total) }}</p>
+    {% if p.quitacao and not mes.ultimo %}<p class="pm-regra">{{ textos.get("fecha_sobras", "") }}</p>{% endif %}
+    <h4 class="pm-secao">{{ textos.get("executar_titulo", "") }}</h4>
+    <ul class="pm-executar">
+        {% for chave in ["executar_1", "executar_2", "executar_3"] %}<li><span class="quadrado"></span>{{ textos.get(chave, "") }}</li>{% endfor %}
+    </ul>
+    <p class="pm-nota">{{ textos.get("pagina_nota", "") }}</p>
+    <p class="pm-rodape">{{ textos.get("pagina_rodape", "") | replace("{mes}", mes.rotulo) }}</p>
+</section>
+{% endmacro %}

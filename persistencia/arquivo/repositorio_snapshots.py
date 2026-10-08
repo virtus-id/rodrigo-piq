@@ -89,7 +89,13 @@ from engine.extraordinarios import (
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem
 from engine.portas import RepositorioSnapshots
-from engine.prognostico import MesDoPlano, Prognostico, PrognosticoComExtra, PrognosticoSemAcao
+from engine.prognostico import (
+    DividaNoMes,
+    MesDoPlano,
+    Prognostico,
+    PrognosticoComExtra,
+    PrognosticoSemAcao,
+)
 from engine.risco import ClassificacaoRisco, SinalD4
 from engine.snapshot import SnapshotOrdem, _serializar_canonico
 from engine.tipos import (
@@ -690,8 +696,25 @@ def _projecao_extraordinarios(bruto: dict[str, Any] | None) -> ProjecaoExtraordi
     )
 
 
+def _dinheiro_ou_none(bruto: object) -> Decimal | None:
+    return None if bruto is None else _decimal(bruto)
+
+
+def _divida_no_mes(item: dict[str, Any]) -> DividaNoMes:
+    return DividaNoMes(
+        DIVIDA_ID=item["DIVIDA_ID"],
+        SALDO_ANTES=_decimal(item["SALDO_ANTES"]),
+        JUROS=_decimal(item["JUROS"]),
+        HABITUAL=_decimal(item["HABITUAL"]),
+        EXTRA=_decimal(item["EXTRA"]),
+        TOTAL_PAGAR=_decimal(item["TOTAL_PAGAR"]),
+        SALDO_DEPOIS=_decimal(item["SALDO_DEPOIS"]),
+    )
+
+
 def _meses_do_plano(bruto: list[dict[str, Any]] | None) -> tuple[MesDoPlano, ...]:
-    """T-176 — o mês a mês de um plano; snapshot anterior não tem a chave."""
+    """T-176/T-384 — o mês a mês de um plano; snapshot anterior não tem a chave
+    (nem o detalhe por dívida)."""
     return tuple(
         MesDoPlano(
             MES=item["MES"],
@@ -699,6 +722,12 @@ def _meses_do_plano(bruto: list[dict[str, Any]] | None) -> tuple[MesDoPlano, ...
             VALOR_EXTRA=_decimal(item["VALOR_EXTRA"]),
             SALDO_TOTAL=_decimal(item["SALDO_TOTAL"]),
             QUITACOES=tuple(item["QUITACOES"]),
+            DIVIDAS=tuple(_divida_no_mes(d) for d in item.get("DIVIDAS") or []),
+            SALDO_INICIAL_TOTAL=_dinheiro_ou_none(item.get("SALDO_INICIAL_TOTAL")),
+            JUROS_TOTAL=_dinheiro_ou_none(item.get("JUROS_TOTAL")),
+            HABITUAL_TOTAL=_dinheiro_ou_none(item.get("HABITUAL_TOTAL")),
+            EXTRA_TOTAL=_dinheiro_ou_none(item.get("EXTRA_TOTAL")),
+            TOTAL_PAGAR=_dinheiro_ou_none(item.get("TOTAL_PAGAR")),
         )
         for item in (bruto or [])
     )

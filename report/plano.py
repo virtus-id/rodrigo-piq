@@ -1187,6 +1187,41 @@ class ContextoCaminho:
 
 
 @dataclass(frozen=True, slots=True)
+class ContextoLinhaDoMes:
+    """`T-384` — uma dívida na tabela da página do mês (valores sem "R$", já
+    formatados; `quita` destaca a linha e leva o troféu)."""
+
+    nome: str
+    saldo_antes: str
+    juros: str
+    habitual: str
+    extra: str
+    total: str
+    saldo_depois: str
+    quita: bool
+
+
+@dataclass(frozen=True, slots=True)
+class ContextoPaginaDoMes:
+    """`T-384` — o que a página do mês (cap. 7) mostra: resumo, tabela por dívida
+    e as contas de "Como fecha o mês". Só leitura do snapshot (`AC-42`)."""
+
+    numero: str  # "01"
+    de_total: str  # "01 de 56"
+    total_pagar: str
+    extra_aplicado: str
+    divida_apos: str
+    linhas: tuple[ContextoLinhaDoMes, ...]
+    inicio: str
+    juros: str
+    pagamentos: str
+    restante: str
+    habitual_total: str
+    extra_total: str
+    quitacao: bool
+
+
+@dataclass(frozen=True, slots=True)
 class ContextoMesDetalhado:
     """`T-377` — um mês de um plano, para o mural e para o cartão do mês.
     `rotulo` é a referência ("Mês 01"), nunca uma data; `ancora` liga o bloco
@@ -1202,6 +1237,8 @@ class ContextoMesDetalhado:
     ultimo: bool
     #: "Quita Cheque Itaú" por dívida quitada no mês (nome curto), para o mural.
     quitas: tuple[str, ...] = ()
+    #: `T-384` — a página do mês; `None` em snapshot anterior (cai no cartão simples).
+    pagina: ContextoPaginaDoMes | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1287,8 +1324,44 @@ def _meses_detalhados(
     def _divida(divida_id: str) -> tuple[int, str]:
         return (numeros.get(divida_id, 0), nomes.get(divida_id, divida_id))
 
+    def _reais(valor: Any) -> str:
+        return formatar_dinheiro_br(valor).removeprefix("R$ ")
+
+    def _pagina(item: Any) -> ContextoPaginaDoMes | None:
+        if item.TOTAL_PAGAR is None:
+            return None
+        ordenadas = sorted(item.DIVIDAS, key=lambda d: numeros.get(d.DIVIDA_ID, 0))
+        return ContextoPaginaDoMes(
+            numero=f"{item.MES:0{largura}d}",
+            de_total=f"{item.MES:0{largura}d} de {len(lista)}",
+            total_pagar=formatar_dinheiro_br(item.TOTAL_PAGAR),
+            extra_aplicado=formatar_dinheiro_br(item.EXTRA_TOTAL),
+            divida_apos=formatar_dinheiro_br(item.SALDO_TOTAL),
+            linhas=tuple(
+                ContextoLinhaDoMes(
+                    nome=nomes.get(d.DIVIDA_ID, d.DIVIDA_ID),
+                    saldo_antes=_reais(d.SALDO_ANTES),
+                    juros=_reais(d.JUROS),
+                    habitual=_reais(d.HABITUAL),
+                    extra=_reais(d.EXTRA),
+                    total=_reais(d.TOTAL_PAGAR),
+                    saldo_depois=_reais(d.SALDO_DEPOIS),
+                    quita=d.DIVIDA_ID in item.QUITACOES,
+                )
+                for d in ordenadas
+            ),
+            inicio=formatar_dinheiro_br(item.SALDO_INICIAL_TOTAL),
+            juros=formatar_dinheiro_br(item.JUROS_TOTAL),
+            pagamentos=formatar_dinheiro_br(item.TOTAL_PAGAR),
+            restante=formatar_dinheiro_br(item.SALDO_TOTAL),
+            habitual_total=formatar_dinheiro_br(item.HABITUAL_TOTAL),
+            extra_total=formatar_dinheiro_br(item.EXTRA_TOTAL),
+            quitacao=bool(item.QUITACOES),
+        )
+
     return tuple(
         ContextoMesDetalhado(
+            pagina=_pagina(item),
             rotulo=f"{palavra} {item.MES:0{largura}d}",
             ancora=f"mes-{cor}-{item.MES:0{largura}d}",
             divida_da_vez=None if item.DIVIDA_ALVO is None else _divida(item.DIVIDA_ALVO),

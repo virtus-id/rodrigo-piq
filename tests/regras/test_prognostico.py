@@ -188,3 +188,45 @@ def test_T380_pagamento_mensal_total_de_cada_plano() -> None:
     antigo = _desserializar_snapshot(bruto).prognostico
     assert antigo is not None and antigo.PAGAMENTO_MENSAL_PLANO is None
     assert antigo.com_extra is not None and antigo.com_extra.PAGAMENTO_MENSAL_TOTAL is None
+
+
+@pytest.mark.regra
+def test_AC141_detalhe_por_divida_fecha_a_conta_de_cada_mes() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    novo = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1"))
+    p = novo.prognostico
+    assert p is not None and p.com_extra is not None
+    for meses in (p.MESES_DO_PLANO, p.com_extra.MESES):
+        anterior = None
+        for mes in meses:
+            assert mes.DIVIDAS and mes.TOTAL_PAGAR is not None
+            # Início + juros − pago = saldo ao fim do mês, no total e por dívida.
+            assert mes.SALDO_INICIAL_TOTAL + mes.JUROS_TOTAL - mes.TOTAL_PAGAR == mes.SALDO_TOTAL  # type: ignore[operator]
+            assert mes.HABITUAL_TOTAL + mes.EXTRA_TOTAL == mes.TOTAL_PAGAR  # type: ignore[operator]
+            for d in mes.DIVIDAS:
+                assert d.SALDO_ANTES + d.JUROS - d.TOTAL_PAGAR == d.SALDO_DEPOIS
+                assert d.HABITUAL + d.EXTRA == d.TOTAL_PAGAR
+                assert d.EXTRA >= dinheiro(0) and d.HABITUAL >= dinheiro(0)
+            if anterior is not None:  # o saldo de um mês abre o seguinte
+                assert mes.SALDO_INICIAL_TOTAL == anterior.SALDO_TOTAL
+            anterior = mes
+    # Sem déficit, o total pago por mês é constante (a parcela liberada é reaplicada)
+    # até o penúltimo mês e é o "Até R$ … por mês" do capítulo 5.
+    assert p.MESES_DO_PLANO[0].TOTAL_PAGAR == p.PAGAMENTO_MENSAL_PLANO
+    assert p.com_extra.MESES[0].TOTAL_PAGAR == p.com_extra.PAGAMENTO_MENSAL_TOTAL
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    assert _desserializar_snapshot(bruto).prognostico == p
+    antigo = json.loads(json.dumps(bruto))
+    for m in antigo["prognostico"]["MESES_DO_PLANO"]:
+        for chave in (
+            "DIVIDAS",
+            "SALDO_INICIAL_TOTAL",
+            "JUROS_TOTAL",
+            "HABITUAL_TOTAL",
+            "EXTRA_TOTAL",
+            "TOTAL_PAGAR",
+        ):
+            m.pop(chave)
+    lido = _desserializar_snapshot(antigo).prognostico
+    assert lido is not None and lido.MESES_DO_PLANO[0].DIVIDAS == ()
+    assert lido.MESES_DO_PLANO[0].TOTAL_PAGAR is None

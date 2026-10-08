@@ -430,6 +430,42 @@
             padding-top: 2mm;
             margin-top: 4mm;
         }
+        /* Página de cada mês (cap. 7): modelo para imprimir e acompanhar. */
+        @page { @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #5E6E72; } }
+        .pagina-mes { break-before: page; break-inside: avoid; }
+        .pm-topo { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 3mm; }
+        .pm-marca { font-size: 9.5pt; font-weight: bold; color: #0F6E56; letter-spacing: 0.3mm; }
+        .pm-anexo { font-size: 9pt; font-weight: bold; color: #5E6E72; margin-top: 1.5mm; }
+        .pm-voltar { font-size: 9pt; font-weight: bold; color: #1B2A2F; text-decoration: none; background: #FAFAF7; border: 1px solid #D9E0DC; border-radius: 3mm; padding: 2.5mm 6mm; }
+        .pm-titulo { font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; font-size: 22pt; line-height: 1.15; margin: 3mm 0 2mm 0; }
+        .pagina-mes-azul .pm-titulo { color: #1F5A96; }
+        .pagina-mes-verde .pm-titulo { color: #0F6E56; }
+        .pm-subtitulo { color: #5E6E72; margin-bottom: 4mm; }
+        .pm-periodo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 3mm; }
+        .pm-quitacao span { white-space: nowrap; }
+        .pm-quitacao { display: inline-flex; align-items: center; gap: 4mm; font-weight: bold; color: #8A5A00; }
+        .pm-quitacao .icone { width: 11mm; height: 11mm; }
+        .pm-resumo { display: flex; background: #FAFAF7; border: 1px solid #D9E0DC; border-radius: 4mm; padding: 4mm 5mm; margin-bottom: 5mm; }
+        .pm-resumo div { flex: 1; }
+        .pm-resumo span { display: block; font-size: 9.5pt; color: #5E6E72; }
+        .pm-resumo strong { display: block; font-size: 17pt; margin-top: 1mm; }
+        .pm-secao { font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif; font-size: 11.5pt; font-weight: bold; margin: 4mm 0 2mm 0; break-after: avoid; }
+        .pm-tabela { width: 100%; border-collapse: collapse; font-size: 9.5pt; }
+        .pm-tabela th, .pm-tabela td { text-align: right; padding: 2.2mm 2.5mm; border-bottom: 1px solid #D9E0DC; }
+        .pm-tabela thead th { background: #FAFAF7; font-size: 8.5pt; }
+        .pm-tabela .pm-esq { text-align: left; }
+        .pm-tabela th small { display: block; font-weight: normal; font-size: 7.5pt; color: #5E6E72; }
+        .pagina-mes-azul .pm-quita th, .pagina-mes-azul .pm-quita td { background: #E3ECF6; color: #1F5A96; font-weight: bold; }
+        .pagina-mes-verde .pm-quita th, .pagina-mes-verde .pm-quita td { background: #E3F1EB; color: #0F6E56; font-weight: bold; }
+        .pm-quita th small { color: inherit; font-weight: normal; }
+        .pm-regra { color: #5E6E72; margin-bottom: 1.5mm; }
+        .pm-conta { font-size: 12pt; font-weight: bold; margin-bottom: 1.5mm; }
+        .pm-executar { list-style: none; padding: 0; margin: 0 0 3mm 0; }
+        .pm-executar li { display: flex; gap: 3mm; align-items: flex-start; margin-bottom: 1.8mm; }
+        .quadrado { flex: none; display: inline-block; width: 4.5mm; height: 4.5mm; border: 1.5px solid #1B2A2F; border-radius: 1mm; margin-top: 0.8mm; }
+        .pm-nota { font-size: 8.5pt; color: #5E6E72; }
+        .pm-rodape { font-size: 8pt; color: #5E6E72; border-top: 1px solid #D9E0DC; padding-top: 2mm; margin-top: 4mm; }
+
         .nova-pagina { break-before: page; }
         .visual { margin: 0 0 3mm; }
         /* `RF-124` (T-346): só na prévia do revisor — ver `previa` abaixo. */
@@ -630,12 +666,18 @@
         {{ visuais.cabecalho_da_secao(ns.n, tp.get("meses_titulo", ""), "bandeira") }}
         <p class="intro">{{ tp.get("meses_intro", "") }}</p>
         {% for plano in prognostico.detalhes %}
+        {% if plano.meses and plano.meses[0].pagina %}
+        {% for mes in plano.meses %}
+        {{ visuais.pagina_do_mes(mes, plano, tp) }}
+        {% endfor %}
+        {% else %}
         <h3 class="subtitulo mm-{{ plano.cor }}-texto">{{ plano.titulo }}</h3>
         <div class="cartoes-mes">
             {% for mes in plano.meses %}
             {{ visuais.cartao_do_mes(mes, plano.cor, tp) }}
             {% endfor %}
         </div>
+        {% endif %}
         {% endfor %}
     </section>
     {% endif %}

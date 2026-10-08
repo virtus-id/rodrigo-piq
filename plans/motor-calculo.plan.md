@@ -4711,4 +4711,5 @@ quantificação de `RF-74`), com proposta mínima e reversível.
 - `T-175`: `QUITACOES` (dívida, mês) no vermelho (até o horizonte) e no verde, lidas de `ResultadoMes.quitacoes` das simulações já feitas; o mês da 1ª quitação do vermelho passa a respeitar o horizonte. Persistência lê com `.get` (anterior → vazio).
 - `T-176`: `MesDoPlano` (mês, dívida da vez, valor extra, saldo total, quitações) em `Prognostico.MESES_DO_PLANO` (plano seguido) e `PrognosticoComExtra.MESES` (acelerado), construídos de `Cenario.meses`; a soma dos saldos é do motor. Persistência lê com `.get` (anterior → vazio).
 - `T-380`: `Prognostico.PAGAMENTO_MENSAL_PLANO` (pagamentos mensais devidos vigentes + ataque) e `PrognosticoComExtra.PAGAMENTO_MENSAL_TOTAL` (+ extra), para a frase "Até R$ … por mês" do capítulo 5; persistência lê com `.get` (anterior → `None`).
+- `T-384`: `DividaNoMes` e os totais do mês em `MesDoPlano`, reconstruídos das regras do ciclo (`M-02` juros, `M-03` habitual; o extra é o resto do que foi pago), com teste de conservação mês a mês. Persistência lê com `.get` (anterior → vazio).
 - **Fora de escopo:** juros sobre o déficit.

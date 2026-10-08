@@ -480,6 +480,33 @@ export interface MesDetalhado {
   ultimo: boolean
   /** "Quita Cheque Itaú" por dívida quitada no mês (nome curto), para o mural. */
   quitas?: string[]
+  /** `T-384` — a página do mês (resumo, tabela por dívida, contas); ausente em plano antigo. */
+  pagina?: PaginaDoMes | null
+}
+
+export interface PaginaDoMes {
+  numero: string
+  de_total: string
+  total_pagar: string
+  extra_aplicado: string
+  divida_apos: string
+  linhas: {
+    nome: string
+    saldo_antes: string
+    juros: string
+    habitual: string
+    extra: string
+    total: string
+    saldo_depois: string
+    quita: boolean
+  }[]
+  inicio: string
+  juros: string
+  pagamentos: string
+  restante: string
+  habitual_total: string
+  extra_total: string
+  quitacao: boolean
 }
 
 export interface PlanoDetalhado {

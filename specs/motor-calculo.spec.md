@@ -710,6 +710,7 @@ Atende: `RF-70`, `RF-71`, `RF-72`, `RF-73`, `RF-74`, `RF-75`, `RF-76`
 | `AC-138` | `US-27` | Dado um prognóstico calculado, então `sem_acao.QUITACOES` traz (dívida, mês) de cada dívida que se quita sozinha até o horizonte e `com_extra.QUITACOES` traz (dívida, mês) de todas as dívidas do plano acelerado; snapshot anterior volta com as listas vazias |
 | `AC-139` | `US-27` | Dado um prognóstico calculado, então `MESES_DO_PLANO` (plano seguido) e, com valor extra, `com_extra.MESES` (plano acelerado) trazem, para cada mês até o prazo, a dívida da vez, o valor extra do mês, o saldo devedor total ao fim do mês (calculado pelo motor) e as quitações do mês; o saldo do último mês é zero; snapshot anterior volta com as listas vazias |
 | `AC-140` | `US-27` | Dado um prognóstico calculado, então `PAGAMENTO_MENSAL_PLANO` é a soma dos pagamentos mensais devidos vigentes com o ataque do plano e, com valor extra, `com_extra.PAGAMENTO_MENSAL_TOTAL` soma também o extra (o que o aluno paga por mês nas dívidas, constante ao longo do plano); snapshot anterior volta com `None` |
+| `AC-141` | `US-27` | Dado um prognóstico calculado, então cada mês de `MESES_DO_PLANO` e de `com_extra.MESES` traz, por dívida em aberto, saldo antes, juros, pagamento habitual, extra aplicado, total pago e saldo depois, e os totais do mês, de modo que início + juros − pago = saldo ao fim do mês (no total e por dívida) e o saldo de um mês abre o seguinte; snapshot anterior volta sem o detalhe |
 
 ## 5. Non-Functional Requirements
 

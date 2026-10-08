@@ -26,7 +26,14 @@ from dataclasses import dataclass, replace
 from decimal import localcontext
 from typing import Final
 
-from engine.ciclo_mensal import Cenario, EstadoSimulacao, SelecionarAlvo, simular_cenario
+from engine.ciclo_mensal import (
+    Cenario,
+    EstadoSimulacao,
+    SelecionarAlvo,
+    _pagamento_normal_efetivo,
+    _saldo_apos_juros,
+    simular_cenario,
+)
 from engine.diagnostico import Diagnostico
 from engine.estado import Divida, EstadoFinanceiro
 from engine.parametros import Parametros
@@ -34,6 +41,22 @@ from engine.precisao import CONTEXTO_MOTOR, dinheiro
 from engine.tipos import DESCONHECIDO, Dinheiro, Meses
 
 REGRAS: Final[tuple[str, ...]] = ("RF-77", "RF-78")
+
+
+@dataclass(frozen=True, slots=True)
+class DividaNoMes:
+    """`T-384` — uma dívida em aberto no mês: saldo antes, juros, pagamento
+    habitual (a parcela), extra aplicado, total pago e saldo depois. Reconstruído
+    das mesmas regras do ciclo mensal (`M-02`, `M-03`, `M-04`); o extra é o que
+    sobra do pagamento total depois do habitual (inclui a cascata do resíduo)."""
+
+    DIVIDA_ID: str
+    SALDO_ANTES: Dinheiro
+    JUROS: Dinheiro
+    HABITUAL: Dinheiro
+    EXTRA: Dinheiro
+    TOTAL_PAGAR: Dinheiro
+    SALDO_DEPOIS: Dinheiro
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +70,14 @@ class MesDoPlano:
     VALOR_EXTRA: Dinheiro  # ataque do mês (cresce quando uma dívida acaba)
     SALDO_TOTAL: Dinheiro  # soma dos saldos de todas as dívidas ao fim do mês
     QUITACOES: tuple[str, ...]  # dívidas quitadas no mês
+    #: `T-384` — o detalhe por dívida e os totais do mês, para a página do mês.
+    #: Vazios/`None` em snapshot anterior. Fecham: início + juros − pago = saldo.
+    DIVIDAS: tuple[DividaNoMes, ...] = ()
+    SALDO_INICIAL_TOTAL: Dinheiro | None = None
+    JUROS_TOTAL: Dinheiro | None = None
+    HABITUAL_TOTAL: Dinheiro | None = None
+    EXTRA_TOTAL: Dinheiro | None = None
+    TOTAL_PAGAR: Dinheiro | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,7 +201,7 @@ def calcular_prognostico(
         )
     return Prognostico(
         PAGAMENTO_MENSAL_PLANO=pagamento_plano,
-        MESES_DO_PLANO=_meses_do_plano(cenario_recomendado),
+        MESES_DO_PLANO=_meses_do_plano(cenario_recomendado, dividas),
         com_extra=_com_extra(
             estado,
             diagnostico_pre,
@@ -239,18 +270,55 @@ def _com_extra(
         CUSTO_FUTURO_TOTAL=cenario.CUSTO_FUTURO_TOTAL,
         MESES_PRIMEIRA_VITORIA=cenario.MESES_PRIMEIRA_VITORIA,
         QUITACOES=_quitacoes(cenario, cenario.PRAZO_TOTAL),
-        MESES=_meses_do_plano(cenario),
+        MESES=_meses_do_plano(cenario, dividas),
         ESTOUROU_HORIZONTE=cenario.ESTOUROU_HORIZONTE,
     )
 
 
-def _meses_do_plano(cenario: Cenario) -> tuple[MesDoPlano, ...]:
+def _detalhe_do_mes(
+    abertura: Mapping[str, Dinheiro],
+    fechamento: Mapping[str, Dinheiro],
+    dividas: Mapping[str, Divida],
+) -> tuple[DividaNoMes, ...]:
+    """`T-384` — por dívida em aberto na abertura do mês: juros (`M-02`),
+    habitual (`M-03`) e o extra como o resto do que foi pago (`M-04`)."""
+    linhas: list[DividaNoMes] = []
+    for divida_id, antes in abertura.items():
+        if antes <= dinheiro(0):
+            continue  # já quitada em mês anterior
+        divida = dividas[divida_id]
+        pos_juros = _saldo_apos_juros(antes, divida)
+        depois = fechamento[divida_id]
+        with localcontext(CONTEXTO_MOTOR):
+            total = pos_juros - depois
+            habitual = min(_pagamento_normal_efetivo(pos_juros, divida), total)
+            linhas.append(
+                DividaNoMes(
+                    DIVIDA_ID=divida_id,
+                    SALDO_ANTES=antes,
+                    JUROS=pos_juros - antes,
+                    HABITUAL=habitual,
+                    EXTRA=total - habitual,
+                    TOTAL_PAGAR=total,
+                    SALDO_DEPOIS=depois,
+                )
+            )
+    return tuple(linhas)
+
+
+def _meses_do_plano(cenario: Cenario, dividas: Mapping[str, Divida]) -> tuple[MesDoPlano, ...]:
     """Um `MesDoPlano` por mês simulado de `cenario`; no último mês não há alvo
     (as dívidas acabaram) e o extra é o que a simulação registrou."""
     meses: list[MesDoPlano] = []
+    saldos: Mapping[str, Dinheiro] = {
+        divida_id: divida.SALDO_DEVEDOR_ATUAL
+        for divida_id, divida in dividas.items()
+        if divida.SALDO_DEVEDOR_ATUAL is not DESCONHECIDO
+    }
     for resultado in cenario.meses:
         estado = resultado.estado_final
         alvo = estado.DIVIDA_ALVO_ATUAL
+        detalhe = _detalhe_do_mes(saldos, estado.saldos, dividas)
         meses.append(
             MesDoPlano(
                 MES=estado.mes,
@@ -258,8 +326,15 @@ def _meses_do_plano(cenario: Cenario) -> tuple[MesDoPlano, ...]:
                 VALOR_EXTRA=estado.CAPACIDADE_ATAQUE_M if alvo is not None else dinheiro(0),
                 SALDO_TOTAL=_soma(estado.saldos.values()),
                 QUITACOES=resultado.quitacoes,
+                DIVIDAS=detalhe,
+                SALDO_INICIAL_TOTAL=_soma(d.SALDO_ANTES for d in detalhe),
+                JUROS_TOTAL=_soma(d.JUROS for d in detalhe),
+                HABITUAL_TOTAL=_soma(d.HABITUAL for d in detalhe),
+                EXTRA_TOTAL=_soma(d.EXTRA for d in detalhe),
+                TOTAL_PAGAR=_soma(d.TOTAL_PAGAR for d in detalhe),
             )
         )
+        saldos = estado.saldos
     return tuple(meses)
 
 

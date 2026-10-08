@@ -13990,3 +13990,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Rótulos "Ainda deve" e "Pagar a mais", frase de apoio no alto do mural e mesmo termo no cartão do mês (capítulo 7, sem troféu)
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-385` — Página de cada mês no modelo do produto
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-384`, `T-383` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Página por mês de cada plano: cabeçalho, troféu, resumo, tabela por dívida, "Como fecha o mês" e "Quando e como vou executar"; numeração "n / total" nas páginas do PDF
+- [x] Tela: página recolhida que abre pelo link do mural; plano antigo mantém o cartão simples; testes (pytest e vitest)
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)

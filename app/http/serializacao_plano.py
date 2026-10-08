@@ -311,6 +311,35 @@ def serializar_plano(
                                 {"numero": numero, "nome": nome} for numero, nome in mes.quitadas
                             ],
                             "quitas": list(mes.quitas),
+                            "pagina": None
+                            if mes.pagina is None
+                            else {
+                                "numero": mes.pagina.numero,
+                                "de_total": mes.pagina.de_total,
+                                "total_pagar": mes.pagina.total_pagar,
+                                "extra_aplicado": mes.pagina.extra_aplicado,
+                                "divida_apos": mes.pagina.divida_apos,
+                                "linhas": [
+                                    {
+                                        "nome": linha.nome,
+                                        "saldo_antes": linha.saldo_antes,
+                                        "juros": linha.juros,
+                                        "habitual": linha.habitual,
+                                        "extra": linha.extra,
+                                        "total": linha.total,
+                                        "saldo_depois": linha.saldo_depois,
+                                        "quita": linha.quita,
+                                    }
+                                    for linha in mes.pagina.linhas
+                                ],
+                                "inicio": mes.pagina.inicio,
+                                "juros": mes.pagina.juros,
+                                "pagamentos": mes.pagina.pagamentos,
+                                "restante": mes.pagina.restante,
+                                "habitual_total": mes.pagina.habitual_total,
+                                "extra_total": mes.pagina.extra_total,
+                                "quitacao": mes.pagina.quitacao,
+                            },
                             "primeira_quitacao": mes.primeira_quitacao,
                             "ultimo": mes.ultimo,
                         }

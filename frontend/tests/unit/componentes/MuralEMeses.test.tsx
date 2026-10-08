@@ -45,6 +45,17 @@ const TEXTOS = {
   meses_titulo: 'Mês a mês, em detalhe',
   rotulo_deve: 'Ainda deve',
   rotulo_extra_mes: 'Pagar a mais',
+  pagina_quitacao: 'Quitação prevista',
+  pagina_subtitulo: 'Mês {de_total} · Quanto pagar.',
+  pagina_total_pagar: 'Total a pagar neste mês',
+  fecha_conta: '{inicio} + {juros} - {pagamentos} = {restante}',
+  fecha_total: 'Total a pagar = habitual {habitual} + extra {extra}',
+  executar_titulo: 'QUANDO E COMO VOU EXECUTAR',
+  executar_1: 'Conferir descontos em folha.',
+  executar_2: 'Aplicar o extra neste mês.',
+  executar_3: 'Conferir saldos com o credor.',
+  linha_quita: 'Quitação prevista neste mês',
+  linha_apoio: 'Vencimento / folha + extra no mês',
   texto_coloque: 'Pagar a mais: {valor}, inteiro para essa dívida.',
   instrucao_parcelas: 'Pague as parcelas de sempre.',
   voltar: 'Voltar ao mural',
@@ -90,5 +101,48 @@ describe('MuralDoPlano e MesesDetalhados', () => {
     expect(bloco.textContent).toContain('Ainda deve')
     expect(bloco.textContent).toContain('Pagar a mais')
     expect(bloco.textContent).toContain('R$ 500,00')
+  })
+
+  it('com a página do mês: resumo, tabela por dívida, contas e o que executar; troféu na quitação', () => {
+    const pagina = {
+      numero: '02',
+      de_total: '02 de 02',
+      total_pagar: 'R$ 200,00',
+      extra_aplicado: 'R$ 0,00',
+      divida_apos: 'R$ 0,00',
+      linhas: [
+        {
+          nome: 'Cartão rotativo',
+          saldo_antes: '200,00',
+          juros: '0,00',
+          habitual: '200,00',
+          extra: '0,00',
+          total: '200,00',
+          saldo_depois: '0,00',
+          quita: true,
+        },
+      ],
+      inicio: 'R$ 200,00',
+      juros: 'R$ 0,00',
+      pagamentos: 'R$ 200,00',
+      restante: 'R$ 0,00',
+      habitual_total: 'R$ 200,00',
+      extra_total: 'R$ 0,00',
+      quitacao: true,
+    }
+    const detalhes: PlanoDetalhado[] = [
+      { ...DETALHES[0], meses: [{ ...DETALHES[0].meses[1], pagina }] },
+    ]
+    window.location.hash = '#mes-azul-02'
+    render(<MesesDetalhados detalhes={detalhes} textos={TEXTOS} />)
+    const cartao = document.getElementById('mes-azul-02') as HTMLDetailsElement
+    expect(cartao.tagName).toBe('DETAILS')
+    expect(cartao.open).toBe(true) // o link do mural abre a página
+    expect(cartao.textContent).toContain('Total a pagar neste mês')
+    expect(cartao.textContent).toContain('R$ 200,00 + R$ 0,00 - R$ 200,00 = R$ 0,00')
+    expect(cartao.textContent).toContain('Conferir saldos com o credor.')
+    expect(cartao.querySelector('[data-trofeu]')).not.toBeNull()
+    expect(cartao.querySelector('tr[data-quita="sim"]')).not.toBeNull()
+    window.location.hash = ''
   })
 })
