@@ -324,6 +324,7 @@ def serializar_plano(
         if contexto.quando_termina is None
         else {
             "colunas": list(contexto.quando_termina.colunas),
+            "cores": list(contexto.quando_termina.cores),
             "linhas": [
                 {"numero": numero, "nome": nome, "meses": list(celulas)}
                 for numero, nome, celulas in contexto.quando_termina.linhas

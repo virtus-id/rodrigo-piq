@@ -488,6 +488,8 @@ export interface PlanoDetalhado {
 
 export interface QuandoTermina {
   colunas: string[]
+  /** Cor de cada coluna: vermelho (se nada mudar), azul (plano), verde (acelerado). */
+  cores?: ('vermelho' | 'azul' | 'verde')[]
   linhas: { numero: number; nome: string; meses: string[] }[]
 }
 

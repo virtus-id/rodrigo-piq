@@ -13975,3 +13975,10 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Testes (pytest e vitest)
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-382` — "Quando cada dívida termina" com uma cor por coluna
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-381` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Cabeçalho e células de cada coluna na cor do caminho (vermelho, azul, verde); "Seu plano" sem quebra de linha
+
+**Status:** `[x] concluída (2026-10-08)`

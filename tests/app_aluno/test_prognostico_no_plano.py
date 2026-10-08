@@ -256,3 +256,27 @@ def test_nome_curto_da_divida_vira_tipo_mais_credor_sem_banco() -> None:
         "D-CONS": "Consignado Brasil",
         "D-SEM": "Cartão",
     }
+
+
+def test_quando_cada_divida_termina_tem_uma_cor_por_coluna() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    textos = carregar_textos_canonicos()
+    contexto = montar_contexto_plano(snapshot, textos)
+    tabela = contexto.quando_termina
+    assert tabela is not None
+    assert tabela.cores == ("vermelho", "azul", "verde")
+    assert tabela.colunas == ("Se nada mudar", "Seu plano", "Acelerado")
+    html = renderizar_html_do_plano(contexto, textos)
+    for cor in ("vermelho", "azul", "verde"):
+        assert f'class="coluna-{cor}"' in html
+    # O título "Seu plano" não quebra linha (célula do cabeçalho sem quebra).
+    assert "white-space: nowrap" in html
+
+
+def test_plano_antigo_so_tem_a_coluna_azul() -> None:
+    import dataclasses
+
+    antigo = dataclasses.replace(_snapshot(), prognostico=None)
+    contexto = montar_contexto_plano(antigo, carregar_textos_canonicos())
+    assert contexto.quando_termina is not None
+    assert contexto.quando_termina.cores == ("azul",)

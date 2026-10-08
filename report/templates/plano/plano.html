@@ -274,7 +274,14 @@
         .cartao-mes .saldo { font-weight: bold; }
         .quando-termina { width: 100%; border-collapse: collapse; font-size: 9.5pt; break-inside: avoid; }
         .quando-termina th, .quando-termina td { text-align: left; padding: 1.5mm 2mm; border-bottom: 1px solid #D9E0DC; }
-        .quando-termina thead th { font-size: 8.5pt; color: #5E6E72; }
+        .quando-termina thead th { font-size: 8.5pt; color: #5E6E72; white-space: nowrap; }
+        .quando-termina thead th.coluna-vermelho { color: #A63A2C; font-weight: bold; }
+        .quando-termina thead th.coluna-azul { color: #1F5A96; font-weight: bold; }
+        .quando-termina thead th.coluna-verde { color: #0F6E56; font-weight: bold; }
+        .quando-termina td { white-space: nowrap; }
+        .quando-termina td.coluna-vermelho { background: #FBE8E4; }
+        .quando-termina td.coluna-azul { background: #E3ECF6; }
+        .quando-termina td.coluna-verde { background: #E3F1EB; }
         .divida-numero { display: inline-block; min-width: 5mm; font-weight: bold; color: #0F6E56; }
 
         /* Como funciona ------------------------------------------------- */
@@ -584,11 +591,11 @@
         <h3 class="subtitulo">{{ tp.get("quando_termina_titulo", "") }}</h3>
         <table class="quando-termina">
             <thead>
-                <tr><th scope="col">{{ tp.get("coluna_divida", "") }}</th>{% for coluna in quando_termina.colunas %}<th scope="col">{{ coluna }}</th>{% endfor %}</tr>
+                <tr><th scope="col">{{ tp.get("coluna_divida", "") }}</th>{% for coluna in quando_termina.colunas %}<th scope="col" class="coluna-{{ quando_termina.cores[loop.index0] }}">{{ coluna }}</th>{% endfor %}</tr>
             </thead>
             <tbody>
                 {% for numero, nome, celulas in quando_termina.linhas %}
-                <tr><th scope="row"><span class="divida-numero">{{ numero }}</span> {{ nome }}</th>{% for celula in celulas %}<td>{{ celula }}</td>{% endfor %}</tr>
+                <tr><th scope="row"><span class="divida-numero">{{ numero }}</span> {{ nome }}</th>{% for celula in celulas %}<td class="coluna-{{ quando_termina.cores[loop.index0] }}">{{ celula }}</td>{% endfor %}</tr>
                 {% endfor %}
             </tbody>
         </table>

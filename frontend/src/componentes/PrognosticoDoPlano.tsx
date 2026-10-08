@@ -134,8 +134,12 @@ export function QuandoCadaDividaTermina({
               <th scope="col" className="py-1 pr-3">
                 {textos.coluna_divida || 'Dívida'}
               </th>
-              {tabela.colunas.map((coluna) => (
-                <th key={coluna} scope="col" className="py-1 pr-3">
+              {tabela.colunas.map((coluna, i) => (
+                <th
+                  key={coluna}
+                  scope="col"
+                  className={`whitespace-nowrap px-3 py-1 font-bold ${COR[tabela.cores?.[i] ?? 'azul'].texto}`}
+                >
                   {coluna}
                 </th>
               ))}
@@ -149,7 +153,11 @@ export function QuandoCadaDividaTermina({
                   {linha.nome}
                 </th>
                 {linha.meses.map((mes, i) => (
-                  <td key={tabela.colunas[i]} className="py-1.5 pr-3 tabular-nums">
+                  <td
+                    key={tabela.colunas[i]}
+                    data-coluna={tabela.cores?.[i] ?? 'azul'}
+                    className={`whitespace-nowrap px-3 py-1.5 tabular-nums ${COR[tabela.cores?.[i] ?? 'azul'].claro}`}
+                  >
                     {mes}
                   </td>
                 ))}

@@ -1216,6 +1216,8 @@ class ContextoQuandoTermina:
 
     colunas: tuple[str, ...]
     linhas: tuple[tuple[int, str, tuple[str, ...]], ...]
+    #: Cor de cada coluna, na ordem de `colunas` ("vermelho" | "azul" | "verde").
+    cores: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1310,12 +1312,13 @@ def _quando_cada_divida_termina(
         return None
     numeros = _numeros_das_dividas(snapshot)
     if prognostico is not None:
-        colunas = tuple((c.rotulo_curto, c.quitacoes) for c in prognostico.caminhos)
+        colunas = tuple((c.rotulo_curto, c.quitacoes, c.cor) for c in prognostico.caminhos)
     else:
         colunas = (
             (
                 t.get("azul_curto", ""),
                 _marcos((meses_de_quitacao(snapshot) or {}).items(), numeros),
+                "azul",
             ),
         )
     mes = t.get("mes", "Mês")
@@ -1326,12 +1329,13 @@ def _quando_cada_divida_termina(
         return nao_acaba if quando is None else f"{mes} {quando}"
 
     return ContextoQuandoTermina(
-        colunas=tuple(rotulo for rotulo, _ in colunas),
+        colunas=tuple(rotulo for rotulo, _, _ in colunas),
+        cores=tuple(cor for _, _, cor in colunas),
         linhas=tuple(
             (
                 numero,
                 nomes.get(divida_id, divida_id),
-                tuple(_celula(marcos, numero) for _, marcos in colunas),
+                tuple(_celula(marcos, numero) for _, marcos, _ in colunas),
             )
             for divida_id, numero in numeros.items()
         ),
