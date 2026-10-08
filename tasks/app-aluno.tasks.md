@@ -13933,3 +13933,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Frase do Mês 1 no capítulo 5 e em "O que fazer no Mês 1"; testes (pytest e vitest)
 
 **Status:** `[x] concluída (2026-10-07)`; frases pendentes de aprovação (rodada 10)
+
+### `T-376` — Legenda dos números das barras e barra do vermelho sem marcos
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-375` · **Rastreia:** `RF-126`, `AC-199`
+- [x] Legenda: um item por dívida (mesmo número da barra e da tabela) e o anel dourado da 1ª quitação
+- [x] "Se nada mudar" sem círculos na barra (o mês a mês e a tabela seguem com as quitações dele)
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)

@@ -120,3 +120,26 @@ def test_cada_linha_traz_valor_a_mais_e_primeira_quitacao() -> None:
     extra = snapshot.prognostico.com_extra  # type: ignore[union-attr]
     assert extra is not None and extra.ATAQUE_MENSAL_TOTAL is not None
     assert dict(caminhos["verde"].destaques)["Valor a mais por mês"].startswith("R$")
+
+
+def test_so_azul_e_verde_levam_marcos_na_barra_e_a_legenda_explica_cada_numero() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    textos = carregar_textos_canonicos()
+    contexto = montar_contexto_plano(snapshot, textos)
+    assert contexto.prognostico is not None
+    caminhos = {c.cor: c for c in contexto.prognostico.caminhos}
+    assert caminhos["vermelho"].marcos == ()
+    assert caminhos["azul"].marcos and caminhos["verde"].marcos
+    # O mês a mês e a tabela continuam lendo as quitações do vermelho.
+    assert caminhos["vermelho"].quitacoes == tuple(
+        sorted(
+            (mes, 1)
+            for _, mes in snapshot.prognostico.sem_acao.QUITACOES  # type: ignore[union-attr]
+        )
+    )
+    legenda = contexto.prognostico.legenda
+    assert [numero for numero, _ in legenda] == [p.indice for p in contexto.ordem]
+    assert [nome for _, nome in legenda] == [p.nome for p in contexto.ordem]
+    html = renderizar_html_do_plano(contexto, textos)
+    assert "Números nas barras:" in html and "sua primeira dívida quitada" in html
+    assert all(nome in html for _, nome in legenda)

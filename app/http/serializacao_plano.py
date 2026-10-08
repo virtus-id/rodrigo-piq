@@ -301,6 +301,9 @@ def serializar_plano(
                 }
                 for caminho in contexto.prognostico.caminhos
             ],
+            "legenda": [
+                {"numero": numero, "nome": nome} for numero, nome in contexto.prognostico.legenda
+            ],
             "mes_a_mes": [
                 {
                     "numero": ano.numero,

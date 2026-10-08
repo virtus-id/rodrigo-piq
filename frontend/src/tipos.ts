@@ -500,6 +500,8 @@ export interface PrognosticoDoPlano {
   introducao: string
   caminhos: CaminhoDoPrognostico[]
   mes_a_mes: AnoDosCaminhos[]
+  /** Número e nome de cada dívida: legenda dos círculos das barras. */
+  legenda?: { numero: number; nome: string }[]
 }
 
 

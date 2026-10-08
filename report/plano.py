@@ -1219,7 +1219,10 @@ class ContextoCaminho:
     escala: int
     mes_sombra: int | None = None  # fim do plano azul, atrás da barra do verde
     #: `T-375` — (mês, número da dívida em "Suas dívidas") de cada quitação.
+    #: Círculos desenhados na barra; vazio no vermelho (pedido do produto).
     marcos: tuple[tuple[int, int], ...] = ()
+    #: Todas as quitações do caminho, para o mês a mês e a tabela.
+    quitacoes: tuple[tuple[int, int], ...] = ()
     mes_primeira_quitacao: int | None = None
     rotulo_curto: str = ""  # nome do caminho nas faixas e na tabela
 
@@ -1266,6 +1269,9 @@ class ContextoPrognostico:
     introducao: str
     caminhos: tuple[ContextoCaminho, ...]
     mes_a_mes: tuple[ContextoAnoDosCaminhos, ...] = ()
+    #: (número, nome) de cada dívida, na ordem de "Suas dívidas" — a legenda
+    #: dos círculos das barras.
+    legenda: tuple[tuple[int, str], ...] = ()
 
 
 def _numeros_das_dividas(snapshot: SnapshotOrdem) -> dict[str, int]:
@@ -1289,7 +1295,8 @@ def _com_marcos(
     marcos = _marcos(quitacoes, numeros)
     return replace(
         caminho,
-        marcos=marcos,
+        marcos=() if caminho.cor == "vermelho" else marcos,
+        quitacoes=marcos,
         mes_primeira_quitacao=min((mes for mes, _ in marcos), default=None),
         rotulo_curto=rotulo_curto,
     )
@@ -1298,7 +1305,7 @@ def _com_marcos(
 def _mes_do_caminho(caminho: ContextoCaminho, mes: int) -> ContextoMesDoCaminho:
     if mes > caminho.mes_fim:
         return ContextoMesDoCaminho(mes=mes, tipo="depois")
-    numeros = tuple(numero for mes_do_marco, numero in caminho.marcos if mes_do_marco == mes)
+    numeros = tuple(numero for mes_do_marco, numero in caminho.quitacoes if mes_do_marco == mes)
     if not numeros:
         return ContextoMesDoCaminho(mes=mes, tipo="comum")
     tipo = "primeira" if mes == caminho.mes_primeira_quitacao else "quitacao"
@@ -1343,7 +1350,7 @@ def _quando_cada_divida_termina(
         return None
     numeros = _numeros_das_dividas(snapshot)
     if prognostico is not None:
-        colunas = tuple((c.rotulo_curto, c.marcos) for c in prognostico.caminhos)
+        colunas = tuple((c.rotulo_curto, c.quitacoes) for c in prognostico.caminhos)
     else:
         colunas = (
             (
@@ -1372,7 +1379,10 @@ def _quando_cada_divida_termina(
 
 
 def _prognostico(
-    snapshot: Any, cenario_recomendado: Any, textos: TextosCanonicosPlano
+    snapshot: Any,
+    cenario_recomendado: Any,
+    textos: TextosCanonicosPlano,
+    nomes: Mapping[str, str],
 ) -> ContextoPrognostico | None:
     """Monta as linhas (`_linhas_do_prognostico`) e acrescenta os marcos de
     quitação de cada caminho e o mês a mês (`T-375`)."""
@@ -1392,7 +1402,12 @@ def _prognostico(
         for c in base.caminhos
     )
     escala = caminhos[0].escala
-    return replace(base, caminhos=caminhos, mes_a_mes=_mes_a_mes(caminhos, escala))
+    legenda = tuple(
+        (numero, nomes.get(divida_id, divida_id)) for divida_id, numero in numeros.items()
+    )
+    return replace(
+        base, caminhos=caminhos, mes_a_mes=_mes_a_mes(caminhos, escala), legenda=legenda
+    )
 
 
 def _linhas_do_prognostico(
@@ -1791,7 +1806,7 @@ def montar_contexto_plano(
         )
         for indice, posicao_do_snapshot in enumerate(snapshot.ORDEM_QUITACAO, start=1)
     )
-    prognostico = _prognostico(snapshot, cenario_recomendado, textos)
+    prognostico = _prognostico(snapshot, cenario_recomendado, textos, nomes)
 
     return ContextoPlano(
         titulo=textos.titulo,

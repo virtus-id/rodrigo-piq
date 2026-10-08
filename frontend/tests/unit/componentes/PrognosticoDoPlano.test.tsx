@@ -53,6 +53,10 @@ const PROGNOSTICO = {
       rotulo_curto: "Acelerado",
     },
   ],
+  legenda: [
+    { numero: 1, nome: "Cartão rotativo" },
+    { numero: 2, nome: "Consignado" },
+  ],
   mes_a_mes: [
     {
       numero: 1,

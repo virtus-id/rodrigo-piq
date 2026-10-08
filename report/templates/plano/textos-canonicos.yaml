@@ -750,9 +750,8 @@ prognostico:
     caminhos usam a mesma escala de meses e são projeções feitas a partir das
     suas respostas.
   eixo_inicio: "Mês 1 (início)"
-  legenda_marcos: >-
-    Cada círculo é uma dívida quitada, com o número dela em "Suas dívidas". O
-    círculo com anel dourado é a primeira dívida quitada.
+  legenda_titulo: "Números nas barras:"
+  legenda_primeira: "anel dourado: sua primeira dívida quitada"
   mes_a_mes_titulo: "Mês a mês, em cada caminho"
   mes_a_mes_intro: >-
     Cada linha é um caminho. Os quadros claros são meses de pagamento; os

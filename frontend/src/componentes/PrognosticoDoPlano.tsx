@@ -251,8 +251,28 @@ export default function PrognosticoDoPlano({
           />
         ))}
       </div>
-      {textos.legenda_marcos && (
-        <p className="text-muted m-0 text-xs">{textos.legenda_marcos}</p>
+      {(prognostico.legenda ?? []).length > 0 && (
+        <div
+          className="text-muted m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+          data-legenda
+        >
+          <strong>{textos.legenda_titulo || "Números nas barras:"}</strong>
+          {(prognostico.legenda ?? []).map((item) => (
+            <span key={item.numero} className="inline-flex items-center gap-1">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-muted bg-surface font-bold text-ink">
+                {item.numero}
+              </span>
+              {item.nome}
+            </span>
+          ))}
+          <span className="inline-flex items-center gap-1">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full border-[3px] border-[#D9A400] bg-surface font-bold text-ink">
+              1
+            </span>
+            {textos.legenda_primeira ||
+              "anel dourado: sua primeira dívida quitada"}
+          </span>
+        </div>
       )}
       {(prognostico.mes_a_mes ?? []).length > 0 && (
         <>

@@ -252,7 +252,10 @@
         .caminho-verde { border-left-color: #0F6E56; }
         .caminho-verde h3 { color: #0F6E56; }
 
-        .caminho-legenda { font-size: 8.5pt; color: #5E6E72; margin: 0 0 4mm 0; }
+        .caminho-legenda { font-size: 8.5pt; color: #5E6E72; margin: 0 0 4mm 0; display: flex; flex-wrap: wrap; gap: 1mm 5mm; align-items: center; }
+        .legenda-divida { display: inline-flex; align-items: center; gap: 1.5mm; }
+        .legenda-circulo { display: inline-block; width: 4.5mm; height: 4.5mm; line-height: 4.5mm; border-radius: 50%; border: 0.5mm solid #5E6E72; background: #FFFFFF; color: #1B2A2F; text-align: center; font-size: 7pt; font-weight: bold; }
+        .legenda-circulo-ouro { border: 0.8mm solid #D9A400; }
         .subtitulo { font-size: 12pt; margin: 5mm 0 1.5mm 0; }
         .mes-a-mes { break-inside: avoid; }
         .mm-ano { margin-bottom: 3mm; break-inside: avoid; }
@@ -574,7 +577,11 @@
             </dl>
         </div>
         {% endfor %}
-        <p class="caminho-legenda">{{ tp.get("legenda_marcos", "") }}</p>
+        <div class="caminho-legenda">
+            <strong>{{ tp.get("legenda_titulo", "") }}</strong>
+            {% for numero, nome in prognostico.legenda %}<span class="legenda-divida"><span class="legenda-circulo">{{ numero }}</span> {{ nome }}</span>{% endfor %}
+            <span class="legenda-divida"><span class="legenda-circulo legenda-circulo-ouro">1</span> {{ tp.get("legenda_primeira", "") }}</span>
+        </div>
 
         <h3 class="subtitulo">{{ tp.get("mes_a_mes_titulo", "") }}</h3>
         <p class="intro">{{ tp.get("mes_a_mes_intro", "") }}</p>
