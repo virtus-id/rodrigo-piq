@@ -457,11 +457,12 @@ export interface CaminhoDoPrognostico {
   /** Só geometria da barra (meses): nunca exibidos como dado. */
   mes_fim: number
   escala: number
-  mes_sombra: number | null
   /** Mês e número (em "Suas dívidas") de cada dívida quitada neste caminho. */
   marcos: { mes: number; numero: number }[]
   /** Dívidas que marcam a barra, em ordem de quitação (vazio no vermelho). */
-  itens: { numero: number; texto: string }[]
+  itens: string[]
+  /** "Economia frente ao plano base: R$ …"; só no plano acelerado. */
+  economia: string
   rotulo_curto: string
 }
 

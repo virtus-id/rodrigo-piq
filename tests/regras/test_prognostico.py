@@ -169,3 +169,22 @@ def test_AC139_mes_a_mes_dos_planos_com_saldo_total_do_motor() -> None:
     antigo = _desserializar_snapshot(bruto).prognostico
     assert antigo is not None and antigo.MESES_DO_PLANO == ()
     assert antigo.com_extra is not None and antigo.com_extra.MESES == ()
+
+
+@pytest.mark.regra
+def test_T380_pagamento_mensal_total_de_cada_plano() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    novo = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1"))
+    p = novo.prognostico
+    assert p is not None and p.com_extra is not None
+    devido = novo.diagnostico.PAGAMENTOS_MENSAIS_DEVIDOS_VIGENTES
+    ataque = novo.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA
+    assert p.PAGAMENTO_MENSAL_PLANO == devido + ataque
+    assert p.com_extra.PAGAMENTO_MENSAL_TOTAL == devido + ataque + dinheiro(500)
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    assert _desserializar_snapshot(bruto).prognostico == p
+    bruto["prognostico"].pop("PAGAMENTO_MENSAL_PLANO")
+    bruto["prognostico"]["com_extra"].pop("PAGAMENTO_MENSAL_TOTAL")
+    antigo = _desserializar_snapshot(bruto).prognostico
+    assert antigo is not None and antigo.PAGAMENTO_MENSAL_PLANO is None
+    assert antigo.com_extra is not None and antigo.com_extra.PAGAMENTO_MENSAL_TOTAL is None

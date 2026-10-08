@@ -7559,3 +7559,13 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Persistência lê (anterior → vazio); rehash; testes
 
 **Status:** `[x] concluída`
+
+### `T-380` — Prognóstico: quanto se paga por mês nas dívidas em cada plano
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-176` · **Rastreia:** `RF-78`, `AC-140`
+- **Arquivos:** `engine/prognostico.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] `PAGAMENTO_MENSAL_PLANO` e `com_extra.PAGAMENTO_MENSAL_TOTAL`
+- [x] Persistência lê (anterior → `None`); rehash; testes
+
+**Status:** `[x] concluída`

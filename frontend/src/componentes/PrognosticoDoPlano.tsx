@@ -2,9 +2,8 @@
  * "Seu plano em números" — `RF-77`/`RF-78`, `T-375`. Uma LINHA por caminho,
  * todas na mesma escala de meses: vermelho (se nada mudar), azul (seguindo o
  * plano) e verde (plano acelerado, só com o valor extra informado). Na barra,
- * um círculo numerado por dívida quitada, e o quadro dessas dívidas (número,
- * nome e mês) dentro do próprio bloco; abaixo,
- * o mês a mês de cada caminho e "Quando cada dívida termina". Texto e números
+ * um ponto por dívida quitada, com "M<mês>" acima, e a lista "M7 · Quita …"
+ * dentro do próprio bloco; depois do capítulo, "Quando cada dívida termina". Texto e números
  * chegam prontos do servidor (Lei nº 3); `mes_fim`/`escala`/`marcos` são só
  * geometria. A cor nunca é o único sinal: título, veredito e tabela em texto.
  */
@@ -42,60 +41,48 @@ function porcentagem(mes: number, escala: number): string {
   return `${escala > 0 ? (mes / escala) * 100 : 0}%`
 }
 
-function Linha({
-  caminho,
-  eixoInicio,
-  textos,
-}: {
-  caminho: CaminhoDoPrognostico
-  eixoInicio: string
-  textos: Record<string, string>
-}) {
+/** Linha do rótulo "M7": dois marcos próximos alternam a linha para não se sobrepor. */
+function linhasDosRotulos(marcos: { mes: number }[], escala: number): number[] {
+  const ultimo = [-100, -100]
+  return marcos.map((marco) => {
+    const x = escala > 0 ? (marco.mes / escala) * 100 : 0
+    const linha = x - ultimo[0] >= 6 ? 0 : 1
+    ultimo[linha] = x
+    return linha
+  })
+}
+
+function Linha({ caminho, eixoInicio }: { caminho: CaminhoDoPrognostico; eixoInicio: string }) {
   const cor = COR[caminho.cor]
+  const marcos = caminho.marcos ?? []
+  const linhas = linhasDosRotulos(marcos, caminho.escala)
   return (
-    <article
-      data-caminho={caminho.cor}
-      className={`rounded-piq border border-l-8 border-line bg-surface p-4 ${cor.borda}`}
-    >
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4">
-        <h3 className={`m-0 text-lg ${cor.texto}`}>{caminho.titulo}</h3>
-        <p className="m-0 text-lg font-bold text-ink sm:text-right">{caminho.veredito}</p>
-      </div>
-      <p className="text-muted mb-2 mt-0.5 text-sm">{caminho.nota}</p>
-      {caminho.marcador && (
-        <p
-          className="text-ink m-0 mb-1 text-right text-sm font-bold"
-          style={{
-            width: porcentagem(caminho.mes_fim, caminho.escala),
-            minWidth: '9rem',
-          }}
-        >
-          {caminho.marcador}
-        </p>
-      )}
+    <article data-caminho={caminho.cor} className="rounded-piq border border-line bg-surface p-4">
+      <h3 className={`m-0 text-xl ${cor.texto}`}>{caminho.titulo}</h3>
+      <p className="text-muted m-0 mt-1 text-sm">{caminho.nota}</p>
+      <p className="m-0 mt-2 text-ink">{caminho.veredito}</p>
       <div
         role="img"
         aria-label={`${caminho.titulo}. ${caminho.veredito}`}
-        className="relative my-2 h-3.5 w-full rounded-full bg-line"
+        className={`relative mb-1 h-2 w-full rounded-full bg-line ${marcos.length > 0 ? 'mt-9' : 'mt-4'}`}
       >
         <div
           className={`h-full rounded-full ${cor.barra}`}
           style={{ width: porcentagem(caminho.mes_fim, caminho.escala) }}
         />
-        {caminho.mes_sombra !== null && (
-          <div
-            className="absolute inset-y-0 left-0 rounded-full border border-dashed border-azul"
-            style={{ width: porcentagem(caminho.mes_sombra, caminho.escala) }}
-          />
-        )}
-        {(caminho.marcos ?? []).map((marco) => (
+        {marcos.map((marco, i) => (
           <span
             key={`${marco.mes}-${marco.numero}`}
-            data-marco={marco.numero}
-            className={`absolute top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 bg-surface text-xs font-bold text-ink ${cor.anel}`}
-            style={{ left: porcentagem(marco.mes, caminho.escala) }}
+            data-marco={marco.mes}
+            className={`absolute h-3.5 w-3.5 -translate-x-1/2 rounded-full ${cor.barra}`}
+            style={{ left: porcentagem(marco.mes, caminho.escala), top: '-3px' }}
           >
-            {marco.numero}
+            <span
+              className={`absolute left-1/2 -translate-x-1/2 text-xs font-bold ${cor.texto}`}
+              style={{ bottom: linhas[i] === 0 ? '1.1rem' : '2.1rem' }}
+            >
+              M{marco.mes}
+            </span>
           </span>
         ))}
       </div>
@@ -103,41 +90,26 @@ function Linha({
         <span>{eixoInicio}</span>
         <span>Mês {caminho.escala}</span>
       </div>
-      <dl className="m-0 mt-2 flex flex-wrap gap-x-8 gap-y-1 text-ink">
+      {(caminho.itens ?? []).length > 0 && (
+        <ul
+          className={`m-0 mt-2 grid list-none gap-x-4 gap-y-0.5 p-0 text-sm font-bold sm:grid-cols-2 lg:grid-cols-3 ${cor.texto}`}
+        >
+          {caminho.itens.map((item) => (
+            <li key={item} data-item>
+              {item}
+            </li>
+          ))}
+        </ul>
+      )}
+      <dl className="m-0 mt-3 grid gap-x-8 gap-y-2 text-ink sm:grid-cols-2">
         {caminho.destaques.map((item) => (
           <div key={item.rotulo}>
-            <dt className="text-muted text-xs">{item.rotulo}</dt>
-            <dd className="m-0 font-bold tabular-nums">{item.valor}</dd>
+            <dt className="text-muted text-sm">{item.rotulo}</dt>
+            <dd className="m-0 text-xl font-bold tabular-nums">{item.valor}</dd>
           </div>
         ))}
       </dl>
-      {(caminho.itens ?? []).length > 0 && (
-        <div
-          role="group"
-          aria-label={textos.itens_titulo || 'Dívidas quitadas neste caminho'}
-          className="mt-3 border-t border-line pt-2"
-        >
-          <p className="text-muted m-0 text-xs">
-            {textos.itens_titulo || 'Dívidas quitadas neste caminho'}
-          </p>
-          <ul className="m-0 mt-1 flex list-none flex-wrap gap-x-6 gap-y-1 p-0">
-            {caminho.itens.map((item) => (
-              <li
-                key={`${item.numero}-${item.texto}`}
-                data-item={item.numero}
-                className="flex items-center gap-2"
-              >
-                <span
-                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 bg-surface text-xs font-bold text-ink ${cor.anel}`}
-                >
-                  {item.numero}
-                </span>
-                <span className="text-sm font-bold text-ink">{item.texto}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {caminho.economia && <p className={`m-0 mt-3 font-bold ${cor.texto}`}>{caminho.economia}</p>}
     </article>
   )
 }
@@ -207,7 +179,6 @@ export default function PrognosticoDoPlano({
             key={caminho.cor}
             caminho={caminho}
             eixoInicio={textos.eixo_inicio || 'Mês 1 (início)'}
-            textos={textos}
           />
         ))}
       </div>

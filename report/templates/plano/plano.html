@@ -231,31 +231,25 @@
         .caminho {
             background: #FFFFFF;
             border: 1px solid #D9E0DC;
-            border-left-width: 2.5mm;
-            border-radius: 3mm;
-            padding: 3mm 4mm;
-            margin-bottom: 3.5mm;
+            border-radius: 4mm;
+            padding: 3.5mm 5mm;
+            margin-bottom: 4mm;
             break-inside: avoid;
         }
-        .caminho-topo { display: flex; justify-content: space-between; align-items: baseline; gap: 4mm; }
-        .caminho h3 { margin: 0; font-size: 12pt; }
-        .caminho-veredito { margin: 0; font-size: 12pt; font-weight: bold; text-align: right; }
-        .caminho-nota { margin: 0.5mm 0 1mm 0; font-size: 9pt; color: #5E6E72; }
-        .caminho-destaques { display: flex; flex-wrap: wrap; gap: 2mm 8mm; margin: 1mm 0 0 0; }
-        .caminho-destaques div { min-width: 30mm; }
-        .caminho-destaques dt { font-size: 8.5pt; color: #5E6E72; }
-        .caminho-destaques dd { margin: 0; font-size: 11pt; font-weight: bold; }
-        .caminho-vermelho { border-left-color: #A63A2C; }
+        .caminho h3 { margin: 0 0 1mm 0; font-size: 15pt; }
+        .caminho-nota { margin: 0 0 2.5mm 0; font-size: 9pt; color: #5E6E72; }
+        .caminho-veredito { margin: 0 0 1.5mm 0; font-size: 11pt; color: #1B2A2F; }
+        .caminho-itens { list-style: none; display: flex; flex-wrap: wrap; margin: 0.5mm 0 2.5mm 0; padding: 0; }
+        .caminho-itens li { width: 33.33%; box-sizing: border-box; padding-right: 2mm; margin-bottom: 0.6mm; font-size: 8.5pt; font-weight: bold; }
+        .caminho-destaques { display: flex; flex-wrap: wrap; margin: 0; }
+        .caminho-destaques div { width: 50%; }
+        .caminho-destaques dt { font-size: 9pt; color: #5E6E72; }
+        .caminho-destaques dd { margin: 0; font-size: 15pt; font-weight: bold; color: #1B2A2F; }
+        .caminho-economia { margin: 2.5mm 0 0 0; font-size: 10.5pt; font-weight: bold; }
         .caminho-vermelho h3 { color: #A63A2C; }
-        .caminho-azul { border-left-color: #1F5A96; }
-        .caminho-azul h3 { color: #1F5A96; }
-        .caminho-verde { border-left-color: #0F6E56; }
-        .caminho-verde h3 { color: #0F6E56; }
+        .caminho-azul h3, .caminho-azul .caminho-itens { color: #1F5A96; }
+        .caminho-verde h3, .caminho-verde .caminho-itens, .caminho-verde .caminho-economia { color: #0F6E56; }
 
-        .caminho-itens { display: flex; flex-wrap: wrap; gap: 2mm 3mm; margin-top: 2.5mm; padding-top: 2mm; border-top: 1px solid #D9E0DC; }
-        .caminho-item { display: flex; align-items: center; gap: 1.5mm; font-size: 8.5pt; width: 80mm; }
-        .item-numero { flex: none; display: inline-block; width: 4.5mm; height: 4.5mm; line-height: 4.5mm; border-radius: 50%; border: 0.5mm solid #1B2A2F; background: #FFFFFF; color: #1B2A2F; text-align: center; font-size: 7pt; font-weight: bold; }
-        .item-texto { font-weight: bold; color: #1B2A2F; }
         .subtitulo { font-size: 12pt; margin: 5mm 0 1.5mm 0; }
         .mm-azul-texto { color: #1F5A96; }
         .mm-verde-texto { color: #0F6E56; }
@@ -547,28 +541,21 @@
         <p class="intro">{{ prognostico.introducao }}</p>
         {% for caminho in prognostico.caminhos %}
         <div class="caminho caminho-{{ caminho.cor }}">
-            <div class="caminho-topo">
-                <h3>{{ caminho.titulo }}</h3>
-                <p class="caminho-veredito">{{ caminho.veredito }}</p>
-            </div>
+            <h3>{{ caminho.titulo }}</h3>
             <p class="caminho-nota">{{ caminho.nota }}</p>
+            <p class="caminho-veredito">{{ caminho.veredito }}</p>
             {{ visuais.barra_do_caminho(caminho, caminho.titulo ~ ". " ~ caminho.veredito, tp.get("eixo_inicio", mes ~ " 1"), mes ~ " " ~ caminho.escala) }}
+            {% if caminho.itens %}
+            <ul class="caminho-itens">
+                {% for texto in caminho.itens %}<li>{{ texto }}</li>{% endfor %}
+            </ul>
+            {% endif %}
             <dl class="caminho-destaques">
                 {% for rotulo, valor in caminho.destaques %}
                 <div><dt>{{ rotulo }}</dt><dd>{{ valor }}</dd></div>
                 {% endfor %}
             </dl>
-            {% if caminho.itens %}
-            <div class="caminho-itens" role="group" aria-label="{{ tp.get("itens_titulo", "") }}">
-                <p class="caminho-itens-titulo">{{ tp.get("itens_titulo", "") }}</p>
-                {% for numero, texto in caminho.itens %}
-                <div class="caminho-item">
-                    <span class="item-numero">{{ numero }}</span>
-                    <span class="item-texto">{{ texto }}</span>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
+            {% if caminho.economia %}<p class="caminho-economia">{{ caminho.economia }}</p>{% endif %}
         </div>
         {% endfor %}
         {% else %}

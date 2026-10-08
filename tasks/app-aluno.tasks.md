@@ -13966,3 +13966,12 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Textos em `textos-canonicos.yaml` (`nome_curto`, `nome_curto_do_tipo`, `prefixos_do_credor`, `prognostico.item_quita`); testes (pytest e vitest)
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-381` — Capítulo 5 no desenho da referência do produto
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-380`, `T-379` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Blocos com título, apoio, veredito (com "Até R$ … por mês"), barra de pontos "M<mês>" e lista "M7 · Quita …" em três colunas
+- [x] Números do vermelho (dívida inicial, 1ª quitação prevista), do plano e do acelerado (aporte extra inicial, total projetado de pagamentos, economia); sem sombra do plano atrás do acelerado
+- [x] Testes (pytest e vitest)
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)

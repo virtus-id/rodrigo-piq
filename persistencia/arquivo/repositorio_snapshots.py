@@ -712,6 +712,11 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
     extra = bruto.get("com_extra")
     return Prognostico(
         MESES_DO_PLANO=_meses_do_plano(bruto.get("MESES_DO_PLANO")),
+        PAGAMENTO_MENSAL_PLANO=(
+            None
+            if bruto.get("PAGAMENTO_MENSAL_PLANO") is None
+            else _decimal(bruto["PAGAMENTO_MENSAL_PLANO"])
+        ),
         com_extra=(
             None
             if extra is None
@@ -730,6 +735,11 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
                 MESES_ANTECIPADOS=extra.get("MESES_ANTECIPADOS") or 0,
                 QUITACOES=tuple((d, m) for d, m in extra.get("QUITACOES", [])),
                 MESES=_meses_do_plano(extra.get("MESES")),
+                PAGAMENTO_MENSAL_TOTAL=(
+                    None
+                    if extra.get("PAGAMENTO_MENSAL_TOTAL") is None
+                    else _decimal(extra["PAGAMENTO_MENSAL_TOTAL"])
+                ),
                 ECONOMIA_CUSTO=_decimal(extra.get("ECONOMIA_CUSTO") or "0"),
             )
         ),

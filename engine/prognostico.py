@@ -89,6 +89,10 @@ class PrognosticoComExtra:
     ECONOMIA_CUSTO: Dinheiro = dinheiro(0)
     #: O mês a mês do plano acelerado (T-176).
     MESES: tuple[MesDoPlano, ...] = ()
+    #: Quanto o aluno paga por mês nas dívidas no plano acelerado: parcelas
+    #: vigentes + ataque + extra (T-380). Constante: a parcela de uma dívida
+    #: quitada é reaplicada na seguinte.
+    PAGAMENTO_MENSAL_TOTAL: Dinheiro | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +104,9 @@ class Prognostico:
     com_extra: PrognosticoComExtra | None = None
     #: O mês a mês do plano seguido (cenário recomendado), T-176.
     MESES_DO_PLANO: tuple[MesDoPlano, ...] = ()
+    #: Quanto o aluno paga por mês nas dívidas no plano seguido: parcelas
+    #: vigentes + ataque (T-380).
+    PAGAMENTO_MENSAL_PLANO: Dinheiro | None = None
 
 
 def _sem_alvo(_estado: EstadoSimulacao, _delta: Dinheiro) -> Divida | None:
@@ -156,7 +163,13 @@ def calcular_prognostico(
         if resultado < dinheiro(0):
             deficit_mensal = -resultado
 
+    with localcontext(CONTEXTO_MOTOR):
+        pagamento_plano = (
+            diagnostico_pre.PAGAMENTOS_MENSAIS_DEVIDOS_VIGENTES
+            + diagnostico_pre.CAPACIDADE_ATAQUE_CONSERVADORA
+        )
     return Prognostico(
+        PAGAMENTO_MENSAL_PLANO=pagamento_plano,
         MESES_DO_PLANO=_meses_do_plano(cenario_recomendado),
         com_extra=_com_extra(
             estado,
@@ -216,6 +229,9 @@ def _com_extra(
         )
     return PrognosticoComExtra(
         ATAQUE_MENSAL_TOTAL=total,
+        PAGAMENTO_MENSAL_TOTAL=_soma(
+            (diagnostico_pre.PAGAMENTOS_MENSAIS_DEVIDOS_VIGENTES, total)
+        ),
         MESES_ANTECIPADOS=antecipados,
         ECONOMIA_CUSTO=economia,
         CONTRIBUICAO_EXTRA_MENSAL=extra,

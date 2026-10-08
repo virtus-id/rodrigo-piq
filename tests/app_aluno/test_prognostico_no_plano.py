@@ -78,17 +78,46 @@ def _caminhos(snapshot: SnapshotOrdem):  # type: ignore[no-untyped-def]
     return {caminho.cor: caminho for caminho in contexto.prognostico.caminhos}
 
 
-def test_cada_caminho_e_uma_linha_com_veredito_barra_e_no_maximo_tres_numeros() -> None:
+def test_cada_caminho_e_uma_linha_com_veredito_barra_e_numeros() -> None:
     caminhos = _caminhos(_snapshot(converter_para_dinheiro("500,00")))
     for caminho in caminhos.values():
-        assert caminho.veredito and len(caminho.destaques) <= 3
+        assert caminho.veredito and len(caminho.destaques) <= 4
         assert 1 <= caminho.mes_fim <= caminho.escala
-    vermelho = caminhos["vermelho"].veredito
-    assert "ainda deve" in vermelho or "sozinhas" in vermelho
-    assert caminhos["azul"].veredito.startswith("Você quita tudo em")
+    vermelho = caminhos["vermelho"]
+    assert vermelho.veredito.startswith("No Mês ")
+    assert [r for r, _ in vermelho.destaques][:2] == [
+        "Dívida inicial",
+        "Primeira quitação prevista",
+    ]
+    assert caminhos["azul"].veredito.startswith("Quitação prevista em")
     assert caminhos["azul"].mes_fim == caminhos["azul"].escala
-    assert caminhos["verde"].mes_sombra == caminhos["verde"].escala
+    assert [r for r, _ in caminhos["azul"].destaques] == [
+        "Aporte extra inicial / mês",
+        "Total projetado de pagamentos",
+    ]
     assert caminhos["verde"].mes_fim <= caminhos["azul"].mes_fim
+    assert caminhos["verde"].nota.startswith("O mesmo plano, com mais R$ 500 por mês")
+
+
+def test_veredito_traz_o_total_pago_por_mes_vindo_do_motor() -> None:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    prog = snapshot.prognostico
+    assert prog is not None and prog.com_extra is not None
+    caminhos = _caminhos(snapshot)
+    assert (
+        "Até R$" in caminhos["azul"].veredito
+        and "para dívidas por mês" in caminhos["azul"].veredito
+    )
+    assert "Até R$" in caminhos["verde"].veredito and caminhos["verde"].veredito.endswith(
+        "por mês."
+    )
+    # Snapshot anterior, sem o valor: o veredito perde só a segunda frase.
+    antigo = dataclasses.replace(
+        snapshot,
+        prognostico=dataclasses.replace(prog, PAGAMENTO_MENSAL_PLANO=None),
+    )
+    veredito = _caminhos(antigo)["azul"].veredito
+    assert "Até R$" not in veredito and veredito.startswith("Quitação prevista em")
 
 
 def test_verde_diz_quanto_antecipa_com_a_conta_vinda_do_motor() -> None:
@@ -97,7 +126,7 @@ def test_verde_diz_quanto_antecipa_com_a_conta_vinda_do_motor() -> None:
     assert extra is not None
     verde = _caminhos(snapshot)["verde"]
     if extra.MESES_ANTECIPADOS > 0:
-        assert "antes do plano" in verde.veredito
+        assert "antes." in verde.veredito
         assert f"{extra.MESES_ANTECIPADOS} " in verde.veredito
 
 
@@ -109,17 +138,17 @@ def test_pdf_mostra_uma_barra_por_caminho_na_mesma_escala() -> None:
     assert "Seu plano em números" in html and "qual caminho seguir" not in html
 
 
-def test_cada_linha_traz_valor_a_mais_e_primeira_quitacao() -> None:
+def test_verde_traz_o_ataque_total_e_a_economia_frente_ao_plano_base() -> None:
     snapshot = _snapshot(converter_para_dinheiro("500,00"))
     caminhos = _caminhos(snapshot)
-    for cor in ("azul", "verde"):
-        rotulos = [rotulo for rotulo, _ in caminhos[cor].destaques]
-        assert "Valor a mais por mês" in rotulos and len(rotulos) <= 4
-    vermelho = dict(caminhos["vermelho"].destaques)
-    assert vermelho["Valor a mais por mês"] == "Nenhum"
     extra = snapshot.prognostico.com_extra  # type: ignore[union-attr]
     assert extra is not None and extra.ATAQUE_MENSAL_TOTAL is not None
-    assert dict(caminhos["verde"].destaques)["Valor a mais por mês"].startswith("R$")
+    aporte = dict(caminhos["verde"].destaques)["Aporte extra inicial / mês"]
+    assert aporte.startswith("R$")
+    if extra.ECONOMIA_CUSTO > 0:
+        assert caminhos["verde"].economia.startswith("Economia frente ao plano base: R$")
+    else:
+        assert caminhos["verde"].economia == ""
 
 
 def test_so_azul_e_verde_levam_marcos_e_o_quadro_de_dividas_dentro_do_bloco() -> None:
@@ -141,11 +170,13 @@ def test_so_azul_e_verde_levam_marcos_e_o_quadro_de_dividas_dentro_do_bloco() ->
     for cor in ("azul", "verde"):
         caminho = caminhos[cor]
         assert caminho.marcos
-        # Um item por marco, na mesma ordem: (número, "M7 - Quita <nome curto>").
-        assert [n for n, _ in caminho.itens] == [numero for _, numero in caminho.marcos]
-        assert all(re.fullmatch(r"M\d+ - Quita .+", texto) for _, texto in caminho.itens)
+        # Um item por marco, na mesma ordem: "M7 · Quita <nome curto>".
+        assert [int(re.match(r"M(\d+)", t).group(1)) for t in caminho.itens] == [  # type: ignore[union-attr]
+            mes for mes, _ in caminho.marcos
+        ]
+        assert all(re.fullmatch(r"M\d+ · Quita .+", texto) for texto in caminho.itens)
     html = renderizar_html_do_plano(contexto, textos)
-    assert html.count('class="caminho-itens"') == 2  # azul e verde, nunca o vermelho
+    assert html.count('<ul class="caminho-itens">') == 2  # azul e verde, nunca o vermelho
     assert "Números nas barras" not in html and "D9A400" not in html
     assert "anel dourado" not in html
 
