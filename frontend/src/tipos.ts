@@ -478,6 +478,8 @@ export interface MesDetalhado {
   quitadas: { numero: number; nome: string }[]
   primeira_quitacao: boolean
   ultimo: boolean
+  /** "Quita Cheque Itaú" por dívida quitada no mês (nome curto), para o mural. */
+  quitas?: string[]
 }
 
 export interface PlanoDetalhado {

@@ -1200,6 +1200,8 @@ class ContextoMesDetalhado:
     quitadas: tuple[tuple[int, str], ...]
     primeira_quitacao: bool
     ultimo: bool
+    #: "Quita Cheque Itaú" por dívida quitada no mês (nome curto), para o mural.
+    quitas: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1273,6 +1275,7 @@ def _meses_detalhados(
     numeros: Mapping[str, int],
     nomes: Mapping[str, str],
     textos: Mapping[str, str],
+    nomes_curtos: Mapping[str, str],
 ) -> tuple[ContextoMesDetalhado, ...]:
     """`T-377` — um `ContextoMesDetalhado` por `MesDoPlano` do snapshot. Só
     formata e compara (rótulo "Mês 01" com zeros à esquerda, sem data)."""
@@ -1294,6 +1297,10 @@ def _meses_detalhados(
             quitadas=tuple(_divida(d) for d in item.QUITACOES),
             primeira_quitacao=bool(item.QUITACOES) and item.MES == mes_primeira,
             ultimo=indice == len(lista),
+            quitas=tuple(
+                textos.get("texto_quita", "Quita {nome}").format(nome=nomes_curtos.get(d, d))
+                for d in item.QUITACOES
+            ),
         )
         for indice, item in enumerate(lista, start=1)
     )
@@ -1373,7 +1380,9 @@ def _prognostico(
         ContextoPlanoDetalhado(
             cor=cor,
             titulo=por_cor[cor].titulo,
-            meses=_meses_detalhados(meses, cor, por_cor[cor].quitacoes, numeros, nomes, t),
+            meses=_meses_detalhados(
+                meses, cor, por_cor[cor].quitacoes, numeros, nomes, t, nomes_curtos
+            ),
         )
         for cor, meses in fontes
         if meses

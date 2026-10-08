@@ -5,6 +5,7 @@
  * Todo número e texto chega pronto do servidor (Lei nº 3).
  */
 import type { MesDetalhado, PlanoDetalhado } from '../tipos'
+import Icone from './Icone'
 
 const COR = {
   azul: {
@@ -36,22 +37,35 @@ function BlocoDoMural({
     <a
       href={`#${mes.ancora}`}
       data-mes={mes.ancora}
-      className={`block rounded-piq p-2 text-xs no-underline ${
+      className={`relative block rounded-piq p-2 text-xs no-underline ${
         quitacao ? `${c.forte} text-white` : `${c.suave} text-ink`
       }`}
     >
+      {quitacao && (
+        <span data-trofeu className="absolute right-1.5 top-1.5">
+          <Icone nome="trofeu" className="h-4 w-4" />
+        </span>
+      )}
       <strong className="block text-sm">{mes.rotulo}</strong>
-      <span className="block">
-        {textos.rotulo_deve || 'Deve'} {mes.saldo}
+      <span className="mt-1 block text-[11px] opacity-90">
+        {textos.rotulo_deve || 'Ainda deve'}
       </span>
-      <span className="block">
-        {mes.ultimo
-          ? textos.texto_fim || 'Fim das dívidas'
-          : `${textos.rotulo_extra_mes || 'Extra'} ${mes.valor_extra}`}
-      </span>
-      {mes.quitadas.map((q) => (
-        <span key={q.numero} className="block font-bold">
-          ✓ {q.numero}
+      <span className="block font-bold">{mes.saldo}</span>
+      {mes.ultimo ? (
+        <span className="mt-1 block text-[11px] opacity-90">
+          {textos.texto_fim || 'Fim das dívidas'}
+        </span>
+      ) : (
+        <>
+          <span className="mt-1 block text-[11px] opacity-90">
+            {textos.rotulo_extra_mes || 'Pagar a mais'}
+          </span>
+          <span className="block font-bold">{mes.valor_extra}</span>
+        </>
+      )}
+      {(mes.quitas ?? []).map((texto) => (
+        <span key={texto} className="mt-1 block text-[11px] font-bold">
+          {texto}
         </span>
       ))}
     </a>

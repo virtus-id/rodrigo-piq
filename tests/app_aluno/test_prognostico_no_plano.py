@@ -280,3 +280,25 @@ def test_plano_antigo_so_tem_a_coluna_azul() -> None:
     contexto = montar_contexto_plano(antigo, carregar_textos_canonicos())
     assert contexto.quando_termina is not None
     assert contexto.quando_termina.cores == ("azul",)
+
+
+def test_mural_troca_check_por_trofeu_e_diz_pagar_a_mais() -> None:
+    html, snapshot = _html_com_extra()
+    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    assert contexto.prognostico is not None
+    for plano in contexto.prognostico.detalhes:
+        com_quitacao = [m for m in plano.meses if m.quitadas]
+        assert com_quitacao
+        for mes in com_quitacao:
+            assert len(mes.quitas) == len(mes.quitadas)
+            assert all(q.startswith("Quita ") for q in mes.quitas)
+        assert all(not m.quitas for m in plano.meses if not m.quitadas)
+    inicio = html.index('id="mural-do-plano"')
+    mural = html[inicio : html.index("Mês a mês, em detalhe", inicio)]
+    assert mural.count('class="mural-trofeu"') >= 2  # um por plano, ao menos
+    assert "Pagar a mais" in mural and "Ainda deve" in mural
+    assert "Extra" not in mural.split("</h2>")[0]
+    assert "além das parcelas de sempre" in html
+    # O cartão do capítulo 7 usa o mesmo termo e não ganhou troféu.
+    cartoes = html.split("Mês a mês, em detalhe")[-1]
+    assert "Pagar a mais: " in cartoes and "mural-trofeu" not in cartoes

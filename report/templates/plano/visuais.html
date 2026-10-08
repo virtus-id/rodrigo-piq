@@ -95,10 +95,14 @@
 <div class="mural">
     {% for mes in plano.meses %}
     <a class="mural-mes mural-{{ plano.cor }}{% if mes.quitadas %} mural-quitacao{% endif %}" href="#{{ mes.ancora }}">
+        {% if mes.quitadas %}<span class="mural-trofeu"><svg class="icone" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false" fill="none" stroke="#FFFFFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ TRACADO["trofeu"] }}"></path></svg></span>{% endif %}
         <strong>{{ mes.rotulo }}</strong>
-        {{ textos.get("rotulo_deve", "") }} {{ mes.saldo }}<br>
-        {% if mes.ultimo %}{{ textos.get("texto_fim", "") }}{% else %}{{ textos.get("rotulo_extra_mes", "") }} {{ mes.valor_extra }}{% endif %}
-        {% for numero, nome in mes.quitadas %}<br>{{ icone("concluido") }} {{ numero }}{% endfor %}
+        <span class="mural-rotulo">{{ textos.get("rotulo_deve", "") }}</span>
+        <span class="mural-valor">{{ mes.saldo }}</span>
+        {% if mes.ultimo %}<span class="mural-rotulo">{{ textos.get("texto_fim", "") }}</span>
+        {% else %}<span class="mural-rotulo">{{ textos.get("rotulo_extra_mes", "") }}</span>
+        <span class="mural-valor">{{ mes.valor_extra }}</span>{% endif %}
+        {% for texto in mes.quitas %}<span class="mural-quita">{{ texto }}</span>{% endfor %}
     </a>
     {% endfor %}
 </div>

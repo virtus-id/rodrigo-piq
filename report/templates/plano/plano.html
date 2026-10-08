@@ -256,12 +256,18 @@
         /* Mural: um bloco por mês, 6 por linha; cada bloco é um link. */
         .mural { display: flex; flex-wrap: wrap; gap: 1.5mm; margin-bottom: 4mm; }
         .mural-mes { display: block; box-sizing: border-box; width: 27mm; padding: 1.5mm 2mm; border-radius: 2mm; text-decoration: none; color: #1B2A2F; font-size: 7.5pt; line-height: 1.3; break-inside: avoid; }
+        .mural-mes { position: relative; }
         .mural-mes strong { display: block; font-size: 8.5pt; }
+        .mural-rotulo { display: block; font-size: 6.5pt; opacity: 0.85; margin-top: 0.8mm; }
+        .mural-valor { display: block; font-size: 7.5pt; font-weight: bold; }
+        .mural-quita { display: block; font-size: 6.5pt; font-weight: bold; margin-top: 0.8mm; }
+        .mural-trofeu { position: absolute; top: 1.2mm; right: 1.5mm; color: #FFFFFF; }
+        .mural-trofeu .icone { stroke: #FFFFFF; color: #FFFFFF; }
         .mural-azul { background: #E3ECF6; }
         .mural-verde { background: #E3F1EB; }
         .mural-quitacao.mural-azul { background: #1F5A96; color: #FFFFFF; }
         .mural-quitacao.mural-verde { background: #0F6E56; color: #FFFFFF; }
-        .mural-quitacao .icone { color: #FFFFFF; width: 3mm; height: 3mm; }
+        .mural-quitacao .icone { color: #FFFFFF; width: 4mm; height: 4mm; }
         /* Cartões de cada mês (cap. 7). */
         .cartoes-mes { display: flex; flex-wrap: wrap; gap: 3mm; margin-bottom: 4mm; }
         .cartao-mes { box-sizing: border-box; width: 82mm; background: #FFFFFF; border: 1px solid #D9E0DC; border-left-width: 2mm; border-radius: 3mm; padding: 2.5mm 3mm; font-size: 8.5pt; break-inside: avoid; }

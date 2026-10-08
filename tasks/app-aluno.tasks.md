@@ -13982,3 +13982,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Cabeçalho e células de cada coluna na cor do caminho (vermelho, azul, verde); "Seu plano" sem quebra de linha
 
 **Status:** `[x] concluída (2026-10-08)`
+
+### `T-383` — Mural: troféu no canto, "Pagar a mais" e "Quita <nome>"
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-377`, `T-379` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Troféu no canto superior direito dos meses com quitação (no lugar do check e do número da dívida); "Quita <nome curto>" no bloco
+- [x] Rótulos "Ainda deve" e "Pagar a mais", frase de apoio no alto do mural e mesmo termo no cartão do mês (capítulo 7, sem troféu)
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)

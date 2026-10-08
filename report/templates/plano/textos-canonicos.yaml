@@ -738,17 +738,19 @@ prognostico:
   # Cap. 6, "Seu plano detalhado" (mural), e cap. 7, "Mês a mês, em detalhe".
   mural_titulo: "Seu plano detalhado"
   mural_intro: >-
-    Cada quadro é um mês do plano, de Mês 01 até o fim. Veja quanto você ainda
-    deve e quanto vai para a dívida da vez. Toque ou clique em um mês para ver
+    Cada quadro é um mês do plano, de Mês 01 até o fim. Pagar a mais é o valor,
+    além das parcelas de sempre, que vai inteiro para a dívida da vez. O troféu
+    marca o mês em que uma dívida é quitada. Toque ou clique em um mês para ver
     o detalhe dele.
   meses_titulo: "Mês a mês, em detalhe"
   meses_intro: >-
     O detalhe de cada mês, para você acompanhar e guardar. O Mês 01 é o mês em
     que você começa a seguir o plano, e os meses seguintes contam a partir dele.
-  rotulo_deve: "Deve"
-  rotulo_extra_mes: "Extra"
+  rotulo_deve: "Ainda deve"
+  rotulo_extra_mes: "Pagar a mais"
+  texto_quita: "Quita {nome}"
   rotulo_da_vez: "Dívida da vez"
-  texto_coloque: "Coloque {valor} nela, depois das parcelas."
+  texto_coloque: "Pagar a mais: {valor}, inteiro para essa dívida."
   rotulo_saldo_fim: "Ainda deve, ao fim do mês"
   rotulo_quitada: "Quitada neste mês"
   rotulo_primeira: "Sua primeira dívida quitada"

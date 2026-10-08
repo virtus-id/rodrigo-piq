@@ -310,6 +310,7 @@ def serializar_plano(
                             "quitadas": [
                                 {"numero": numero, "nome": nome} for numero, nome in mes.quitadas
                             ],
+                            "quitas": list(mes.quitas),
                             "primeira_quitacao": mes.primeira_quitacao,
                             "ultimo": mes.ultimo,
                         }

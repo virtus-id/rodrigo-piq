@@ -26,6 +26,7 @@ const DETALHES: PlanoDetalhado[] = [
         ancora: 'mes-azul-02',
         saldo: 'R$ 0,00',
         quitadas: [{ numero: 1, nome: 'Cartão rotativo' }],
+        quitas: ['Quita Cartão Itaú'],
         primeira_quitacao: true,
         ultimo: true,
         divida_da_vez: null,
@@ -42,9 +43,9 @@ const DETALHES: PlanoDetalhado[] = [
 const TEXTOS = {
   mural_titulo: 'Seu plano detalhado',
   meses_titulo: 'Mês a mês, em detalhe',
-  rotulo_deve: 'Deve',
-  rotulo_extra_mes: 'Extra',
-  texto_coloque: 'Coloque {valor} nela, depois das parcelas.',
+  rotulo_deve: 'Ainda deve',
+  rotulo_extra_mes: 'Pagar a mais',
+  texto_coloque: 'Pagar a mais: {valor}, inteiro para essa dívida.',
   instrucao_parcelas: 'Pague as parcelas de sempre.',
   voltar: 'Voltar ao mural',
 }
@@ -67,16 +68,27 @@ describe('MuralDoPlano e MesesDetalhados', () => {
 
   it('o cartão mostra a dívida da vez, o extra e o saldo; o último mês diz que acabou', () => {
     render(<MesesDetalhados detalhes={DETALHES} textos={TEXTOS} />)
-    expect(screen.getAllByText(/Coloque R\$ 500,00 nela/).length).toBe(2)
+    expect(screen.getAllByText(/Pagar a mais: R\$ 500,00, inteiro para essa dívida/).length).toBe(2)
     expect(screen.getByText(/R\$ 4\.200,00/)).toBeTruthy()
     const ultimo = document.getElementById('mes-azul-02') as HTMLElement
     expect(ultimo.textContent).toContain('Cartão rotativo')
   })
 
-  it('o mural não usa anel dourado: só o bloco forte e o número da dívida marcam a quitação', () => {
+  it('o mês com quitação leva o troféu no canto e "Quita <nome>"; sem check nem anel dourado', () => {
     render(<MuralDoPlano detalhes={DETALHES} textos={TEXTOS} />)
     const bloco = document.querySelector('a[data-mes="mes-azul-02"]') as HTMLElement
+    expect(bloco.querySelector('[data-trofeu]')).not.toBeNull()
+    expect(bloco.textContent).toContain('Quita Cartão Itaú')
+    expect(bloco.textContent).not.toContain('✓')
     expect(bloco.className).not.toContain('D9A400')
-    expect(bloco.textContent).toContain('✓ 1')
+    expect(document.querySelector('a[data-mes="mes-azul-01"] [data-trofeu]')).toBeNull()
+  })
+
+  it('o bloco diz "Pagar a mais" e "Ainda deve"', () => {
+    render(<MuralDoPlano detalhes={DETALHES} textos={TEXTOS} />)
+    const bloco = document.querySelector('a[data-mes="mes-azul-01"]') as HTMLElement
+    expect(bloco.textContent).toContain('Ainda deve')
+    expect(bloco.textContent).toContain('Pagar a mais')
+    expect(bloco.textContent).toContain('R$ 500,00')
   })
 })
