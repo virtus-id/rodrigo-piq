@@ -78,7 +78,7 @@
        ganha o anel dourado. x = mês ÷ escala (geometria). #}
     {% for mes_do_marco, numero in caminho.marcos %}
     {% set x = [[560 * (mes_do_marco / caminho.escala), 9] | max, 551] | min %}
-    <circle cx="{{ x }}" cy="32" r="9" fill="#FFFFFF" stroke="{{ '#D9A400' if mes_do_marco == caminho.mes_primeira_quitacao else cor }}" stroke-width="{{ 3 if mes_do_marco == caminho.mes_primeira_quitacao else 2 }}"></circle>
+    <circle cx="{{ x }}" cy="32" r="9" fill="#FFFFFF" stroke="{{ cor }}" stroke-width="2"></circle>
     <text x="{{ x }}" y="36" font-size="11" font-weight="bold" text-anchor="middle" fill="#1B2A2F">{{ numero }}</text>
     {% endfor %}
     <text x="0" y="58" font-size="10" fill="#5E6E72">{{ eixo_inicio }}</text>
@@ -94,7 +94,7 @@
 {% macro mural_do_plano(plano, textos) %}
 <div class="mural">
     {% for mes in plano.meses %}
-    <a class="mural-mes mural-{{ plano.cor }}{% if mes.quitadas %} mural-quitacao{% endif %}{% if mes.primeira_quitacao %} mural-primeira{% endif %}" href="#{{ mes.ancora }}">
+    <a class="mural-mes mural-{{ plano.cor }}{% if mes.quitadas %} mural-quitacao{% endif %}" href="#{{ mes.ancora }}">
         <strong>{{ mes.rotulo }}</strong>
         {{ textos.get("rotulo_deve", "") }} {{ mes.saldo }}<br>
         {% if mes.ultimo %}{{ textos.get("texto_fim", "") }}{% else %}{{ textos.get("rotulo_extra_mes", "") }} {{ mes.valor_extra }}{% endif %}

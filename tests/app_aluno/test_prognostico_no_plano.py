@@ -122,14 +122,13 @@ def test_cada_linha_traz_valor_a_mais_e_primeira_quitacao() -> None:
     assert dict(caminhos["verde"].destaques)["Valor a mais por mês"].startswith("R$")
 
 
-def test_so_azul_e_verde_levam_marcos_na_barra_e_a_legenda_explica_cada_numero() -> None:
+def test_so_azul_e_verde_levam_marcos_e_o_quadro_de_dividas_dentro_do_bloco() -> None:
     snapshot = _snapshot(converter_para_dinheiro("500,00"))
     textos = carregar_textos_canonicos()
     contexto = montar_contexto_plano(snapshot, textos)
     assert contexto.prognostico is not None
     caminhos = {c.cor: c for c in contexto.prognostico.caminhos}
-    assert caminhos["vermelho"].marcos == ()
-    assert caminhos["azul"].marcos and caminhos["verde"].marcos
+    assert caminhos["vermelho"].marcos == () and caminhos["vermelho"].itens == ()
     # O mês a mês e a tabela continuam lendo as quitações do vermelho.
     assert caminhos["vermelho"].quitacoes == tuple(
         sorted(
@@ -137,12 +136,21 @@ def test_so_azul_e_verde_levam_marcos_na_barra_e_a_legenda_explica_cada_numero()
             for _, mes in snapshot.prognostico.sem_acao.QUITACOES  # type: ignore[union-attr]
         )
     )
-    legenda = contexto.prognostico.legenda
-    assert [numero for numero, _ in legenda] == [p.indice for p in contexto.ordem]
-    assert [nome for _, nome in legenda] == [p.nome for p in contexto.ordem]
+    nomes = {p.indice: p.nome for p in contexto.ordem}
+    for cor in ("azul", "verde"):
+        caminho = caminhos[cor]
+        assert caminho.marcos
+        # Um item por marco, na mesma ordem: (número, nome, "Mês NN").
+        assert [(n, nome) for n, nome, _ in caminho.itens] == [
+            (numero, nomes[numero]) for _, numero in caminho.marcos
+        ]
+        assert all(
+            quando.startswith("Mês ") and quando[-2:].isdigit() for *_, quando in caminho.itens
+        )
     html = renderizar_html_do_plano(contexto, textos)
-    assert "Números nas barras:" in html and "sua primeira dívida quitada" in html
-    assert all(nome in html for _, nome in legenda)
+    assert html.count('class="caminho-itens"') == 2  # azul e verde, nunca o vermelho
+    assert "Números nas barras" not in html and "D9A400" not in html
+    assert "anel dourado" not in html
 
 
 def _html_com_extra() -> tuple[str, SnapshotOrdem]:

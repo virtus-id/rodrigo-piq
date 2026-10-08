@@ -714,8 +714,7 @@ prognostico:
     caminhos usam a mesma escala de meses e são projeções feitas a partir das
     suas respostas.
   eixo_inicio: "Mês 1 (início)"
-  legenda_titulo: "Números nas barras:"
-  legenda_primeira: "anel dourado: sua primeira dívida quitada"
+  itens_titulo: "Dívidas quitadas neste caminho"
   # Cap. 6, "Seu plano detalhado" (mural), e cap. 7, "Mês a mês, em detalhe".
   mural_titulo: "Seu plano detalhado"
   mural_intro: >-

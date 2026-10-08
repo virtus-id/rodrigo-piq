@@ -1152,8 +1152,10 @@ class ContextoCaminho:
     marcos: tuple[tuple[int, int], ...] = ()
     #: Todas as quitações do caminho, para o mês a mês e a tabela.
     quitacoes: tuple[tuple[int, int], ...] = ()
-    mes_primeira_quitacao: int | None = None
     rotulo_curto: str = ""  # nome do caminho nas faixas e na tabela
+    #: `T-378` — as dívidas que marcam a barra, em ordem de quitação:
+    #: (número, nome, "Mês 07"). Vazio no vermelho; é o quadro de cada bloco.
+    itens: tuple[tuple[int, str, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1195,9 +1197,6 @@ class ContextoPrognostico:
     caminhos: tuple[ContextoCaminho, ...]
     #: `T-377` — o plano seguido e (com valor extra) o acelerado, mês a mês.
     detalhes: tuple[ContextoPlanoDetalhado, ...] = ()
-    #: (número, nome) de cada dívida, na ordem de "Suas dívidas" — a legenda
-    #: dos círculos das barras.
-    legenda: tuple[tuple[int, str], ...] = ()
 
 
 def _numeros_das_dividas(snapshot: SnapshotOrdem) -> dict[str, int]:
@@ -1215,16 +1214,27 @@ def _marcos(
 
 
 def _com_marcos(
-    caminho: ContextoCaminho, quitacoes: Iterable[tuple[str, int]], numeros: Mapping[str, int],
-    rotulo_curto: str,
+    caminho: ContextoCaminho,
+    quitacoes: Iterable[tuple[str, int]],
+    numeros: Mapping[str, int],
+    nomes: Mapping[str, str],
+    textos: Mapping[str, str],
 ) -> ContextoCaminho:
+    """`T-375`/`T-378` — marcos da barra e o quadro de dívidas do bloco (número,
+    nome e mês de quitação), só nas linhas do plano e do plano acelerado."""
     marcos = _marcos(quitacoes, numeros)
+    nome_do = {numero: nomes.get(d, d) for d, numero in numeros.items()}
+    largura = max(2, len(str(caminho.escala)))
+    palavra = textos.get("mes", "Mês")
+    com_marcos = caminho.cor != "vermelho"
     return replace(
         caminho,
-        marcos=() if caminho.cor == "vermelho" else marcos,
+        marcos=marcos if com_marcos else (),
         quitacoes=marcos,
-        mes_primeira_quitacao=min((mes for mes, _ in marcos), default=None),
-        rotulo_curto=rotulo_curto,
+        rotulo_curto=textos.get(f"{caminho.cor}_curto", ""),
+        itens=tuple((n, nome_do[n], f"{palavra} {mes:0{largura}d}") for mes, n in marcos)
+        if com_marcos
+        else (),
     )
 
 
@@ -1322,11 +1332,7 @@ def _prognostico(
         "verde": prog.com_extra.QUITACOES if prog.com_extra is not None else (),
     }
     caminhos = tuple(
-        _com_marcos(c, quitacoes[c.cor], numeros, t.get(f"{c.cor}_curto", ""))
-        for c in base.caminhos
-    )
-    legenda = tuple(
-        (numero, nomes.get(divida_id, divida_id)) for divida_id, numero in numeros.items()
+        _com_marcos(c, quitacoes[c.cor], numeros, nomes, t) for c in base.caminhos
     )
     por_cor = {c.cor: c for c in caminhos}
     fontes = [("azul", prog.MESES_DO_PLANO)]
@@ -1343,7 +1349,7 @@ def _prognostico(
         for cor, meses in fontes
         if meses
     )
-    return replace(base, caminhos=caminhos, detalhes=detalhes, legenda=legenda)
+    return replace(base, caminhos=caminhos, detalhes=detalhes)
 
 
 def _linhas_do_prognostico(

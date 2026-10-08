@@ -460,7 +460,8 @@ export interface CaminhoDoPrognostico {
   mes_sombra: number | null
   /** Mês e número (em "Suas dívidas") de cada dívida quitada neste caminho. */
   marcos: { mes: number; numero: number }[]
-  mes_primeira_quitacao: number | null
+  /** Dívidas que marcam a barra, em ordem de quitação (vazio no vermelho). */
+  itens: { numero: number; nome: string; quando: string }[]
   rotulo_curto: string
 }
 
@@ -495,8 +496,6 @@ export interface PrognosticoDoPlano {
   caminhos: CaminhoDoPrognostico[]
   /** O plano seguido e (com valor extra) o acelerado, mês a mês. */
   detalhes?: PlanoDetalhado[]
-  /** Número e nome de cada dívida: legenda dos círculos das barras. */
-  legenda?: { numero: number; nome: string }[]
 }
 
 export interface PendenciaAcionavel {

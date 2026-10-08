@@ -73,9 +73,10 @@ describe('MuralDoPlano e MesesDetalhados', () => {
     expect(ultimo.textContent).toContain('Cartão rotativo')
   })
 
-  it('o mês da primeira quitação leva o anel dourado no mural', () => {
+  it('o mural não usa anel dourado: só o bloco forte e o número da dívida marcam a quitação', () => {
     render(<MuralDoPlano detalhes={DETALHES} textos={TEXTOS} />)
     const bloco = document.querySelector('a[data-mes="mes-azul-02"]') as HTMLElement
-    expect(bloco.className).toContain('ring-[#D9A400]')
+    expect(bloco.className).not.toContain('D9A400')
+    expect(bloco.textContent).toContain('✓ 1')
   })
 })

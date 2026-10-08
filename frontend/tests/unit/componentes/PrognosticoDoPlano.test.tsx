@@ -11,7 +11,7 @@ const BASE = {
   mes_sombra: null,
   escala: 56,
   marcos: [] as { mes: number; numero: number }[],
-  mes_primeira_quitacao: null as number | null,
+  itens: [] as { numero: number; nome: string; quando: string }[],
   rotulo_curto: '',
 }
 const PROGNOSTICO = {
@@ -49,13 +49,12 @@ const PROGNOSTICO = {
         { mes: 10, numero: 1 },
         { mes: 38, numero: 2 },
       ],
-      mes_primeira_quitacao: 10,
+      itens: [
+        { numero: 1, nome: 'Cartão rotativo', quando: 'Mês 10' },
+        { numero: 2, nome: 'Consignado', quando: 'Mês 38' },
+      ],
       rotulo_curto: 'Acelerado',
     },
-  ],
-  legenda: [
-    { numero: 1, nome: 'Cartão rotativo' },
-    { numero: 2, nome: 'Consignado' },
   ],
   detalhes: [],
 }
@@ -82,12 +81,22 @@ describe('PrognosticoDoPlano', () => {
     expect((barras[1].firstElementChild as HTMLElement).style.width).toBe('100%')
   })
 
-  it('marca cada dívida quitada na barra, com anel dourado na primeira', () => {
+  it('marca cada dívida quitada na barra', () => {
     render(<PrognosticoDoPlano prognostico={PROGNOSTICO} />)
     const marcos = document.querySelectorAll('[data-caminho="verde"] [data-marco]')
     expect(Array.from(marcos).map((m) => m.textContent)).toEqual(['1', '2'])
-    expect((marcos[0] as HTMLElement).className).toContain('border-[#D9A400]')
     expect((marcos[1] as HTMLElement).style.left).toBe(`${(38 / 56) * 100}%`)
+  })
+
+  it('cada bloco traz o quadro das suas dívidas: número, nome e mês, sem anel dourado', () => {
+    render(<PrognosticoDoPlano prognostico={PROGNOSTICO} />)
+    const itens = document.querySelectorAll('[data-caminho="verde"] [data-item]')
+    expect(Array.from(itens).map((i) => i.textContent)).toEqual([
+      '1Cartão rotativoMês 10',
+      '2ConsignadoMês 38',
+    ])
+    expect(document.querySelectorAll('[data-caminho="vermelho"] [data-item]')).toHaveLength(0)
+    expect(document.body.innerHTML).not.toContain('D9A400')
   })
 
   it('sem verde mostra só duas linhas', () => {

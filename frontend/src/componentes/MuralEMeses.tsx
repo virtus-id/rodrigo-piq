@@ -21,8 +21,6 @@ const COR = {
   },
 } as const
 
-const OURO = 'ring-2 ring-[#D9A400]'
-
 function BlocoDoMural({
   mes,
   cor,
@@ -40,7 +38,7 @@ function BlocoDoMural({
       data-mes={mes.ancora}
       className={`block rounded-piq p-2 text-xs no-underline ${
         quitacao ? `${c.forte} text-white` : `${c.suave} text-ink`
-      } ${mes.primeira_quitacao ? OURO : ''}`}
+      }`}
     >
       <strong className="block text-sm">{mes.rotulo}</strong>
       <span className="block">

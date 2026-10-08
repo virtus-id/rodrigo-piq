@@ -2,7 +2,8 @@
  * "Seu plano em números" — `RF-77`/`RF-78`, `T-375`. Uma LINHA por caminho,
  * todas na mesma escala de meses: vermelho (se nada mudar), azul (seguindo o
  * plano) e verde (plano acelerado, só com o valor extra informado). Na barra,
- * um círculo numerado por dívida quitada (anel dourado na primeira); abaixo,
+ * um círculo numerado por dívida quitada, e o quadro dessas dívidas (número,
+ * nome e mês) dentro do próprio bloco; abaixo,
  * o mês a mês de cada caminho e "Quando cada dívida termina". Texto e números
  * chegam prontos do servidor (Lei nº 3); `mes_fim`/`escala`/`marcos` são só
  * geometria. A cor nunca é o único sinal: título, veredito e tabela em texto.
@@ -41,7 +42,15 @@ function porcentagem(mes: number, escala: number): string {
   return `${escala > 0 ? (mes / escala) * 100 : 0}%`
 }
 
-function Linha({ caminho, eixoInicio }: { caminho: CaminhoDoPrognostico; eixoInicio: string }) {
+function Linha({
+  caminho,
+  eixoInicio,
+  textos,
+}: {
+  caminho: CaminhoDoPrognostico
+  eixoInicio: string
+  textos: Record<string, string>
+}) {
   const cor = COR[caminho.cor]
   return (
     <article
@@ -83,11 +92,7 @@ function Linha({ caminho, eixoInicio }: { caminho: CaminhoDoPrognostico; eixoIni
           <span
             key={`${marco.mes}-${marco.numero}`}
             data-marco={marco.numero}
-            className={`absolute top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-surface text-xs font-bold text-ink ${
-              marco.mes === caminho.mes_primeira_quitacao
-                ? 'border-[3px] border-[#D9A400]'
-                : `border-2 ${cor.anel}`
-            }`}
+            className={`absolute top-1/2 flex h-6 w-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 bg-surface text-xs font-bold text-ink ${cor.anel}`}
             style={{ left: porcentagem(marco.mes, caminho.escala) }}
           >
             {marco.numero}
@@ -106,6 +111,30 @@ function Linha({ caminho, eixoInicio }: { caminho: CaminhoDoPrognostico; eixoIni
           </div>
         ))}
       </dl>
+      {(caminho.itens ?? []).length > 0 && (
+        <div
+          role="group"
+          aria-label={textos.itens_titulo || 'Dívidas quitadas neste caminho'}
+          className="mt-3 border-t border-line pt-2"
+        >
+          <p className="text-muted m-0 text-xs">
+            {textos.itens_titulo || 'Dívidas quitadas neste caminho'}
+          </p>
+          <ul className="m-0 mt-1 flex list-none flex-wrap gap-x-4 gap-y-2 p-0">
+            {caminho.itens.map((item) => (
+              <li key={`${item.numero}-${item.quando}`} data-item={item.numero} className="w-40">
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full border-2 bg-surface text-xs font-bold text-ink ${cor.anel}`}
+                >
+                  {item.numero}
+                </span>
+                <span className="block text-sm font-bold text-ink">{item.nome}</span>
+                <span className="text-muted block text-xs">{item.quando}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </article>
   )
 }
@@ -175,31 +204,10 @@ export default function PrognosticoDoPlano({
             key={caminho.cor}
             caminho={caminho}
             eixoInicio={textos.eixo_inicio || 'Mês 1 (início)'}
+            textos={textos}
           />
         ))}
       </div>
-      {(prognostico.legenda ?? []).length > 0 && (
-        <div
-          className="text-muted m-0 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
-          data-legenda
-        >
-          <strong>{textos.legenda_titulo || 'Números nas barras:'}</strong>
-          {(prognostico.legenda ?? []).map((item) => (
-            <span key={item.numero} className="inline-flex items-center gap-1">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-muted bg-surface font-bold text-ink">
-                {item.numero}
-              </span>
-              {item.nome}
-            </span>
-          ))}
-          <span className="inline-flex items-center gap-1">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full border-[3px] border-[#D9A400] bg-surface font-bold text-ink">
-              1
-            </span>
-            {textos.legenda_primeira || 'anel dourado: sua primeira dívida quitada'}
-          </span>
-        </div>
-      )}
     </section>
   )
 }

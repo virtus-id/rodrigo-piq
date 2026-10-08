@@ -286,13 +286,13 @@ def serializar_plano(
                     "marcos": [
                         {"mes": mes, "numero": numero} for mes, numero in caminho.marcos
                     ],
-                    "mes_primeira_quitacao": caminho.mes_primeira_quitacao,
+                    "itens": [
+                        {"numero": numero, "nome": nome, "quando": quando}
+                        for numero, nome, quando in caminho.itens
+                    ],
                     "rotulo_curto": caminho.rotulo_curto,
                 }
                 for caminho in contexto.prognostico.caminhos
-            ],
-            "legenda": [
-                {"numero": numero, "nome": nome} for numero, nome in contexto.prognostico.legenda
             ],
             "detalhes": [
                 {

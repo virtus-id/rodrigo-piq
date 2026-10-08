@@ -21,7 +21,7 @@ const PROGNOSTICO = {
       escala: 14,
       mes_sombra: null,
       marcos: [],
-      mes_primeira_quitacao: null,
+      itens: [],
       rotulo_curto: 'Seu plano',
     },
   ],

@@ -13950,3 +13950,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Saem "O que fazer no Mês 1" e "Seu checklist do Mês 1" (e o mês a mês por caminho do cap. 5); testes (pytest e vitest)
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-378` — Quadro de dívidas dentro de cada bloco do capítulo 5 (sem legenda global nem anel dourado)
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-376`, `T-377` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Cada bloco azul e verde traz o quadro das suas dívidas (número, nome, mês de quitação); some a legenda global "Números nas barras"
+- [x] Sai o anel dourado da primeira quitação (barras, mural); o vermelho segue sem marcos
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
