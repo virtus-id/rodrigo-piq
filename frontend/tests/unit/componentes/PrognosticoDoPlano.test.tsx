@@ -11,7 +11,7 @@ const BASE = {
   mes_sombra: null,
   escala: 56,
   marcos: [] as { mes: number; numero: number }[],
-  itens: [] as { numero: number; nome: string; quando: string }[],
+  itens: [] as { numero: number; texto: string }[],
   rotulo_curto: '',
 }
 const PROGNOSTICO = {
@@ -50,8 +50,8 @@ const PROGNOSTICO = {
         { mes: 38, numero: 2 },
       ],
       itens: [
-        { numero: 1, nome: 'Cartão rotativo', quando: 'Mês 10' },
-        { numero: 2, nome: 'Consignado', quando: 'Mês 38' },
+        { numero: 1, texto: 'M10 - Quita Cartão Itaú' },
+        { numero: 2, texto: 'M38 - Quita Consignado Caixa' },
       ],
       rotulo_curto: 'Acelerado',
     },
@@ -88,12 +88,12 @@ describe('PrognosticoDoPlano', () => {
     expect((marcos[1] as HTMLElement).style.left).toBe(`${(38 / 56) * 100}%`)
   })
 
-  it('cada bloco traz o quadro das suas dívidas: número, nome e mês, sem anel dourado', () => {
+  it('cada bloco traz uma linha por dívida ("M10 - Quita …"), sem anel dourado', () => {
     render(<PrognosticoDoPlano prognostico={PROGNOSTICO} />)
     const itens = document.querySelectorAll('[data-caminho="verde"] [data-item]')
     expect(Array.from(itens).map((i) => i.textContent)).toEqual([
-      '1Cartão rotativoMês 10',
-      '2ConsignadoMês 38',
+      '1M10 - Quita Cartão Itaú',
+      '2M38 - Quita Consignado Caixa',
     ])
     expect(document.querySelectorAll('[data-caminho="vermelho"] [data-item]')).toHaveLength(0)
     expect(document.body.innerHTML).not.toContain('D9A400')

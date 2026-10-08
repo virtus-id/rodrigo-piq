@@ -197,6 +197,26 @@ rotulo_do_tipo_no_plano:
   OUTRA: "Outra dívida"
 # `T-328`: dívidas com o mesmo nome (ex.: 9 consignados da CAIXA) ganham a
 # parcela; sem parcela (ou com parcela igual), o ordinal na ordem do caso.
+# `T-379`: nome curto no quadro de cada bloco do capítulo 5 ("Cheque Itaú").
+nome_curto: "{tipo} {credor}"
+nome_curto_do_tipo:
+  CONSIGNADO: "Consignado"
+  PESSOAL: "Pessoal"
+  FIN_VEICULO: "Veículo"
+  FIN_IMOBILIARIO: "Imóvel"
+  CARTAO_ROTATIVO: "Cartão"
+  CARTAO_PARCELADO: "Fatura parcelada"
+  CHEQUE_ESPECIAL: "Cheque"
+  PARCELAMENTO_COMPRA: "Parcelamento"
+  TRIBUTARIA: "Impostos"
+  PESSOA_FISICA: "Familiar"
+  ACORDO: "Acordo"
+  OUTRA: "Outra"
+# Prefixos tirados do nome do credor, na ordem (o primeiro que combinar vale).
+prefixos_do_credor:
+  - "Banco do "
+  - "Banco da "
+  - "Banco "
 nome_com_parcela: "{nome} · parcela {parcela}"
 nome_com_ordinal: "{nome} · {ordinal}"
 
@@ -715,6 +735,7 @@ prognostico:
     suas respostas.
   eixo_inicio: "Mês 1 (início)"
   itens_titulo: "Dívidas quitadas neste caminho"
+  item_quita: "M{mes} - Quita {nome}"
   # Cap. 6, "Seu plano detalhado" (mural), e cap. 7, "Mês a mês, em detalhe".
   mural_titulo: "Seu plano detalhado"
   mural_intro: >-

@@ -120,16 +120,19 @@ function Linha({
           <p className="text-muted m-0 text-xs">
             {textos.itens_titulo || 'Dívidas quitadas neste caminho'}
           </p>
-          <ul className="m-0 mt-1 flex list-none flex-wrap gap-x-4 gap-y-2 p-0">
+          <ul className="m-0 mt-1 flex list-none flex-wrap gap-x-6 gap-y-1 p-0">
             {caminho.itens.map((item) => (
-              <li key={`${item.numero}-${item.quando}`} data-item={item.numero} className="w-40">
+              <li
+                key={`${item.numero}-${item.texto}`}
+                data-item={item.numero}
+                className="flex items-center gap-2"
+              >
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full border-2 bg-surface text-xs font-bold text-ink ${cor.anel}`}
+                  className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 bg-surface text-xs font-bold text-ink ${cor.anel}`}
                 >
                   {item.numero}
                 </span>
-                <span className="block text-sm font-bold text-ink">{item.nome}</span>
-                <span className="text-muted block text-xs">{item.quando}</span>
+                <span className="text-sm font-bold text-ink">{item.texto}</span>
               </li>
             ))}
           </ul>

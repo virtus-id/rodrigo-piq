@@ -13958,3 +13958,11 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] Sai o anel dourado da primeira quitação (barras, mural); o vermelho segue sem marcos
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-379` — Legenda compacta: "M7 - Quita Cheque Itaú"
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-378` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Nome curto da dívida (tipo curto + credor sem "Banco") e uma linha por dívida no quadro de cada bloco
+- [x] Textos em `textos-canonicos.yaml` (`nome_curto`, `nome_curto_do_tipo`, `prefixos_do_credor`, `prognostico.item_quita`); testes (pytest e vitest)
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)

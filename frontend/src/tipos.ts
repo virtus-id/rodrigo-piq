@@ -461,7 +461,7 @@ export interface CaminhoDoPrognostico {
   /** Mês e número (em "Suas dívidas") de cada dívida quitada neste caminho. */
   marcos: { mes: number; numero: number }[]
   /** Dívidas que marcam a barra, em ordem de quitação (vazio no vermelho). */
-  itens: { numero: number; nome: string; quando: string }[]
+  itens: { numero: number; texto: string }[]
   rotulo_curto: string
 }
 

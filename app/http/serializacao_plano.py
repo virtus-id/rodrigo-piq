@@ -287,8 +287,7 @@ def serializar_plano(
                         {"mes": mes, "numero": numero} for mes, numero in caminho.marcos
                     ],
                     "itens": [
-                        {"numero": numero, "nome": nome, "quando": quando}
-                        for numero, nome, quando in caminho.itens
+                        {"numero": numero, "texto": texto} for numero, texto in caminho.itens
                     ],
                     "rotulo_curto": caminho.rotulo_curto,
                 }

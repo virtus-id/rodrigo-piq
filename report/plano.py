@@ -232,6 +232,11 @@ class TextosCanonicosPlano:
     #: Nome curto do tipo de dívida no plano, por `TIPO_DIVIDA` — tem
     #: prioridade sobre o rótulo da opção de `B5.A02` (texto de pergunta).
     rotulo_do_tipo_no_plano: Mapping[str, str] = field(default_factory=dict)
+    #: `T-379` — nome ainda mais curto do tipo ("Cheque", "Cartão") e do credor
+    #: sem o "Banco", para o quadro de cada bloco do capítulo 5.
+    nome_curto_do_tipo: Mapping[str, str] = field(default_factory=dict)
+    prefixos_do_credor: tuple[str, ...] = ()
+    nome_curto: str = ""
     #: Plano amigável — frase de apoio ao valor da reserva mobilizável.
     #: Sugestão, a validar.
     reserva_explicacao: str = ""
@@ -312,9 +317,7 @@ def carregar_textos_canonicos(
     }
 
     duvidas_bruto = bruto.get("duvidas") or []
-    duvidas = tuple(
-        (str(item["pergunta"]), str(item["resposta"])) for item in duvidas_bruto
-    )
+    duvidas = tuple((str(item["pergunta"]), str(item["resposta"])) for item in duvidas_bruto)
 
     estabilizacao_bruto = bruto.get("estabilizacao") or {}
 
@@ -347,6 +350,9 @@ def carregar_textos_canonicos(
         ),
         textos_das_dividas=_mapa("dividas"),
         rotulo_do_tipo_no_plano=_mapa("rotulo_do_tipo_no_plano"),
+        nome_curto_do_tipo=_mapa("nome_curto_do_tipo"),
+        prefixos_do_credor=tuple(str(p) for p in (bruto.get("prefixos_do_credor") or [])),
+        nome_curto=str(bruto.get("nome_curto") or ""),
         reserva_explicacao=str(bruto.get("reserva_explicacao") or ""),
         onde_achar=_mapa("onde_achar"),
         pergunta_do_campo=_mapa("pergunta_do_campo"),
@@ -668,9 +674,9 @@ def nomear_dividas(
         # Revisão de redação (2026-10-03): o nome curto do plano vem antes
         # do rótulo da pergunta (`B5.A02`), que traz travessão ("Cartão de
         # crédito — saldo rotativo") e não deve ser editado para caber aqui.
-        tipo = textos.rotulo_do_tipo_no_plano.get(
-            divida.TIPO_DIVIDA.value
-        ) or _rotulo_de_opcao("TIPO_DIVIDA", divida.TIPO_DIVIDA.value, textos, vocabulario)
+        tipo = textos.rotulo_do_tipo_no_plano.get(divida.TIPO_DIVIDA.value) or _rotulo_de_opcao(
+            "TIPO_DIVIDA", divida.TIPO_DIVIDA.value, textos, vocabulario
+        )
         credor = vocabulario.credores.get(divida.DIVIDA_ID)
         nomes[divida.DIVIDA_ID] = (
             textos.nome_da_divida.format(tipo=tipo, credor=credor)
@@ -699,6 +705,33 @@ def nomear_dividas(
     return nomes
 
 
+def nomear_dividas_curtas(
+    dividas: Iterable[Divida], textos: TextosCanonicosPlano, vocabulario: VocabularioDoCaso
+) -> dict[str, str]:
+    """`T-379` — `DIVIDA_ID` → "Cheque Itaú": tipo curto + credor sem o "Banco".
+    Só para o quadro do capítulo 5, onde o número do círculo já distingue duas
+    dívidas de mesmo nome curto. Tipo sem nome curto cai no nome do plano."""
+    nomes: dict[str, str] = {}
+    for divida in dividas:
+        codigo = divida.TIPO_DIVIDA.value
+        tipo = (
+            textos.nome_curto_do_tipo.get(codigo)
+            or textos.rotulo_do_tipo_no_plano.get(codigo)
+            or _rotulo_de_opcao("TIPO_DIVIDA", codigo, textos, vocabulario)
+        )
+        credor = vocabulario.credores.get(divida.DIVIDA_ID)
+        for prefixo in textos.prefixos_do_credor:
+            if credor and credor.lower().startswith(prefixo.lower()):
+                credor = credor[len(prefixo) :].strip()
+                break
+        nomes[divida.DIVIDA_ID] = (
+            textos.nome_curto.format(tipo=tipo, credor=credor)
+            if credor and textos.nome_curto
+            else tipo
+        )
+    return nomes
+
+
 def montar_contexto_estado_inputs(
     estado: EstadoFinanceiro,
     textos: TextosCanonicosPlano,
@@ -715,9 +748,7 @@ def montar_contexto_estado_inputs(
     return ContextoEstadoInputs(
         campos=_campos_de_apoio(estado, textos, vocabulario),
         perfil_comportamental=_campos_de_apoio(estado.perfil_comportamental, textos, vocabulario),
-        sinais_comportamentais=_campos_de_apoio(
-            estado.sinais_comportamentais, textos, vocabulario
-        ),
+        sinais_comportamentais=_campos_de_apoio(estado.sinais_comportamentais, textos, vocabulario),
         dividas=tuple(
             ContextoDivida(
                 DIVIDA_ID=divida.DIVIDA_ID,
@@ -847,9 +878,7 @@ def _campos_desconhecidos_da_divida(divida: Divida) -> tuple[str, ...]:
     Comparação `is DESCONHECIDO` pura — nenhuma aritmética, nenhuma
     inferência sobre o valor (`RF-16`)."""
     return tuple(
-        campo
-        for campo in _CAMPOS_MATERIAIS_DA_DIVIDA
-        if getattr(divida, campo) is DESCONHECIDO
+        campo for campo in _CAMPOS_MATERIAIS_DA_DIVIDA if getattr(divida, campo) is DESCONHECIDO
     )
 
 
@@ -1127,9 +1156,7 @@ def meses_de_quitacao(snapshot: SnapshotOrdem) -> dict[str, int] | None:
     cenario = snapshot.cenarios.get(snapshot.METODO_RECOMENDADO_PIQ)
     if cenario is None:
         return None
-    return {
-        divida_id: mes.estado_final.mes for mes in cenario.meses for divida_id in mes.quitacoes
-    }
+    return {divida_id: mes.estado_final.mes for mes in cenario.meses for divida_id in mes.quitacoes}
 
 
 @dataclass(frozen=True, slots=True)
@@ -1153,9 +1180,9 @@ class ContextoCaminho:
     #: Todas as quitações do caminho, para o mês a mês e a tabela.
     quitacoes: tuple[tuple[int, int], ...] = ()
     rotulo_curto: str = ""  # nome do caminho nas faixas e na tabela
-    #: `T-378` — as dívidas que marcam a barra, em ordem de quitação:
-    #: (número, nome, "Mês 07"). Vazio no vermelho; é o quadro de cada bloco.
-    itens: tuple[tuple[int, str, str], ...] = ()
+    #: `T-378`/`T-379` — as dívidas que marcam a barra, em ordem de quitação:
+    #: (número, "M7 - Quita Cheque Itaú"). Vazio no vermelho.
+    itens: tuple[tuple[int, str], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -1202,8 +1229,7 @@ class ContextoPrognostico:
 def _numeros_das_dividas(snapshot: SnapshotOrdem) -> dict[str, int]:
     """`DIVIDA_ID` → posição em "Suas dívidas" (a mesma de `ContextoPosicao.indice`)."""
     return {
-        posicao.DIVIDA_ID: indice
-        for indice, posicao in enumerate(snapshot.ORDEM_QUITACAO, start=1)
+        posicao.DIVIDA_ID: indice for indice, posicao in enumerate(snapshot.ORDEM_QUITACAO, start=1)
     }
 
 
@@ -1220,19 +1246,18 @@ def _com_marcos(
     nomes: Mapping[str, str],
     textos: Mapping[str, str],
 ) -> ContextoCaminho:
-    """`T-375`/`T-378` — marcos da barra e o quadro de dívidas do bloco (número,
-    nome e mês de quitação), só nas linhas do plano e do plano acelerado."""
+    """`T-375`/`T-379` — marcos da barra e o quadro de dívidas do bloco, uma linha
+    por dívida ("M7 - Quita Cheque Itaú"), só no plano e no plano acelerado."""
     marcos = _marcos(quitacoes, numeros)
     nome_do = {numero: nomes.get(d, d) for d, numero in numeros.items()}
-    largura = max(2, len(str(caminho.escala)))
-    palavra = textos.get("mes", "Mês")
+    modelo = textos.get("item_quita", "M{mes} - Quita {nome}")
     com_marcos = caminho.cor != "vermelho"
     return replace(
         caminho,
         marcos=marcos if com_marcos else (),
         quitacoes=marcos,
         rotulo_curto=textos.get(f"{caminho.cor}_curto", ""),
-        itens=tuple((n, nome_do[n], f"{palavra} {mes:0{largura}d}") for mes, n in marcos)
+        itens=tuple((n, modelo.format(mes=mes, nome=nome_do[n])) for mes, n in marcos)
         if com_marcos
         else (),
     )
@@ -1317,6 +1342,7 @@ def _prognostico(
     cenario_recomendado: Any,
     textos: TextosCanonicosPlano,
     nomes: Mapping[str, str],
+    nomes_curtos: Mapping[str, str],
 ) -> ContextoPrognostico | None:
     """Monta as linhas (`_linhas_do_prognostico`) e acrescenta os marcos de
     quitação de cada caminho e o mês a mês (`T-375`)."""
@@ -1332,7 +1358,7 @@ def _prognostico(
         "verde": prog.com_extra.QUITACOES if prog.com_extra is not None else (),
     }
     caminhos = tuple(
-        _com_marcos(c, quitacoes[c.cor], numeros, nomes, t) for c in base.caminhos
+        _com_marcos(c, quitacoes[c.cor], numeros, nomes_curtos, t) for c in base.caminhos
     )
     por_cor = {c.cor: c for c in caminhos}
     fontes = [("azul", prog.MESES_DO_PLANO)]
@@ -1342,9 +1368,7 @@ def _prognostico(
         ContextoPlanoDetalhado(
             cor=cor,
             titulo=por_cor[cor].titulo,
-            meses=_meses_detalhados(
-                meses, cor, por_cor[cor].quitacoes, numeros, nomes, t
-            ),
+            meses=_meses_detalhados(meses, cor, por_cor[cor].quitacoes, numeros, nomes, t),
         )
         for cor, meses in fontes
         if meses
@@ -1565,9 +1589,7 @@ def _contexto_do_curso(
     chave = "estabilizacao" if estabilizacao else metodo
     numeros = quadros.get(chave) or quadros.get("padrao") or []
     escolhidas = tuple(
-        (str(n), str(aulas[n]["titulo"]), str(aulas[n]["motivo"]))
-        for n in numeros
-        if n in aulas
+        (str(n), str(aulas[n]["titulo"]), str(aulas[n]["motivo"])) for n in numeros if n in aulas
     )
     return ContextoCursoSSD(
         apresentacao_titulo=str(bruto.get("apresentacao_titulo") or ""),
@@ -1611,7 +1633,7 @@ def _fatos_da_divida(
 
 @dataclass(frozen=True, slots=True)
 class ContextoPontoDePartida:
-    """"Seu ponto de partida" — revisão de design (2026-10-03): os números do
+    """ "Seu ponto de partida" — revisão de design (2026-10-03): os números do
     mês do aluno, para o plano parecer feito para ELE. Todos LIDOS do
     snapshot e só formatados (`AC-42`): renda e gastos de `estado_inputs`,
     parcelas e valor extra do `Diagnostico`. Nenhuma conta liga um número
@@ -1639,7 +1661,7 @@ def _ponto_de_partida(snapshot: SnapshotOrdem) -> ContextoPontoDePartida:
 
 
 def primeiro_nome(nome_completo: str | None) -> str | None:
-    """"MARIA DA SILVA" → "Maria" — revisão de design (2026-10-03): o
+    """ "MARIA DA SILVA" → "Maria" — revisão de design (2026-10-03): o
     cabeçalho trata o aluno pelo primeiro nome. O nome vem da compra
     (Hotmart, migração `009`), muitas vezes em caixa alta; `None` ou vazio
     devolve `None` e o documento usa a versão sem nome."""
@@ -1732,9 +1754,7 @@ def montar_contexto_plano(
                 snapshot.METODO_RECOMENDADO_PIQ.value, {}
             ).get("primeira" if indice == 1 else "seguintes", ""),
             mes_de_quitacao=quitacoes.get(posicao_do_snapshot.DIVIDA_ID),
-            fatos=_fatos_da_divida(
-                dividas_por_id.get(posicao_do_snapshot.DIVIDA_ID), textos
-            ),
+            fatos=_fatos_da_divida(dividas_por_id.get(posicao_do_snapshot.DIVIDA_ID), textos),
             incomodo=_incomodo_da_divida(
                 dividas_por_id.get(posicao_do_snapshot.DIVIDA_ID), indice, textos
             )[0],
@@ -1744,7 +1764,10 @@ def montar_contexto_plano(
         )
         for indice, posicao_do_snapshot in enumerate(snapshot.ORDEM_QUITACAO, start=1)
     )
-    prognostico = _prognostico(snapshot, cenario_recomendado, textos, nomes)
+    nomes_curtos = nomear_dividas_curtas(
+        snapshot.estado_inputs.dividas, textos, vocabulario or VocabularioDoCaso()
+    )
+    prognostico = _prognostico(snapshot, cenario_recomendado, textos, nomes, nomes_curtos)
 
     return ContextoPlano(
         titulo=textos.titulo,
@@ -1775,9 +1798,7 @@ def montar_contexto_plano(
         valor_mensal_destinado=formatar_dinheiro_br(
             snapshot.diagnostico.CAPACIDADE_ATAQUE_CONSERVADORA
         ),
-        metodo=rotulo_de_codigo(
-            textos.rotulos_de_codigos, snapshot.METODO_RECOMENDADO_PIQ.value
-        ),
+        metodo=rotulo_de_codigo(textos.rotulos_de_codigos, snapshot.METODO_RECOMENDADO_PIQ.value),
         rotulo_do_cenario=rotulo_de_codigo(textos.rotulos_de_codigos, cenario.value),
         # Plano amigável (2026-10-03) — leitura adicional do MESMO
         # `cenario_recomendado`/`snapshot` já obtidos acima; nenhum campo

@@ -123,6 +123,8 @@ def test_cada_linha_traz_valor_a_mais_e_primeira_quitacao() -> None:
 
 
 def test_so_azul_e_verde_levam_marcos_e_o_quadro_de_dividas_dentro_do_bloco() -> None:
+    import re
+
     snapshot = _snapshot(converter_para_dinheiro("500,00"))
     textos = carregar_textos_canonicos()
     contexto = montar_contexto_plano(snapshot, textos)
@@ -136,17 +138,12 @@ def test_so_azul_e_verde_levam_marcos_e_o_quadro_de_dividas_dentro_do_bloco() ->
             for _, mes in snapshot.prognostico.sem_acao.QUITACOES  # type: ignore[union-attr]
         )
     )
-    nomes = {p.indice: p.nome for p in contexto.ordem}
     for cor in ("azul", "verde"):
         caminho = caminhos[cor]
         assert caminho.marcos
-        # Um item por marco, na mesma ordem: (número, nome, "Mês NN").
-        assert [(n, nome) for n, nome, _ in caminho.itens] == [
-            (numero, nomes[numero]) for _, numero in caminho.marcos
-        ]
-        assert all(
-            quando.startswith("Mês ") and quando[-2:].isdigit() for *_, quando in caminho.itens
-        )
+        # Um item por marco, na mesma ordem: (número, "M7 - Quita <nome curto>").
+        assert [n for n, _ in caminho.itens] == [numero for _, numero in caminho.marcos]
+        assert all(re.fullmatch(r"M\d+ - Quita .+", texto) for _, texto in caminho.itens)
     html = renderizar_html_do_plano(contexto, textos)
     assert html.count('class="caminho-itens"') == 2  # azul e verde, nunca o vermelho
     assert "Números nas barras" not in html and "D9A400" not in html
@@ -205,3 +202,26 @@ def test_plano_antigo_sem_mes_a_mes_nao_traz_os_capitulos_detalhados() -> None:
 def test_capitulos_removidos_do_mes_1_nao_existem_mais() -> None:
     html, _ = _html_com_extra()
     assert "O que fazer no Mês 1" not in html and "checklist do Mês 1" not in html
+
+
+def test_nome_curto_da_divida_vira_tipo_mais_credor_sem_banco() -> None:
+    from dataclasses import replace
+
+    from engine.estado import TIPO_DIVIDA
+    from report.plano import VocabularioDoCaso, nomear_dividas_curtas
+
+    snapshot = _snapshot()
+    textos = carregar_textos_canonicos()
+    base = snapshot.estado_inputs.dividas[0]
+    cheque = replace(base, DIVIDA_ID="D-CHEQUE", TIPO_DIVIDA=TIPO_DIVIDA.CHEQUE_ESPECIAL)
+    consignado = replace(base, DIVIDA_ID="D-CONS", TIPO_DIVIDA=TIPO_DIVIDA.CONSIGNADO)
+    sem_credor = replace(base, DIVIDA_ID="D-SEM", TIPO_DIVIDA=TIPO_DIVIDA.CARTAO_ROTATIVO)
+    vocabulario = VocabularioDoCaso(
+        credores={"D-CHEQUE": "Banco Itaú", "D-CONS": "Banco do Brasil"}
+    )
+    nomes = nomear_dividas_curtas((cheque, consignado, sem_credor), textos, vocabulario)
+    assert nomes == {
+        "D-CHEQUE": "Cheque Itaú",
+        "D-CONS": "Consignado Brasil",
+        "D-SEM": "Cartão",
+    }
