@@ -163,7 +163,6 @@ def renderizar_html_do_plano(
         # Plano amigável (2026-10-03) — seções novas da "consultoria
         # individual"; `textos` traz só os títulos/textos fixos que não são
         # campo de `ContextoPlano` (ver docstring).
-        passo_atual=contexto.passo_atual,
         nome_do_aluno=contexto.nome_do_aluno,
         ponto_de_partida=contexto.ponto_de_partida,
         como_funciona=contexto.como_funciona,

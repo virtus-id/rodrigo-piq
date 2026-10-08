@@ -178,7 +178,6 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         # individual": nenhum deles renomeia ORDEM_QUITACAO, são seções
         # próprias (resumo, primeiro passo, jornada, dúvidas etc.).
         "resumo",
-        "primeiro_passo",
         "explicacao_mes_1",
         "como_funciona_titulo",
         "como_funciona",
@@ -186,14 +185,13 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         "grade_meses",
         # Revisão de design (2026-10-03) — cabeçalho personalizado,
         # títulos das seções, ponto de partida, quadros de "Como
-        # funciona", cartão de cada dívida, checklist e nome curto do
+        # funciona", cartão de cada dívida, e nome curto do
         # tipo de dívida; nenhum renomeia a ordem.
         "cabecalho",
         "secoes",
         "ponto_de_partida",
         "como_funciona_rotulos",
         "textos_das_dividas",
-        "checklist",
         "rotulo_do_tipo_no_plano",
         "reserva_explicacao",
         "onde_achar",
@@ -432,7 +430,6 @@ def _renderizar_plano_html_com_contexto(
         metodo=contexto.metodo,
         valor_mensal_destinado=contexto.valor_mensal_destinado,
         cenario_adicional=contexto.cenario_adicional,
-        passo_atual=contexto.passo_atual,
         como_funciona=contexto.como_funciona,
         textos=textos,
     )

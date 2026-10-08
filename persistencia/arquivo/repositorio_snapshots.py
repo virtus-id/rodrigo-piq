@@ -89,7 +89,7 @@ from engine.extraordinarios import (
 from engine.gates import AcaoRequerida
 from engine.ordem import PosicaoOrdem
 from engine.portas import RepositorioSnapshots
-from engine.prognostico import Prognostico, PrognosticoComExtra, PrognosticoSemAcao
+from engine.prognostico import MesDoPlano, Prognostico, PrognosticoComExtra, PrognosticoSemAcao
 from engine.risco import ClassificacaoRisco, SinalD4
 from engine.snapshot import SnapshotOrdem, _serializar_canonico
 from engine.tipos import (
@@ -690,6 +690,20 @@ def _projecao_extraordinarios(bruto: dict[str, Any] | None) -> ProjecaoExtraordi
     )
 
 
+def _meses_do_plano(bruto: list[dict[str, Any]] | None) -> tuple[MesDoPlano, ...]:
+    """T-176 — o mês a mês de um plano; snapshot anterior não tem a chave."""
+    return tuple(
+        MesDoPlano(
+            MES=item["MES"],
+            DIVIDA_ALVO=item["DIVIDA_ALVO"],
+            VALOR_EXTRA=_decimal(item["VALOR_EXTRA"]),
+            SALDO_TOTAL=_decimal(item["SALDO_TOTAL"]),
+            QUITACOES=tuple(item["QUITACOES"]),
+        )
+        for item in (bruto or [])
+    )
+
+
 def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
     """RF-77 — `SnapshotOrdem.prognostico`; snapshot anterior não tem a chave."""
     if bruto is None:
@@ -697,6 +711,7 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
     sem_acao = bruto["sem_acao"]
     extra = bruto.get("com_extra")
     return Prognostico(
+        MESES_DO_PLANO=_meses_do_plano(bruto.get("MESES_DO_PLANO")),
         com_extra=(
             None
             if extra is None
@@ -714,6 +729,7 @@ def _prognostico(bruto: dict[str, Any] | None) -> Prognostico | None:
                 ),
                 MESES_ANTECIPADOS=extra.get("MESES_ANTECIPADOS") or 0,
                 QUITACOES=tuple((d, m) for d, m in extra.get("QUITACOES", [])),
+                MESES=_meses_do_plano(extra.get("MESES")),
                 ECONOMIA_CUSTO=_decimal(extra.get("ECONOMIA_CUSTO") or "0"),
             )
         ),

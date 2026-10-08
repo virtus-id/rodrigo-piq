@@ -425,13 +425,11 @@ explicacao_mes_1: >-
 secoes:
   resumo: "Seu plano em números"
   ponto_de_partida: "Seu ponto de partida"
-  primeiro_passo: "O que fazer no Mês 1"
   como_funciona: "Como o seu plano funciona"
   dividas: "Suas dívidas, uma a uma"
   reserva: "Sua reserva"
   pendencias: "O que falta informar"
   duvidas: "Perguntas frequentes"
-  checklist: "Seu checklist do Mês 1"
   sobre: "Sobre este plano"
 
 # Resumo do topo. `*_rotulo` vai embaixo do número; `*_explicacao`, em
@@ -467,34 +465,6 @@ ponto_de_partida:
     O valor extra foi calculado com uma margem de segurança e nunca passa do
     valor que você disse que consegue separar. Assim, você paga as dívidas
     sem deixar faltar dinheiro para o essencial.
-
-# "O que fazer no Mês 1": três passos, um por cartão. `{valor}` é o extra
-# do Mês 1; `{alvo}`, o nome da dívida da vez. Sugestão, a validar.
-primeiro_passo:
-  titulo: "O que fazer no Mês 1"
-  introducao: >-
-    O Mês 1 é o primeiro mês em que você começa a seguir o plano, não o mês de
-    hoje no calendário. Nele, você faz três coisas, nesta ordem.
-  passo_1_titulo: "Pague as parcelas de sempre"
-  passo_1_texto: >-
-    Continue pagando a parcela de cada dívida, como já faz hoje. Nenhuma
-    delas pode atrasar.
-  passo_2_titulo: "Coloque o valor extra em uma dívida só"
-  passo_2_texto: >-
-    Depois das parcelas, use {valor} para abater {alvo}. Não divida esse
-    valor entre as dívidas: ele vai inteiro para esta.
-  passo_3_titulo: "Guarde o comprovante"
-  passo_3_texto: >-
-    Guarde o comprovante do pagamento extra. Ele mostra que o valor foi
-    abatido e ajuda se for preciso conferir depois.
-  como_pagar_titulo: "Como fazer o pagamento extra"
-  como_pagar_a_mais: >-
-    Peça ao credor para abater esse valor direto do saldo da dívida, como
-    amortização ou quitação antecipada, e não para adiantar uma parcela.
-    Confira no comprovante se o saldo diminuiu.
-  # Chaves anteriores, mantidas para chamadores que ainda as usam.
-  instrucao_parcelas: "Pague normalmente as parcelas de todas as suas dívidas."
-  instrucao_ataque: "Depois, coloque {valor} a mais em {alvo}."
 
 # "Como o seu plano funciona": três quadros. `como_funciona_rotulos` são os
 # títulos curtos dos quadros; a lista por método é o texto de cada um.
@@ -633,12 +603,6 @@ duvidas:
       funciona". Cada método escolhe a dívida da vez por um critério, como
       os juros mais altos ou o menor saldo, e não pelo tamanho da dívida.
 
-checklist:
-  introducao: "Marque cada item quando concluir."
-  pagar_parcela: "Pagar a parcela de {nome}: {valor}"
-  pagar_extra: "Pagar {valor} a mais em {alvo}"
-  guardar: "Guardar o comprovante do pagamento extra"
-
 sobre_este_plano: >-
   Este plano foi calculado com as informações que você nos passou. Quanto
   mais completas e corretas elas estiverem, mais preciso ele fica. Antes de
@@ -752,11 +716,27 @@ prognostico:
   eixo_inicio: "Mês 1 (início)"
   legenda_titulo: "Números nas barras:"
   legenda_primeira: "anel dourado: sua primeira dívida quitada"
-  mes_a_mes_titulo: "Mês a mês, em cada caminho"
-  mes_a_mes_intro: >-
-    Cada linha é um caminho. Os quadros claros são meses de pagamento; os
-    quadros fortes, com o número da dívida, são os meses em que ela acaba; o
-    anel dourado marca a primeira. Quadro vazio: o caminho já terminou.
+  # Cap. 6, "Seu plano detalhado" (mural), e cap. 7, "Mês a mês, em detalhe".
+  mural_titulo: "Seu plano detalhado"
+  mural_intro: >-
+    Cada quadro é um mês do plano, de Mês 01 até o fim. Veja quanto você ainda
+    deve e quanto vai para a dívida da vez. Toque ou clique em um mês para ver
+    o detalhe dele.
+  meses_titulo: "Mês a mês, em detalhe"
+  meses_intro: >-
+    O detalhe de cada mês, para você acompanhar e guardar. O Mês 01 é o mês em
+    que você começa a seguir o plano, e os meses seguintes contam a partir dele.
+  rotulo_deve: "Deve"
+  rotulo_extra_mes: "Extra"
+  rotulo_da_vez: "Dívida da vez"
+  texto_coloque: "Coloque {valor} nela, depois das parcelas."
+  rotulo_saldo_fim: "Ainda deve, ao fim do mês"
+  rotulo_quitada: "Quitada neste mês"
+  rotulo_primeira: "Sua primeira dívida quitada"
+  texto_fim: "Fim das dívidas: todas quitadas."
+  instrucao_parcelas: "Pague as parcelas de sempre."
+  instrucao_comprovante: "Guarde o comprovante do pagamento extra."
+  voltar: "Voltar ao mural"
   rotulo_ano: "Ano"
   vermelho_curto: "Se nada mudar"
   azul_curto: "Seu plano"

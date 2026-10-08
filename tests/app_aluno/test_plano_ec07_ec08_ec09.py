@@ -137,7 +137,6 @@ def _renderizar_plano_html_com_contexto(
         metodo=contexto.metodo,
         valor_mensal_destinado=contexto.valor_mensal_destinado,
         cenario_adicional=contexto.cenario_adicional,
-        passo_atual=contexto.passo_atual,
         como_funciona=contexto.como_funciona,
         textos=textos,
     )

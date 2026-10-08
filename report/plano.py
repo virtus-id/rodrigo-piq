@@ -122,7 +122,6 @@ from dataclasses import dataclass, field, fields, is_dataclass, replace
 from datetime import date
 from decimal import Decimal
 from enum import Enum
-from itertools import batched
 from pathlib import Path
 from typing import Any, Final
 
@@ -212,9 +211,6 @@ class TextosCanonicosPlano:
     #: do topo ("prazo", "valor_mensal", "custo_futuro"). Sugestão, a
     #: validar pelo especialista.
     resumo: Mapping[str, str] = field(default_factory=dict)
-    #: Plano amigável — "Seu primeiro passo" (titulo/instrucao_parcelas/
-    #: instrucao_ataque/como_pagar_a_mais). Sugestão, a validar.
-    primeiro_passo: Mapping[str, str] = field(default_factory=dict)
     #: Plano amigável — explica que "Mês 1" é relativo ao início do
     #: acompanhamento do aluno, nunca um mês do calendário.
     explicacao_mes_1: str = ""
@@ -227,13 +223,12 @@ class TextosCanonicosPlano:
     #: Revisão de redação e design (2026-10-03) — cabeçalho personalizado,
     #: títulos das seções do documento, "Seu ponto de partida", títulos
     #: curtos dos quadros de "Como funciona", textos do cartão de cada
-    #: dívida e do checklist do Mês 1.
+    #: dívida.
     cabecalho: Mapping[str, str] = field(default_factory=dict)
     secoes: Mapping[str, str] = field(default_factory=dict)
     ponto_de_partida: Mapping[str, str] = field(default_factory=dict)
     como_funciona_rotulos: tuple[str, ...] = ()
     textos_das_dividas: Mapping[str, str] = field(default_factory=dict)
-    checklist: Mapping[str, str] = field(default_factory=dict)
     #: Nome curto do tipo de dívida no plano, por `TIPO_DIVIDA` — tem
     #: prioridade sobre o rótulo da opção de `B5.A02` (texto de pergunta).
     rotulo_do_tipo_no_plano: Mapping[str, str] = field(default_factory=dict)
@@ -340,7 +335,6 @@ def carregar_textos_canonicos(
         rotulos_de_codigos=_mapa("rotulos_de_codigos"),
         criterio_do_metodo=_mapa("criterio_do_metodo"),
         resumo=_mapa("resumo"),
-        primeiro_passo=_mapa("primeiro_passo"),
         explicacao_mes_1=str(bruto.get("explicacao_mes_1") or ""),
         como_funciona_titulo=str((bruto.get("como_funciona") or {}).get("titulo") or ""),
         como_funciona=como_funciona,
@@ -352,7 +346,6 @@ def carregar_textos_canonicos(
             str(rotulo) for rotulo in (bruto.get("como_funciona_rotulos") or [])
         ),
         textos_das_dividas=_mapa("dividas"),
-        checklist=_mapa("checklist"),
         rotulo_do_tipo_no_plano=_mapa("rotulo_do_tipo_no_plano"),
         reserva_explicacao=str(bruto.get("reserva_explicacao") or ""),
         onde_achar=_mapa("onde_achar"),
@@ -1055,9 +1048,6 @@ class ContextoPlano:
     #: apresentação; o código continua em `cenario`, para os templates.
     metodo: str = ""
     rotulo_do_cenario: str = ""
-    #: Plano amigável (2026-10-03) — "Seu primeiro passo"; `None` sem
-    #: dívida-alvo (ordem vazia) ou sem mês simulado (estabilização).
-    passo_atual: ContextoPassoAtual | None = None
     #: Revisão de design (2026-10-03) — personalização: o primeiro nome do
     #: aluno (`None` sem nome na conta) e os números do mês dele.
     nome_do_aluno: str | None = None
@@ -1142,67 +1132,6 @@ def meses_de_quitacao(snapshot: SnapshotOrdem) -> dict[str, int] | None:
     }
 
 
-#: Plano amigável (2026-10-03) — mesma leitura pura de `_FORMATO_DE_APOIO`,
-#: mas sobre `Divida.PAGAMENTO_MENSAL_EFETIVO` (sempre dinheiro).
-def _pagamento_mensal_ou_nao_disponivel(valor: Decimal | Desconhecido) -> str:
-    if valor is DESCONHECIDO:
-        return "não informado"
-    return formatar_dinheiro_br(valor)
-
-
-@dataclass(frozen=True, slots=True)
-class ContextoParcela:
-    """Uma linha de "pague normalmente" no primeiro passo: nome da dívida
-    (`tipo — credor`) e o que o aluno paga por mês nela hoje — LIDO de
-    `Divida.PAGAMENTO_MENSAL_EFETIVO`, nunca recalculado."""
-
-    nome: str
-    valor: str
-
-
-@dataclass(frozen=True, slots=True)
-class ContextoPassoAtual:
-    """`RF-96`/`DE-08`-adjacente — "Seu primeiro passo": a dívida-alvo e o
-    valor extra do Mês 1 do cenário recomendado, mais a lista de parcelas
-    normais de todas as dívidas. Tudo LIDO: `alvo`/`valor_extra` vêm do
-    primeiro `ResultadoMes` do cenário recomendado (`DIVIDA_ALVO_ATUAL`
-    inicial do snapshot e `CAPACIDADE_ATAQUE_M` do mês 1); `parcelas`, de
-    `estado_inputs.dividas`. `None` quando não há dívida-alvo (ordem vazia)
-    ou nenhum mês simulado (ESTABILIZACAO)."""
-
-    alvo: str | None
-    valor_extra: str
-    parcelas: tuple[ContextoParcela, ...]
-
-
-def _passo_atual(
-    snapshot: SnapshotOrdem,
-    cenario_recomendado: Any,
-    nomes: Mapping[str, str],
-) -> ContextoPassoAtual | None:
-    """Lê o Mês 1 do cenário recomendado: a dívida-alvo é
-    `snapshot.DIVIDA_ALVO_ATUAL` (o alvo vigente, o mesmo que abre a
-    simulação — `engine/ciclo_mensal.py::simular_cenario`), e o valor extra
-    é `CAPACIDADE_ATAQUE_M` do primeiro mês simulado (`cenario.meses[0]`,
-    `mes == 1`). `None` sem dívida-alvo (EC-07) e sem nenhum mês simulado
-    (ESTABILIZACAO: `cenario.meses` vazio)."""
-    if snapshot.DIVIDA_ALVO_ATUAL is None or not cenario_recomendado.meses:
-        return None
-    primeiro_mes = cenario_recomendado.meses[0]
-    parcelas = tuple(
-        ContextoParcela(
-            nome=nomes.get(divida.DIVIDA_ID, divida.DIVIDA_ID),
-            valor=_pagamento_mensal_ou_nao_disponivel(divida.PAGAMENTO_MENSAL_EFETIVO),
-        )
-        for divida in snapshot.estado_inputs.dividas
-    )
-    return ContextoPassoAtual(
-        alvo=nomes.get(snapshot.DIVIDA_ALVO_ATUAL, snapshot.DIVIDA_ALVO_ATUAL),
-        valor_extra=formatar_dinheiro_br(primeiro_mes.estado_final.CAPACIDADE_ATAQUE_M),
-        parcelas=parcelas,
-    )
-
-
 @dataclass(frozen=True, slots=True)
 class ContextoCaminho:
     """Uma linha do prognóstico; tudo já em texto (`RF-13`). `mes_fim`,
@@ -1228,30 +1157,26 @@ class ContextoCaminho:
 
 
 @dataclass(frozen=True, slots=True)
-class ContextoMesDoCaminho:
-    """Um mês de uma faixa: `comum`, `quitacao`, `primeira` (1ª quitação) ou
-    `depois` (o caminho já terminou). `numeros`: dívidas quitadas no mês."""
+class ContextoMesDetalhado:
+    """`T-377` — um mês de um plano, para o mural e para o cartão do mês.
+    `rotulo` é a referência ("Mês 01"), nunca uma data; `ancora` liga o bloco
+    do mural ao cartão. Tudo já formatado: o app só lê (Lei nº 3)."""
 
-    mes: int
-    tipo: str
-    numeros: tuple[int, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
-class ContextoFaixaDoAno:
-    cor: str
     rotulo: str
-    meses: tuple[ContextoMesDoCaminho, ...]
+    ancora: str
+    divida_da_vez: tuple[int, str] | None  # (número em "Suas dívidas", nome)
+    valor_extra: str
+    saldo: str
+    quitadas: tuple[tuple[int, str], ...]
+    primeira_quitacao: bool
+    ultimo: bool
 
 
 @dataclass(frozen=True, slots=True)
-class ContextoAnoDosCaminhos:
-    """`T-375` — um ano do mês a mês: uma faixa de até 12 meses por caminho."""
-
-    numero: int
-    mes_inicio: int
-    mes_fim: int
-    faixas: tuple[ContextoFaixaDoAno, ...]
+class ContextoPlanoDetalhado:
+    cor: str  # "azul" | "verde"
+    titulo: str
+    meses: tuple[ContextoMesDetalhado, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -1268,7 +1193,8 @@ class ContextoPrognostico:
     titulo: str
     introducao: str
     caminhos: tuple[ContextoCaminho, ...]
-    mes_a_mes: tuple[ContextoAnoDosCaminhos, ...] = ()
+    #: `T-377` — o plano seguido e (com valor extra) o acelerado, mês a mês.
+    detalhes: tuple[ContextoPlanoDetalhado, ...] = ()
     #: (número, nome) de cada dívida, na ordem de "Suas dívidas" — a legenda
     #: dos círculos das barras.
     legenda: tuple[tuple[int, str], ...] = ()
@@ -1302,38 +1228,36 @@ def _com_marcos(
     )
 
 
-def _mes_do_caminho(caminho: ContextoCaminho, mes: int) -> ContextoMesDoCaminho:
-    if mes > caminho.mes_fim:
-        return ContextoMesDoCaminho(mes=mes, tipo="depois")
-    numeros = tuple(numero for mes_do_marco, numero in caminho.quitacoes if mes_do_marco == mes)
-    if not numeros:
-        return ContextoMesDoCaminho(mes=mes, tipo="comum")
-    tipo = "primeira" if mes == caminho.mes_primeira_quitacao else "quitacao"
-    return ContextoMesDoCaminho(mes=mes, tipo=tipo, numeros=numeros)
+def _meses_detalhados(
+    meses: Iterable[Any],
+    cor: str,
+    quitacoes_do_caminho: tuple[tuple[int, int], ...],
+    numeros: Mapping[str, int],
+    nomes: Mapping[str, str],
+    textos: Mapping[str, str],
+) -> tuple[ContextoMesDetalhado, ...]:
+    """`T-377` — um `ContextoMesDetalhado` por `MesDoPlano` do snapshot. Só
+    formata e compara (rótulo "Mês 01" com zeros à esquerda, sem data)."""
+    lista = tuple(meses)
+    largura = max(2, len(str(len(lista))))
+    mes_primeira = min((mes for mes, _ in quitacoes_do_caminho), default=None)
+    palavra = textos.get("mes", "Mês")
 
+    def _divida(divida_id: str) -> tuple[int, str]:
+        return (numeros.get(divida_id, 0), nomes.get(divida_id, divida_id))
 
-def _mes_a_mes(
-    caminhos: tuple[ContextoCaminho, ...], escala: int
-) -> tuple[ContextoAnoDosCaminhos, ...]:
-    """`T-375` — por ano, uma faixa de meses por caminho. Só agrupa meses por
-    posição (como `agrupar_grade_por_ano`); nenhuma conta sobre valor."""
     return tuple(
-        ContextoAnoDosCaminhos(
-            numero=numero,
-            mes_inicio=meses[0],
-            mes_fim=meses[-1],
-            faixas=tuple(
-                ContextoFaixaDoAno(
-                    cor=caminho.cor,
-                    rotulo=caminho.rotulo_curto,
-                    meses=tuple(_mes_do_caminho(caminho, mes) for mes in meses),
-                )
-                for caminho in caminhos
-            ),
+        ContextoMesDetalhado(
+            rotulo=f"{palavra} {item.MES:0{largura}d}",
+            ancora=f"mes-{cor}-{item.MES:0{largura}d}",
+            divida_da_vez=None if item.DIVIDA_ALVO is None else _divida(item.DIVIDA_ALVO),
+            valor_extra=formatar_dinheiro_br(item.VALOR_EXTRA),
+            saldo=formatar_dinheiro_br(item.SALDO_TOTAL),
+            quitadas=tuple(_divida(d) for d in item.QUITACOES),
+            primeira_quitacao=bool(item.QUITACOES) and item.MES == mes_primeira,
+            ultimo=indice == len(lista),
         )
-        for numero, meses in enumerate(
-            batched(range(1, escala + 1), MESES_POR_LINHA_DO_CALENDARIO), start=1
-        )
+        for indice, item in enumerate(lista, start=1)
     )
 
 
@@ -1401,13 +1325,25 @@ def _prognostico(
         _com_marcos(c, quitacoes[c.cor], numeros, t.get(f"{c.cor}_curto", ""))
         for c in base.caminhos
     )
-    escala = caminhos[0].escala
     legenda = tuple(
         (numero, nomes.get(divida_id, divida_id)) for divida_id, numero in numeros.items()
     )
-    return replace(
-        base, caminhos=caminhos, mes_a_mes=_mes_a_mes(caminhos, escala), legenda=legenda
+    por_cor = {c.cor: c for c in caminhos}
+    fontes = [("azul", prog.MESES_DO_PLANO)]
+    if prog.com_extra is not None:
+        fontes.append(("verde", prog.com_extra.MESES))
+    detalhes = tuple(
+        ContextoPlanoDetalhado(
+            cor=cor,
+            titulo=por_cor[cor].titulo,
+            meses=_meses_detalhados(
+                meses, cor, por_cor[cor].quitacoes, numeros, nomes, t
+            ),
+        )
+        for cor, meses in fontes
+        if meses
     )
+    return replace(base, caminhos=caminhos, detalhes=detalhes, legenda=legenda)
 
 
 def _linhas_do_prognostico(
@@ -1543,10 +1479,6 @@ def _linhas_do_prognostico(
     return ContextoPrognostico(
         titulo=t.get("titulo", ""), introducao=t.get("introducao", ""), caminhos=tuple(caminhos)
     )
-
-
-#: Meses em cada linha do mês a mês por caminho (`T-375`).
-MESES_POR_LINHA_DO_CALENDARIO = 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -1844,7 +1776,6 @@ def montar_contexto_plano(
         # Plano amigável (2026-10-03) — leitura adicional do MESMO
         # `cenario_recomendado`/`snapshot` já obtidos acima; nenhum campo
         # novo é lido do motor, só reorganizado para a "consultoria".
-        passo_atual=_passo_atual(snapshot, cenario_recomendado, nomes),
         nome_do_aluno=primeiro_nome(nome_do_aluno),
         ponto_de_partida=_ponto_de_partida(snapshot),
         como_funciona=textos.como_funciona.get(snapshot.METODO_RECOMENDADO_PIQ.value, ()),

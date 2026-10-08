@@ -87,27 +87,42 @@
 {% endmacro %}
 
 {# ---------------------------------------------------------------------
-   Mês a mês por caminho (T-375) — por ano, uma faixa de até 12 meses por
-   caminho, na cor dele. Mês comum: quadro claro; quitação: quadro forte
-   com o número da dívida; 1ª quitação: anel dourado; depois do fim do
-   caminho: quadro vazio. Os números dos meses ficam numa régua acima. ---- #}
-{% macro mes_a_mes_por_caminho(anos, rotulo_mes, textos) %}
-<div class="mes-a-mes">
-    {% for ano in anos %}
-    <div class="mm-ano">
-        <div class="mm-linha mm-regua">
-            <span class="mm-rotulo">{{ textos.get("rotulo_ano", "Ano") }} {{ ano.numero }}</span>
-            {% for mes_do_caminho in ano.faixas[0].meses %}<span class="mm-num">{{ mes_do_caminho.mes }}</span>{% endfor %}
-        </div>
-        {% for faixa in ano.faixas %}
-        <div class="mm-linha">
-            <span class="mm-rotulo mm-{{ faixa.cor }}-texto">{{ faixa.rotulo }}</span>
-            {% for m in faixa.meses %}
-            <span class="mm-mes mm-{{ m.tipo }} mm-{{ faixa.cor }}" title="{{ rotulo_mes }} {{ m.mes }}">{{ m.numeros | join(",") }}</span>
-            {% endfor %}
-        </div>
-        {% endfor %}
-    </div>
+   Mural do plano (T-377) — um bloco por mês, 6 por linha, na cor do plano.
+   Cada bloco é um link (`#mes-azul-01`) para o cartão do mês; o rótulo é a
+   referência "Mês 01", nunca uma data. Mês com quitação: bloco forte com o
+   número da dívida; a 1ª quitação leva o anel dourado. ------------------ #}
+{% macro mural_do_plano(plano, textos) %}
+<div class="mural">
+    {% for mes in plano.meses %}
+    <a class="mural-mes mural-{{ plano.cor }}{% if mes.quitadas %} mural-quitacao{% endif %}{% if mes.primeira_quitacao %} mural-primeira{% endif %}" href="#{{ mes.ancora }}">
+        <strong>{{ mes.rotulo }}</strong>
+        {{ textos.get("rotulo_deve", "") }} {{ mes.saldo }}<br>
+        {% if mes.ultimo %}{{ textos.get("texto_fim", "") }}{% else %}{{ textos.get("rotulo_extra_mes", "") }} {{ mes.valor_extra }}{% endif %}
+        {% for numero, nome in mes.quitadas %}<br>{{ icone("concluido") }} {{ numero }}{% endfor %}
+    </a>
     {% endfor %}
+</div>
+{% endmacro %}
+
+{# ---------------------------------------------------------------------
+   Cartão de um mês (T-377) — evidência e material futuro: dívida da vez e o
+   extra, quanto ainda se deve, o que acaba no mês e as duas instruções
+   curtas. `id` = âncora do link do mural. ------------------------------ #}
+{% macro cartao_do_mes(mes, cor, textos) %}
+<div class="cartao-mes cartao-mes-{{ cor }}" id="{{ mes.ancora }}">
+    <h4 class="mm-{{ cor }}-texto">{{ mes.rotulo }}</h4>
+    {% if mes.divida_da_vez %}
+    <p><strong>{{ textos.get("rotulo_da_vez", "") }}:</strong> {{ mes.divida_da_vez[0] }}. {{ mes.divida_da_vez[1] }}<br>
+    {{ textos.get("texto_coloque", "") | replace("{valor}", mes.valor_extra) }}</p>
+    {% endif %}
+    <p class="saldo">{{ textos.get("rotulo_saldo_fim", "") }}: {{ mes.saldo }}</p>
+    {% for numero, nome in mes.quitadas %}
+    <p>{{ icone("concluido") }} {{ textos.get("rotulo_primeira" if mes.primeira_quitacao else "rotulo_quitada", "") }}: {{ numero }}. {{ nome }}</p>
+    {% endfor %}
+    {% if mes.ultimo %}<p><strong>{{ textos.get("texto_fim", "") }}</strong></p>{% endif %}
+    {% if not mes.ultimo %}
+    <p class="muted">{{ textos.get("instrucao_parcelas", "") }} {{ textos.get("instrucao_comprovante", "") }}</p>
+    {% endif %}
+    <p class="voltar"><a href="#mural-do-plano">{{ textos.get("voltar", "") }}</a></p>
 </div>
 {% endmacro %}

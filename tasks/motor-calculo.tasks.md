@@ -7549,3 +7549,13 @@ Pedido do especialista (2026-10-05): nota 9–10 vai ao 1º lugar; nota 5–7 pa
 - [x] Persistência lê (anterior → vazio); rehash; testes
 
 **Status:** `[x] concluída`
+
+### `T-176` — Prognóstico: mês a mês do plano seguido e do acelerado
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-175` · **Rastreia:** `RF-78`, `AC-139`
+- **Arquivos:** `engine/prognostico.py`, `persistencia/arquivo/repositorio_snapshots.py`, `hashes_congelados.json` (rehash só dos alterados), testes
+
+- [x] `MesDoPlano` com saldo total calculado no motor; `MESES_DO_PLANO` e `com_extra.MESES`
+- [x] Persistência lê (anterior → vazio); rehash; testes
+
+**Status:** `[x] concluída`

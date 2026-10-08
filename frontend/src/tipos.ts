@@ -340,7 +340,11 @@ export interface AcaoRequerida {
 
 export interface Pendencias {
   inventario_incompleto: boolean
-  campos_faltantes_por_divida: { DIVIDA_ID: string; nome: string; campos: string[] }[]
+  campos_faltantes_por_divida: {
+    DIVIDA_ID: string
+    nome: string
+    campos: string[]
+  }[]
 }
 
 /** `AC-70`: reserva desconhecida é estado explícito, nunca `R$ 0,00`. */
@@ -393,7 +397,6 @@ export interface Plano {
    * Plano amigável — "Seu primeiro passo" (Mês 1). `null` em ordem vazia
    * ou sem mês simulado (estabilização).
    */
-  passo_atual?: PassoAtual | null
   /** `RF-77`/`RF-78` — os três caminhos do prognóstico; `null` sem prognóstico. */
   prognostico?: PrognosticoDoPlano | null
   /** `T-375` — "Quando cada dívida termina": uma coluna por caminho. */
@@ -424,13 +427,10 @@ export interface Plano {
   /** Rótulos da seção "Seu ponto de partida". */
   ponto_de_partida_textos?: Record<string, string>
   /** Títulos e textos dos três passos do Mês 1. */
-  primeiro_passo_textos?: Record<string, string>
   /** Títulos curtos dos quadros de "Como o seu plano funciona". */
   como_funciona_rotulos?: string[]
   /** Textos do cartão de cada dívida ("Termina no", "Por que…"). */
   dividas_textos?: Record<string, string>
-  primeiro_passo_titulo?: string
-  como_pagar_a_mais?: string
   reserva_explicacao?: string
   duvidas?: { pergunta: string; resposta: string }[]
   sobre_este_plano?: string
@@ -444,18 +444,6 @@ export interface PontoDePartida {
   parcelas: string
   valor_extra: string
   quantidade_de_dividas: number
-}
-
-export interface ParcelaDoPasso {
-  nome: string
-  valor: string
-}
-
-export interface PassoAtual {
-  /** Nome da dívida-alvo ("tipo — credor"); `null` sem dívida-alvo. */
-  alvo: string | null
-  valor_extra: string
-  parcelas: ParcelaDoPasso[]
 }
 
 export interface CaminhoDoPrognostico {
@@ -476,18 +464,24 @@ export interface CaminhoDoPrognostico {
   rotulo_curto: string
 }
 
-/** Um mês de uma faixa do mês a mês por caminho. */
-export interface MesDoCaminho {
-  mes: number
-  tipo: 'comum' | 'quitacao' | 'primeira' | 'depois'
-  numeros: number[]
+/** `T-377` — um mês de um plano: bloco do mural e cartão do mês. */
+export interface MesDetalhado {
+  /** Referência de mês ("Mês 01"), nunca uma data. */
+  rotulo: string
+  /** `id` do cartão e destino do link do mural (`mes-azul-01`). */
+  ancora: string
+  divida_da_vez: { numero: number; nome: string } | null
+  valor_extra: string
+  saldo: string
+  quitadas: { numero: number; nome: string }[]
+  primeira_quitacao: boolean
+  ultimo: boolean
 }
 
-export interface AnoDosCaminhos {
-  numero: number
-  mes_inicio: number
-  mes_fim: number
-  faixas: { cor: 'vermelho' | 'azul' | 'verde'; rotulo: string; meses: MesDoCaminho[] }[]
+export interface PlanoDetalhado {
+  cor: 'azul' | 'verde'
+  titulo: string
+  meses: MesDetalhado[]
 }
 
 export interface QuandoTermina {
@@ -499,11 +493,11 @@ export interface PrognosticoDoPlano {
   titulo: string
   introducao: string
   caminhos: CaminhoDoPrognostico[]
-  mes_a_mes: AnoDosCaminhos[]
+  /** O plano seguido e (com valor extra) o acelerado, mês a mês. */
+  detalhes?: PlanoDetalhado[]
   /** Número e nome de cada dívida: legenda dos círculos das barras. */
   legenda?: { numero: number; nome: string }[]
 }
-
 
 export interface PendenciaAcionavel {
   DIVIDA_ID: string

@@ -142,3 +142,30 @@ def test_AC138_quitacoes_por_caminho() -> None:
     bruto["prognostico"]["com_extra"].pop("QUITACOES")
     antigo = _desserializar_snapshot(bruto).prognostico
     assert antigo is not None and antigo.sem_acao.QUITACOES == ()
+
+
+@pytest.mark.regra
+def test_AC139_mes_a_mes_dos_planos_com_saldo_total_do_motor() -> None:
+    estado = dataclasses.replace(carregar_gab_c(), CONTRIBUICAO_EXTRA_MENSAL=dinheiro(500))
+    novo = calcular_plano(estado, FonteParametrosArquivo().carregar("1.0.1"))
+    p = novo.prognostico
+    assert p is not None and p.com_extra is not None
+    azul = novo.cenarios[novo.METODO_RECOMENDADO_PIQ]
+    for meses, prazo, quitacoes in (
+        (p.MESES_DO_PLANO, azul.PRAZO_TOTAL, None),
+        (p.com_extra.MESES, p.com_extra.PRAZO_TOTAL, p.com_extra.QUITACOES),
+    ):
+        assert [m.MES for m in meses] == list(range(1, prazo + 1))
+        assert meses[-1].SALDO_TOTAL == dinheiro(0)
+        saldos = [m.SALDO_TOTAL for m in meses]
+        assert saldos == sorted(saldos, reverse=True)  # sem déficit: só desce
+        if quitacoes is not None:
+            assert sorted((d, m.MES) for m in meses for d in m.QUITACOES) == sorted(quitacoes)
+    assert p.com_extra.MESES[0].VALOR_EXTRA >= p.MESES_DO_PLANO[0].VALOR_EXTRA
+    bruto = json.loads(json.dumps(_serializar_canonico(novo)))
+    assert _desserializar_snapshot(bruto).prognostico == p
+    bruto["prognostico"].pop("MESES_DO_PLANO")
+    bruto["prognostico"]["com_extra"].pop("MESES")
+    antigo = _desserializar_snapshot(bruto).prognostico
+    assert antigo is not None and antigo.MESES_DO_PLANO == ()
+    assert antigo.com_extra is not None and antigo.com_extra.MESES == ()

@@ -248,16 +248,6 @@ def serializar_plano(
         ],
         # Plano amigável (2026-10-03) — campos novos da "consultoria
         # individual", lidos de `ContextoPlano` sem nenhum cálculo.
-        "passo_atual": None
-        if contexto.passo_atual is None
-        else {
-            "alvo": contexto.passo_atual.alvo,
-            "valor_extra": contexto.passo_atual.valor_extra,
-            "parcelas": [
-                {"nome": parcela.nome, "valor": parcela.valor}
-                for parcela in contexto.passo_atual.parcelas
-            ],
-        },
         # Revisão de design (2026-10-03) — personalização: primeiro nome e
         # os números do mês do aluno, todos lidos e já formatados.
         "nome_do_aluno": contexto.nome_do_aluno,
@@ -304,24 +294,32 @@ def serializar_plano(
             "legenda": [
                 {"numero": numero, "nome": nome} for numero, nome in contexto.prognostico.legenda
             ],
-            "mes_a_mes": [
+            "detalhes": [
                 {
-                    "numero": ano.numero,
-                    "mes_inicio": ano.mes_inicio,
-                    "mes_fim": ano.mes_fim,
-                    "faixas": [
+                    "cor": plano.cor,
+                    "titulo": plano.titulo,
+                    "meses": [
                         {
-                            "cor": faixa.cor,
-                            "rotulo": faixa.rotulo,
-                            "meses": [
-                                {"mes": m.mes, "tipo": m.tipo, "numeros": list(m.numeros)}
-                                for m in faixa.meses
+                            "rotulo": mes.rotulo,
+                            "ancora": mes.ancora,
+                            "divida_da_vez": None
+                            if mes.divida_da_vez is None
+                            else {
+                                "numero": mes.divida_da_vez[0],
+                                "nome": mes.divida_da_vez[1],
+                            },
+                            "valor_extra": mes.valor_extra,
+                            "saldo": mes.saldo,
+                            "quitadas": [
+                                {"numero": numero, "nome": nome} for numero, nome in mes.quitadas
                             ],
+                            "primeira_quitacao": mes.primeira_quitacao,
+                            "ultimo": mes.ultimo,
                         }
-                        for faixa in ano.faixas
+                        for mes in plano.meses
                     ],
                 }
-                for ano in contexto.prognostico.mes_a_mes
+                for plano in contexto.prognostico.detalhes
             ],
         },
         # `T-375`: "Quando cada dívida termina", dentro de "Seu plano em números".
@@ -382,11 +380,8 @@ def serializar_plano(
                 "resumo_textos": dict(textos.resumo),
                 "prognostico_textos": dict(textos.prognostico),
                 "ponto_de_partida_textos": dict(textos.ponto_de_partida),
-                "primeiro_passo_textos": dict(textos.primeiro_passo),
                 "como_funciona_rotulos": list(textos.como_funciona_rotulos),
                 "dividas_textos": dict(textos.textos_das_dividas),
-                "primeiro_passo_titulo": textos.primeiro_passo.get("titulo", ""),
-                "como_pagar_a_mais": textos.primeiro_passo.get("como_pagar_a_mais", ""),
                 "reserva_explicacao": textos.reserva_explicacao,
                 "duvidas": [
                     {"pergunta": pergunta, "resposta": resposta}

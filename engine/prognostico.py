@@ -37,6 +37,19 @@ REGRAS: Final[tuple[str, ...]] = ("RF-77", "RF-78")
 
 
 @dataclass(frozen=True, slots=True)
+class MesDoPlano:
+    """`T-176` — um mês de um plano (o seguido ou o acelerado), para o mural e
+    para o detalhe de cada mês do relatório. A soma dos saldos é do motor: o
+    app só lê (Lei nº 3)."""
+
+    MES: Meses
+    DIVIDA_ALVO: str | None  # quem recebe o extra no mês; `None` sem alvo
+    VALOR_EXTRA: Dinheiro  # ataque do mês (cresce quando uma dívida acaba)
+    SALDO_TOTAL: Dinheiro  # soma dos saldos de todas as dívidas ao fim do mês
+    QUITACOES: tuple[str, ...]  # dívidas quitadas no mês
+
+
+@dataclass(frozen=True, slots=True)
 class PrognosticoSemAcao:
     """`RF-77` — a situação ao fim do horizonte se o aluno não fizer nada."""
 
@@ -74,6 +87,8 @@ class PrognosticoComExtra:
     MESES_ANTECIPADOS: Meses = 0
     #: Custo futuro do plano recomendado menos o do verde (nunca negativo).
     ECONOMIA_CUSTO: Dinheiro = dinheiro(0)
+    #: O mês a mês do plano acelerado (T-176).
+    MESES: tuple[MesDoPlano, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +98,8 @@ class Prognostico:
 
     sem_acao: PrognosticoSemAcao
     com_extra: PrognosticoComExtra | None = None
+    #: O mês a mês do plano seguido (cenário recomendado), T-176.
+    MESES_DO_PLANO: tuple[MesDoPlano, ...] = ()
 
 
 def _sem_alvo(_estado: EstadoSimulacao, _delta: Dinheiro) -> Divida | None:
@@ -140,6 +157,7 @@ def calcular_prognostico(
             deficit_mensal = -resultado
 
     return Prognostico(
+        MESES_DO_PLANO=_meses_do_plano(cenario_recomendado),
         com_extra=_com_extra(
             estado,
             diagnostico_pre,
@@ -205,8 +223,28 @@ def _com_extra(
         CUSTO_FUTURO_TOTAL=cenario.CUSTO_FUTURO_TOTAL,
         MESES_PRIMEIRA_VITORIA=cenario.MESES_PRIMEIRA_VITORIA,
         QUITACOES=_quitacoes(cenario, cenario.PRAZO_TOTAL),
+        MESES=_meses_do_plano(cenario),
         ESTOUROU_HORIZONTE=cenario.ESTOUROU_HORIZONTE,
     )
+
+
+def _meses_do_plano(cenario: Cenario) -> tuple[MesDoPlano, ...]:
+    """Um `MesDoPlano` por mês simulado de `cenario`; no último mês não há alvo
+    (as dívidas acabaram) e o extra é o que a simulação registrou."""
+    meses: list[MesDoPlano] = []
+    for resultado in cenario.meses:
+        estado = resultado.estado_final
+        alvo = estado.DIVIDA_ALVO_ATUAL
+        meses.append(
+            MesDoPlano(
+                MES=estado.mes,
+                DIVIDA_ALVO=alvo,
+                VALOR_EXTRA=estado.CAPACIDADE_ATAQUE_M if alvo is not None else dinheiro(0),
+                SALDO_TOTAL=_soma(estado.saldos.values()),
+                QUITACOES=resultado.quitacoes,
+            )
+        )
+    return tuple(meses)
 
 
 def _quitacoes(cenario: Cenario, ate_o_mes: Meses) -> tuple[tuple[str, Meses], ...]:

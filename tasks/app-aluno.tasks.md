@@ -13941,3 +13941,12 @@ Relato de uso (2026-10-05): as colunas pequenas lado a lado do painel (T-349) de
 - [x] "Se nada mudar" sem círculos na barra (o mês a mês e a tabela seguem com as quitações dele)
 
 **Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)
+
+### `T-377` — Seu plano detalhado (mural) e Mês a mês, em detalhe; saem Mês 1 e checklist
+
+- **Tipo:** `FEATURE` · **Dependências:** `T-176`, `T-375` · **Rastreia:** `RF-126`, `AC-200`
+- [x] Mural (cap. 6): um bloco por mês de cada plano, com saldo e extra, e link para o cartão do mês
+- [x] Cartões de cada mês (cap. 7): dívida da vez, extra, saldo, quitações e instruções; âncoras e "Voltar ao mural"
+- [x] Saem "O que fazer no Mês 1" e "Seu checklist do Mês 1" (e o mês a mês por caminho do cap. 5); testes (pytest e vitest)
+
+**Status:** `[x] concluída (2026-10-08)`; frases pendentes de aprovação (rodada 10)

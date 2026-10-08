@@ -257,25 +257,28 @@
         .legenda-circulo { display: inline-block; width: 4.5mm; height: 4.5mm; line-height: 4.5mm; border-radius: 50%; border: 0.5mm solid #5E6E72; background: #FFFFFF; color: #1B2A2F; text-align: center; font-size: 7pt; font-weight: bold; }
         .legenda-circulo-ouro { border: 0.8mm solid #D9A400; }
         .subtitulo { font-size: 12pt; margin: 5mm 0 1.5mm 0; }
-        .mes-a-mes { break-inside: avoid; }
-        .mm-ano { margin-bottom: 3mm; break-inside: avoid; }
-        .mm-linha { display: flex; align-items: center; gap: 0.8mm; margin-bottom: 0.8mm; }
-        .mm-rotulo { flex: none; width: 24mm; font-size: 8pt; font-weight: bold; }
-        .mm-regua .mm-rotulo { color: #1B2A2F; }
-        .mm-num, .mm-mes { flex: none; width: 11mm; height: 5.5mm; line-height: 5.5mm; text-align: center; font-size: 7.5pt; border-radius: 1.2mm; }
-        .mm-num { color: #5E6E72; }
-        .mm-mes { color: #FFFFFF; font-weight: bold; }
-        .mm-vermelho-texto { color: #A63A2C; }
         .mm-azul-texto { color: #1F5A96; }
         .mm-verde-texto { color: #0F6E56; }
-        .mm-comum.mm-vermelho { background: #FBE8E4; }
-        .mm-comum.mm-azul { background: #E3ECF6; }
-        .mm-comum.mm-verde { background: #E3F1EB; }
-        .mm-quitacao.mm-vermelho, .mm-primeira.mm-vermelho { background: #A63A2C; }
-        .mm-quitacao.mm-azul, .mm-primeira.mm-azul { background: #1F5A96; }
-        .mm-quitacao.mm-verde, .mm-primeira.mm-verde { background: #0F6E56; }
-        .mm-primeira { box-shadow: 0 0 0 0.6mm #D9A400; }
-        .mm-depois { background: #FFFFFF; border: 1px dashed #D9E0DC; }
+        /* Mural: um bloco por mês, 6 por linha; cada bloco é um link. */
+        .mural { display: flex; flex-wrap: wrap; gap: 1.5mm; margin-bottom: 4mm; }
+        .mural-mes { display: block; box-sizing: border-box; width: 27mm; padding: 1.5mm 2mm; border-radius: 2mm; text-decoration: none; color: #1B2A2F; font-size: 7.5pt; line-height: 1.3; break-inside: avoid; }
+        .mural-mes strong { display: block; font-size: 8.5pt; }
+        .mural-azul { background: #E3ECF6; }
+        .mural-verde { background: #E3F1EB; }
+        .mural-quitacao.mural-azul { background: #1F5A96; color: #FFFFFF; }
+        .mural-quitacao.mural-verde { background: #0F6E56; color: #FFFFFF; }
+        .mural-quitacao .icone { color: #FFFFFF; width: 3mm; height: 3mm; }
+        .mural-primeira { box-shadow: 0 0 0 0.6mm #D9A400; }
+        /* Cartões de cada mês (cap. 7). */
+        .cartoes-mes { display: flex; flex-wrap: wrap; gap: 3mm; margin-bottom: 4mm; }
+        .cartao-mes { box-sizing: border-box; width: 82mm; background: #FFFFFF; border: 1px solid #D9E0DC; border-left-width: 2mm; border-radius: 3mm; padding: 2.5mm 3mm; font-size: 8.5pt; break-inside: avoid; }
+        .cartao-mes-azul { border-left-color: #1F5A96; }
+        .cartao-mes-verde { border-left-color: #0F6E56; }
+        .cartao-mes h4 { margin: 0 0 1mm 0; font-size: 11pt; }
+        .cartao-mes p { margin: 0 0 1mm 0; }
+        .cartao-mes .muted { color: #5E6E72; }
+        .cartao-mes .voltar, .cartao-mes .voltar a { font-size: 7.5pt; color: #5E6E72; }
+        .cartao-mes .saldo { font-weight: bold; }
         .quando-termina { width: 100%; border-collapse: collapse; font-size: 9.5pt; break-inside: avoid; }
         .quando-termina th, .quando-termina td { text-align: left; padding: 1.5mm 2mm; border-bottom: 1px solid #D9E0DC; }
         .quando-termina thead th { font-size: 8.5pt; color: #5E6E72; }
@@ -411,25 +414,6 @@
         /* Perguntas frequentes ------------------------------------------ */
         .pergunta { margin-bottom: 3.5mm; break-inside: avoid; }
         .pergunta h3 { font-size: 11pt; margin-bottom: 1mm; }
-
-        /* Checklist ----------------------------------------------------- */
-        .checklist { list-style: none; padding: 0; margin: 0; }
-        .checklist li {
-            display: flex;
-            gap: 3mm;
-            align-items: flex-start;
-            padding: 3mm 0;
-            border-bottom: 1px solid #D9E0DC;
-        }
-        .quadrado {
-            flex: none;
-            display: inline-block;
-            width: 5mm;
-            height: 5mm;
-            border: 1.5px solid #1B2A2F;
-            border-radius: 1mm;
-            margin-top: 0.5mm;
-        }
 
         .lista { list-style: none; padding: 0; margin: 0; }
         .lista li { margin-bottom: 2mm; }
@@ -582,10 +566,6 @@
             {% for numero, nome in prognostico.legenda %}<span class="legenda-divida"><span class="legenda-circulo">{{ numero }}</span> {{ nome }}</span>{% endfor %}
             <span class="legenda-divida"><span class="legenda-circulo legenda-circulo-ouro">1</span> {{ tp.get("legenda_primeira", "") }}</span>
         </div>
-
-        <h3 class="subtitulo">{{ tp.get("mes_a_mes_titulo", "") }}</h3>
-        <p class="intro">{{ tp.get("mes_a_mes_intro", "") }}</p>
-        {{ visuais.mes_a_mes_por_caminho(prognostico.mes_a_mes, mes, tp) }}
         {% else %}
         <div class="numeros">
             <div class="numero">
@@ -624,10 +604,36 @@
     </section>
     {% endif %}
 
-    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
-    {% include "primeiro_passo.html" %}
-    {% endif %}
 
+
+    {% if prognostico and prognostico.detalhes %}
+    {% set tp = textos.prognostico %}
+    {# 6. Seu plano detalhado — o mural: um bloco por mês, cada um é um link (T-377) #}
+    {% set ns.n = ns.n + 1 %}
+    <section class="secao nova-pagina" id="mural-do-plano">
+        {{ visuais.cabecalho_da_secao(ns.n, tp.get("mural_titulo", ""), "prazo") }}
+        <p class="intro">{{ tp.get("mural_intro", "") }}</p>
+        {% for plano in prognostico.detalhes %}
+        <h3 class="subtitulo mm-{{ plano.cor }}-texto">{{ plano.titulo }}</h3>
+        {{ visuais.mural_do_plano(plano, tp) }}
+        {% endfor %}
+    </section>
+
+    {# 7. Mês a mês, em detalhe — um cartão por mês, de cada plano (T-377) #}
+    {% set ns.n = ns.n + 1 %}
+    <section class="secao nova-pagina">
+        {{ visuais.cabecalho_da_secao(ns.n, tp.get("meses_titulo", ""), "bandeira") }}
+        <p class="intro">{{ tp.get("meses_intro", "") }}</p>
+        {% for plano in prognostico.detalhes %}
+        <h3 class="subtitulo mm-{{ plano.cor }}-texto">{{ plano.titulo }}</h3>
+        <div class="cartoes-mes">
+            {% for mes in plano.meses %}
+            {{ visuais.cartao_do_mes(mes, plano.cor, tp) }}
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </section>
+    {% endif %}
 
     {% if cenario_adicional %}
     {% set ns.n = ns.n + 1 %}
@@ -649,9 +655,6 @@
     {% endif %}
 
 
-    {% if not (cenario is defined and cenario.value in ("ESTABILIZACAO", "ORDEM_VAZIA")) %}
-    {% include "checklist.html" %}
-    {% endif %}
 
     {% if pendencias_acionaveis or pendencias %}
     {% set ns.n = ns.n + 1 %}

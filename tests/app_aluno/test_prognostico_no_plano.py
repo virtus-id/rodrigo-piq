@@ -143,3 +143,57 @@ def test_so_azul_e_verde_levam_marcos_na_barra_e_a_legenda_explica_cada_numero()
     html = renderizar_html_do_plano(contexto, textos)
     assert "Números nas barras:" in html and "sua primeira dívida quitada" in html
     assert all(nome in html for _, nome in legenda)
+
+
+def _html_com_extra() -> tuple[str, SnapshotOrdem]:
+    snapshot = _snapshot(converter_para_dinheiro("500,00"))
+    textos = carregar_textos_canonicos()
+    return renderizar_html_do_plano(montar_contexto_plano(snapshot, textos), textos), snapshot
+
+
+def test_mural_e_cartoes_de_cada_mes_dos_dois_planos_sem_data_e_com_ancoras() -> None:
+    import re
+
+    html, snapshot = _html_com_extra()
+    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    assert contexto.prognostico is not None
+    planos = {p.cor: p for p in contexto.prognostico.detalhes}
+    assert set(planos) == {"azul", "verde"}
+    azul = snapshot.cenarios[snapshot.METODO_RECOMENDADO_PIQ]
+    assert len(planos["azul"].meses) == azul.PRAZO_TOTAL
+    assert planos["azul"].meses[0].rotulo == "Mês 01"
+    assert planos["azul"].meses[0].ancora == "mes-azul-01"
+    assert planos["verde"].meses[-1].ultimo and planos["verde"].meses[-1].quitadas
+    # Cada link do mural aponta para um cartão existente (e cada cartão tem id único).
+    links = re.findall(r'class="mural-mes[^"]*" href="#([^"]+)"', html)
+    ids = re.findall(r'<div class="cartao-mes [^"]*" id="([^"]+)"', html)
+    assert links and set(links) == set(ids) and len(ids) == len(set(ids))
+    assert "mural-do-plano" in html
+    # Referência de mês, nunca data de calendário (ano ou nome de mês).
+    capitulos = html.lower().split("seu plano detalhado")[-1].split("o que falta informar")[0]
+    texto = re.sub(r"<[^>]+>", " ", capitulos)
+    assert not re.search(r"\b(20\d\d|janeiro|fevereiro|março|abril|maio|junho|julho)\b", texto)
+
+
+def test_sem_extra_so_o_plano_seguido_no_mural() -> None:
+    snapshot = _snapshot()
+    contexto = montar_contexto_plano(snapshot, carregar_textos_canonicos())
+    assert contexto.prognostico is not None
+    assert [p.cor for p in contexto.prognostico.detalhes] == ["azul"]
+
+
+def test_plano_antigo_sem_mes_a_mes_nao_traz_os_capitulos_detalhados() -> None:
+    import dataclasses
+
+    snapshot = _snapshot()
+    assert snapshot.prognostico is not None
+    antigo_prog = dataclasses.replace(snapshot.prognostico, MESES_DO_PLANO=())
+    antigo = dataclasses.replace(snapshot, prognostico=antigo_prog)
+    textos = carregar_textos_canonicos()
+    html = renderizar_html_do_plano(montar_contexto_plano(antigo, textos), textos)
+    assert "Seu plano detalhado" not in html and "Mês a mês, em detalhe" not in html
+
+
+def test_capitulos_removidos_do_mes_1_nao_existem_mais() -> None:
+    html, _ = _html_com_extra()
+    assert "O que fazer no Mês 1" not in html and "checklist do Mês 1" not in html
