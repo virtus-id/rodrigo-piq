@@ -202,6 +202,10 @@ def test_nenhuma_variavel_nova_de_rotulo_visual_para_a_ordem() -> None:
         # `T-352` a `T-354`: curso de entrada, nota de incômodo e aviso de
         # plano sem valor extra — texto, nenhum renomeia a ordem.
         "curso_ssd",
+        # `T-379`: nome curto da dívida no quadro do capítulo 5.
+        "nome_curto",
+        "nome_curto_do_tipo",
+        "prefixos_do_credor",
         "prognostico",
         "incomodo",
         "sem_valor_extra",
