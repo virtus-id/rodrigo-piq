@@ -201,4 +201,8 @@ Todos **pendentes de aprovação** e de validação do especialista. Texto no ar
 | 79 | Mural: "Ainda deve", "Pagar a mais", "Quita <nome>", frase de apoio ("Pagar a mais é o valor, além das parcelas de sempre, que vai inteiro para a dívida da vez. O troféu marca o mês em que uma dívida é quitada.") e o cartão do mês ("Pagar a mais: {valor}, inteiro para essa dívida.") | `prognostico.mural_intro`, `prognostico.rotulo_deve`, `prognostico.rotulo_extra_mes`, `prognostico.texto_quita`, `prognostico.texto_coloque` |
 | 80 | Página de cada mês (cap. 7): marca e anexo, subtítulo, período de pagamento em branco, resumo, cabeçalhos da tabela, "Como fecha o mês", "Quando e como vou executar" (três itens), nota e rodapé | `prognostico.pagina_*`, `prognostico.coluna_*`, `prognostico.linha_*`, `prognostico.fecha_*`, `prognostico.executar_*` |
 
-**Aprovados pelo produto em 2026-10-08, com base nas duas imagens de referência e nas escolhas dele:** 72, 74, 77, 78, 79 e 80 (capítulos 5, 6 e 7). Os itens 75 e 76 saíram: foram substituídos pelo desenho da referência. **Seguem pendentes:** 63 a 71 (curso, incômodo, primeira página, perguntas frequentes) e 73 (pergunta `B3.C01A`).
+**Aprovados pelo produto:**
+- 2026-10-08, com base nas duas imagens de referência e nas escolhas dele: 72, 74, 77, 78, 79 e 80 (capítulos 5, 6 e 7). Os itens 75 e 76 saíram, substituídos pelo desenho da referência.
+- 2026-10-09, após o produto conferir a tela e o relatório gerado para o aluno e considerá-los satisfatórios: 63 a 71 (curso, incômodo, sem valor extra, primeira página e perguntas frequentes), que aparecem nesse relatório.
+
+**Segue pendente:** 73 (a pergunta `B3.C01A` do questionário), que não aparece no relatório.
