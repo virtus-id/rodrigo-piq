@@ -30,3 +30,5 @@ frontend/.vite/
 
 # Dados reais de alunos — nunca versionar
 alunos/
+docs/documentos-*/
+docs/*.pdf

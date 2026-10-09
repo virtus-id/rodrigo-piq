@@ -31,6 +31,10 @@ onde cada escolha se justifica contra um requisito.
 O PIQ é o upsell do curso **Servidor Sem Dívidas**. O material do curso (estrutura, 31 legendas e um índice de conceitos) está em
 [docs/curso-ssd/](docs/curso-ssd/). Referências ao curso vêm **somente** desse material — nunca de fonte externa, nunca inventadas.
 
+## Dados reais de alunos
+
+Documentos pessoais de alunos (contracheques, faturas, contratos, extratos) **não ficam no repositório**: guarde-os fora dele. `alunos/`, `docs/documentos-*/` e `docs/*.pdf` estão no `.gitignore` como segurança, e nada disso entra na imagem de produção.
+
 ## Artefatos e nomenclatura
 
 Cada feature tem um **slug** em `kebab-case` (ex.: `busca-de-cidade`). Os
